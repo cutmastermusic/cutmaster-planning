@@ -24,3 +24,209 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes cmSectionEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cm-section-enter {
+  animation: cmSectionEnter 260ms ease-out both;
+}
+
+.doc-sheet {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.doc-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.doc-subtitle {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.doc-section {
+  margin-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+}
+
+.doc-section h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #111827;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.doc-table th,
+.doc-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+/* Live Event table hierarchy: quick scan for Time and Moment first. */
+.live-event-timeline-table th:nth-child(1),
+.live-event-timeline-table th:nth-child(2) {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-event-timeline-table td:nth-child(1),
+.live-event-timeline-table td:nth-child(2) {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.live-event-timeline-table th:nth-child(3),
+.live-event-timeline-table th:nth-child(4),
+.live-event-timeline-table td:nth-child(3) {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #374151;
+}
+
+.live-event-timeline-table td:nth-child(4) {
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
+.live-reception-page-break {
+  border-top: 1px solid #d1d5db;
+  padding-top: 10px;
+}
+
+.doc-note {
+  margin-top: 8px;
+  border-left: 3px solid #9ca3af;
+  padding-left: 8px;
+  font-size: 12px;
+  color: #111827;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-section-enter {
+    animation: none;
+  }
+}
+
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+  }
+
+  .no-print,
+  nav,
+  aside,
+  header,
+  button {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-doc {
+    display: block !important;
+    background: #fff !important;
+    color: #000 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .print-doc * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-color: #d1d5db !important;
+  }
+
+  .print-break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .doc-sheet,
+  .doc-section,
+  .doc-table th,
+  .doc-table td {
+    border-color: #d1d5db !important;
+    border-radius: 0 !important;
+  }
+
+  .live-event-timeline-table td:nth-child(1),
+  .live-event-timeline-table td:nth-child(2) {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+  }
+
+  .live-event-timeline-table th:nth-child(3),
+  .live-event-timeline-table th:nth-child(4),
+  .live-event-timeline-table td:nth-child(3) {
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+  }
+
+  .live-event-timeline-table td:nth-child(4) {
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    line-height: 1.35 !important;
+  }
+
+  .live-reception-page-break {
+    break-before: page;
+    page-break-before: always;
+    margin-top: 0 !important;
+    padding-top: 6px !important;
+  }
+
+  .live-event-timeline-table th,
+  .live-event-timeline-table td {
+    padding: 4px 6px !important;
+  }
+}

@@ -15,6 +15,8 @@ import {
 import {
   buildSeedEvents,
   initialBrideGroomProcessional,
+  initialCeremonyGuestArrivalTime,
+  initialCeremonyTimelineItems,
   initialCeremonyNotes,
   initialCeremonyStartTime,
   initialDoNotPlaySongs,
@@ -30,6 +32,8 @@ import {
   initialRecessionalSong,
   initialTemplates,
   initialTimelineItems,
+  initialTeamMembers,
+  initialVendors,
   initialUnityCeremonySong,
   initialWeddingPartyProcessional,
   progressCards,
@@ -43,6 +47,7 @@ import type {
   ActivityItem,
   ActivityType,
   CeremonySongPlan,
+  CeremonyTimelineItem,
   Collaborator,
   DisplayTimelineItem,
   EventSettings,
@@ -57,7 +62,10 @@ import type {
   TimelineCategory,
   TimelineItem,
   TimelineTemplate,
+  TeamMember,
   UserRole,
+  Vendor,
+  VendorType,
   WeddingDetails,
   NotificationItem,
 } from "@/types/planning";
@@ -91,10 +99,41 @@ type BackupPayload = {
   activeEventId: string;
   appSettings: AppSettings;
   templates: TimelineTemplate[];
+  teamMembers: TeamMember[];
   activities: ActivityItem[];
   notifications: NotificationItem[];
   appState: LocalAppStateBackup;
 };
+
+type EventModalDraft = {
+  eventName: string;
+  coupleNames: string;
+  eventType: string;
+  weddingDate: string;
+  venue: string;
+  ceremonyLocation: string;
+  receptionLocation: string;
+  assignedDj: string;
+  packageName: string;
+  plannerName: string;
+  plannerEmail: string;
+  internalNotes: string;
+};
+
+const VENDOR_TYPES: VendorType[] = [
+  "Planner",
+  "Photographer",
+  "Videographer",
+  "Venue",
+  "Caterer",
+  "Florist",
+  "Hair/Makeup",
+  "Photo Booth",
+  "Officiant",
+  "Band",
+  "Content Creator",
+  "Other",
+];
 
 export default function Home() {
   const timelineFormRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +176,9 @@ export default function Home() {
   const [guestFormDedication, setGuestFormDedication] = useState("");
   const [guestSubmitBanner, setGuestSubmitBanner] = useState("");
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>(initialTimelineItems);
+  const [ceremonyTimelineItems, setCeremonyTimelineItems] = useState<CeremonyTimelineItem[]>(
+    initialCeremonyTimelineItems,
+  );
   const [formalities, setFormalities] = useState<FormalityItem[]>(initialFormalities);
   const [timelineTitle, setTimelineTitle] = useState("");
   const [timelineTime, setTimelineTime] = useState("");
@@ -162,6 +204,9 @@ export default function Home() {
   const [ceremonyNotes, setCeremonyNotes] = useState(initialCeremonyNotes);
   const [officiantName, setOfficiantName] = useState(initialOfficiantName);
   const [ceremonyStartTime, setCeremonyStartTime] = useState(initialCeremonyStartTime);
+  const [ceremonyGuestArrivalTime, setCeremonyGuestArrivalTime] = useState(
+    initialCeremonyGuestArrivalTime,
+  );
   const [microphoneNeeds, setMicrophoneNeeds] = useState(initialMicrophoneNeeds);
   const [generalDjNotes, setGeneralDjNotes] = useState(initialGeneralDjNotes);
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
@@ -199,6 +244,7 @@ export default function Home() {
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("Couple");
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const backupFileInputRef = useRef<HTMLInputElement | null>(null);
   const [backupStatus, setBackupStatus] = useState<{
     kind: "success" | "error";
@@ -208,6 +254,7 @@ export default function Home() {
   // `weddingDetails` is derived from the active event (see event management state below).
 
   const [plannerNotes, setPlannerNotes] = useState<string[]>(initialPlannerNotes);
+  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
 
   const [appMode, setAppMode] = useState<AppMode>("events");
   const [activeEventId, setActiveEventId] = useState<string>("evt-1");
@@ -215,10 +262,12 @@ export default function Home() {
   const [events, setEvents] = useState<EventRecord[]>(() =>
     buildSeedEvents({
       timelineItems,
+      ceremonyTimelineItems,
       formalities,
       mustPlaySongs,
       doNotPlaySongs,
       ceremonyStartTime,
+      ceremonyGuestArrivalTime,
       officiantName,
       ceremonyNotes,
       microphoneNeeds,
@@ -227,6 +276,7 @@ export default function Home() {
       unityCeremonySong,
       recessionalSong,
       plannerNotes,
+      vendors,
       guestRequests,
       generalDjNotes,
       mcAnnouncements,
@@ -242,10 +292,19 @@ export default function Home() {
 
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<"new" | "edit">("new");
-  const [eventDraft, setEventDraft] = useState<WeddingDetails>({
-    couple: "",
-    date: "",
+  const [eventDraft, setEventDraft] = useState<EventModalDraft>({
+    eventName: "",
+    coupleNames: "",
+    eventType: "",
+    weddingDate: "",
     venue: "",
+    ceremonyLocation: "",
+    receptionLocation: "",
+    assignedDj: "",
+    packageName: "",
+    plannerName: "",
+    plannerEmail: "",
+    internalNotes: "",
   });
   const [eventEditingId, setEventEditingId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("tpl-traditional");
@@ -254,6 +313,45 @@ export default function Home() {
   const [templateEditingId, setTemplateEditingId] = useState<string | null>(null);
   const [templateDraftName, setTemplateDraftName] = useState("");
   const [templates, setTemplates] = useState<TimelineTemplate[]>(initialTemplates);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
+  const [teamNameDraft, setTeamNameDraft] = useState("");
+  const [teamRoleDraft, setTeamRoleDraft] = useState<"Admin" | "DJ" | "Planner">("DJ");
+  const [teamEmailDraft, setTeamEmailDraft] = useState("");
+  const [teamPhoneDraft, setTeamPhoneDraft] = useState("");
+  const [teamNotesDraft, setTeamNotesDraft] = useState("");
+  const [teamActiveDraft, setTeamActiveDraft] = useState(true);
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [teamFormStatus, setTeamFormStatus] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [vendorEditingId, setVendorEditingId] = useState<string | null>(null);
+  const [vendorStatus, setVendorStatus] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [vendorTypeDraft, setVendorTypeDraft] = useState<VendorType>("Planner");
+  const [vendorCompanyDraft, setVendorCompanyDraft] = useState("");
+  const [vendorContactDraft, setVendorContactDraft] = useState("");
+  const [vendorEmailDraft, setVendorEmailDraft] = useState("");
+  const [vendorPhoneDraft, setVendorPhoneDraft] = useState("");
+  const [vendorNotesDraft, setVendorNotesDraft] = useState("");
+  const [vendorWebsiteDraft, setVendorWebsiteDraft] = useState("");
+  const [vendorInstagramDraft, setVendorInstagramDraft] = useState("");
+  const [vendorArrivalDraft, setVendorArrivalDraft] = useState("");
+  const [vendorCoordinationDraft, setVendorCoordinationDraft] = useState("");
+  const [ceremonyTimelineModalOpen, setCeremonyTimelineModalOpen] = useState(false);
+  const [ceremonyTimelineEditingId, setCeremonyTimelineEditingId] = useState<string | null>(null);
+  const [ceremonyTimelineDraftTimeOrOrder, setCeremonyTimelineDraftTimeOrOrder] = useState("");
+  const [ceremonyTimelineDraftMoment, setCeremonyTimelineDraftMoment] = useState("");
+  const [ceremonyTimelineDraftSongTitle, setCeremonyTimelineDraftSongTitle] = useState("");
+  const [ceremonyTimelineDraftArtist, setCeremonyTimelineDraftArtist] = useState("");
+  const [ceremonyTimelineDraftNotes, setCeremonyTimelineDraftNotes] = useState("");
+  const [ceremonyTimelineDraftNeedsAttention, setCeremonyTimelineDraftNeedsAttention] = useState(false);
+  const [draggingCeremonyTimelineId, setDraggingCeremonyTimelineId] = useState<string | null>(null);
+  const [dropTargetCeremonyTimelineId, setDropTargetCeremonyTimelineId] = useState<string | null>(null);
 
   const commitActiveEventPlanningToEventsState = () => {
     setEvents((prev) =>
@@ -268,10 +366,12 @@ export default function Home() {
                 venue: eventSettings.venue || evt.meta.venue,
               },
               timelineItems,
+              ceremonyTimelineItems,
               formalities,
               mustPlaySongs,
               doNotPlaySongs,
               ceremonyStartTime,
+              ceremonyGuestArrivalTime,
               officiantName,
               ceremonyNotes,
               microphoneNeeds,
@@ -280,6 +380,7 @@ export default function Home() {
               unityCeremonySong,
               recessionalSong,
               plannerNotes,
+              vendors,
               guestRequests,
               generalDjNotes,
               mcAnnouncements,
@@ -292,10 +393,12 @@ export default function Home() {
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
     setTimelineItems(cloneJson(evt.timelineItems));
+    setCeremonyTimelineItems(cloneJson(evt.ceremonyTimelineItems ?? []));
     setFormalities(cloneJson(evt.formalities));
     setMustPlaySongs(cloneJson(evt.mustPlaySongs));
     setDoNotPlaySongs(cloneJson(evt.doNotPlaySongs));
     setCeremonyStartTime(evt.ceremonyStartTime);
+    setCeremonyGuestArrivalTime(evt.ceremonyGuestArrivalTime ?? "");
     setOfficiantName(evt.officiantName);
     setCeremonyNotes(evt.ceremonyNotes);
     setMicrophoneNeeds(evt.microphoneNeeds);
@@ -304,6 +407,7 @@ export default function Home() {
     setUnityCeremonySong(cloneJson(evt.unityCeremonySong));
     setRecessionalSong(cloneJson(evt.recessionalSong));
     setPlannerNotes(cloneJson(evt.plannerNotes));
+    setVendors(cloneJson(evt.vendors ?? []));
     setGuestRequests(cloneJson(evt.guestRequests));
     setGeneralDjNotes(evt.generalDjNotes);
     setMcAnnouncements(evt.mcAnnouncements);
@@ -412,6 +516,9 @@ export default function Home() {
     if (type === "ceremony_updated") return "💍";
     if (type === "formality_updated") return "💃";
     if (type === "collaborator_invited") return "👥";
+    if (type === "team_member_added") return "🧑‍💼";
+    if (type === "team_member_assigned") return "🎧";
+    if (type === "vendor_updated") return "🏢";
     if (type === "checklist_completed") return "☑️";
     if (type === "template_applied") return "🧩";
     return "🔔";
@@ -438,10 +545,12 @@ export default function Home() {
         },
       ],
       timelineItems: templateTimeline,
+      ceremonyTimelineItems: cloneJson(ceremonyTimelineItems),
       formalities: templateFormalities,
       mustPlaySongs: cloneJson(mustPlaySongs),
       doNotPlaySongs: cloneJson(doNotPlaySongs),
       ceremonyStartTime,
+      ceremonyGuestArrivalTime,
       officiantName,
       ceremonyNotes,
       microphoneNeeds,
@@ -450,6 +559,7 @@ export default function Home() {
       unityCeremonySong: cloneJson(unityCeremonySong),
       recessionalSong: cloneJson(recessionalSong),
       plannerNotes: templateSuggestions,
+      vendors: cloneJson(vendors),
       guestRequests: cloneJson(guestRequests),
       generalDjNotes,
       mcAnnouncements,
@@ -478,6 +588,69 @@ export default function Home() {
     };
   };
 
+  const buildCeremonyTimelineFromLegacyEvent = (evt: Partial<EventRecord>): CeremonyTimelineItem[] => {
+    const existing = Array.isArray(evt.ceremonyTimelineItems) ? evt.ceremonyTimelineItems : [];
+    if (existing.length > 0) {
+      return existing.map((item, index) => ({
+        id: item.id || `ceremony-timeline-migrated-${index}`,
+        timeOrOrder: item.timeOrOrder || "",
+        moment: item.moment || `Ceremony Moment ${index + 1}`,
+        songTitle: item.songTitle || "",
+        artist: item.artist || "",
+        notes: item.notes || "",
+        needsDjMcAttention: Boolean(item.needsDjMcAttention),
+      }));
+    }
+
+    return [
+      {
+        id: `ceremony-timeline-${Date.now()}-prelude`,
+        timeOrOrder: evt.ceremonyGuestArrivalTime || "Prelude",
+        moment: "Guest Arrival / Prelude",
+        songTitle: "",
+        artist: "",
+        notes: "",
+        needsDjMcAttention: false,
+      },
+      {
+        id: `ceremony-timeline-${Date.now()}-wedding-party`,
+        timeOrOrder: "Processional",
+        moment: "Wedding Party Processional",
+        songTitle: evt.weddingPartyProcessional?.title || "",
+        artist: evt.weddingPartyProcessional?.artist || "",
+        notes: evt.weddingPartyProcessional?.notes || "",
+        needsDjMcAttention: true,
+      },
+      {
+        id: `ceremony-timeline-${Date.now()}-bride-groom`,
+        timeOrOrder: "Bride/Groom Processional",
+        moment: "Bride/Groom Processional",
+        songTitle: evt.brideGroomProcessional?.title || "",
+        artist: evt.brideGroomProcessional?.artist || "",
+        notes: evt.brideGroomProcessional?.notes || "",
+        needsDjMcAttention: true,
+      },
+      {
+        id: `ceremony-timeline-${Date.now()}-unity`,
+        timeOrOrder: "Unity",
+        moment: "Unity Ceremony",
+        songTitle: evt.unityCeremonySong?.title || "",
+        artist: evt.unityCeremonySong?.artist || "",
+        notes: evt.unityCeremonySong?.notes || "",
+        needsDjMcAttention: false,
+      },
+      {
+        id: `ceremony-timeline-${Date.now()}-recessional`,
+        timeOrOrder: "Recessional",
+        moment: "Recessional",
+        songTitle: evt.recessionalSong?.title || "",
+        artist: evt.recessionalSong?.artist || "",
+        notes: evt.recessionalSong?.notes || "",
+        needsDjMcAttention: true,
+      },
+    ];
+  };
+
   const openCreateTemplateModal = () => {
     setTemplateModalMode("new");
     setTemplateEditingId(null);
@@ -494,10 +667,12 @@ export default function Home() {
 
   const handleSaveEventModal = () => {
     const draft = eventDraft;
-    const couple = draft.couple.trim();
-    const date = draft.date.trim();
+    const couple = draft.coupleNames.trim();
+    const date = draft.weddingDate.trim();
     const venue = draft.venue.trim();
+    const eventName = draft.eventName.trim() || couple || "New Event";
 
+    if (!eventName) return;
     if (!couple) return;
 
     if (eventModalMode === "new") {
@@ -510,6 +685,26 @@ export default function Home() {
           collaboratorId: `col-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
         },
       );
+      newEvent.settings = {
+        ...newEvent.settings,
+        eventName,
+        coupleNames: couple,
+        eventType: draft.eventType || newEvent.settings.eventType,
+        weddingDate: date,
+        venue,
+        ceremonyLocation: draft.ceremonyLocation.trim(),
+        receptionLocation: draft.receptionLocation.trim(),
+        assignedDj: draft.assignedDj,
+        packageName: draft.packageName.trim(),
+        plannerName: draft.plannerName.trim(),
+        plannerEmail: draft.plannerEmail.trim(),
+        internalNotes: draft.internalNotes.trim(),
+      };
+      newEvent.meta = {
+        couple,
+        date,
+        venue,
+      };
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
       loadEventPlanningIntoWorkingState(newEvent);
@@ -524,7 +719,27 @@ export default function Home() {
     if (eventEditingId) {
       setEvents((prev) =>
         prev.map((evt) =>
-          evt.id === eventEditingId ? { ...evt, meta: { couple, date, venue } } : evt,
+          evt.id === eventEditingId
+            ? {
+                ...evt,
+                meta: { couple, date, venue },
+                settings: {
+                  ...evt.settings,
+                  eventName,
+                  coupleNames: couple,
+                  eventType: draft.eventType,
+                  weddingDate: date,
+                  venue,
+                  ceremonyLocation: draft.ceremonyLocation.trim(),
+                  receptionLocation: draft.receptionLocation.trim(),
+                  assignedDj: draft.assignedDj,
+                  packageName: draft.packageName.trim(),
+                  plannerName: draft.plannerName.trim(),
+                  plannerEmail: draft.plannerEmail.trim(),
+                  internalNotes: draft.internalNotes.trim(),
+                },
+              }
+            : evt,
         ),
       );
     }
@@ -583,11 +798,20 @@ export default function Home() {
 
   const effectiveRole = currentRole ?? rolePreview;
   const canManageMusic = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Couple";
-  const canEditTimeline = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Planner";
+  const canEditTimeline =
+    effectiveRole === "Admin" ||
+    effectiveRole === "DJ" ||
+    effectiveRole === "Planner" ||
+    effectiveRole === "Couple";
   const canManageGuestRequests = effectiveRole === "Admin" || effectiveRole === "Couple";
   const canViewPrepSheet = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canEditNotes = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canManageEvents = effectiveRole === "Admin";
+  const canAddFormality = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Planner";
+  const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
+  const showDesktopSidebar =
+    authStage === "app" &&
+    (effectiveRole === "Admin" || effectiveRole === "DJ");
   const acceptedCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Accepted") ?? [];
   const pendingCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Pending") ?? [];
 
@@ -732,40 +956,441 @@ export default function Home() {
     const typeOk = activityTypeFilter === "all" || item.type === activityTypeFilter;
     return eventOk && typeOk;
   });
+  const quickActions = useMemo(() => {
+    const actions: Array<{
+      id: string;
+      label: string;
+      visible: boolean;
+      onClick: () => void;
+      priority: number;
+    }> = [
+      {
+        id: "add-song",
+        label: "Add Song",
+        visible: appMode === "event" && canManageMusic,
+        onClick: () => {
+          setActiveScreen("Music");
+          setNewSongListType("mustPlay");
+        },
+        priority: activeScreen === "Music" ? 100 : 40,
+      },
+      {
+        id: "add-timeline",
+        label: "Add Timeline Item",
+        visible: appMode === "event" && canEditTimeline,
+        onClick: () => {
+          setActiveScreen("Timeline");
+          setTimelineTitle("");
+          setTimelineTime("");
+          setTimelineCategory("Ceremony");
+          setTimelineNotes("");
+          setTimelineNeedsAttention(false);
+          setEditingTimelineId(null);
+          window.setTimeout(() => {
+            timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 0);
+        },
+        priority: activeScreen === "Timeline" ? 100 : 39,
+      },
+      {
+        id: "add-formality",
+        label: "Add Formality",
+        visible: appMode === "event" && canAddFormality,
+        onClick: () => setActiveScreen("Formal Dances"),
+        priority: activeScreen === "Formal Dances" ? 100 : 38,
+      },
+      {
+        id: "add-guest-request",
+        label: "Add Guest Request",
+        visible: appMode === "event" && canManageGuestRequests,
+        onClick: () => {
+          setActiveScreen("Guest Requests");
+          setGuestRequestView("guest");
+        },
+        priority: activeScreen === "Guest Requests" ? 100 : 37,
+      },
+      {
+        id: "invite-collaborator",
+        label: "Invite Collaborator",
+        visible: appMode === "event" && canInviteCollaborators,
+        onClick: () => {
+          setActiveScreen("Collaborators");
+          window.setTimeout(() => setInviteModalOpen(true), 0);
+        },
+        priority: 30,
+      },
+      {
+        id: "create-event",
+        label: "Create Event",
+        visible: canManageEvents,
+        onClick: () => {
+          setAppMode("events");
+          setActiveScreen("All Events");
+          setEventModalMode("new");
+          setEventEditingId(null);
+          setEventDraft({
+            eventName: "",
+            coupleNames: "",
+            eventType: effectiveEventType,
+            weddingDate: "",
+            venue: "",
+            ceremonyLocation: "",
+            receptionLocation: "",
+            assignedDj: "",
+            packageName: "",
+            plannerName: "",
+            plannerEmail: "",
+            internalNotes: "",
+          });
+          setEventModalOpen(true);
+        },
+        priority: 20,
+      },
+    ];
+    return actions.filter((a) => a.visible).sort((a, b) => b.priority - a.priority);
+  }, [
+    activeScreen,
+    appMode,
+    canAddFormality,
+    canEditTimeline,
+    canInviteCollaborators,
+    canManageEvents,
+    canManageGuestRequests,
+    canManageMusic,
+    effectiveEventType,
+    setActiveScreen,
+    timelineFormRef,
+  ]);
 
   const visibleEvents = useMemo(() => {
     if (!currentRole || currentRole === "Admin") return events;
+    if (currentRole === "DJ") {
+      const activeDj = teamMembers.find((member) => member.role === "DJ" && member.isActive);
+      if (activeDj) {
+        return events.filter(
+          (evt) =>
+            evt.settings?.assignedDj === activeDj.id ||
+            evt.settings?.assignedDj === activeDj.name,
+        );
+      }
+    }
     return events.filter((evt) =>
       (evt.collaborators ?? []).some(
         (c) => c.role === currentRole && c.status === "Accepted",
       ),
     );
-  }, [events, currentRole]);
+  }, [events, currentRole, teamMembers]);
 
-  const navItems: Screen[] = useMemo(() => {
+  const parseEventDateTime = useCallback((value: string) => {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  }, []);
+
+  const commandCenterEvents = useMemo(() => {
+    return [...visibleEvents].sort(
+      (a, b) => parseEventDateTime(a.settings?.weddingDate || a.meta.date) - parseEventDateTime(b.settings?.weddingDate || b.meta.date),
+    );
+  }, [parseEventDateTime, visibleEvents]);
+
+  const commandCenterAttentionEvents = useMemo(() => {
+    return commandCenterEvents
+      .map((evt) => {
+        const pendingGuestRequests = evt.guestRequests.filter((req) => req.status === "Pending").length;
+        const incompleteChecklistCount = [
+          !evt.settings?.eventName?.trim(),
+          !evt.settings?.coupleNames?.trim(),
+          !evt.settings?.venue?.trim(),
+          !evt.settings?.weddingDate?.trim(),
+          evt.mustPlaySongs.length === 0,
+          evt.timelineItems.length === 0 && !evt.formalities.some((f) => f.includeInTimeline),
+        ].filter(Boolean).length;
+        return { evt, pendingGuestRequests, incompleteChecklistCount };
+      })
+      .filter((item) => item.pendingGuestRequests > 0 || item.incompleteChecklistCount > 0);
+  }, [commandCenterEvents]);
+
+  const commandCenterUpcomingEvents = commandCenterEvents.slice(0, 6);
+
+  const openCommandCenterEvent = (eventId: string, target: Screen) => {
+    const next = events.find((e) => e.id === eventId);
+    if (!next) return;
+    commitActiveEventPlanningToEventsState();
+    loadEventPlanningIntoWorkingState(next);
+    setActiveEventId(eventId);
+    setAppMode("event");
+    setActiveScreen(target);
+  };
+
+  const resetTeamMemberDraft = () => {
+    setTeamEditingId(null);
+    setTeamNameDraft("");
+    setTeamRoleDraft("DJ");
+    setTeamEmailDraft("");
+    setTeamPhoneDraft("");
+    setTeamNotesDraft("");
+    setTeamActiveDraft(true);
+  };
+
+  const startEditingTeamMember = (member: TeamMember) => {
+    setTeamEditingId(member.id);
+    setTeamNameDraft(member.name);
+    setTeamRoleDraft(member.role);
+    setTeamEmailDraft(member.email);
+    setTeamPhoneDraft(member.phone);
+    setTeamNotesDraft(member.notes);
+    setTeamActiveDraft(member.isActive);
+    setTeamFormStatus({ kind: "success", message: `Editing ${member.name}.` });
+    setTeamModalOpen(true);
+  };
+
+  const openAddTeamMemberModal = () => {
+    resetTeamMemberDraft();
+    setTeamFormStatus(null);
+    setTeamModalOpen(true);
+  };
+
+  const closeTeamMemberModal = () => {
+    setTeamModalOpen(false);
+    resetTeamMemberDraft();
+  };
+
+  const saveTeamMember = () => {
+    const name = teamNameDraft.trim();
+    const email = teamEmailDraft.trim();
+    if (!name) {
+      setTeamFormStatus({ kind: "error", message: "Team member name is required." });
+      return;
+    }
+    if (!teamRoleDraft) {
+      setTeamFormStatus({ kind: "error", message: "Team member role is required." });
+      return;
+    }
+    if (!teamEditingId) {
+      const newMember: TeamMember = {
+        id: `tm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        role: teamRoleDraft,
+        email,
+        phone: teamPhoneDraft.trim(),
+        notes: teamNotesDraft.trim(),
+        isActive: teamActiveDraft,
+      };
+      setTeamMembers((prev) => [newMember, ...prev]);
+      logActivity("team_member_added", `Added team member: ${name}`);
+      setTeamFormStatus({ kind: "success", message: `Added ${name} to the team.` });
+      closeTeamMemberModal();
+      return;
+    }
+    setTeamMembers((prev) =>
+      prev.map((member) =>
+        member.id === teamEditingId
+          ? {
+              ...member,
+              name,
+              role: teamRoleDraft,
+              email,
+              phone: teamPhoneDraft.trim(),
+              notes: teamNotesDraft.trim(),
+              isActive: teamActiveDraft,
+            }
+          : member,
+      ),
+    );
+    logActivity("team_member_added", `Updated team member: ${name}`);
+    setTeamFormStatus({ kind: "success", message: `Saved updates for ${name}.` });
+    closeTeamMemberModal();
+  };
+
+  const deleteTeamMember = (teamMemberId: string) => {
+    const target = teamMembers.find((member) => member.id === teamMemberId);
+    const ok = typeof window === "undefined" ? true : window.confirm(`Delete team member "${target?.name || "this member"}"?`);
+    if (!ok) return;
+    setTeamMembers((prev) => prev.filter((member) => member.id !== teamMemberId));
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.settings.assignedDj === teamMemberId
+          ? {
+              ...evt,
+              settings: {
+                ...evt.settings,
+                assignedDj: "",
+              },
+            }
+          : evt,
+      ),
+    );
+    if (teamEditingId === teamMemberId) {
+      closeTeamMemberModal();
+    }
+  };
+
+  const resetVendorDraft = () => {
+    setVendorEditingId(null);
+    setVendorTypeDraft("Planner");
+    setVendorCompanyDraft("");
+    setVendorContactDraft("");
+    setVendorEmailDraft("");
+    setVendorPhoneDraft("");
+    setVendorNotesDraft("");
+    setVendorWebsiteDraft("");
+    setVendorInstagramDraft("");
+    setVendorArrivalDraft("");
+    setVendorCoordinationDraft("");
+  };
+
+  const openAddVendorModal = () => {
+    resetVendorDraft();
+    setVendorStatus(null);
+    setVendorModalOpen(true);
+  };
+
+  const openEditVendorModal = (vendor: Vendor) => {
+    setVendorEditingId(vendor.id);
+    setVendorTypeDraft(vendor.vendorType);
+    setVendorCompanyDraft(vendor.companyName);
+    setVendorContactDraft(vendor.contactName);
+    setVendorEmailDraft(vendor.email);
+    setVendorPhoneDraft(vendor.phone);
+    setVendorNotesDraft(vendor.notes);
+    setVendorWebsiteDraft(vendor.website);
+    setVendorInstagramDraft(vendor.instagram);
+    setVendorArrivalDraft(vendor.arrivalTime);
+    setVendorCoordinationDraft(vendor.specialCoordinationNotes);
+    setVendorStatus(null);
+    setVendorModalOpen(true);
+  };
+
+  const closeVendorModal = () => {
+    setVendorModalOpen(false);
+    resetVendorDraft();
+  };
+
+  const syncVendorsToActiveEvent = (nextVendors: Vendor[]) => {
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              vendors: nextVendors,
+            }
+          : evt,
+      ),
+    );
+  };
+
+  const saveVendor = () => {
+    const selectedVendorType = vendorTypeDraft?.trim() as VendorType;
+    const companyName = vendorCompanyDraft.trim();
+    if (!selectedVendorType) {
+      setVendorStatus({ kind: "error", message: "Vendor Type is required." });
+      return;
+    }
+    if (!companyName) {
+      setVendorStatus({ kind: "error", message: "Company Name is required." });
+      return;
+    }
+    const payload: Vendor = {
+      id: vendorEditingId || `vendor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      vendorType: selectedVendorType,
+      companyName,
+      contactName: vendorContactDraft.trim(),
+      email: vendorEmailDraft.trim(),
+      phone: vendorPhoneDraft.trim(),
+      notes: vendorNotesDraft.trim(),
+      website: vendorWebsiteDraft.trim(),
+      instagram: vendorInstagramDraft.trim(),
+      arrivalTime: vendorArrivalDraft.trim(),
+      specialCoordinationNotes: vendorCoordinationDraft.trim(),
+    };
+    if (!vendorEditingId) {
+      const nextVendors = [payload, ...vendors];
+      setVendors(nextVendors);
+      syncVendorsToActiveEvent(nextVendors);
+      logActivity("vendor_updated", `Added vendor: ${payload.companyName}`);
+      setVendorStatus({ kind: "success", message: `Added ${payload.companyName}.` });
+      closeVendorModal();
+      return;
+    }
+    const nextVendors = vendors.map((item) => (item.id === vendorEditingId ? payload : item));
+    setVendors(nextVendors);
+    syncVendorsToActiveEvent(nextVendors);
+    logActivity("vendor_updated", `Updated vendor: ${payload.companyName}`);
+    setVendorStatus({ kind: "success", message: `Saved ${payload.companyName}.` });
+    closeVendorModal();
+  };
+
+  const deleteVendor = (vendorId: string) => {
+    const target = vendors.find((item) => item.id === vendorId);
+    const ok = typeof window === "undefined" ? true : window.confirm(`Delete vendor "${target?.companyName || "this vendor"}"?`);
+    if (!ok) return;
+    const nextVendors = vendors.filter((item) => item.id !== vendorId);
+    setVendors(nextVendors);
+    syncVendorsToActiveEvent(nextVendors);
+    logActivity("vendor_updated", `Removed vendor: ${target?.companyName || "Vendor"}`);
+  };
+
+  const workspaceNavItems: Screen[] = useMemo(() => {
     if (effectiveRole === "Admin") {
-      return [
-        "Dashboard",
-        "Music",
-        "Music Import",
-        "Timeline",
-        "Timeline Templates",
-        "Planning Checklist",
-        "Notification Center",
-        "Event Settings",
-        "Collaborators",
-        "Formal Dances",
-        "DJ Prep Sheet",
-      ];
+      return ["Command Center", "All Events", "Team", "Timeline Templates", "Settings", "Notification Center"];
     }
     if (effectiveRole === "DJ") {
-      return ["Dashboard", "Notification Center", "Planning Checklist", "Timeline", "Music", "Music Import", "DJ Prep Sheet", "Collaborators"];
+      return ["Command Center", "All Events", "Notification Center"];
     }
     if (effectiveRole === "Planner") {
-      return ["Dashboard", "Notification Center", "Planning Checklist", "Timeline", "Event Settings", "Notes", "Collaborators"];
+      return ["All Events", "Notification Center"];
     }
-    return ["Dashboard", "Notification Center", "Planning Checklist", "Music", "Music Import", "Timeline", "Event Settings", "Guest Requests", "Formal Dances"];
+    return ["All Events", "Notification Center"];
   }, [effectiveRole]);
+
+  const eventNavItems: Screen[] = useMemo(() => {
+    const base: Screen[] = ["Dashboard", "Music", "Music Import", "Timeline", "Planning Checklist", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Collaborators", "Event Settings", "DJ Prep Sheet", "Live Event Mode"];
+    if (effectiveRole === "Admin") return base;
+    if (effectiveRole === "DJ") {
+      return base.filter((item) => item !== "Event Settings");
+    }
+    if (effectiveRole === "Planner") {
+      return ["Dashboard", "Timeline", "Planning Checklist", "Collaborators", "Event Settings"];
+    }
+      return ["Dashboard", "Music", "Music Import", "Planning Checklist", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Event Settings"];
+  }, [effectiveRole]);
+
+  const currentNavItems = appMode === "events" ? workspaceNavItems : eventNavItems;
+
+  const navLabel = (screen: Screen) => {
+    if (screen === "Dashboard") return "Event Dashboard";
+    if (screen === "Settings") return "Global Settings";
+    return screen;
+  };
+
+  const getTeamMemberName = (value: string) => {
+    if (!value.trim()) return "TBD";
+    return teamMembers.find((member) => member.id === value)?.name || value;
+  };
+  const activeDjTeamMembers = useMemo(
+    () => teamMembers.filter((member) => member.role === "DJ" && member.isActive),
+    [teamMembers],
+  );
+  const vendorsByType = useMemo(
+    () =>
+      VENDOR_TYPES.reduce<Record<VendorType, Vendor[]>>((acc, type) => {
+        acc[type] = vendors.filter((vendor) => vendor.vendorType === type);
+        return acc;
+      }, {
+        Planner: [],
+        Photographer: [],
+        Videographer: [],
+        Venue: [],
+        Caterer: [],
+        Florist: [],
+        "Hair/Makeup": [],
+        "Photo Booth": [],
+        Officiant: [],
+        Band: [],
+        "Content Creator": [],
+        Other: [],
+      }),
+    [vendors],
+  );
 
   const EVENTS_STORAGE_KEY = "cutmaster_planning_events_v1";
   const GLOBAL_SETTINGS_STORAGE_KEY = "cutmaster_planning_global_settings_v1";
@@ -789,6 +1414,7 @@ export default function Home() {
         events: EventRecord[];
         activeEventId: string;
         templates: TimelineTemplate[];
+        teamMembers: TeamMember[];
         appSettings: AppSettings;
         activities: ActivityItem[];
         notifications: NotificationItem[];
@@ -803,7 +1429,10 @@ export default function Home() {
 
       const loadedEvents = parsed.events.map((evt) => ({
         ...evt,
+        ceremonyTimelineItems: buildCeremonyTimelineFromLegacyEvent(evt),
         collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
+        vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
+        ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
         settings: {
           eventName: evt.settings?.eventName ?? evt.meta.couple ?? "",
           coupleNames: evt.settings?.coupleNames ?? evt.meta.couple ?? "",
@@ -830,6 +1459,7 @@ export default function Home() {
       setEvents(loadedEvents);
       setAppMode(loadedEvents.length > 0 ? "event" : "events");
       if (Array.isArray(parsed.templates)) setTemplates(parsed.templates);
+      if (Array.isArray(parsed.teamMembers)) setTeamMembers(parsed.teamMembers);
       if (Array.isArray(parsed.activities)) setActivities(parsed.activities);
       if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
       if (parsed.appState) {
@@ -860,10 +1490,12 @@ export default function Home() {
 
       if (active) {
         setTimelineItems(active.timelineItems);
+        setCeremonyTimelineItems(active.ceremonyTimelineItems ?? []);
         setFormalities(active.formalities);
         setMustPlaySongs(active.mustPlaySongs);
         setDoNotPlaySongs(active.doNotPlaySongs);
         setCeremonyStartTime(active.ceremonyStartTime);
+        setCeremonyGuestArrivalTime(active.ceremonyGuestArrivalTime ?? "");
         setOfficiantName(active.officiantName);
         setCeremonyNotes(active.ceremonyNotes);
         setMicrophoneNeeds(active.microphoneNeeds);
@@ -872,6 +1504,7 @@ export default function Home() {
         setUnityCeremonySong(active.unityCeremonySong);
         setRecessionalSong(active.recessionalSong);
         setPlannerNotes(active.plannerNotes);
+        setVendors(active.vendors ?? []);
         setGuestRequests(active.guestRequests);
         setGeneralDjNotes(active.generalDjNotes);
         setMcAnnouncements(active.mcAnnouncements);
@@ -926,10 +1559,12 @@ export default function Home() {
         ? {
             ...e,
             timelineItems,
+            ceremonyTimelineItems,
             formalities,
             mustPlaySongs,
             doNotPlaySongs,
             ceremonyStartTime,
+            ceremonyGuestArrivalTime,
             officiantName,
             ceremonyNotes,
             microphoneNeeds,
@@ -938,6 +1573,7 @@ export default function Home() {
             unityCeremonySong,
             recessionalSong,
             plannerNotes,
+            vendors,
             guestRequests,
             generalDjNotes,
             mcAnnouncements,
@@ -950,6 +1586,7 @@ export default function Home() {
       events: payloadEvents,
       activeEventId,
       templates,
+      teamMembers,
       activities,
       notifications,
       appState: {
@@ -979,6 +1616,7 @@ export default function Home() {
     events,
     activeEventId,
     templates,
+    teamMembers,
     activities,
     notifications,
     activeScreen,
@@ -989,10 +1627,12 @@ export default function Home() {
     guestRequestView,
     inviteAccessPreview,
     timelineItems,
+    ceremonyTimelineItems,
     formalities,
     mustPlaySongs,
     doNotPlaySongs,
     ceremonyStartTime,
+    ceremonyGuestArrivalTime,
     officiantName,
     ceremonyNotes,
     microphoneNeeds,
@@ -1001,6 +1641,7 @@ export default function Home() {
     unityCeremonySong,
     recessionalSong,
     plannerNotes,
+    vendors,
     guestRequests,
     generalDjNotes,
     mcAnnouncements,
@@ -1030,8 +1671,21 @@ export default function Home() {
     if (appMode !== "events") return;
     if (activeScreen !== "Settings") return;
     if (canManageEvents) return;
-    setActiveScreen("Dashboard");
+    setActiveScreen("All Events");
   }, [activeScreen, appMode, canManageEvents, setActiveScreen]);
+
+  useEffect(() => {
+    if (authStage !== "app") return;
+    if (appMode === "events") {
+      if (!workspaceNavItems.includes(activeScreen)) {
+        window.setTimeout(() => setActiveScreen("All Events"), 0);
+      }
+      return;
+    }
+    if (!eventNavItems.includes(activeScreen)) {
+      window.setTimeout(() => setActiveScreen("Dashboard"), 0);
+    }
+  }, [activeScreen, appMode, authStage, eventNavItems, setActiveScreen, workspaceNavItems]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -1120,14 +1774,12 @@ export default function Home() {
   useEffect(() => {
     if (!hasHydrated) return;
     const snapshot = [
-      weddingPartyProcessional.title,
-      brideGroomProcessional.title,
-      unityCeremonySong.title,
-      recessionalSong.title,
       ceremonyStartTime,
+      ceremonyGuestArrivalTime,
       officiantName,
       microphoneNeeds,
       ceremonyNotes,
+      JSON.stringify(ceremonyTimelineItems),
     ].join("|");
     if (!ceremonySnapshotRef.current) {
       ceremonySnapshotRef.current = snapshot;
@@ -1141,15 +1793,13 @@ export default function Home() {
     }
   }, [
     hasHydrated,
-    weddingPartyProcessional.title,
-    brideGroomProcessional.title,
-    unityCeremonySong.title,
-    recessionalSong.title,
     ceremonyStartTime,
+    ceremonyGuestArrivalTime,
     officiantName,
     logActivity,
     microphoneNeeds,
     ceremonyNotes,
+    ceremonyTimelineItems,
   ]);
 
   useEffect(() => {
@@ -1179,10 +1829,12 @@ export default function Home() {
           ? {
               ...e,
               timelineItems,
+              ceremonyTimelineItems,
               formalities,
               mustPlaySongs,
               doNotPlaySongs,
               ceremonyStartTime,
+              ceremonyGuestArrivalTime,
               officiantName,
               ceremonyNotes,
               microphoneNeeds,
@@ -1202,10 +1854,12 @@ export default function Home() {
       events,
       activeEventId,
       timelineItems,
+      ceremonyTimelineItems,
       formalities,
       mustPlaySongs,
       doNotPlaySongs,
       ceremonyStartTime,
+      ceremonyGuestArrivalTime,
       officiantName,
       ceremonyNotes,
       microphoneNeeds,
@@ -1252,6 +1906,7 @@ export default function Home() {
     if (!Array.isArray(data.events)) return false;
     if (typeof data.activeEventId !== "string") return false;
     if (!Array.isArray(data.templates)) return false;
+    if (!Array.isArray(data.teamMembers)) return false;
     if (!Array.isArray(data.activities)) return false;
     if (!Array.isArray(data.notifications)) return false;
     if (!data.appSettings || typeof data.appSettings !== "object") return false;
@@ -1271,6 +1926,7 @@ export default function Home() {
         activeEventId,
         appSettings,
         templates,
+        teamMembers,
         activities,
         notifications,
         appState: localAppStateBackup,
@@ -1333,6 +1989,7 @@ export default function Home() {
     setActiveEventId(nextActiveId);
     loadEventPlanningIntoWorkingState(nextActiveEvent);
     setTemplates(Array.isArray(payload.templates) ? payload.templates : []);
+    setTeamMembers(Array.isArray(payload.teamMembers) ? payload.teamMembers : []);
     setActivities(Array.isArray(payload.activities) ? payload.activities : []);
     setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
     setAppSettings({ ...defaultAppSettings, ...payload.appSettings });
@@ -1376,6 +2033,7 @@ export default function Home() {
           events: parsed.events,
           activeEventId: parsed.activeEventId,
           templates: parsed.templates,
+          teamMembers: parsed.teamMembers,
           activities: parsed.activities,
           notifications: parsed.notifications,
           appState: parsed.appState,
@@ -1698,6 +2356,111 @@ export default function Home() {
     pushNotification("Timeline updated", "timeline_updated");
   };
 
+  const resetCeremonyTimelineDraft = () => {
+    setCeremonyTimelineEditingId(null);
+    setCeremonyTimelineDraftTimeOrOrder("");
+    setCeremonyTimelineDraftMoment("");
+    setCeremonyTimelineDraftSongTitle("");
+    setCeremonyTimelineDraftArtist("");
+    setCeremonyTimelineDraftNotes("");
+    setCeremonyTimelineDraftNeedsAttention(false);
+  };
+
+  const openCreateCeremonyTimelineModal = () => {
+    resetCeremonyTimelineDraft();
+    setCeremonyTimelineModalOpen(true);
+  };
+
+  const openEditCeremonyTimelineModal = (item: CeremonyTimelineItem) => {
+    setCeremonyTimelineEditingId(item.id);
+    setCeremonyTimelineDraftTimeOrOrder(item.timeOrOrder);
+    setCeremonyTimelineDraftMoment(item.moment);
+    setCeremonyTimelineDraftSongTitle(item.songTitle);
+    setCeremonyTimelineDraftArtist(item.artist);
+    setCeremonyTimelineDraftNotes(item.notes);
+    setCeremonyTimelineDraftNeedsAttention(item.needsDjMcAttention);
+    setCeremonyTimelineModalOpen(true);
+  };
+
+  const saveCeremonyTimelineItem = () => {
+    const cleanMoment = ceremonyTimelineDraftMoment.trim();
+    if (!cleanMoment) return;
+
+    if (ceremonyTimelineEditingId) {
+      setCeremonyTimelineItems((prev) =>
+        prev.map((item) =>
+          item.id === ceremonyTimelineEditingId
+            ? {
+                ...item,
+                timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
+                moment: cleanMoment,
+                songTitle: ceremonyTimelineDraftSongTitle.trim(),
+                artist: ceremonyTimelineDraftArtist.trim(),
+                notes: ceremonyTimelineDraftNotes.trim(),
+                needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
+              }
+            : item,
+        ),
+      );
+      logActivity("ceremony_updated", `Updated ceremony moment: ${cleanMoment}`);
+      pushNotification("Ceremony timeline updated", "ceremony_updated");
+    } else {
+      setCeremonyTimelineItems((prev) => [
+        ...prev,
+        {
+          id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
+          moment: cleanMoment,
+          songTitle: ceremonyTimelineDraftSongTitle.trim(),
+          artist: ceremonyTimelineDraftArtist.trim(),
+          notes: ceremonyTimelineDraftNotes.trim(),
+          needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
+        },
+      ]);
+      logActivity("ceremony_updated", `Added ceremony moment: ${cleanMoment}`);
+      pushNotification("Ceremony timeline updated", "ceremony_updated");
+    }
+
+    setCeremonyTimelineModalOpen(false);
+    resetCeremonyTimelineDraft();
+  };
+
+  const deleteCeremonyTimelineItem = (itemId: string) => {
+    setCeremonyTimelineItems((prev) => prev.filter((item) => item.id !== itemId));
+    logActivity("ceremony_updated", "Removed ceremony moment");
+    pushNotification("Ceremony timeline updated", "ceremony_updated");
+  };
+
+  const moveCeremonyTimelineItem = (itemId: string, direction: "up" | "down") => {
+    setCeremonyTimelineItems((prev) => {
+      const currentIndex = prev.findIndex((item) => item.id === itemId);
+      if (currentIndex === -1) return prev;
+      if (direction === "up" && currentIndex === 0) return prev;
+      if (direction === "down" && currentIndex === prev.length - 1) return prev;
+
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      const updated = [...prev];
+      const [movedItem] = updated.splice(currentIndex, 1);
+      updated.splice(targetIndex, 0, movedItem);
+      return updated;
+    });
+  };
+
+  const reorderCeremonyTimelineItemToTarget = (itemId: string, targetId: string) => {
+    if (!itemId || !targetId || itemId === targetId) return;
+    setCeremonyTimelineItems((prev) => {
+      const fromIndex = prev.findIndex((item) => item.id === itemId);
+      const toIndex = prev.findIndex((item) => item.id === targetId);
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+    logActivity("ceremony_updated", "Reordered ceremony timeline");
+    pushNotification("Ceremony timeline updated", "ceremony_updated");
+  };
+
   const updateFormality = (
     formalityId: string,
     updates: Partial<FormalityItem>,
@@ -1767,6 +2530,22 @@ export default function Home() {
     [formalities, includedFormalityNames, timelineItems],
   );
 
+  const ceremonyTimelineRows = useMemo(() => {
+    return ceremonyTimelineItems.map((item) => ({
+      order: item.timeOrOrder || "TBD",
+      moment: item.moment || "Untitled Moment",
+      song: item.songTitle
+        ? `${item.songTitle}${item.artist ? ` - ${item.artist}` : ""}`
+        : "-",
+      notes: [
+        item.notes || "",
+        item.needsDjMcAttention ? "MC/DJ Attention" : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    }));
+  }, [ceremonyTimelineItems]);
+
   const planningInsights = useMemo(
     () =>
       buildPlanningInsights(
@@ -1802,6 +2581,7 @@ export default function Home() {
     `Timezone: ${effectiveTimezone || "TBD"}`,
     `Event Type: ${effectiveEventType || "TBD"}`,
     `Ceremony Start: ${ceremonyStartTime || "TBD"}`,
+    `Ceremony Guest Arrival: ${ceremonyGuestArrivalTime || "TBD"}`,
     `Officiant: ${officiantName || "TBD"}`,
     `Microphones: ${microphoneNeeds || "TBD"}`,
     "",
@@ -1811,12 +2591,12 @@ export default function Home() {
         `- ${item.time || "TBD"} | ${item.title} [${item.category}]${item.needsDjMcAttention ? " (DJ/MC ATTENTION)" : ""}${item.notes ? ` - ${item.notes}` : ""}`,
     ),
     "",
-    "CEREMONY SONGS + NOTES",
-    `- Wedding Party Processional: ${weddingPartyProcessional.title || "TBD"}${weddingPartyProcessional.artist ? ` - ${weddingPartyProcessional.artist}` : ""}${weddingPartyProcessional.notes ? ` | ${weddingPartyProcessional.notes}` : ""}`,
-    `- Bride/Groom Processional: ${brideGroomProcessional.title || "TBD"}${brideGroomProcessional.artist ? ` - ${brideGroomProcessional.artist}` : ""}${brideGroomProcessional.notes ? ` | ${brideGroomProcessional.notes}` : ""}`,
-    `- Unity Ceremony: ${unityCeremonySong.title || "TBD"}${unityCeremonySong.artist ? ` - ${unityCeremonySong.artist}` : ""}${unityCeremonySong.notes ? ` | ${unityCeremonySong.notes}` : ""}`,
-    `- Recessional: ${recessionalSong.title || "TBD"}${recessionalSong.artist ? ` - ${recessionalSong.artist}` : ""}${recessionalSong.notes ? ` | ${recessionalSong.notes}` : ""}`,
-    `- Ceremony Notes: ${ceremonyNotes || "None"}`,
+    "CEREMONY TIMELINE",
+    ...ceremonyTimelineItems.map(
+      (item) =>
+        `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
+    ),
+    `- General Ceremony Notes: ${ceremonyNotes || "None"}`,
     "",
     "FORMAL DANCES / FORMALITIES",
     ...formalities.map(
@@ -1865,6 +2645,65 @@ export default function Home() {
     "",
   ].join("\n");
 
+  const liveEventText = [
+    `${appSettings.appName.toUpperCase()} - LIVE EVENT MODE`,
+    "",
+    `Event: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
+    `Couple: ${eventSettings.coupleNames || weddingDetails.couple || "TBD"}`,
+    `Date: ${eventSettings.weddingDate || weddingDetails.date || "TBD"}`,
+    `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
+    `Package: ${eventSettings.packageName || "TBD"}`,
+    `Assigned DJ: ${getTeamMemberName(eventSettings.assignedDj || "")}`,
+    "",
+    `Setup Time: ${eventSettings.eventStartTime || "TBD"}`,
+    `Ceremony Guest Arrival: ${ceremonyGuestArrivalTime || "TBD"}`,
+    `Ceremony Needs: ${microphoneNeeds || "None"}`,
+    "",
+    "CEREMONY TIMELINE",
+    ...ceremonyTimelineItems.map(
+      (item) =>
+        `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
+    ),
+    "",
+    "RECEPTION TIMELINE",
+    ...mergedTimelineItems.map((item) => `- ${item.time || "TBD"} | ${item.title}`),
+    "",
+    "FORMALITIES",
+    ...formalities.map(
+      (item) =>
+        `- ${item.time || "TBD"} | ${item.momentName} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}`,
+    ),
+    "",
+    "MC ANNOUNCEMENTS",
+    mcAnnouncements || "None",
+    "",
+    "VENDOR CONTACTS",
+    ...vendors.map(
+      (vendor) =>
+        `- ${vendor.vendorType}: ${vendor.companyName} | ${vendor.contactName || "No Contact"}${vendor.phone ? ` | ${vendor.phone}` : ""}${vendor.email ? ` | ${vendor.email}` : ""}${vendor.arrivalTime ? ` | Arrival ${vendor.arrivalTime}` : ""}`,
+    ),
+    "",
+    "MUSIC NOTES",
+    generalDjNotes || "None",
+    "",
+    "DO NOT PLAY",
+    ...doNotPlaySongs.map((song) => `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}`),
+    "",
+    "IMPORTANT DJ NOTES",
+    eventSettings.internalNotes || "None",
+  ].join("\n");
+
+  const copyLiveEventText = async () => {
+    try {
+      await navigator.clipboard.writeText(liveEventText);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus(""), 1800);
+    } catch {
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus(""), 2200);
+    }
+  };
+
   const copyPrepSheetText = async () => {
     try {
       await navigator.clipboard.writeText(prepSheetText);
@@ -1876,11 +2715,68 @@ export default function Home() {
     }
   };
 
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(201,163,92,0.12),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,#090909_0%,#101012_55%,#0b0b0c_100%)] text-zinc-100">
+        <main className="mx-auto w-full max-w-md px-4 pb-32 pt-5">
+          <AppHeader
+            screenTitle={appMode === "events" ? navLabel(activeScreen) : screenTitle}
+            weddingDetails={weddingDetails}
+            savedLocally={false}
+            appSettings={{
+              ...appSettings,
+              coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
+              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
+            }}
+          />
+          <section className="mt-6 space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <PremiumCard key={`skeleton-${index}`} className="animate-pulse">
+                <div className="h-4 w-1/2 rounded bg-white/10" />
+                <div className="mt-3 h-3 w-full rounded bg-white/5" />
+                <div className="mt-2 h-3 w-4/5 rounded bg-white/5" />
+                <div className="mt-4 h-10 w-full rounded-xl bg-white/10" />
+              </PremiumCard>
+            ))}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(201,163,92,0.12),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,#090909_0%,#101012_55%,#0b0b0c_100%)] text-zinc-100">
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-7">
+      {showDesktopSidebar && (
+        <aside className="no-print fixed left-5 top-5 z-30 hidden h-[calc(100vh-2.5rem)] w-60 overflow-y-auto rounded-3xl border border-white/10 bg-[#111115]/88 p-4 backdrop-blur-md lg:block">
+          <p className="px-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+            {appMode === "events" ? "Workspace Mode" : "Event Mode"}
+          </p>
+          <div className="mt-3 space-y-2">
+            {currentNavItems.map((item) => (
+              <PrimaryButton
+                key={`desktop-nav-${item}`}
+                onClick={() => setActiveScreen(item)}
+                className={`w-full justify-start rounded-xl border px-3 text-left ${
+                  activeScreen === item
+                    ? "border-[#c9a35c]/35 bg-[#c9a35c]/20 text-[#f5e6c8]"
+                    : "border-transparent bg-white/5 text-zinc-300 hover:border-white/10 hover:bg-white/10"
+                }`}
+              >
+                {navLabel(item)}
+              </PrimaryButton>
+            ))}
+          </div>
+        </aside>
+      )}
+      <main
+        className={`mx-auto w-full px-4 pb-32 pt-5 transition-all lg:pb-10 ${
+          showDesktopSidebar
+            ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-6"
+            : "max-w-6xl"
+        }`}
+      >
         <AppHeader
-          screenTitle={appMode === "events" ? "Events" : screenTitle}
+          screenTitle={appMode === "events" ? navLabel(activeScreen) : screenTitle}
           weddingDetails={weddingDetails}
           savedLocally={savedLocally}
           appSettings={{
@@ -1891,7 +2787,7 @@ export default function Home() {
         />
 
         {authStage === "app" && currentRole && (
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
+          <div className="no-print mt-4 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs backdrop-blur-sm">
             <span className="text-zinc-300">
               Current role: <span className="text-[#f5e6c8]">{currentRole}</span>
             </span>
@@ -1948,7 +2844,13 @@ export default function Home() {
                         setAppMode("events");
                       }
                       setAuthStage("app");
-                      setActiveScreen(role === "DJ" ? "DJ Prep Sheet" : "Dashboard");
+                      setActiveScreen(
+                        role === "Couple"
+                          ? "Dashboard"
+                          : role === "Admin" || role === "DJ"
+                            ? "Command Center"
+                            : "All Events",
+                      );
                     }}
                     className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                   >
@@ -2021,7 +2923,7 @@ export default function Home() {
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle className="text-[#e9d5a8]">Global Admin Settings</SectionTitle>
                 <PrimaryButton
-                  onClick={() => setActiveScreen("Dashboard")}
+                  onClick={() => setActiveScreen("All Events")}
                   className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
                 >
                   Back to Events
@@ -2086,10 +2988,90 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" &&
-          appMode === "events" &&
-          activeScreen !== "Settings" &&
-          activeScreen !== "Notification Center" && (
+        {authStage === "app" && appMode === "events" && activeScreen === "Team" && (
+          <section className="mt-6 space-y-3">
+            {!canManageEvents && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
+                <p className="text-xs text-[#f5e6c8]">Team Management is admin-only.</p>
+              </PremiumCard>
+            )}
+            <PremiumCard>
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle className="text-[#e9d5a8]">Team Management</SectionTitle>
+                <PrimaryButton
+                  onClick={openAddTeamMemberModal}
+                  disabled={!canManageEvents}
+                  className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                >
+                  Add Team Member
+                </PrimaryButton>
+              </div>
+              <p className="mt-2 text-xs text-zinc-400">
+                Manage internal Admin, DJ, and Planner team members for assignments.
+              </p>
+              {teamFormStatus && (
+                <p
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${
+                    teamFormStatus.kind === "success"
+                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                  }`}
+                >
+                  {teamFormStatus.message}
+                </p>
+              )}
+            </PremiumCard>
+
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Team Members</SectionTitle>
+              <div className="mt-3 space-y-2">
+                {teamMembers.map((member) => (
+                  <div key={`team-member-${member.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-100">{member.name}</p>
+                        <p className="mt-1 text-xs text-zinc-400">
+                          {member.role} · {member.email} {member.phone ? `· ${member.phone}` : ""}
+                        </p>
+                        {member.notes && <p className="mt-1 text-xs text-zinc-500">{member.notes}</p>}
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] ${
+                          member.isActive ? "bg-emerald-500/20 text-emerald-100" : "bg-white/10 text-zinc-400"
+                        }`}
+                      >
+                        {member.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <PrimaryButton
+                        onClick={() => startEditingTeamMember(member)}
+                        disabled={!canManageEvents}
+                        className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                      >
+                        Edit
+                      </PrimaryButton>
+                      <PrimaryButton
+                        onClick={() => deleteTeamMember(member.id)}
+                        disabled={!canManageEvents}
+                        className="rounded-lg bg-[#6f5353]/40 px-2 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                      >
+                        Delete
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                ))}
+                {teamMembers.length === 0 && (
+                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                    No team members yet.
+                  </p>
+                )}
+              </div>
+            </PremiumCard>
+          </section>
+        )}
+
+        {authStage === "app" && appMode === "events" && activeScreen === "All Events" && (
           <section className="mt-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-[#e9d5a8]">Events</SectionTitle>
@@ -2108,9 +3090,18 @@ export default function Home() {
                       setEventModalMode("new");
                       setEventEditingId(null);
                       setEventDraft({
-                        couple: "",
-                        date: "",
+                        eventName: "",
+                        coupleNames: "",
+                        eventType: effectiveEventType,
+                        weddingDate: "",
                         venue: "",
+                        ceremonyLocation: "",
+                        receptionLocation: "",
+                        assignedDj: "",
+                        packageName: "",
+                        plannerName: "",
+                        plannerEmail: "",
+                        internalNotes: "",
                       });
                       setEventModalOpen(true);
                     }}
@@ -2125,10 +3116,10 @@ export default function Home() {
             {visibleEvents.length === 0 ? (
               <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
                 <div className="py-10 text-center">
-                  <p className="text-sm font-medium text-[#f5e6c8]">
+                  <p className="text-sm font-semibold text-[#f5e6c8]">
                     {canManageEvents ? "No events yet" : "No assigned events yet"}
                   </p>
-                  <p className="mt-2 text-xs text-zinc-400">
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">
                     {canManageEvents
                       ? "Create your first event to start planning a full Cutmaster workflow."
                       : "Ask an admin to assign you to an event in Collaborators."}
@@ -2139,7 +3130,20 @@ export default function Home() {
                         onClick={() => {
                           setEventModalMode("new");
                           setEventEditingId(null);
-                          setEventDraft({ couple: "", date: "", venue: "" });
+                          setEventDraft({
+                            eventName: "",
+                            coupleNames: "",
+                            eventType: effectiveEventType,
+                            weddingDate: "",
+                            venue: "",
+                            ceremonyLocation: "",
+                            receptionLocation: "",
+                            assignedDj: "",
+                            packageName: "",
+                            plannerName: "",
+                            plannerEmail: "",
+                            internalNotes: "",
+                          });
                           setEventModalOpen(true);
                         }}
                         className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
@@ -2151,9 +3155,14 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ) : (
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleEvents.map((evt) => {
                   const isActive = evt.id === activeEventId;
+                  const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
+                  const cardEventType = evt.settings?.eventType || "Event";
+                  const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
+                  const cardEventDate = evt.settings?.weddingDate || evt.meta.date || "Date TBD";
+                  const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
                   const eventProgressChecks = [
                     evt.timelineItems.length > 0,
                     evt.mustPlaySongs.length > 0,
@@ -2171,10 +3180,16 @@ export default function Home() {
                             Event
                           </p>
                           <p className="mt-1 text-base font-semibold text-white">
-                            {evt.meta.couple || "Untitled Event"}
+                            {cardEventName}
+                          </p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                            {cardEventType}
                           </p>
                           <p className="mt-1 text-xs text-zinc-400">
-                            {evt.meta.date || "Date TBD"} · {evt.meta.venue || "Venue TBD"}
+                            {cardCoupleNames} · {cardEventDate}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {cardVenue}
                           </p>
                           <p className="mt-1 text-xs text-zinc-500">Progress: {eventProgress}%</p>
                           {isActive && (
@@ -2200,9 +3215,18 @@ export default function Home() {
                               setEventModalMode("edit");
                               setEventEditingId(evt.id);
                               setEventDraft({
-                                couple: evt.meta.couple,
-                                date: evt.meta.date,
-                                venue: evt.meta.venue,
+                                eventName: evt.settings?.eventName || evt.meta.couple,
+                                coupleNames: evt.settings?.coupleNames || evt.meta.couple,
+                                eventType: evt.settings?.eventType || effectiveEventType,
+                                weddingDate: evt.settings?.weddingDate || evt.meta.date,
+                                venue: evt.settings?.venue || evt.meta.venue,
+                                ceremonyLocation: evt.settings?.ceremonyLocation || "",
+                                receptionLocation: evt.settings?.receptionLocation || "",
+                                assignedDj: evt.settings?.assignedDj || "",
+                                packageName: evt.settings?.packageName || "",
+                                plannerName: evt.settings?.plannerName || "",
+                                plannerEmail: evt.settings?.plannerEmail || "",
+                                internalNotes: evt.settings?.internalNotes || "",
                               });
                               setEventModalOpen(true);
                             }}
@@ -2212,7 +3236,7 @@ export default function Home() {
                           </PrimaryButton>
                         ) : (
                           <PrimaryButton
-                            onClick={() => setAppMode("event")}
+                            onClick={() => switchToEvent(evt.id)}
                             className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                           >
                             Open
@@ -2237,6 +3261,7 @@ export default function Home() {
                                   setActiveScreen("Dashboard");
                                 } else {
                                   setAppMode("events");
+                                  setActiveScreen("All Events");
                                 }
                               }
                             }}
@@ -2279,18 +3304,156 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && effectiveRole !== "Couple" && (
+        {authStage === "app" && appMode === "event" && (
           <div className="mt-4">
             <PrimaryButton
               onClick={() => {
                 commitActiveEventPlanningToEventsState();
                 setAppMode("events");
+                setActiveScreen("All Events");
               }}
               className="w-full rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/10"
             >
-              Manage Events
+              Back to All Events
             </PrimaryButton>
           </div>
+        )}
+
+        {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && (
+          <section className="mt-6 space-y-3 cm-section-enter">
+            <div className="grid gap-3 xl:grid-cols-[1.8fr_1fr]">
+              <div className="space-y-3">
+                <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1a1a20] to-[#131318]">
+                  <div className="flex items-center justify-between gap-2">
+                    <SectionTitle className="text-[#e9d5a8]">Command Center</SectionTitle>
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-zinc-300">
+                      {commandCenterEvents.length} events
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-400">
+                    {effectiveRole === "Admin"
+                      ? "Operational overview across all events."
+                      : "Operational overview across your assigned events."}
+                  </p>
+                </PremiumCard>
+
+                <PremiumCard>
+                  <SectionTitle className="text-[#e9d5a8]">Upcoming Events</SectionTitle>
+                  <div className="mt-3 space-y-2">
+                    {commandCenterUpcomingEvents.map((evt) => (
+                      <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">{evt.settings.eventName || evt.meta.couple}</p>
+                            <p className="mt-1 text-xs text-zinc-400">
+                              {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
+                            </p>
+                          </div>
+                          <PrimaryButton
+                            onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                            className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            View Event
+                          </PrimaryButton>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                          <PrimaryButton
+                            onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            View Event
+                          </PrimaryButton>
+                          <PrimaryButton
+                            onClick={() => openCommandCenterEvent(evt.id, "DJ Prep Sheet")}
+                            className="rounded-lg bg-[#c9a35c]/20 px-2 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                          >
+                            Open Prep Sheet
+                          </PrimaryButton>
+                          <PrimaryButton
+                            onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Review Timeline
+                          </PrimaryButton>
+                          <PrimaryButton
+                            onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Review Guest Requests
+                          </PrimaryButton>
+                        </div>
+                      </div>
+                    ))}
+                    {commandCenterUpcomingEvents.length === 0 && (
+                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                        No upcoming events available for this role.
+                      </p>
+                    )}
+                  </div>
+                </PremiumCard>
+
+                <PremiumCard>
+                  <SectionTitle className="text-[#e9d5a8]">Events Needing Attention</SectionTitle>
+                  <div className="mt-3 space-y-2">
+                    {commandCenterAttentionEvents.map(({ evt, pendingGuestRequests, incompleteChecklistCount }) => (
+                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 px-3 py-2.5">
+                        <p className="text-sm font-medium text-zinc-100">{evt.settings.eventName || evt.meta.couple}</p>
+                        <p className="mt-1 text-xs text-zinc-300">
+                          {pendingGuestRequests} pending guest requests · {incompleteChecklistCount} incomplete planning areas
+                        </p>
+                      </div>
+                    ))}
+                    {commandCenterAttentionEvents.length === 0 && (
+                      <p className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-100">
+                        No urgent attention items across your events.
+                      </p>
+                    )}
+                  </div>
+                </PremiumCard>
+              </div>
+
+              <div className="space-y-3">
+                <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
+                  <SectionTitle className="text-[#e9d5a8]">Recent Activity</SectionTitle>
+                  <div className="mt-3 space-y-2">
+                    {activities
+                      .filter((item) => commandCenterEvents.some((evt) => evt.id === item.eventId))
+                      .slice(0, 8)
+                      .map((item) => (
+                        <div key={`cmd-activity-${item.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
+                          <p className="text-zinc-100">
+                            <span className="mr-1">{activityTypeIcon(item.type)}</span>
+                            {item.summary}
+                          </p>
+                          <p className="mt-1 text-zinc-500">
+                            {item.eventName} · {formatRelativeTime(item.timestamp)}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </PremiumCard>
+                <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
+                  <SectionTitle className="text-[#e9d5a8]">Notifications</SectionTitle>
+                  <div className="mt-3 space-y-2">
+                    {notifications
+                      .filter((notice) => commandCenterEvents.some((evt) => evt.id === notice.eventId))
+                      .slice(0, 6)
+                      .map((notice) => (
+                        <div key={`cmd-notice-${notice.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
+                          <p className="text-zinc-100">{notice.summary}</p>
+                          <p className="mt-1 text-zinc-500">
+                            {notice.eventName} · {formatRelativeTime(notice.timestamp)}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </PremiumCard>
+              </div>
+            </div>
+          </section>
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Dashboard" && (
@@ -2319,6 +3482,9 @@ export default function Home() {
                     <p className="mt-1 font-medium text-zinc-100">{eventVenueDisplay}</p>
                   </div>
                 </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  Vendors: <span className="text-zinc-200">{vendors.length}</span>
+                </p>
                 <div className="mt-3 rounded-xl border border-[#c9a35c]/25 bg-gradient-to-r from-[#c9a35c]/15 to-transparent px-3 py-2.5">
                   <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">Wedding countdown</p>
                   <p className="mt-1 text-sm font-medium text-[#f7ecd4]">
@@ -2387,18 +3553,20 @@ export default function Home() {
                   ))}
                 </div>
               </PremiumCard>
-              {progressCards.map((card) => (
-                <PremiumCard key={card.label}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-zinc-300">{card.label}</p>
-                    <span className="text-sm font-semibold text-[#e9d5a8]">{card.value}</span>
-                  </div>
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/90">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] to-[#e9d5a8]" style={{ width: card.value }} />
-                  </div>
-                  <p className="mt-3 text-xs text-zinc-400">{card.detail}</p>
-                </PremiumCard>
-              ))}
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {progressCards.map((card) => (
+                  <PremiumCard key={card.label}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-zinc-300">{card.label}</p>
+                      <span className="text-sm font-semibold text-[#e9d5a8]">{card.value}</span>
+                    </div>
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                      <div className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] to-[#e9d5a8]" style={{ width: card.value }} />
+                    </div>
+                    <p className="mt-3 text-xs text-zinc-400">{card.detail}</p>
+                  </PremiumCard>
+                ))}
+              </div>
             </section>
 
             <section className="mt-6 space-y-3">
@@ -2458,7 +3626,7 @@ export default function Home() {
                     </div>
                   ))}
                   {recentActivityForActiveEvent.length === 0 && (
-                    <p className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-500">
+                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
                       {isCoupleView
                         ? "Updates will appear here as your celebration takes shape."
                         : "Activity will appear here as planning updates happen."}
@@ -2493,7 +3661,7 @@ export default function Home() {
                       </div>
                     ))}
                   {activities.filter((item) => item.eventId === activeEventId).length === 0 && (
-                    <p className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-500">
+                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
                       Activity will appear here as planning updates happen.
                     </p>
                   )}
@@ -2534,8 +3702,8 @@ export default function Home() {
 
             <section className="mt-6">
               <SectionTitle className="mb-3 font-medium text-zinc-300">Planning Sections</SectionTitle>
-              <div className="grid grid-cols-2 gap-3">
-                {navItems
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                {eventNavItems
                   .filter((section) => section !== "Dashboard")
                   .map((section) => (
                     <PrimaryButton
@@ -2543,7 +3711,7 @@ export default function Home() {
                       onClick={() => setActiveScreen(section)}
                       className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left text-sm text-zinc-100 transition duration-200 hover:-translate-y-0.5 hover:border-[#c9a35c]/45 hover:bg-white/10"
                     >
-                      {section}
+                      {navLabel(section)}
                     </PrimaryButton>
                   ))}
               </div>
@@ -2903,9 +4071,9 @@ export default function Home() {
             {mergedTimelineItems.length === 0 ? (
               <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
                 <div className="py-8 text-center">
-                  <p className="text-sm font-medium text-[#f5e6c8]">Your timeline is empty</p>
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Add your first event to start shaping the perfect wedding flow.
+                  <p className="text-sm font-semibold text-[#f5e6c8]">Your timeline is empty</p>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                    Add your first timeline moment to shape an intentional event flow.
                   </p>
                 </div>
               </PremiumCard>
@@ -3085,7 +4253,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Timeline Templates" && (
+        {authStage === "app" && appMode === "events" && activeScreen === "Timeline Templates" && (
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
               <SectionTitle className="text-[#e9d5a8]">Timeline Templates</SectionTitle>
@@ -3501,11 +4669,27 @@ export default function Home() {
               <SectionTitle className="text-[#e9d5a8]">Ceremony Details</SectionTitle>
               <div className="mt-4 space-y-3">
                 <TextInput
+                  id="ceremony-location"
+                  label="Ceremony Location"
+                  value={eventSettings.ceremonyLocation}
+                  onChange={(value) =>
+                    setEventSettings((prev) => ({ ...prev, ceremonyLocation: value }))
+                  }
+                  placeholder="e.g. Garden Courtyard"
+                />
+                <TextInput
                   id="ceremony-start-time"
                   label="Ceremony Start Time"
                   value={ceremonyStartTime}
                   onChange={setCeremonyStartTime}
                   placeholder="e.g. 4:00 PM"
+                />
+                <TextInput
+                  id="ceremony-guest-arrival-time"
+                  label="Guest Arrival Time"
+                  value={ceremonyGuestArrivalTime}
+                  onChange={setCeremonyGuestArrivalTime}
+                  placeholder="e.g. 3:30 PM"
                 />
                 <TextInput
                   id="officiant-name"
@@ -3534,179 +4718,133 @@ export default function Home() {
             </PremiumCard>
 
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">
-                Wedding Party Processional
-              </SectionTitle>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="wedding-party-song-title"
-                  label="Song Title"
-                  value={weddingPartyProcessional.title}
-                  onChange={(value) =>
-                    setWeddingPartyProcessional((prev) => ({ ...prev, title: value }))
-                  }
-                  placeholder="Song title"
-                />
-                <TextInput
-                  id="wedding-party-song-artist"
-                  label="Artist"
-                  value={weddingPartyProcessional.artist}
-                  onChange={(value) =>
-                    setWeddingPartyProcessional((prev) => ({ ...prev, artist: value }))
-                  }
-                  placeholder="Artist"
-                />
-                <TextArea
-                  id="wedding-party-song-notes"
-                  label="Notes"
-                  value={weddingPartyProcessional.notes}
-                  onChange={(value) =>
-                    setWeddingPartyProcessional((prev) => ({ ...prev, notes: value }))
-                  }
-                  placeholder="Timing or mix notes..."
-                  rows={2}
-                />
-              </div>
-            </PremiumCard>
-
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Bride/Groom Processional</SectionTitle>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="bride-groom-song-title"
-                  label="Song Title"
-                  value={brideGroomProcessional.title}
-                  onChange={(value) =>
-                    setBrideGroomProcessional((prev) => ({ ...prev, title: value }))
-                  }
-                  placeholder="Song title"
-                />
-                <TextInput
-                  id="bride-groom-song-artist"
-                  label="Artist"
-                  value={brideGroomProcessional.artist}
-                  onChange={(value) =>
-                    setBrideGroomProcessional((prev) => ({ ...prev, artist: value }))
-                  }
-                  placeholder="Artist"
-                />
-                <TextArea
-                  id="bride-groom-song-notes"
-                  label="Notes"
-                  value={brideGroomProcessional.notes}
-                  onChange={(value) =>
-                    setBrideGroomProcessional((prev) => ({ ...prev, notes: value }))
-                  }
-                  placeholder="Timing or cue notes..."
-                  rows={2}
-                />
-              </div>
-            </PremiumCard>
-
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Unity Ceremony Song</SectionTitle>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="unity-song-title"
-                  label="Song Title"
-                  value={unityCeremonySong.title}
-                  onChange={(value) =>
-                    setUnityCeremonySong((prev) => ({ ...prev, title: value }))
-                  }
-                  placeholder="Song title"
-                />
-                <TextInput
-                  id="unity-song-artist"
-                  label="Artist"
-                  value={unityCeremonySong.artist}
-                  onChange={(value) =>
-                    setUnityCeremonySong((prev) => ({ ...prev, artist: value }))
-                  }
-                  placeholder="Artist"
-                />
-                <TextArea
-                  id="unity-song-notes"
-                  label="Notes"
-                  value={unityCeremonySong.notes}
-                  onChange={(value) =>
-                    setUnityCeremonySong((prev) => ({ ...prev, notes: value }))
-                  }
-                  placeholder="Level, fade, and cue notes..."
-                  rows={2}
-                />
-              </div>
-            </PremiumCard>
-
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Recessional Song</SectionTitle>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="recessional-song-title"
-                  label="Song Title"
-                  value={recessionalSong.title}
-                  onChange={(value) => setRecessionalSong((prev) => ({ ...prev, title: value }))}
-                  placeholder="Song title"
-                />
-                <TextInput
-                  id="recessional-song-artist"
-                  label="Artist"
-                  value={recessionalSong.artist}
-                  onChange={(value) => setRecessionalSong((prev) => ({ ...prev, artist: value }))}
-                  placeholder="Artist"
-                />
-                <TextArea
-                  id="recessional-song-notes"
-                  label="Notes"
-                  value={recessionalSong.notes}
-                  onChange={(value) => setRecessionalSong((prev) => ({ ...prev, notes: value }))}
-                  placeholder="Exit cue and energy notes..."
-                  rows={2}
-                />
-              </div>
-            </PremiumCard>
-
-            <PremiumCard className="border-[#c9a35c]/40 bg-gradient-to-b from-[#1d1a14] to-[#141419]">
-              <SectionTitle className="text-[#f5e6c8]">DJ Ceremony Prep Summary</SectionTitle>
-              <div className="mt-3 space-y-3 text-xs text-zinc-300">
-                <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-400">
-                    Ceremony Logistics
-                  </p>
-                  <p className="mt-1">Start: {ceremonyStartTime || "TBD"}</p>
-                  <p className="mt-1">Officiant: {officiantName || "TBD"}</p>
-                  <p className="mt-1">Microphones: {microphoneNeeds || "TBD"}</p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-400">
-                    Music Cue Sheet
-                  </p>
-                  <p className="mt-2 text-zinc-200">
-                    Wedding Party Processional: {weddingPartyProcessional.title || "TBD"}
-                    {weddingPartyProcessional.artist
-                      ? ` - ${weddingPartyProcessional.artist}`
-                      : ""}
-                  </p>
-                  <p className="mt-1 text-zinc-200">
-                    Bride/Groom Processional: {brideGroomProcessional.title || "TBD"}
-                    {brideGroomProcessional.artist
-                      ? ` - ${brideGroomProcessional.artist}`
-                      : ""}
-                  </p>
-                  <p className="mt-1 text-zinc-200">
-                    Unity Ceremony: {unityCeremonySong.title || "TBD"}
-                    {unityCeremonySong.artist ? ` - ${unityCeremonySong.artist}` : ""}
-                  </p>
-                  <p className="mt-1 text-zinc-200">
-                    Recessional: {recessionalSong.title || "TBD"}
-                    {recessionalSong.artist ? ` - ${recessionalSong.artist}` : ""}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <SectionTitle className="text-[#e9d5a8]">Ceremony Timeline</SectionTitle>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Add, edit, and reorder ceremony moments with songs and cues.
                   </p>
                 </div>
-                <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-400">
-                    Ceremony Notes
-                  </p>
-                  <p className="mt-1">{ceremonyNotes || "No additional notes yet."}</p>
-                </div>
+                <PrimaryButton
+                  onClick={openCreateCeremonyTimelineModal}
+                  disabled={!canEditTimeline}
+                  className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 disabled:opacity-45"
+                >
+                  Add Ceremony Moment
+                </PrimaryButton>
+              </div>
+              <div className="mt-4 space-y-3">
+                {ceremonyTimelineItems.map((item, index) => {
+                  const isDragging = draggingCeremonyTimelineId === item.id;
+                  const isDropTarget =
+                    dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border border-white/10 bg-white/[0.04] p-3 transition-all duration-200 ${isDragging ? "scale-[1.01] border-[#c9a35c]/55 shadow-[0_16px_36px_rgba(201,163,92,0.20)]" : ""} ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
+                      onDragOver={(event) => {
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        event.preventDefault();
+                        if (draggingCeremonyTimelineId !== item.id) {
+                          setDropTargetCeremonyTimelineId(item.id);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-xs font-medium text-[#e9d5a8]">
+                            {item.timeOrOrder || "TBD"}
+                          </span>
+                          <SectionTitle className="mt-2 text-zinc-100">{item.moment}</SectionTitle>
+                          <p className="mt-2 text-xs text-zinc-300">
+                            {item.songTitle || "Song TBD"}
+                            {item.artist ? ` - ${item.artist}` : ""}
+                          </p>
+                          {item.notes ? (
+                            <p className="mt-1 text-xs text-zinc-500">{item.notes}</p>
+                          ) : null}
+                          {item.needsDjMcAttention ? (
+                            <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
+                              DJ/MC Attention
+                            </span>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          draggable={canEditTimeline}
+                          onDragStart={(event) => {
+                            if (!canEditTimeline) return;
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingCeremonyTimelineId(null);
+                            setDropTargetCeremonyTimelineId(null);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/30 bg-gradient-to-b from-[#c9a35c]/15 to-[#c9a35c]/5 px-3 py-2 text-[11px] text-[#f5e6c8] transition hover:border-[#c9a35c]/45 hover:bg-[#c9a35c]/20 active:scale-[0.98] disabled:opacity-50"
+                          disabled={!canEditTimeline}
+                        >
+                          <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
+                          <span>Reorder</span>
+                        </button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <PrimaryButton
+                          onClick={() => moveCeremonyTimelineItem(item.id, "up")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Up
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => moveCeremonyTimelineItem(item.id, "down")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Down
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => openEditCeremonyTimelineModal(item)}
+                          disabled={!canEditTimeline}
+                          className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                        >
+                          Edit
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => deleteCeremonyTimelineItem(item.id)}
+                          disabled={!canEditTimeline}
+                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                        >
+                          Delete
+                        </PrimaryButton>
+                      </div>
+                      <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
+                        Item {index + 1} of {ceremonyTimelineItems.length}
+                      </p>
+                    </div>
+                  );
+                })}
+                {ceremonyTimelineItems.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115] p-4 text-center">
+                    <p className="text-sm font-semibold text-[#f5e6c8]">
+                      No ceremony moments yet
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Add your first moment to build a clean ceremony cue sheet.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </PremiumCard>
           </section>
@@ -3907,203 +5045,335 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "DJ Prep Sheet" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && (
           <section className="mt-6 space-y-3">
+            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
+              <div className="flex items-center justify-between gap-2">
+                <SectionTitle className="text-[#e9d5a8]">Vendor Collaboration</SectionTitle>
+                <PrimaryButton
+                  onClick={openAddVendorModal}
+                  className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                >
+                  Add Vendor
+                </PrimaryButton>
+              </div>
+              <p className="mt-2 text-xs text-zinc-400">
+                Keep contacts, arrival timing, and coordination details aligned across your event team.
+              </p>
+              {vendorStatus && (
+                <p
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${
+                    vendorStatus.kind === "success"
+                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                  }`}
+                >
+                  {vendorStatus.message}
+                </p>
+              )}
+            </PremiumCard>
+
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Vendor Arrival Timeline</SectionTitle>
+              <div className="mt-3 space-y-2">
+                {vendors
+                  .filter((vendor) => vendor.arrivalTime.trim())
+                  .sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime))
+                  .map((vendor) => (
+                    <div key={`arrival-${vendor.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-300">
+                      <span className="text-zinc-100">{vendor.arrivalTime}</span> - {vendor.companyName} ({vendor.vendorType})
+                    </div>
+                  ))}
+                {vendors.filter((vendor) => vendor.arrivalTime.trim()).length === 0 && (
+                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                    Add arrival times to build your vendor timeline.
+                  </p>
+                )}
+              </div>
+            </PremiumCard>
+
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Coordination Notes</SectionTitle>
+              <div className="mt-3 space-y-2">
+                {vendors
+                  .filter((vendor) => vendor.specialCoordinationNotes.trim())
+                  .map((vendor) => (
+                    <div key={`coord-${vendor.id}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
+                      <p className="text-zinc-100">{vendor.companyName}</p>
+                      <p className="mt-1 text-zinc-400">{vendor.specialCoordinationNotes}</p>
+                    </div>
+                  ))}
+                {vendors.filter((vendor) => vendor.specialCoordinationNotes.trim()).length === 0 && (
+                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                    No special coordination notes yet.
+                  </p>
+                )}
+              </div>
+            </PremiumCard>
+
+            {VENDOR_TYPES.map((type) => (
+              <PremiumCard key={`vendor-type-${type}`}>
+                <SectionTitle className="text-[#e9d5a8]">{type}</SectionTitle>
+                <div className="mt-3 space-y-2">
+                  {vendorsByType[type].map((vendor) => (
+                    <div key={`vendor-card-${vendor.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">{vendor.companyName}</p>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {vendor.contactName || "No contact"} {vendor.email ? `· ${vendor.email}` : ""} {vendor.phone ? `· ${vendor.phone}` : ""}
+                          </p>
+                          {vendor.notes && <p className="mt-1 text-xs text-zinc-500">{vendor.notes}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <PrimaryButton
+                            onClick={() => openEditVendorModal(vendor)}
+                            className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Edit
+                          </PrimaryButton>
+                          <PrimaryButton
+                            onClick={() => deleteVendor(vendor.id)}
+                            className="rounded-lg bg-[#6f5353]/40 px-2 py-1.5 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                          >
+                            Delete
+                          </PrimaryButton>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {vendor.email && (
+                          <PrimaryButton
+                            onClick={() => window.open(`mailto:${vendor.email}`, "_blank")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Email
+                          </PrimaryButton>
+                        )}
+                        {vendor.phone && (
+                          <PrimaryButton
+                            onClick={() => window.open(`tel:${vendor.phone}`, "_blank")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Call
+                          </PrimaryButton>
+                        )}
+                        {(vendor.email || vendor.phone) && (
+                          <PrimaryButton
+                            onClick={async () => {
+                              const text = `${vendor.companyName}\n${vendor.contactName}\n${vendor.email}\n${vendor.phone}`.trim();
+                              try {
+                                await navigator.clipboard.writeText(text);
+                                setVendorStatus({ kind: "success", message: `Copied contact info for ${vendor.companyName}.` });
+                              } catch {
+                                setVendorStatus({ kind: "error", message: "Could not copy contact info." });
+                              }
+                            }}
+                            className="rounded-lg bg-[#c9a35c]/20 px-2 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                          >
+                            Copy Contact
+                          </PrimaryButton>
+                        )}
+                        {vendor.website && (
+                          <PrimaryButton
+                            onClick={() => window.open(vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`, "_blank")}
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Website
+                          </PrimaryButton>
+                        )}
+                        {vendor.instagram && (
+                          <PrimaryButton
+                            onClick={() =>
+                              window.open(
+                                vendor.instagram.startsWith("http")
+                                  ? vendor.instagram
+                                  : `https://instagram.com/${vendor.instagram.replace(/^@/, "")}`,
+                                "_blank",
+                              )
+                            }
+                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          >
+                            Instagram
+                          </PrimaryButton>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {vendorsByType[type].length === 0 && (
+                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                      No {type.toLowerCase()} vendor added yet.
+                    </p>
+                  )}
+                </div>
+              </PremiumCard>
+            ))}
+          </section>
+        )}
+
+        {authStage === "app" && appMode === "event" && activeScreen === "DJ Prep Sheet" && (
+          <section className="mt-6 space-y-3 print-doc">
             {!canViewPrepSheet && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
+              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10 no-print">
                 <p className="text-xs text-[#f5e6c8]">
                   {effectiveRole} role can’t access full prep sheet in this prototype.
                 </p>
               </PremiumCard>
             )}
-            <PremiumCard className="bg-gradient-to-b from-[#1c1c22] to-[#15151a]">
-              <SectionTitle className="text-[#f5e6c8]">DJ Prep Sheet</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">
-                Event-day summary pulled from live planning data.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <PrimaryButton
-                  onClick={() => window.print()}
-                  className="w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-2.5 text-sm font-semibold text-white hover:brightness-110"
-                >
+            <div className="doc-sheet">
+              <div className="no-print mb-3 grid grid-cols-2 gap-2">
+                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">
                   Print Prep Sheet
                 </PrimaryButton>
-                <PrimaryButton
-                  onClick={copyPrepSheetText}
-                  className="w-full bg-white/10 py-2.5 text-sm text-zinc-200 hover:bg-white/15"
-                >
+                <PrimaryButton onClick={copyPrepSheetText} className="w-full bg-zinc-200 text-zinc-900 hover:bg-zinc-300">
                   Copy Prep Sheet Text
                 </PrimaryButton>
               </div>
-              {copyStatus === "copied" && (
-                <p className="mt-2 text-xs text-[#e9d5a8]">Prep sheet copied to clipboard.</p>
-              )}
-              {copyStatus === "error" && (
-                <p className="mt-2 text-xs text-[#f2dede]">
-                  Could not copy. Please try again.
-                </p>
-              )}
-            </PremiumCard>
+              {copyStatus === "copied" && <p className="doc-subtitle no-print">Text copied.</p>}
+              {copyStatus === "error" && <p className="doc-subtitle no-print">Copy failed. Please try again.</p>}
+              <p className="doc-title">DJ Prep Sheet</p>
+              <p className="doc-subtitle">{eventSettings.eventName || weddingDetails.couple || "Event"} · {eventSettings.weddingDate || weddingDetails.date || "TBD"}</p>
 
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Event Overview</SectionTitle>
-              <div className="mt-3 space-y-1 text-xs text-zinc-300">
-                <p>Couple: {weddingDetails.couple}</p>
-                <p>Date: {weddingDetails.date}</p>
-                <p>Venue: {weddingDetails.venue}</p>
-                <p>Timezone: {effectiveTimezone}</p>
-                <p>Type: {effectiveEventType}</p>
-                <p>Assigned DJ: {eventSettings.assignedDj || "TBD"}</p>
-                <p>Package: {eventSettings.packageName || "TBD"}</p>
-                <p>Ceremony Start: {ceremonyStartTime || "TBD"}</p>
-                <p>Officiant: {officiantName || "TBD"}</p>
-                <p>Microphones: {microphoneNeeds || "TBD"}</p>
-                <p>Internal Notes: {eventSettings.internalNotes || "None"}</p>
-                <p>Client Notes: {eventSettings.clientFacingNotes || "None"}</p>
+              <div className="doc-section print-break-avoid">
+                <h3>Event Overview</h3>
+                <table className="doc-table live-event-timeline-table">
+                  <tbody>
+                    <tr><th>Couple</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
+                    <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Type</th><td>{effectiveEventType || "TBD"}</td></tr>
+                    <tr><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
+                    <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                  </tbody>
+                </table>
               </div>
-            </PremiumCard>
 
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Timeline</SectionTitle>
-              <div className="mt-3 space-y-2">
-                {mergedTimelineItems.map((item) => (
-                  <div key={`${item.source}-${item.id}`} className="rounded-xl bg-white/5 p-3 text-xs">
-                    <p className="text-zinc-100">
-                      {item.time || "TBD"} - {item.title}
-                    </p>
-                    <p className="mt-1 text-zinc-400">
-                      {item.category}
-                      {item.needsDjMcAttention ? " | DJ/MC Attention" : ""}
-                    </p>
-                    {item.notes && <p className="mt-1 text-zinc-500">{item.notes}</p>}
-                  </div>
-                ))}
+              <div className="doc-section">
+                <h3>Timeline</h3>
+                <table className="doc-table">
+                  <thead><tr><th>Time</th><th>Moment</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    {mergedTimelineItems.map((item) => (
+                      <tr key={`${item.source}-${item.id}`}>
+                        <td>{item.time || "TBD"}</td>
+                        <td>{item.title} ({item.category})</td>
+                        <td>{item.notes || (item.needsDjMcAttention ? "DJ/MC Attention" : "-")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </PremiumCard>
 
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Ceremony Songs and Notes</SectionTitle>
-              <div className="mt-3 space-y-2 text-xs text-zinc-300">
-                <p>
-                  Wedding Party Processional: {weddingPartyProcessional.title || "TBD"}
-                  {weddingPartyProcessional.artist
-                    ? ` - ${weddingPartyProcessional.artist}`
-                    : ""}
-                </p>
-                <p>
-                  Bride/Groom Processional: {brideGroomProcessional.title || "TBD"}
-                  {brideGroomProcessional.artist ? ` - ${brideGroomProcessional.artist}` : ""}
-                </p>
-                <p>
-                  Unity Ceremony: {unityCeremonySong.title || "TBD"}
-                  {unityCeremonySong.artist ? ` - ${unityCeremonySong.artist}` : ""}
-                </p>
-                <p>
-                  Recessional: {recessionalSong.title || "TBD"}
-                  {recessionalSong.artist ? ` - ${recessionalSong.artist}` : ""}
-                </p>
-                <p className="text-zinc-500">Notes: {ceremonyNotes || "None"}</p>
+              <div className="doc-section"><h3>MC Announcements</h3><p>{mcAnnouncements || "None"}</p></div>
+              <div className="doc-section"><h3>General DJ Notes</h3><p>{generalDjNotes || "None"}</p></div>
+              <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`${song.id}-block`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
+              <div className="doc-section"><h3>Prep Footer</h3><p>{effectivePrepSheetFooter}</p></div>
+            </div>
+          </section>
+        )}
+
+        {authStage === "app" && appMode === "event" && activeScreen === "Live Event Mode" && (
+          <section className="mt-6 space-y-3 print-doc">
+            <div className="doc-sheet">
+              <div className="no-print mb-3 grid grid-cols-3 gap-2">
+                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">Print Live Event Mode</PrimaryButton>
+                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-700 text-white hover:bg-zinc-600">Export / Save as PDF</PrimaryButton>
+                <PrimaryButton onClick={copyLiveEventText} className="w-full bg-zinc-200 text-zinc-900 hover:bg-zinc-300">Copy Plain Text</PrimaryButton>
               </div>
-            </PremiumCard>
+              {copyStatus === "copied" && <p className="doc-subtitle no-print">Text copied.</p>}
+              {copyStatus === "error" && <p className="doc-subtitle no-print">Copy failed. Please try again.</p>}
 
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Formal Dances</SectionTitle>
-              <div className="mt-3 space-y-2">
-                {formalities.map((item) => (
-                  <div key={`${item.id}-prep`} className="rounded-xl bg-white/5 p-3 text-xs">
-                    <p className="text-zinc-100">
-                      {item.time || "TBD"} - {item.momentName}
-                    </p>
-                    <p className="mt-1 text-zinc-400">
-                      {item.songTitle || "Song TBD"}
-                      {item.artist ? ` - ${item.artist}` : ""}
-                    </p>
-                    <p className="mt-1 text-zinc-500">
-                      {item.includeInTimeline ? "In Timeline" : "Not in Timeline"}
-                      {item.needsDjMcAttention ? " | DJ/MC Attention" : ""}
-                      {item.fadeOutEarly
-                        ? ` | Fade ${item.fadeOutTimestamp || "TBD"}`
-                        : ""}
-                    </p>
-                  </div>
-                ))}
+              <p className="doc-title">Live Event Mode</p>
+              <p className="doc-subtitle">{eventSettings.eventName || weddingDetails.couple || "TBD"} · {eventSettings.weddingDate || weddingDetails.date || "TBD"}</p>
+
+              <div className="doc-section print-break-avoid">
+                <h3>Event Header</h3>
+                <table className="doc-table">
+                  <tbody>
+                    <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>Couple</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
+                    <tr><th>Date</th><td>{eventSettings.weddingDate || weddingDetails.date || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
+                    <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
+                  </tbody>
+                </table>
               </div>
-            </PremiumCard>
 
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Must Play Songs</SectionTitle>
-              <ul className="mt-3 space-y-1 text-xs text-zinc-300">
-                {mustPlaySongs.map((song) => (
-                  <li key={`${song.id}-prep`}>
-                    {song.title}
-                    {song.artist ? ` - ${song.artist}` : ""}
-                    {song.highPriority ? " (Priority)" : ""}
-                  </li>
-                ))}
-              </ul>
-            </PremiumCard>
-
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Do Not Play Songs</SectionTitle>
-              <ul className="mt-3 space-y-1 text-xs text-zinc-300">
-                {doNotPlaySongs.map((song) => (
-                  <li key={`${song.id}-block`}>
-                    {song.title}
-                    {song.artist ? ` - ${song.artist}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </PremiumCard>
-
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Guest Requests</SectionTitle>
-              <ul className="mt-3 space-y-2 text-xs text-zinc-300">
-                {guestRequests.map((request) => (
-                  <li key={`${request.id}-prep`} className="rounded-lg bg-white/5 px-2 py-2">
-                    <span className="font-medium text-zinc-100">{request.songTitle}</span>
-                    {request.artist ? ` - ${request.artist}` : ""}
-                    <span className="text-zinc-500"> · {request.guestName}</span>
-                    <span
-                      className={`ml-2 rounded-full px-2 py-0.5 text-[10px] uppercase ${guestRequestStatusBadgeClass(request.status)}`}
-                    >
-                      {request.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </PremiumCard>
-
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">General DJ Notes</SectionTitle>
-              <div className="mt-3">
-                <TextArea
-                  id="general-dj-notes"
-                  label="General DJ Notes"
-                  value={generalDjNotes}
-                  onChange={setGeneralDjNotes}
-                  rows={4}
-                  placeholder="Add live event notes, reminders, and technical prep..."
-                />
+              <p className="doc-subtitle no-print">Page 1: Event Overview + Ceremony Timeline</p>
+              <div className="doc-section">
+                <h3>Ceremony Timeline</h3>
+                <table className="doc-table">
+                  <tbody>
+                    <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
+                    <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                    <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
+                  </tbody>
+                </table>
+                <table className="doc-table mt-2">
+                  <thead>
+                    <tr>
+                      <th>Time / Order</th>
+                      <th>Moment</th>
+                      <th>Song</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ceremonyTimelineRows.map((row, index) => (
+                      <tr key={`live-ceremony-row-${index}-${row.moment}`}>
+                        <td>{row.order}</td>
+                        <td>{row.moment}</td>
+                        <td>{row.song}</td>
+                        <td>{row.notes || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </PremiumCard>
-
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">MC Announcements</SectionTitle>
-              <div className="mt-3">
-                <TextArea
-                  id="mc-announcements"
-                  label="MC Announcements"
-                  value={mcAnnouncements}
-                  onChange={setMcAnnouncements}
-                  rows={4}
-                  placeholder="Add key MC script points and announcement sequence..."
-                />
+              <p className="doc-subtitle no-print">Page 2: Reception Timeline</p>
+              <div className="doc-section live-reception-page-break print-break-avoid">
+                <h3>Reception Timeline</h3>
+                <table className="doc-table live-event-timeline-table">
+                  <thead>
+                    <tr>
+                      <th className="text-[15px] font-bold leading-[1.25]">Time</th>
+                      <th className="text-[15px] font-bold leading-[1.25]">Moment</th>
+                      <th className="text-[12.5px] font-medium leading-[1.3]">Song</th>
+                      <th className="text-[11.5px] font-medium leading-[1.35]">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mergedTimelineItems.map((item) => {
+                      const formalitySource =
+                        item.source === "formality"
+                          ? formalities.find((f) => f.id === item.id)
+                          : null;
+                      const songLabel = formalitySource?.songTitle
+                        ? `${formalitySource.songTitle}${formalitySource.artist ? ` - ${formalitySource.artist}` : ""}`
+                        : "";
+                      const songWithFade = songLabel
+                        ? `${songLabel}${formalitySource?.fadeOutEarly ? ` (Fade ${formalitySource.fadeOutTimestamp || "TBD"})` : ""}`
+                        : "-";
+                      const notesLabel = [
+                        item.notes || "",
+                        formalitySource?.notes || "",
+                        item.needsDjMcAttention ? "MC/DJ Attention" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <tr key={`live-timeline-${item.source}-${item.id}`}>
+                          <td className="text-[15px] font-bold leading-[1.25]">{item.time || "TBD"}</td>
+                          <td className="text-[15px] font-bold leading-[1.25]">{item.title}</td>
+                          <td className="text-[12.5px] font-medium leading-[1.3]">{songWithFade}</td>
+                          <td className="text-[11.5px] leading-[1.35]">{notesLabel || "-"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </PremiumCard>
-            <PremiumCard className="bg-[#16161c]">
-              <SectionTitle className="text-zinc-100">Prep Sheet Footer</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">{effectivePrepSheetFooter}</p>
-            </PremiumCard>
+              <div className="doc-section"><h3>Key Announcements / MC Scripts</h3><p>{mcAnnouncements || "None"}</p></div>
+              <div className="doc-section"><h3>Vendor Contacts</h3><table className="doc-table"><thead><tr><th>Type</th><th>Company</th><th>Contact</th></tr></thead><tbody>{vendors.map((vendor) => <tr key={`live-vendor-${vendor.id}`}><td>{vendor.vendorType}</td><td>{vendor.companyName}</td><td>{vendor.contactName || "No Contact"}{vendor.phone ? ` · ${vendor.phone}` : ""}{vendor.email ? ` · ${vendor.email}` : ""}</td></tr>)}</tbody></table></div>
+              <div className="doc-section"><h3>Music Notes</h3><p>{generalDjNotes || "None"}</p></div>
+              <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`live-dnp-${song.id}`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
+              <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
+            </div>
           </section>
         )}
 
@@ -4180,12 +5450,36 @@ export default function Home() {
                     }
                   />
                 </div>
-                <TextInput
-                  id="event-settings-assigned-dj"
-                  label="Assigned DJ"
-                  value={eventSettings.assignedDj}
-                  onChange={(value) => setEventSettings((prev) => ({ ...prev, assignedDj: value }))}
-                />
+                <div>
+                  <label
+                    htmlFor="event-settings-assigned-dj-select"
+                    className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                  >
+                    Assigned DJ from Team
+                  </label>
+                  <select
+                    id="event-settings-assigned-dj-select"
+                    value={eventSettings.assignedDj}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      const nextName = getTeamMemberName(nextId);
+                      setEventSettings((prev) => ({ ...prev, assignedDj: nextId }));
+                      if (nextId && nextId !== eventSettings.assignedDj) {
+                        logActivity("team_member_assigned", `Assigned DJ: ${nextName}`);
+                      }
+                    }}
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  >
+                    <option value="" className="bg-[#141419] text-zinc-100">
+                      Select a DJ
+                    </option>
+                    {activeDjTeamMembers.map((member) => (
+                      <option key={member.id} value={member.id} className="bg-[#141419] text-zinc-100">
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput
                     id="event-settings-planner-name"
@@ -4401,6 +5695,7 @@ export default function Home() {
                       "ceremony_updated",
                       "formality_updated",
                       "collaborator_invited",
+                      "vendor_updated",
                       "checklist_completed",
                       "template_applied",
                     ].map((type) => (
@@ -4445,12 +5740,148 @@ export default function Home() {
             ))}
             {filteredActivities.length === 0 && (
               <PremiumCard>
-                <p className="text-xs text-zinc-500">No activity matches the current filters.</p>
+                <p className="text-xs text-zinc-400">
+                  No activity matches the current filters. Try broadening event or type selection.
+                </p>
               </PremiumCard>
             )}
           </section>
         )}
       </main>
+
+      {authStage === "app" && quickActions.length > 0 && (
+        <>
+          <div
+            onClick={() => setQuickActionsOpen(false)}
+            className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-200 lg:hidden ${
+              quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          />
+          <div className="fixed bottom-24 right-4 z-50 flex w-[calc(100%-2rem)] max-w-[260px] flex-col items-end gap-2 lg:hidden">
+            <div
+              className={`w-full space-y-2 transition-all duration-200 ${
+                quickActionsOpen
+                  ? "pointer-events-auto translate-y-0 opacity-100"
+                  : "pointer-events-none translate-y-2 opacity-0"
+              }`}
+            >
+              {quickActions.slice(0, 6).map((action) => (
+                <PrimaryButton
+                  key={`qa-${action.id}`}
+                  onClick={() => {
+                    action.onClick();
+                    setQuickActionsOpen(false);
+                  }}
+                  className="w-full rounded-xl border border-white/15 bg-[#141419]/90 text-zinc-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)] hover:border-[#c9a35c]/35 hover:bg-[#191920]"
+                >
+                  {action.label}
+                </PrimaryButton>
+              ))}
+            </div>
+            <PrimaryButton
+              onClick={() => setQuickActionsOpen((prev) => !prev)}
+              className={`rounded-2xl border border-[#c9a35c]/35 bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-4 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${
+                quickActionsOpen ? "rotate-45" : ""
+              }`}
+            >
+              +
+            </PrimaryButton>
+          </div>
+        </>
+      )}
+
+      {teamModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-3 backdrop-blur lg:items-stretch lg:justify-end lg:p-5">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] lg:h-full lg:max-w-lg lg:rounded-3xl">
+            <div className="flex items-center justify-between gap-3">
+              <SectionTitle className="text-[#e9d5a8]">
+                {teamEditingId ? "Edit Team Member" : "Add Team Member"}
+              </SectionTitle>
+              <PrimaryButton
+                onClick={closeTeamMemberModal}
+                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+              >
+                Close
+              </PrimaryButton>
+            </div>
+            <div className="mt-4 space-y-3">
+              <TextInput
+                id="team-member-name"
+                label="Name"
+                value={teamNameDraft}
+                onChange={setTeamNameDraft}
+                disabled={!canManageEvents}
+              />
+              <div>
+                <label htmlFor="team-member-role" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                  Role
+                </label>
+                <select
+                  id="team-member-role"
+                  value={teamRoleDraft}
+                  disabled={!canManageEvents}
+                  onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none disabled:opacity-60"
+                >
+                  {(["Admin", "DJ", "Planner"] as const).map((role) => (
+                    <option key={`team-role-${role}`} value={role} className="bg-[#141419] text-zinc-100">
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <TextInput
+                  id="team-member-email"
+                  label="Email"
+                  value={teamEmailDraft}
+                  onChange={setTeamEmailDraft}
+                  disabled={!canManageEvents}
+                />
+                <TextInput
+                  id="team-member-phone"
+                  label="Phone"
+                  value={teamPhoneDraft}
+                  onChange={setTeamPhoneDraft}
+                  disabled={!canManageEvents}
+                />
+              </div>
+              <TextArea
+                id="team-member-notes"
+                label="Notes"
+                value={teamNotesDraft}
+                onChange={setTeamNotesDraft}
+                rows={3}
+                disabled={!canManageEvents}
+              />
+              <PrimaryButton
+                onClick={() => setTeamActiveDraft((prev) => !prev)}
+                disabled={!canManageEvents}
+                className={`w-full rounded-xl px-3 py-2 text-xs ${
+                  teamActiveDraft ? "bg-emerald-500/20 text-emerald-100" : "bg-white/10 text-zinc-300"
+                }`}
+              >
+                {teamActiveDraft ? "Active Member" : "Inactive Member"}
+              </PrimaryButton>
+              <div className="grid grid-cols-2 gap-2">
+                <PrimaryButton
+                  onClick={closeTeamMemberModal}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                >
+                  {teamEditingId ? "Cancel Edit" : "Cancel"}
+                </PrimaryButton>
+                <PrimaryButton
+                  onClick={saveTeamMember}
+                  disabled={!canManageEvents}
+                  className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60"
+                >
+                  {teamEditingId ? "Save Changes" : "Add Team Member"}
+                </PrimaryButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {inviteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur sm:items-center">
@@ -4566,11 +5997,11 @@ export default function Home() {
       )}
 
       {authStage === "app" && canManageEvents && eventModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur sm:items-center">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] cm-section-enter sm:max-w-2xl sm:max-h-[88vh] sm:overflow-y-auto">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-[#e9d5a8]">
-                {eventModalMode === "new" ? "New Event" : "Edit Event"}
+                {eventModalMode === "new" ? "Create Event" : "Edit Event"}
               </SectionTitle>
               <PrimaryButton
                 onClick={() => {
@@ -4583,22 +6014,40 @@ export default function Home() {
               </PrimaryButton>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-4">
               <TextInput
-                id="event-couple"
+                id="event-name"
                 label="Event Name"
-                value={eventDraft.couple}
+                value={eventDraft.eventName}
                 onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, couple: value }))
+                  setEventDraft((prev) => ({ ...prev, eventName: value }))
+                }
+                placeholder="e.g. Matt & Chaandra Wedding"
+              />
+              <TextInput
+                id="event-couple-names"
+                label="Couple Names"
+                value={eventDraft.coupleNames}
+                onChange={(value) =>
+                  setEventDraft((prev) => ({ ...prev, coupleNames: value }))
                 }
                 placeholder="e.g. Matt & Chaandra"
               />
               <TextInput
-                id="event-date"
-                label="Wedding Date"
-                value={eventDraft.date}
+                id="event-type"
+                label="Event Type"
+                value={eventDraft.eventType}
                 onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, date: value }))
+                  setEventDraft((prev) => ({ ...prev, eventType: value }))
+                }
+                placeholder={effectiveEventType}
+              />
+              <TextInput
+                id="event-date"
+                label="Wedding/Event Date"
+                value={eventDraft.weddingDate}
+                onChange={(value) =>
+                  setEventDraft((prev) => ({ ...prev, weddingDate: value }))
                 }
                 placeholder="e.g. Saturday, September 21, 2026"
               />
@@ -4610,6 +6059,87 @@ export default function Home() {
                   setEventDraft((prev) => ({ ...prev, venue: value }))
                 }
                 placeholder="e.g. The Grand Willow Estate"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <TextInput
+                  id="event-ceremony-location"
+                  label="Ceremony Location"
+                  value={eventDraft.ceremonyLocation}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, ceremonyLocation: value }))
+                  }
+                  placeholder="e.g. Garden Lawn"
+                />
+                <TextInput
+                  id="event-reception-location"
+                  label="Reception Location"
+                  value={eventDraft.receptionLocation}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, receptionLocation: value }))
+                  }
+                  placeholder="e.g. Main Ballroom"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="event-assigned-dj"
+                  className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                >
+                  Assigned DJ
+                </label>
+                <select
+                  id="event-assigned-dj"
+                  value={eventDraft.assignedDj}
+                  onChange={(event) =>
+                    setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                >
+                  <option value="" className="bg-[#141419] text-zinc-100">
+                    Select a DJ
+                  </option>
+                  {activeDjTeamMembers.map((member) => (
+                    <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-[#141419] text-zinc-100">
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <TextInput
+                id="event-package"
+                label="Package"
+                value={eventDraft.packageName}
+                onChange={(value) =>
+                  setEventDraft((prev) => ({ ...prev, packageName: value }))
+                }
+                placeholder="e.g. Signature Wedding Experience"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <TextInput
+                  id="event-planner-name"
+                  label="Planner Name"
+                  value={eventDraft.plannerName}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, plannerName: value }))
+                  }
+                />
+                <TextInput
+                  id="event-planner-email"
+                  label="Planner Email"
+                  value={eventDraft.plannerEmail}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
+                  }
+                />
+              </div>
+              <TextArea
+                id="event-internal-notes"
+                label="Internal Notes"
+                value={eventDraft.internalNotes}
+                onChange={(value) =>
+                  setEventDraft((prev) => ({ ...prev, internalNotes: value }))
+                }
+                rows={3}
               />
               {eventModalMode === "new" && (
                 <div>
@@ -4652,16 +6182,204 @@ export default function Home() {
                 onClick={handleSaveEventModal}
                 className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
               >
-                {eventModalMode === "new" ? "Create" : "Save"}
+                {eventModalMode === "new" ? "Create Event" : "Save Changes"}
               </PrimaryButton>
             </div>
           </div>
         </div>
       )}
 
-      {authStage === "app" && appMode === "event" && (
+      {vendorModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
+          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b0b14]/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-w-2xl sm:max-h-[90vh]">
+            <div className="shrink-0 border-b border-white/10 px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle className="text-[#e9d5a8]">
+                  {vendorEditingId ? "Edit Vendor" : "Add Vendor"}
+                </SectionTitle>
+                <PrimaryButton
+                  onClick={closeVendorModal}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                >
+                  Close
+                </PrimaryButton>
+              </div>
+            </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveVendor();
+              }}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="space-y-3 overflow-y-auto px-5 py-4">
+                <div>
+                  <label htmlFor="vendor-type" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                    Vendor Type
+                  </label>
+                  <select
+                    id="vendor-type"
+                    value={vendorTypeDraft}
+                    onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  >
+                    {VENDOR_TYPES.map((type) => (
+                      <option key={`vendor-type-option-${type}`} value={type} className="bg-[#141419] text-zinc-100">
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <TextInput id="vendor-company" label="Company Name" value={vendorCompanyDraft} onChange={setVendorCompanyDraft} />
+                <TextInput id="vendor-contact" label="Contact Name" value={vendorContactDraft} onChange={setVendorContactDraft} />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput id="vendor-email" label="Email" value={vendorEmailDraft} onChange={setVendorEmailDraft} />
+                  <TextInput id="vendor-phone" label="Phone" value={vendorPhoneDraft} onChange={setVendorPhoneDraft} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput id="vendor-website" label="Website" value={vendorWebsiteDraft} onChange={setVendorWebsiteDraft} />
+                  <TextInput id="vendor-instagram" label="Instagram" value={vendorInstagramDraft} onChange={setVendorInstagramDraft} />
+                </div>
+                <TextInput id="vendor-arrival-time" label="Arrival Time" value={vendorArrivalDraft} onChange={setVendorArrivalDraft} placeholder="e.g. 2:00 PM" />
+                <TextArea id="vendor-notes" label="Notes" value={vendorNotesDraft} onChange={setVendorNotesDraft} rows={2} />
+                <TextArea
+                  id="vendor-coordination"
+                  label="Special Coordination Notes"
+                  value={vendorCoordinationDraft}
+                  onChange={setVendorCoordinationDraft}
+                  rows={3}
+                />
+              </div>
+
+              <div className="shrink-0 border-t border-white/10 bg-[#0b0b14]/95 px-5 py-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <PrimaryButton
+                    type="button"
+                    onClick={closeVendorModal}
+                    className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                  >
+                    Cancel
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="submit"
+                    className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
+                  >
+                    Save Vendor
+                  </PrimaryButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {ceremonyTimelineModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
+          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b0b14]/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-w-2xl sm:max-h-[90vh]">
+            <div className="shrink-0 border-b border-white/10 px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle className="text-[#e9d5a8]">
+                  {ceremonyTimelineEditingId ? "Edit Ceremony Moment" : "Add Ceremony Moment"}
+                </SectionTitle>
+                <PrimaryButton
+                  onClick={() => {
+                    setCeremonyTimelineModalOpen(false);
+                    resetCeremonyTimelineDraft();
+                  }}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                >
+                  Close
+                </PrimaryButton>
+              </div>
+            </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveCeremonyTimelineItem();
+              }}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="space-y-3 overflow-y-auto px-5 py-4">
+                <TextInput
+                  id="ceremony-timeline-time-order"
+                  label="Time / Order"
+                  value={ceremonyTimelineDraftTimeOrOrder}
+                  onChange={setCeremonyTimelineDraftTimeOrOrder}
+                  placeholder="e.g. 3:30 PM or Prelude"
+                />
+                <TextInput
+                  id="ceremony-timeline-moment"
+                  label="Moment Name"
+                  value={ceremonyTimelineDraftMoment}
+                  onChange={setCeremonyTimelineDraftMoment}
+                  placeholder="e.g. Wedding Party Processional"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput
+                    id="ceremony-timeline-song-title"
+                    label="Song Title"
+                    value={ceremonyTimelineDraftSongTitle}
+                    onChange={setCeremonyTimelineDraftSongTitle}
+                    placeholder="Song title"
+                  />
+                  <TextInput
+                    id="ceremony-timeline-artist"
+                    label="Artist"
+                    value={ceremonyTimelineDraftArtist}
+                    onChange={setCeremonyTimelineDraftArtist}
+                    placeholder="Artist"
+                  />
+                </div>
+                <TextArea
+                  id="ceremony-timeline-notes"
+                  label="Notes"
+                  value={ceremonyTimelineDraftNotes}
+                  onChange={setCeremonyTimelineDraftNotes}
+                  placeholder="Cue notes, transitions, and callouts..."
+                  rows={3}
+                />
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
+                  className={`w-full ${
+                    ceremonyTimelineDraftNeedsAttention
+                      ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                      : "bg-white/5 text-zinc-400"
+                  }`}
+                >
+                  {ceremonyTimelineDraftNeedsAttention
+                    ? "DJ/MC Attention Required"
+                    : "Mark as DJ/MC Attention"}
+                </PrimaryButton>
+              </div>
+              <div className="shrink-0 border-t border-white/10 bg-[#0b0b14]/95 px-5 py-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => {
+                      setCeremonyTimelineModalOpen(false);
+                      resetCeremonyTimelineDraft();
+                    }}
+                    className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                  >
+                    Cancel
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="submit"
+                    className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
+                  >
+                    {ceremonyTimelineEditingId ? "Save Changes" : "Add Moment"}
+                  </PrimaryButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {authStage === "app" && (
         <BottomNav
-          items={navItems}
+          items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
           activeScreen={activeScreen}
           onSelect={setActiveScreen}
         />

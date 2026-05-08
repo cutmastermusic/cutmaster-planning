@@ -1,4 +1,5 @@
 import type {
+  CeremonyTimelineItem,
   CeremonySongPlan,
   Collaborator,
   EventRecord,
@@ -11,14 +12,18 @@ import type {
   TimelineTemplate,
   AppSettings,
   EventSettings,
+  TeamMember,
+  Vendor,
 } from "@/types/planning";
 
 type SeedEventPlanningPayload = {
   timelineItems: TimelineItem[];
+  ceremonyTimelineItems: CeremonyTimelineItem[];
   formalities: FormalityItem[];
   mustPlaySongs: SongEntry[];
   doNotPlaySongs: SongEntry[];
   ceremonyStartTime: string;
+  ceremonyGuestArrivalTime: string;
   officiantName: string;
   ceremonyNotes: string;
   microphoneNeeds: string;
@@ -27,6 +32,7 @@ type SeedEventPlanningPayload = {
   unityCeremonySong: CeremonySongPlan;
   recessionalSong: CeremonySongPlan;
   plannerNotes: string[];
+  vendors: Vendor[];
   guestRequests: GuestRequestEntry[];
   generalDjNotes: string;
   mcAnnouncements: string;
@@ -159,6 +165,54 @@ export const initialTimelineItems: TimelineItem[] = [
   },
 ];
 
+export const initialCeremonyTimelineItems: CeremonyTimelineItem[] = [
+  {
+    id: "ceremony-timeline-1",
+    timeOrOrder: "Prelude",
+    moment: "Guest Arrival / Prelude",
+    songTitle: "",
+    artist: "",
+    notes: "Soft arrival bed while guests are seated.",
+    needsDjMcAttention: false,
+  },
+  {
+    id: "ceremony-timeline-2",
+    timeOrOrder: "Processional",
+    moment: "Wedding Party Processional",
+    songTitle: "Canon in D",
+    artist: "The O'Neill Brothers",
+    notes: "Fade in softly as first pair starts.",
+    needsDjMcAttention: true,
+  },
+  {
+    id: "ceremony-timeline-3",
+    timeOrOrder: "Bride/Groom Processional",
+    moment: "Bride/Groom Processional",
+    songTitle: "A Thousand Years (Instrumental)",
+    artist: "The Piano Guys",
+    notes: "Begin at aisle doors opening.",
+    needsDjMcAttention: true,
+  },
+  {
+    id: "ceremony-timeline-4",
+    timeOrOrder: "Unity",
+    moment: "Unity Ceremony",
+    songTitle: "Stand by Me",
+    artist: "Florence + The Machine",
+    notes: "Play low underneath officiant guidance.",
+    needsDjMcAttention: false,
+  },
+  {
+    id: "ceremony-timeline-5",
+    timeOrOrder: "Recessional",
+    moment: "Recessional",
+    songTitle: "Signed, Sealed, Delivered",
+    artist: "Stevie Wonder",
+    notes: "Start right after first kiss announcement.",
+    needsDjMcAttention: true,
+  },
+];
+
 export const initialFormalities: FormalityItem[] = [
   { id: "formality-1", momentName: "Grand Entrance", time: "5:50 PM", songTitle: "Bring Em Out", artist: "T.I.", notes: "Announce wedding party then couple with energy.", fadeOutEarly: true, fadeOutTimestamp: "0:55", includeInTimeline: true, needsDjMcAttention: true },
   { id: "formality-2", momentName: "First Dance", time: "7:25 PM", songTitle: "At Last", artist: "Etta James", notes: "Fade into applause and invite parents for next dance.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
@@ -197,6 +251,7 @@ export const initialCeremonyNotes =
   "Coordinate with planner for final cue confirmations 10 minutes before start.";
 export const initialOfficiantName = "Reverend Taylor Brooks";
 export const initialCeremonyStartTime = "4:00 PM";
+export const initialCeremonyGuestArrivalTime = "3:30 PM";
 export const initialMicrophoneNeeds =
   "Wireless lav for officiant, handheld backup near first row.";
 export const initialGeneralDjNotes =
@@ -207,6 +262,35 @@ export const initialPlannerNotes: string[] = [
   "Confirm final timeline with photographer by Monday.",
   "Upload final must-play list after tasting night.",
   "Review sparkler exit safety timing with venue team.",
+];
+
+export const initialVendors: Vendor[] = [
+  {
+    id: "vendor-1",
+    vendorType: "Photographer",
+    companyName: "Lumen Wedding Photo",
+    contactName: "Mia Carter",
+    email: "mia@lumenphoto.com",
+    phone: "(505) 555-0191",
+    notes: "Golden hour portraits before sunset.",
+    website: "https://lumenphoto.com",
+    instagram: "@lumenphoto",
+    arrivalTime: "2:00 PM",
+    specialCoordinationNotes: "Coordinate first look timing with planner and DJ.",
+  },
+  {
+    id: "vendor-2",
+    vendorType: "Caterer",
+    companyName: "Sage & Salt Catering",
+    contactName: "Jordan Hayes",
+    email: "events@sageandsalt.com",
+    phone: "(505) 555-0177",
+    notes: "Late-night bite opens at 9:45 PM.",
+    website: "https://sageandsalt.com",
+    instagram: "@sageandsalt",
+    arrivalTime: "12:00 PM",
+    specialCoordinationNotes: "Sync timeline with speeches and dinner service transitions.",
+  },
 ];
 
 export const progressCards = [
@@ -226,6 +310,36 @@ export const sectionTabs: Screen[] = [
   "Formal Dances",
   "Notes",
   "DJ Prep Sheet",
+];
+
+export const initialTeamMembers: TeamMember[] = [
+  {
+    id: "tm-admin-1",
+    name: "Cutmaster Admin",
+    role: "Admin",
+    email: "admin@cutmastermusic.com",
+    phone: "(505) 555-0101",
+    notes: "Oversees all production and operations.",
+    isActive: true,
+  },
+  {
+    id: "tm-dj-1",
+    name: "Jordan Vega",
+    role: "DJ",
+    email: "jordan@cutmastermusic.com",
+    phone: "(505) 555-0110",
+    notes: "Lead bilingual wedding DJ.",
+    isActive: true,
+  },
+  {
+    id: "tm-planner-1",
+    name: "Avery Lane",
+    role: "Planner",
+    email: "avery@cutmastermusic.com",
+    phone: "(505) 555-0120",
+    notes: "Planning ops and vendor coordination.",
+    isActive: true,
+  },
 ];
 
 export const vibeBuckets = [
@@ -281,10 +395,12 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
   };
   const common = {
     timelineItems: payload.timelineItems,
+    ceremonyTimelineItems: payload.ceremonyTimelineItems,
     formalities: payload.formalities,
     mustPlaySongs: payload.mustPlaySongs,
     doNotPlaySongs: payload.doNotPlaySongs,
     ceremonyStartTime: payload.ceremonyStartTime,
+    ceremonyGuestArrivalTime: payload.ceremonyGuestArrivalTime,
     officiantName: payload.officiantName,
     ceremonyNotes: payload.ceremonyNotes,
     microphoneNeeds: payload.microphoneNeeds,
@@ -293,6 +409,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     unityCeremonySong: payload.unityCeremonySong,
     recessionalSong: payload.recessionalSong,
     plannerNotes: payload.plannerNotes,
+    vendors: payload.vendors,
     guestRequests: payload.guestRequests,
     generalDjNotes: payload.generalDjNotes,
     mcAnnouncements: payload.mcAnnouncements,

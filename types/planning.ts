@@ -1,5 +1,8 @@
 export type Screen =
+  | "All Events"
+  | "Team"
   | "Dashboard"
+  | "Command Center"
   | "Music"
   | "Music Import"
   | "Timeline"
@@ -8,6 +11,8 @@ export type Screen =
   | "Guest Requests"
   | "Ceremony"
   | "Formal Dances"
+  | "Live Event Mode"
+  | "Vendors"
   | "Notes"
   | "DJ Prep Sheet"
   | "Planning Checklist"
@@ -87,6 +92,16 @@ export type CeremonyPlan = {
   notes: string;
 };
 
+export type CeremonyTimelineItem = {
+  id: string;
+  timeOrOrder: string;
+  moment: string;
+  songTitle: string;
+  artist: string;
+  notes: string;
+  needsDjMcAttention: boolean;
+};
+
 export type PlanningInsight = {
   id: string;
   section: "timeline" | "music" | "ceremony" | "guest";
@@ -108,6 +123,44 @@ export type Collaborator = {
   status: InviteStatus;
 };
 
+export type VendorType =
+  | "Planner"
+  | "Photographer"
+  | "Videographer"
+  | "Venue"
+  | "Caterer"
+  | "Florist"
+  | "Hair/Makeup"
+  | "Photo Booth"
+  | "Officiant"
+  | "Band"
+  | "Content Creator"
+  | "Other";
+
+export type Vendor = {
+  id: string;
+  vendorType: VendorType;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  notes: string;
+  website: string;
+  instagram: string;
+  arrivalTime: string;
+  specialCoordinationNotes: string;
+};
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  role: "Admin" | "DJ" | "Planner";
+  email: string;
+  phone: string;
+  notes: string;
+  isActive: boolean;
+};
+
 export type InviteAccessPreview = {
   eventId: string;
   role: UserRole;
@@ -120,10 +173,12 @@ export type Event = {
   meta: WeddingDetails;
   collaborators: Collaborator[];
   timelineItems: TimelineItem[];
+  ceremonyTimelineItems: CeremonyTimelineItem[];
   formalities: Formality[];
   mustPlaySongs: SongEntry[];
   doNotPlaySongs: SongEntry[];
   ceremonyStartTime: string;
+  ceremonyGuestArrivalTime: string;
   officiantName: string;
   ceremonyNotes: string;
   microphoneNeeds: string;
@@ -135,6 +190,7 @@ export type Event = {
   guestRequests: SongRequest[];
   generalDjNotes: string;
   mcAnnouncements: string;
+  vendors: Vendor[];
   settings: EventSettings;
 };
 
@@ -193,6 +249,9 @@ export type ActivityType =
   | "ceremony_updated"
   | "formality_updated"
   | "collaborator_invited"
+  | "team_member_added"
+  | "team_member_assigned"
+  | "vendor_updated"
   | "checklist_completed"
   | "template_applied";
 
