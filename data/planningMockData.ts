@@ -471,7 +471,9 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
+    eventLifecycleStatus: "active",
   };
+  const seedNow = Date.now();
   const common = {
     timelineItems: payload.timelineItems,
     ceremonyTimelineItems: payload.ceremonyTimelineItems,
@@ -498,6 +500,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
   return [
     {
       id: "evt-1",
+      lastUpdatedAt: seedNow - 86400000 * 5,
       meta: {
         couple: "Matt & Chaandra",
         date: "Saturday, August 8, 2026",
@@ -508,6 +511,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     },
     {
       id: "evt-2",
+      lastUpdatedAt: seedNow - 86400000 * 2,
       meta: {
         couple: "Los Poblanos Wedding",
         date: "Saturday, September 27, 2026",
@@ -518,6 +522,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     },
     {
       id: "evt-3",
+      lastUpdatedAt: seedNow - 3600000,
       meta: {
         couple: "Downtown Showcase",
         date: "Saturday, November 2, 2026",

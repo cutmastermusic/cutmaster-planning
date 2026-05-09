@@ -41,7 +41,6 @@ import {
   initialVendors,
   initialUnityCeremonySong,
   initialWeddingPartyProcessional,
-  progressCards,
   timelineCategories,
   vibeBuckets,
 } from "@/data/planningMockData";
@@ -55,6 +54,7 @@ import type {
   CeremonyTimelineItem,
   Collaborator,
   DisplayTimelineItem,
+  EventLifecycleStatus,
   EventSettings,
   EventRecord,
   FormalityItem,
@@ -80,7 +80,13 @@ import type {
   PlaylistBucketId,
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
-import { buildPlanningInsights, cloneJson } from "@/utils/planning";
+import {
+  approximatePlanningProgressPercent,
+  buildPlanningInsights,
+  cloneJson,
+  eventCoverFallbackClasses,
+  readImageFileAsDataUrl,
+} from "@/utils/planning";
 import {
   computePlanningQuestionGroupCompletion,
   groupPlanningQuestionsBySection,
@@ -936,7 +942,11 @@ function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
 const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
 
 export default function Home() {
-  const timelineFormRef = useRef<HTMLDivElement | null>(null);
+  const timelineComposerRef = useRef<HTMLDivElement | null>(null);
+  const timelineStreamRef = useRef<HTMLDivElement | null>(null);
+  const ceremonyTimelineComposerRef = useRef<HTMLDivElement | null>(null);
+  const ceremonyTimelineStreamRef = useRef<HTMLDivElement | null>(null);
+  const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const hasParsedInviteParams = useRef(false);
   const {
     activeScreen,
@@ -989,6 +999,10 @@ export default function Home() {
   const [editingTimelineId, setEditingTimelineId] = useState<string | null>(null);
   const [draggingTimelineId, setDraggingTimelineId] = useState<string | null>(null);
   const [dropTargetTimelineId, setDropTargetTimelineId] = useState<string | null>(null);
+  /** Reception/main timeline: collapsed summary vs expanded inline edit */
+  const [receptionTimelineExpandedId, setReceptionTimelineExpandedId] = useState<string | null>(null);
+  /** Compact add/edit panel for new items (not inline-expanded rows) */
+  const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   const [weddingPartyProcessional, setWeddingPartyProcessional] = useState<CeremonySongPlan>(
     initialWeddingPartyProcessional,
   );
@@ -1071,6 +1085,7 @@ export default function Home() {
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
+    eventLifecycleStatus: "active",
   });
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
@@ -1116,6 +1131,16 @@ export default function Home() {
       mcAnnouncements,
     }),
   );
+
+  const [allEventsSearch, setAllEventsSearch] = useState("");
+  const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
+  const [allEventsLifecycleFilter, setAllEventsLifecycleFilter] = useState<
+    "open" | "active" | "completed" | "archived" | "all"
+  >("open");
+  const [allEventsTimingFilter, setAllEventsTimingFilter] = useState<"all" | "upcoming" | "past">("all");
+  const [allEventsSort, setAllEventsSort] = useState<
+    "date-asc" | "date-desc" | "recently-updated" | "alpha"
+  >("date-asc");
 
   const activeEvent = events.find((e) => e.id === activeEventId) ?? events[0];
   const weddingDetails: WeddingDetails = activeEvent?.meta ?? {
@@ -1180,8 +1205,10 @@ export default function Home() {
   const [vendorInstagramDraft, setVendorInstagramDraft] = useState("");
   const [vendorArrivalDraft, setVendorArrivalDraft] = useState("");
   const [vendorCoordinationDraft, setVendorCoordinationDraft] = useState("");
-  const [ceremonyTimelineModalOpen, setCeremonyTimelineModalOpen] = useState(false);
-  const [ceremonyTimelineEditingId, setCeremonyTimelineEditingId] = useState<string | null>(null);
+  /** Ceremony timeline: collapsed summary vs expanded inline edit */
+  const [ceremonyTimelineExpandedId, setCeremonyTimelineExpandedId] = useState<string | null>(null);
+  /** Compact composer for new ceremony moments */
+  const [ceremonyTimelineComposerOpen, setCeremonyTimelineComposerOpen] = useState(false);
   const [ceremonyTimelineDraftTimeOrOrder, setCeremonyTimelineDraftTimeOrOrder] = useState("");
   const [ceremonyTimelineDraftMoment, setCeremonyTimelineDraftMoment] = useState("");
   const [ceremonyTimelineDraftSongTitle, setCeremonyTimelineDraftSongTitle] = useState("");
@@ -1197,6 +1224,7 @@ export default function Home() {
         evt.id === activeEventId
           ? {
               ...evt,
+              lastUpdatedAt: Date.now(),
               meta: {
                 ...evt.meta,
                 couple: eventSettings.coupleNames || evt.meta.couple,
@@ -1333,6 +1361,8 @@ export default function Home() {
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+        coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+        eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
       }),
     );
 
@@ -1416,8 +1446,10 @@ export default function Home() {
     if (type === "ceremony_updated") return "💍";
     if (type === "formality_updated") return "💃";
     if (type === "collaborator_invited") return "👥";
+    if (type === "collaborator_removed_from_event") return "🚪";
     if (type === "team_member_added") return "🧑‍💼";
     if (type === "team_member_assigned") return "🎧";
+    if (type === "team_member_removed_from_event") return "🧾";
     if (type === "vendor_updated") return "🏢";
     if (type === "checklist_completed") return "☑️";
     if (type === "template_applied") return "🧩";
@@ -1434,6 +1466,7 @@ export default function Home() {
     const templateSuggestions = template ? cloneJson(template.planningSuggestions) : cloneJson(plannerNotes);
     return {
       id: ids.eventId,
+      lastUpdatedAt: Date.now(),
       meta,
       collaborators: [
         {
@@ -1509,6 +1542,7 @@ export default function Home() {
         planningQuestionAnswers: {},
         checklistDueDates: {},
         checklistManualStatuses: {},
+        eventLifecycleStatus: "active",
       },
     };
   };
@@ -1991,12 +2025,15 @@ export default function Home() {
   };
 
   const dashboardEyebrowText = useMemo(() => {
-    const coupleView = (currentRole ?? rolePreview) === "Couple";
-    if (coupleView) {
+    const role = currentRole ?? rolePreview;
+    if (role === "Couple") {
       if (layoutProfileForActiveEvent === "Wedding") return "Your wedding planning journey";
       if (layoutProfileForActiveEvent === "Gender-Neutral Wedding") return "Your wedding planning journey";
       return "Your event planning journey";
     }
+    if (role === "Planner") return "Coordination & logistics";
+    if (role === "DJ") return "Performance & execution";
+    if (role === "Admin") return "Operations & full editing";
     return "Event planning dashboard";
   }, [currentRole, rolePreview, layoutProfileForActiveEvent]);
 
@@ -2022,7 +2059,80 @@ export default function Home() {
   const canManageGuestRequests = effectiveRole === "Admin" || effectiveRole === "Couple";
   const canEditNotes = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canManageEvents = effectiveRole === "Admin";
+  const canEditEventCover = effectiveRole !== "DJ";
+  const canEditEventLifecycle = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canAddFormality = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Planner";
+
+  const applyEventCoverPhoto = useCallback(
+    (dataUrl: string | undefined) => {
+      setEventSettings((prev) => ({ ...prev, coverPhotoDataUrl: dataUrl }));
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? { ...evt, settings: { ...evt.settings, coverPhotoDataUrl: dataUrl } }
+            : evt,
+        ),
+      );
+    },
+    [activeEventId],
+  );
+
+  const handleEventCoverPhotoChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const dataUrl = await readImageFileAsDataUrl(file, 2_800_000);
+        applyEventCoverPhoto(dataUrl);
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Could not use that image.");
+      }
+    },
+    [applyEventCoverPhoto],
+  );
+
+  const applyEventLifecycleStatus = useCallback(
+    (status: EventLifecycleStatus) => {
+      setEventSettings((prev) => ({ ...prev, eventLifecycleStatus: status }));
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+                ...evt,
+                lastUpdatedAt: Date.now(),
+                settings: { ...evt.settings, eventLifecycleStatus: status },
+              }
+            : evt,
+        ),
+      );
+    },
+    [activeEventId],
+  );
+
+  const viewerRoleBadgeForEvent = useCallback(
+    (evt: EventRecord): string | null => {
+      const role = effectiveRole;
+      if (role === "Admin") return null;
+      if (role === "DJ") {
+        const activeDj = teamMembers.find((m) => m.role === "DJ" && m.isActive);
+        const assigned = evt.settings?.assignedDj?.trim();
+        if (activeDj && assigned && (assigned === activeDj.id || assigned === activeDj.name)) {
+          return "Assigned DJ";
+        }
+        return null;
+      }
+      const collab = (evt.collaborators ?? []).some(
+        (c) => c.role === role && c.status === "Accepted",
+      );
+      if (!collab) return null;
+      return role === "Couple" ? "Client" : role;
+    },
+    [effectiveRole, teamMembers],
+  );
+
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
@@ -2282,8 +2392,9 @@ export default function Home() {
           setTimelineNotes("");
           setTimelineNeedsAttention(false);
           setEditingTimelineId(null);
+          setTimelineComposerOpen(true);
           window.setTimeout(() => {
-            timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
           }, 0);
         },
         priority:
@@ -2313,7 +2424,7 @@ export default function Home() {
           logActivity("formality_updated", "Added formality");
           pushNotification("Timeline updated", "timeline_updated");
           window.setTimeout(() => {
-            timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+            timelineStreamRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
           }, 0);
         },
         priority:
@@ -2387,7 +2498,8 @@ export default function Home() {
     pushNotification,
     setActiveScreen,
     setFormalities,
-    timelineFormRef,
+    timelineComposerRef,
+    timelineStreamRef,
   ]);
 
   const visibleEvents = useMemo(() => {
@@ -2423,6 +2535,112 @@ export default function Home() {
     const parsed = Date.parse(value);
     return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
   }, []);
+
+  const allEventsFilteredAndSorted = useMemo(() => {
+    const q = allEventsSearch.trim().toLowerCase();
+    const searching = q.length > 0;
+
+    const matchesSearchFields = (evt: EventRecord, query: string) => {
+      const profile = resolveLayoutProfileForDisplay(evt.settings, appSettings.defaultEventType);
+      const blob = [
+        evt.settings?.eventName,
+        evt.meta.couple,
+        evt.settings?.coupleNames,
+        evt.settings?.venue,
+        evt.meta.venue,
+        evt.settings?.eventType,
+        profile,
+        PRIMARY_PARTY_SHORT_LABEL[profile],
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return blob.includes(query);
+    };
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayMs = todayStart.getTime();
+
+    const matchesTiming = (evt: EventRecord) => {
+      if (allEventsTimingFilter === "all") return true;
+      const raw = evt.settings?.weddingDate || evt.meta.date || "";
+      const eventMs = Date.parse(raw);
+      if (Number.isNaN(eventMs)) {
+        return allEventsTimingFilter === "upcoming";
+      }
+      if (allEventsTimingFilter === "upcoming") {
+        return eventMs >= todayMs;
+      }
+      return eventMs < todayMs;
+    };
+
+    const matchesLifecycle = (evt: EventRecord) => {
+      const life: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
+      switch (allEventsLifecycleFilter) {
+        case "all":
+          return true;
+        case "active":
+          return life === "active";
+        case "completed":
+          return life === "completed";
+        case "archived":
+          return life === "archived";
+        case "open":
+          if (life === "archived") {
+            return searching && matchesSearchFields(evt, q);
+          }
+          return life === "active" || life === "completed";
+        default:
+          return true;
+      }
+    };
+
+    let rows = visibleEvents.filter((evt) => {
+      if (!matchesLifecycle(evt)) return false;
+      if (!matchesTiming(evt)) return false;
+      const profile = resolveLayoutProfileForDisplay(evt.settings, appSettings.defaultEventType);
+      if (allEventsProfileFilter !== "all" && profile !== allEventsProfileFilter) {
+        return false;
+      }
+      if (!searching) return true;
+      return matchesSearchFields(evt, q);
+    });
+
+    const nameOf = (e: EventRecord) =>
+      (e.settings?.eventName || e.meta.couple || "").trim().toLowerCase();
+
+    rows = [...rows].sort((a, b) => {
+      switch (allEventsSort) {
+        case "alpha":
+          return nameOf(a).localeCompare(nameOf(b));
+        case "recently-updated":
+          return (b.lastUpdatedAt ?? 0) - (a.lastUpdatedAt ?? 0);
+        case "date-desc":
+          return (
+            parseEventDateTime(b.settings?.weddingDate || b.meta.date) -
+            parseEventDateTime(a.settings?.weddingDate || a.meta.date)
+          );
+        case "date-asc":
+        default:
+          return (
+            parseEventDateTime(a.settings?.weddingDate || a.meta.date) -
+            parseEventDateTime(b.settings?.weddingDate || b.meta.date)
+          );
+      }
+    });
+
+    return rows;
+  }, [
+    allEventsLifecycleFilter,
+    allEventsProfileFilter,
+    allEventsSearch,
+    allEventsSort,
+    allEventsTimingFilter,
+    appSettings.defaultEventType,
+    parseEventDateTime,
+    visibleEvents,
+  ]);
 
   const commandCenterEvents = useMemo(() => {
     return [...visibleEvents].sort(
@@ -2541,7 +2759,12 @@ export default function Home() {
 
   const deleteTeamMember = (teamMemberId: string) => {
     const target = teamMembers.find((member) => member.id === teamMemberId);
-    const ok = typeof window === "undefined" ? true : window.confirm(`Delete team member "${target?.name || "this member"}"?`);
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
+          );
     if (!ok) return;
     setTeamMembers((prev) => prev.filter((member) => member.id !== teamMemberId));
     setEvents((prev) =>
@@ -2557,10 +2780,141 @@ export default function Home() {
           : evt,
       ),
     );
+    setEventSettings((prev) =>
+      prev.assignedDj === teamMemberId ? { ...prev, assignedDj: "" } : prev,
+    );
     if (teamEditingId === teamMemberId) {
       closeTeamMemberModal();
     }
   };
+
+  const isTeamMemberAssignedToActiveEvent = useCallback(
+    (member: TeamMember) => {
+      if (!activeEventId) return false;
+      const settings = events.find((e) => e.id === activeEventId)?.settings;
+      if (!settings) return false;
+      const ad = settings.assignedDj?.trim() ?? "";
+      if (member.role === "DJ" && (ad === member.id || ad === member.name)) return true;
+      if (member.role === "Planner") {
+        const pem = settings.plannerEmail?.trim().toLowerCase() ?? "";
+        const pmail = member.email.trim().toLowerCase();
+        if (pmail && pem && pmail === pem) return true;
+        const pn = settings.plannerName?.trim() ?? "";
+        const nm = member.name.trim();
+        if (nm && pn && nm === pn) return true;
+      }
+      return false;
+    },
+    [activeEventId, events],
+  );
+
+  const removeTeamMemberFromActiveEvent = useCallback(
+    (member: TeamMember) => {
+      if (!canManageEvents || !activeEventId) return;
+      const evt = events.find((e) => e.id === activeEventId);
+      const settings = evt?.settings;
+      if (!settings) return;
+
+      const ad = settings.assignedDj?.trim() ?? "";
+      const djMatch =
+        member.role === "DJ" && (ad === member.id || ad === member.name);
+
+      const pem = settings.plannerEmail?.trim().toLowerCase() ?? "";
+      const pmail = member.email.trim().toLowerCase();
+      const pn = settings.plannerName?.trim() ?? "";
+      const nm = member.name.trim();
+      const plannerMatch =
+        member.role === "Planner" &&
+        ((Boolean(pmail) && Boolean(pem) && pmail === pem) ||
+          (Boolean(nm) && Boolean(pn) && nm === pn));
+
+      if (!djMatch && !plannerMatch) return;
+
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm(
+          `Remove "${member.name}" from this event only? They remain on your workspace team roster.`,
+        )
+      ) {
+        return;
+      }
+
+      setEvents((prev) =>
+        prev.map((e) => {
+          if (e.id !== activeEventId) return e;
+          let nextSettings = { ...e.settings };
+          if (djMatch) {
+            nextSettings = { ...nextSettings, assignedDj: "" };
+          }
+          if (plannerMatch) {
+            nextSettings = { ...nextSettings, plannerName: "", plannerEmail: "" };
+          }
+          return { ...e, settings: nextSettings, lastUpdatedAt: Date.now() };
+        }),
+      );
+
+      setEventSettings((prev) => {
+        let next = { ...prev };
+        const prevDj = prev.assignedDj?.trim() ?? "";
+        if (djMatch && (prevDj === member.id || prevDj === member.name)) {
+          next = { ...next, assignedDj: "" };
+        }
+        const prevPe = prev.plannerEmail?.trim().toLowerCase() ?? "";
+        const prevPn = prev.plannerName?.trim() ?? "";
+        if (
+          plannerMatch &&
+          ((pmail && prevPe === pmail) || (nm && prevPn === nm))
+        ) {
+          next = { ...next, plannerName: "", plannerEmail: "" };
+        }
+        return next;
+      });
+
+      logActivity(
+        "team_member_removed_from_event",
+        `Removed ${member.name} from event`,
+      );
+    },
+    [activeEventId, canManageEvents, events, logActivity],
+  );
+
+  const clearAssignedDjFromActiveEvent = useCallback(() => {
+    if (!canManageEvents || !activeEventId) return;
+    const djVal = eventSettings.assignedDj?.trim() ?? "";
+    if (!djVal) return;
+    const label =
+      teamMembers.find((m) => m.id === djVal || m.name === djVal)?.name || djVal;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Remove ${label} as assigned DJ for this event only? This does not remove anyone from your workspace team.`,
+      )
+    ) {
+      return;
+    }
+    setEventSettings((prev) => ({ ...prev, assignedDj: "" }));
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === activeEventId
+          ? {
+              ...e,
+              lastUpdatedAt: Date.now(),
+              settings: { ...e.settings, assignedDj: "" },
+            }
+          : e,
+      ),
+    );
+    logActivity(
+      "team_member_removed_from_event",
+      `Removed DJ assignment (${label}) from event`,
+    );
+  }, [
+    activeEventId,
+    canManageEvents,
+    eventSettings.assignedDj,
+    logActivity,
+    teamMembers,
+  ]);
 
   const resetVendorDraft = () => {
     setVendorEditingId(null);
@@ -2694,60 +3048,6 @@ export default function Home() {
       sectionGuestRequestsEnabled,
       sectionPlanningChecklistEnabled,
       sectionPlanningQuestionsEnabled,
-    });
-  }, [
-    effectiveRole,
-    sectionCeremonyEnabled,
-    sectionDoNotPlayEnabled,
-    sectionFormalitiesEnabled,
-    sectionGuestRequestsEnabled,
-    sectionMustPlayEnabled,
-    sectionMcScriptEnabled,
-    sectionMusicNotesEnabled,
-    sectionPlanningChecklistEnabled,
-    sectionPlanningQuestionsEnabled,
-    sectionPlaylistsEnabled,
-    sectionReceptionTimelineEnabled,
-    sectionVendorContactsEnabled,
-  ]);
-
-  const dashboardQuickScreens = useMemo((): Screen[] => {
-    const includeExportScreens =
-      sectionReceptionTimelineEnabled ||
-      sectionCeremonyEnabled ||
-      sectionFormalitiesEnabled ||
-      sectionMustPlayEnabled ||
-      sectionPlaylistsEnabled ||
-      sectionDoNotPlayEnabled ||
-      sectionGuestRequestsEnabled ||
-      sectionVendorContactsEnabled ||
-      sectionMcScriptEnabled ||
-      sectionMusicNotesEnabled ||
-      sectionPlanningChecklistEnabled ||
-      sectionPlanningQuestionsEnabled;
-
-    const base: Screen[] = [
-      ...(sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled
-        ? (["Music Hub"] as Screen[])
-        : []),
-      ...(sectionReceptionTimelineEnabled || sectionFormalitiesEnabled
-        ? (["Timeline"] as Screen[])
-        : []),
-      ...(sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
-      ...(sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
-      ...(sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
-      ...(sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
-      ...(sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
-      ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
-    ];
-    const receptionHubEligibleQuick =
-      sectionReceptionTimelineEnabled || sectionFormalitiesEnabled;
-    if (effectiveRole !== "Couple" || !receptionHubEligibleQuick) return base;
-    return base.map((s) => {
-      if (s === "Timeline" && (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)) {
-        return "Reception Timeline";
-      }
-      return s;
     });
   }, [
     effectiveRole,
@@ -3011,7 +3311,18 @@ export default function Home() {
       });
     }
 
-    return cards;
+    const clientHomeOrder = [
+      "ceremony",
+      "reception",
+      "music",
+      "planning-questions",
+      "vendors",
+      "event-prep",
+      "guest-requests",
+    ];
+    return clientHomeOrder
+      .map((id) => cards.find((c) => c.id === id))
+      .filter((c): c is (typeof cards)[number] => Boolean(c));
   }, [
     coupleTimelineEntryScreen,
     eventNavItems,
@@ -3050,6 +3361,291 @@ export default function Home() {
     guestRequests,
     planningQuestionsForEvent,
   ]);
+
+  const primaryTimelineScreenForHome = useMemo((): Screen => {
+    if (
+      receptionHubEligibleNav &&
+      (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+    ) {
+      return "Reception Timeline";
+    }
+    return "Timeline";
+  }, [
+    receptionHubEligibleNav,
+    sectionReceptionTimelineEnabled,
+    sectionFormalitiesEnabled,
+  ]);
+
+  const enabledSectionToggleCount = useMemo(
+    () =>
+      [
+        sectionCeremonyEnabled,
+        sectionReceptionTimelineEnabled,
+        sectionFormalitiesEnabled,
+        sectionPlaylistsEnabled,
+        sectionMustPlayEnabled,
+        sectionDoNotPlayEnabled,
+        sectionMcScriptEnabled,
+        sectionVendorContactsEnabled,
+        sectionMusicNotesEnabled,
+        sectionGuestRequestsEnabled,
+        sectionPlanningChecklistEnabled,
+        sectionPlanningQuestionsEnabled,
+      ].filter(Boolean).length,
+    [
+      sectionCeremonyEnabled,
+      sectionDoNotPlayEnabled,
+      sectionFormalitiesEnabled,
+      sectionGuestRequestsEnabled,
+      sectionMcScriptEnabled,
+      sectionMusicNotesEnabled,
+      sectionMustPlayEnabled,
+      sectionPlanningChecklistEnabled,
+      sectionPlanningQuestionsEnabled,
+      sectionPlaylistsEnabled,
+      sectionReceptionTimelineEnabled,
+      sectionVendorContactsEnabled,
+    ],
+  );
+
+  type StaffHomeAction =
+    | { kind: "screen"; screen: Screen; label: string }
+    | { kind: "workspace"; label: string; section: GlobalSettingsSection };
+
+  const staffHomeQuickActions = useMemo((): StaffHomeAction[] => {
+    const hasScreen = (screen: Screen) => eventNavItems.includes(screen);
+    const tl = primaryTimelineScreenForHome;
+
+    const filterScreens = (items: StaffHomeAction[]) =>
+      items.filter((item) => item.kind === "workspace" || hasScreen(item.screen));
+
+    if (effectiveRole === "Planner") {
+      return filterScreens([
+        { kind: "screen", screen: tl, label: tl === "Reception Timeline" ? "Reception timeline" : "Timeline" },
+        { kind: "screen", screen: "Vendors", label: "Vendor coordination" },
+        { kind: "screen", screen: "Planning Questions", label: "Planning questions" },
+        { kind: "screen", screen: "Planning Checklist", label: "Planning progress" },
+        { kind: "screen", screen: "Notes", label: "Planning notes" },
+        { kind: "screen", screen: "Event Settings", label: "Event logistics" },
+      ]);
+    }
+
+    if (effectiveRole === "DJ") {
+      return filterScreens([
+        { kind: "screen", screen: "Event Prep", label: "Live event mode & doc" },
+        { kind: "screen", screen: "Music Hub", label: "Music hub · must / DNP" },
+        { kind: "screen", screen: tl, label: "Timeline" },
+        { kind: "screen", screen: "Ceremony", label: "Ceremony cues" },
+      ]);
+    }
+
+    if (effectiveRole === "Admin") {
+      return filterScreens([
+        { kind: "screen", screen: "Event Settings", label: "Event settings · sections" },
+        { kind: "screen", screen: "Event Prep", label: "Event prep & live mode" },
+        { kind: "screen", screen: tl, label: "Timeline" },
+        { kind: "screen", screen: "Music Hub", label: "Music hub" },
+        { kind: "workspace", label: "Timeline presets", section: "Timeline Presets" },
+        { kind: "workspace", label: "Team management", section: "Team Management" },
+      ]);
+    }
+
+    return [];
+  }, [effectiveRole, eventNavItems, primaryTimelineScreenForHome]);
+
+  const roleDashboardMetricCards = useMemo(() => {
+    if (effectiveRole === "Couple") return [];
+    const pctLabel = `${completionPercent}%`;
+    const collaboratorCount = (activeEvent?.collaborators ?? []).length;
+
+    if (effectiveRole === "Planner") {
+      return [
+        {
+          label: "Planning progress",
+          value: pctLabel,
+          detail: "Weighted completion across your checklist for this event.",
+        },
+        {
+          label: "Open planning questions",
+          value: `${coupleAttentionSummary.unansweredPlanningQuestionCount}`,
+          detail:
+            coupleAttentionSummary.unansweredPlanningQuestionCount === 0
+              ? "Questionnaire is fully answered."
+              : "Answers still needed from the client or team.",
+        },
+        {
+          label: "Vendor roster",
+          value: `${vendors.length}`,
+          detail: "Partners and contacts on file for coordination.",
+        },
+      ];
+    }
+
+    if (effectiveRole === "DJ") {
+      const musicReady =
+        (!sectionMustPlayEnabled || mustPlaySongs.length > 0) &&
+        (!sectionDoNotPlayEnabled || doNotPlaySongs.length > 0);
+      return [
+        {
+          label: "Music readiness",
+          value: musicReady ? pctLabel : "In progress",
+          detail: "Must-play & do-not-play coverage for show time.",
+        },
+        {
+          label: "Timeline beats",
+          value: `${timelineItems.length}`,
+          detail: "Main-event timeline entries to execute against.",
+        },
+        {
+          label: "MC script",
+          value: mcAnnouncements.trim() ? "Drafted" : "Add cues",
+          detail: "Announcements roll into your live event document.",
+        },
+      ];
+    }
+
+    if (effectiveRole === "Admin") {
+      return [
+        {
+          label: "Overall completion",
+          value: pctLabel,
+          detail: "Holistic health score for this event’s planning areas.",
+        },
+        {
+          label: "Sections enabled",
+          value: `${enabledSectionToggleCount}`,
+          detail: "Fine-grained modules turned on in Event Settings.",
+        },
+        {
+          label: "Collaborators",
+          value: `${collaboratorCount}`,
+          detail: "Invites and roles attached to this event.",
+        },
+      ];
+    }
+
+    return [];
+  }, [
+    activeEvent?.collaborators,
+    completionPercent,
+    coupleAttentionSummary.unansweredPlanningQuestionCount,
+    doNotPlaySongs.length,
+    effectiveRole,
+    enabledSectionToggleCount,
+    mcAnnouncements,
+    mustPlaySongs.length,
+    sectionDoNotPlayEnabled,
+    sectionMustPlayEnabled,
+    timelineItems.length,
+    vendors.length,
+  ]);
+
+  const prioritizedEventNavForDashboard = useMemo(() => {
+    const items = eventNavItems.filter((s) => s !== "Dashboard");
+    const tl = primaryTimelineScreenForHome;
+
+    const rankFor = (screen: Screen): number => {
+      let preferred: Screen[] = [];
+      if (effectiveRole === "Planner") {
+        preferred = [
+          tl,
+          "Vendors",
+          "Planning Questions",
+          "Planning Checklist",
+          "Notes",
+          "Event Settings",
+          "Guest Requests",
+          "Collaborators",
+          "Ceremony",
+          "Music Hub",
+          "Music Import",
+          "Event Prep",
+        ];
+      } else if (effectiveRole === "DJ") {
+        preferred = [
+          "Event Prep",
+          "Music Hub",
+          tl,
+          "Ceremony",
+          "Planning Checklist",
+          "Guest Requests",
+          "Collaborators",
+          "Notes",
+          "Music Import",
+        ];
+      } else if (effectiveRole === "Admin") {
+        preferred = [
+          "Event Settings",
+          "Event Prep",
+          "Music Hub",
+          tl,
+          "Collaborators",
+          "Planning Questions",
+          "Ceremony",
+          "Vendors",
+          "Guest Requests",
+          "Planning Checklist",
+          "Notes",
+          "Music Import",
+        ];
+      } else {
+        return items.findIndex((s) => s === screen);
+      }
+      const idx = preferred.findIndex((s) => s === screen);
+      return idx === -1 ? 100 + items.findIndex((s) => s === screen) : idx;
+    };
+
+    return [...items].sort((a, b) => rankFor(a) - rankFor(b));
+  }, [effectiveRole, eventNavItems, primaryTimelineScreenForHome]);
+
+  const staffDashboardSectionTitles = useMemo(() => {
+    if (effectiveRole === "Planner") {
+      return {
+        nextTasks: "Coordination priorities",
+        milestones: "Timeline & milestone outlook",
+        updates: "Latest updates on this event",
+        assistant: "Coordination assistant",
+        assistantHint:
+          "Operational read on timeline, vendors, guests, and music—updates as sections change.",
+        allSections: "All planning sections",
+        insightsIntro: "Insights that match your lens",
+      };
+    }
+    if (effectiveRole === "DJ") {
+      return {
+        nextTasks: "Execution checklist",
+        milestones: "Show-time milestones",
+        updates: "Latest updates on this event",
+        assistant: "Performance assistant",
+        assistantHint:
+          "Music, timeline, ceremony, and guest-flow cues—built for live execution.",
+        allSections: "Execution toolkit",
+        insightsIntro: "Insights for show time",
+      };
+    }
+    if (effectiveRole === "Admin") {
+      return {
+        nextTasks: "Recommended admin tasks",
+        milestones: "Planning milestones",
+        updates: "Latest updates on this event",
+        assistant: "Administrator assistant",
+        assistantHint:
+          "Full-spectrum notes across timeline, music, ceremony, and guests.",
+        allSections: "All sections & tools",
+        insightsIntro: "Full-planning insights",
+      };
+    }
+    return {
+      nextTasks: "Next recommended tasks",
+      milestones: "Upcoming planning milestones",
+      updates: "Most recent updates",
+      assistant: "Smart Planning Assistant",
+      assistantHint:
+        "A concise read on timing, music, ceremony, and guest flow — update any section to refresh.",
+      allSections: "Planning Sections",
+      insightsIntro: "Planning Insights",
+    };
+  }, [effectiveRole]);
 
   const currentNavItems = appMode === "events" ? workspaceNavItems : eventNavItems;
 
@@ -3171,6 +3767,21 @@ export default function Home() {
     () => teamMembers.filter((member) => member.role === "DJ" && member.isActive),
     [teamMembers],
   );
+
+  const assignedPlannerTeamMemberForEvent = useMemo(() => {
+    if (!activeEventId) return null;
+    const pem = eventSettings.plannerEmail?.trim().toLowerCase();
+    const pn = eventSettings.plannerName?.trim();
+    if (!pem && !pn) return null;
+    return (
+      teamMembers.find(
+        (m) =>
+          m.role === "Planner" &&
+          ((pem && m.email.trim().toLowerCase() === pem) ||
+            (pn && m.name.trim() === pn)),
+      ) ?? null
+    );
+  }, [activeEventId, eventSettings.plannerEmail, eventSettings.plannerName, teamMembers]);
   const vendorsByType = useMemo(
     () =>
       VENDOR_TYPES.reduce<Record<VendorType, Vendor[]>>((acc, type) => {
@@ -3230,6 +3841,7 @@ export default function Home() {
 
       const loadedEvents = parsed.events.map((evt) => ({
         ...evt,
+        lastUpdatedAt: typeof evt.lastUpdatedAt === "number" ? evt.lastUpdatedAt : Date.now(),
         ceremonyTimelineItems: buildCeremonyTimelineFromLegacyEvent(evt),
         collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
@@ -3289,6 +3901,8 @@ export default function Home() {
           planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
           checklistDueDates: evt.settings?.checklistDueDates ?? {},
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+          coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+          eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
         },
       }));
       setEvents(loadedEvents);
@@ -3400,6 +4014,8 @@ export default function Home() {
           planningQuestionAnswers: active.settings?.planningQuestionAnswers ?? {},
           checklistDueDates: active.settings?.checklistDueDates ?? {},
           checklistManualStatuses: active.settings?.checklistManualStatuses ?? {},
+          coverPhotoDataUrl: active.settings?.coverPhotoDataUrl,
+          eventLifecycleStatus: active.settings?.eventLifecycleStatus ?? "active",
         });
       } else {
         // If there is no saved event yet, keep the seeded working state.
@@ -3831,6 +4447,7 @@ export default function Home() {
   const applyImportedBackup = (payload: BackupPayload) => {
     const normalizedEvents = payload.events.map((evt) => ({
       ...evt,
+      lastUpdatedAt: typeof evt.lastUpdatedAt === "number" ? evt.lastUpdatedAt : Date.now(),
       collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
       settings: {
         eventLayoutProfile: migrateLegacyLayoutProfile(
@@ -3887,6 +4504,8 @@ export default function Home() {
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+        coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+        eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
       },
     }));
     if (normalizedEvents.length === 0) {
@@ -4181,6 +4800,19 @@ export default function Home() {
     setEditingTimelineId(null);
   };
 
+  const prepareAddMomentAfterTimelineItem = (timelineItemId: string) => {
+    const item = timelineItems.find((t) => t.id === timelineItemId);
+    if (!item) return;
+    resetTimelineForm();
+    setTimelineTime(item.time);
+    setTimelineCategory(item.category);
+    setReceptionTimelineExpandedId(null);
+    setTimelineComposerOpen(true);
+    window.setTimeout(() => {
+      timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  };
+
   const addOrUpdateTimelineItem = () => {
     const cleanTitle = timelineTitle.trim();
     const cleanTime = timelineTime.trim();
@@ -4220,22 +4852,16 @@ export default function Home() {
     logActivity("timeline_updated", `Added timeline item: ${cleanTitle}`);
     pushNotification("Timeline updated", "timeline_updated");
     resetTimelineForm();
-  };
-
-  const editTimelineItem = (item: TimelineItem) => {
-    setTimelineTitle(item.title);
-    setTimelineTime(item.time);
-    setTimelineCategory(item.category);
-    setTimelineNotes(item.notes);
-    setTimelineNeedsAttention(item.needsDjMcAttention);
-    setEditingTimelineId(item.id);
-    timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimelineComposerOpen(false);
   };
 
   const deleteTimelineItem = (itemId: string) => {
     setTimelineItems((prev) => prev.filter((item) => item.id !== itemId));
     if (editingTimelineId === itemId) {
       resetTimelineForm();
+    }
+    if (receptionTimelineExpandedId === itemId) {
+      setReceptionTimelineExpandedId(null);
     }
   };
 
@@ -4367,7 +4993,6 @@ export default function Home() {
   };
 
   const resetCeremonyTimelineDraft = () => {
-    setCeremonyTimelineEditingId(null);
     setCeremonyTimelineDraftTimeOrOrder("");
     setCeremonyTimelineDraftMoment("");
     setCeremonyTimelineDraftSongTitle("");
@@ -4376,67 +5001,53 @@ export default function Home() {
     setCeremonyTimelineDraftNeedsAttention(false);
   };
 
-  const openCreateCeremonyTimelineModal = () => {
+  const openCeremonyTimelineComposer = () => {
     resetCeremonyTimelineDraft();
-    setCeremonyTimelineModalOpen(true);
+    setCeremonyTimelineExpandedId(null);
+    setCeremonyTimelineComposerOpen(true);
+    window.setTimeout(() => {
+      ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   };
 
-  const openEditCeremonyTimelineModal = (item: CeremonyTimelineItem) => {
-    setCeremonyTimelineEditingId(item.id);
-    setCeremonyTimelineDraftTimeOrOrder(item.timeOrOrder);
-    setCeremonyTimelineDraftMoment(item.moment);
-    setCeremonyTimelineDraftSongTitle(item.songTitle);
-    setCeremonyTimelineDraftArtist(item.artist);
-    setCeremonyTimelineDraftNotes(item.notes);
-    setCeremonyTimelineDraftNeedsAttention(item.needsDjMcAttention);
-    setCeremonyTimelineModalOpen(true);
+  const prepareAddCeremonyMomentAfter = (afterItemId: string) => {
+    const prior = ceremonyTimelineItems.find((t) => t.id === afterItemId);
+    if (!prior) return;
+    resetCeremonyTimelineDraft();
+    setCeremonyTimelineDraftTimeOrOrder(prior.timeOrOrder);
+    setCeremonyTimelineExpandedId(null);
+    setCeremonyTimelineComposerOpen(true);
+    window.setTimeout(() => {
+      ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   };
 
-  const saveCeremonyTimelineItem = () => {
+  const saveCeremonyTimelineComposerItem = () => {
     const cleanMoment = ceremonyTimelineDraftMoment.trim();
     if (!cleanMoment) return;
-
-    if (ceremonyTimelineEditingId) {
-      setCeremonyTimelineItems((prev) =>
-        prev.map((item) =>
-          item.id === ceremonyTimelineEditingId
-            ? {
-                ...item,
-                timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
-                moment: cleanMoment,
-                songTitle: ceremonyTimelineDraftSongTitle.trim(),
-                artist: ceremonyTimelineDraftArtist.trim(),
-                notes: ceremonyTimelineDraftNotes.trim(),
-                needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
-              }
-            : item,
-        ),
-      );
-      logActivity("ceremony_updated", `Updated ceremony moment: ${cleanMoment}`);
-      pushNotification("Ceremony timeline updated", "ceremony_updated");
-    } else {
-      setCeremonyTimelineItems((prev) => [
-        ...prev,
-        {
-          id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
-          moment: cleanMoment,
-          songTitle: ceremonyTimelineDraftSongTitle.trim(),
-          artist: ceremonyTimelineDraftArtist.trim(),
-          notes: ceremonyTimelineDraftNotes.trim(),
-          needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
-        },
-      ]);
-      logActivity("ceremony_updated", `Added ceremony moment: ${cleanMoment}`);
-      pushNotification("Ceremony timeline updated", "ceremony_updated");
-    }
-
-    setCeremonyTimelineModalOpen(false);
+    setCeremonyTimelineItems((prev) => [
+      ...prev,
+      {
+        id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
+        moment: cleanMoment,
+        songTitle: ceremonyTimelineDraftSongTitle.trim(),
+        artist: ceremonyTimelineDraftArtist.trim(),
+        notes: ceremonyTimelineDraftNotes.trim(),
+        needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
+      },
+    ]);
+    logActivity("ceremony_updated", `Added ceremony moment: ${cleanMoment}`);
+    pushNotification("Ceremony timeline updated", "ceremony_updated");
     resetCeremonyTimelineDraft();
+    setCeremonyTimelineComposerOpen(false);
   };
 
   const deleteCeremonyTimelineItem = (itemId: string) => {
     setCeremonyTimelineItems((prev) => prev.filter((item) => item.id !== itemId));
+    if (ceremonyTimelineExpandedId === itemId) {
+      setCeremonyTimelineExpandedId(null);
+    }
     logActivity("ceremony_updated", "Removed ceremony moment");
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
@@ -4601,6 +5212,25 @@ export default function Home() {
       guestRequests,
     ],
   );
+
+  const insightsForEventDashboard = useMemo(() => {
+    if (effectiveRole === "Couple") {
+      return planningInsights.filter(
+        (i) => i.section !== "timeline" && i.section !== "ceremony",
+      );
+    }
+    if (effectiveRole === "DJ") {
+      return planningInsights.filter((i) =>
+        ["music", "timeline", "guest", "ceremony"].includes(i.section),
+      );
+    }
+    if (effectiveRole === "Planner") {
+      return planningInsights.filter((i) =>
+        ["timeline", "guest", "music", "ceremony"].includes(i.section),
+      );
+    }
+    return planningInsights;
+  }, [effectiveRole, planningInsights]);
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -5742,6 +6372,10 @@ export default function Home() {
                   <p className="text-xs text-zinc-400">
                     Manage users, role assignments, and planning permissions at the account level.
                   </p>
+                  <p className="text-xs text-zinc-500">
+                    Remove from Event unassigns someone from the event you last had selected (DJ assignment or planner fields that match a roster member) without deleting them from the team. To delete a profile entirely, use{" "}
+                    <span className="text-zinc-400">Workspace → Team → Delete from Team</span>.
+                  </p>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
                       Admins: <span className="text-white">{teamMembers.filter((m) => m.role === "Admin").length}</span>
@@ -5768,6 +6402,19 @@ export default function Home() {
                         <p className="mt-2 text-xs text-zinc-400">
                           Permissions: {member.role === "Admin" ? "Full settings + event management" : member.role === "DJ" ? "Timeline/music/event prep" : "Planning/timeline/vendor coordination"}
                         </p>
+                        {canManageEvents &&
+                        activeEventId &&
+                        isTeamMemberAssignedToActiveEvent(member) ? (
+                          <div className="mt-3">
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => removeTeamMemberFromActiveEvent(member)}
+                              className="w-full rounded-lg bg-white/10 px-2 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-white/15"
+                            >
+                              Remove from Event
+                            </PrimaryButton>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -5910,7 +6557,7 @@ export default function Home() {
                         disabled={!canManageEvents}
                         className="rounded-lg bg-[#6f5353]/40 px-2 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
                       >
-                        Delete
+                        Delete from Team
                       </PrimaryButton>
                     </div>
                   </div>
@@ -5927,9 +6574,9 @@ export default function Home() {
 
         {authStage === "app" && appMode === "events" && activeScreen === "All Events" && (
           <section className="mt-6 space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <SectionTitle className="text-[#e9d5a8]">Events</SectionTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {canManageEvents && (
                   <PrimaryButton
                     onClick={() => setActiveScreen("Settings")}
@@ -6013,8 +6660,171 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ) : (
+              <>
+                <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <label htmlFor="all-events-search" className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                        Search
+                      </label>
+                      <input
+                        id="all-events-search"
+                        type="search"
+                        value={allEventsSearch}
+                        onChange={(e) => setAllEventsSearch(e.target.value)}
+                        placeholder="Name, venue, event type, hosts…"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                      />
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => {
+                        setAllEventsSearch("");
+                        setAllEventsProfileFilter("all");
+                        setAllEventsLifecycleFilter("open");
+                        setAllEventsTimingFilter("all");
+                        setAllEventsSort("date-asc");
+                      }}
+                      className="shrink-0 rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/10"
+                    >
+                      Reset filters
+                    </PrimaryButton>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                      <label htmlFor="all-events-type-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                        Event type
+                      </label>
+                      <select
+                        id="all-events-type-filter"
+                        value={allEventsProfileFilter}
+                        onChange={(e) =>
+                          setAllEventsProfileFilter(e.target.value as EventLayoutProfile | "all")
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                      >
+                        <option value="all" className="bg-[#141419]">
+                          All types
+                        </option>
+                        {EVENT_TYPES.map((t) => (
+                          <option key={`all-events-type-${t}`} value={t} className="bg-[#141419]">
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="all-events-status-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                        Status
+                      </label>
+                      <select
+                        id="all-events-status-filter"
+                        value={allEventsLifecycleFilter}
+                        onChange={(e) =>
+                          setAllEventsLifecycleFilter(
+                            e.target.value as typeof allEventsLifecycleFilter,
+                          )
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                      >
+                        <option value="open" className="bg-[#141419]">
+                          Open (hide archived)
+                        </option>
+                        <option value="active" className="bg-[#141419]">
+                          Active
+                        </option>
+                        <option value="completed" className="bg-[#141419]">
+                          Completed
+                        </option>
+                        <option value="archived" className="bg-[#141419]">
+                          Archived
+                        </option>
+                        <option value="all" className="bg-[#141419]">
+                          All statuses
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="all-events-timing-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                        Timing
+                      </label>
+                      <select
+                        id="all-events-timing-filter"
+                        value={allEventsTimingFilter}
+                        onChange={(e) =>
+                          setAllEventsTimingFilter(e.target.value as typeof allEventsTimingFilter)
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                      >
+                        <option value="all" className="bg-[#141419]">
+                          All dates
+                        </option>
+                        <option value="upcoming" className="bg-[#141419]">
+                          Upcoming
+                        </option>
+                        <option value="past" className="bg-[#141419]">
+                          Past
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="all-events-sort" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                        Sort
+                      </label>
+                      <select
+                        id="all-events-sort"
+                        value={allEventsSort}
+                        onChange={(e) => setAllEventsSort(e.target.value as typeof allEventsSort)}
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                      >
+                        <option value="date-asc" className="bg-[#141419]">
+                          Event date (soonest first)
+                        </option>
+                        <option value="date-desc" className="bg-[#141419]">
+                          Event date (latest first)
+                        </option>
+                        <option value="recently-updated" className="bg-[#141419]">
+                          Recently updated
+                        </option>
+                        <option value="alpha" className="bg-[#141419]">
+                          Alphabetical
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[11px] text-zinc-500">
+                    Showing <span className="font-medium text-zinc-300">{allEventsFilteredAndSorted.length}</span> of{" "}
+                    <span className="font-medium text-zinc-300">{visibleEvents.length}</span> events in view.
+                    Archived events stay hidden until you search or choose Archived / All statuses.
+                  </p>
+                </PremiumCard>
+
+                {allEventsFilteredAndSorted.length === 0 ? (
+                  <PremiumCard className="border-dashed border-[#c9a35c]/35 bg-gradient-to-b from-[#18181d] to-[#111115]">
+                    <div className="py-10 text-center">
+                      <p className="text-sm font-semibold text-[#f5e6c8]">No events match</p>
+                      <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                        Try clearing search or widening filters — archived events appear when they match search or when
+                        Status is set to Archived or All statuses.
+                      </p>
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          setAllEventsSearch("");
+                          setAllEventsProfileFilter("all");
+                          setAllEventsLifecycleFilter("open");
+                          setAllEventsTimingFilter("all");
+                          setAllEventsSort("date-asc");
+                        }}
+                        className="mt-5 rounded-xl border border-white/12 bg-white/10 px-4 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                      >
+                        Reset filters
+                      </PrimaryButton>
+                    </div>
+                  </PremiumCard>
+                ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {visibleEvents.map((evt) => {
+                {allEventsFilteredAndSorted.map((evt) => {
                   const isActive = evt.id === activeEventId;
                   const cardProfile = resolveLayoutProfileForDisplay(
                     evt.settings,
@@ -6025,47 +6835,82 @@ export default function Home() {
                   const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
                   const cardEventDate = evt.settings?.weddingDate || evt.meta.date || "Date TBD";
                   const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
-                  const eventProgressChecks = [
-                    evt.timelineItems.length > 0,
-                    evt.mustPlaySongs.length > 0,
-                    evt.formalities.some((f) => f.includeInTimeline),
-                    evt.guestRequests.length > 0,
-                  ];
-                  const eventProgress = Math.round(
-                    (eventProgressChecks.filter(Boolean).length / eventProgressChecks.length) * 100,
-                  );
+                  const cardProgress = approximatePlanningProgressPercent(evt);
+                  const cardCover = evt.settings?.coverPhotoDataUrl;
+                  const cardLifecycle: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
+                  const viewerBadge = viewerRoleBadgeForEvent(evt);
                   return (
-                    <PremiumCard key={evt.id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                            Event
-                          </p>
-                          <p className="mt-1 text-base font-semibold text-white">
+                    <PremiumCard key={evt.id} className="overflow-hidden p-0">
+                      <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
+                        {cardCover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cardCover}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className={`absolute inset-0 ${eventCoverFallbackClasses(cardProfile)}`}
+                            aria-hidden
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/40 to-black/15" />
+                        <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${
+                              cardLifecycle === "archived"
+                                ? "bg-black/60 text-zinc-200"
+                                : cardLifecycle === "completed"
+                                  ? "bg-emerald-500/25 text-emerald-100"
+                                  : "bg-white/15 text-white"
+                            }`}
+                          >
+                            {cardLifecycle === "archived"
+                              ? "Archived"
+                              : cardLifecycle === "completed"
+                                ? "Completed"
+                                : "Planning"}
+                          </span>
+                          {viewerBadge ? (
+                            <span className="rounded-full bg-[#c9a35c]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#c9a35c]/35">
+                              {viewerBadge}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
+                          <p className="text-[10px] uppercase tracking-[0.15em] text-white/75">{cardEventType}</p>
+                          <p className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-white">
                             {cardEventName}
                           </p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.12em] text-zinc-500">
-                            {cardEventType}
-                          </p>
-                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-zinc-500">
-                            {PRIMARY_PARTY_SHORT_LABEL[cardProfile]}
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-400">
-                            {cardCoupleNames} · {cardEventDate}
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {cardVenue}
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-500">Progress: {eventProgress}%</p>
-                          {isActive && (
-                            <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
-                              Active
+                          <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
+                          {isActive ? (
+                            <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#c9a35c]/40">
+                              Selected
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="space-y-3 p-4">
+                        <p className="line-clamp-2 text-xs text-zinc-400">{cardVenue}</p>
+                        <p className="text-[11px] text-zinc-500">
+                          {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
+                        </p>
+                        <div>
+                          <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
+                            <span>Planning progress</span>
+                            <span className="font-semibold tabular-nums text-[#e9d5a8]">{cardProgress}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-500"
+                              style={{ width: `${cardProgress}%` }}
+                            />
+                          </div>
+                        </div>
+
+                      <div className="grid grid-cols-2 gap-2">
                         <PrimaryButton
                           onClick={() => {
                             switchToEvent(evt.id);
@@ -6167,10 +7012,13 @@ export default function Home() {
                           {COPY_INVITE_LINK_LABEL[cardProfile]}
                         </PrimaryButton>
                       </div>
+                      </div>
                     </PremiumCard>
                   );
                 })}
               </div>
+                )}
+              </>
             )}
           </section>
         )}
@@ -6343,41 +7191,61 @@ export default function Home() {
           isCoupleView ? (
             <section className="mt-6 space-y-8">
               <PremiumCard className="overflow-hidden border-[#c9a35c]/25 p-0 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
-                <div className="relative aspect-[20/9] min-h-[140px] overflow-hidden bg-gradient-to-br from-[#3a2e1f] via-[#1a1820] to-[#0c0c0f]">
-                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(201,163,92,0.18),transparent_55%)]" />
-                  <div className="relative flex h-full flex-col items-center justify-center gap-1 px-6 py-8 text-center">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Cover photo</p>
-                    <p className="text-sm text-zinc-400">A beautiful image of your day will live here</p>
+                <div className="relative aspect-[16/11] min-h-[200px] overflow-hidden sm:aspect-[21/9] sm:min-h-[220px]">
+                  {eventSettings.coverPhotoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={eventSettings.coverPhotoDataUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
+                      aria-hidden
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#050506]/98 via-[#050506]/65 to-[#050506]/35" />
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_90%_0%,rgba(201,163,92,0.15),transparent_55%)]" />
+                  <div className="relative flex h-full flex-col justify-end p-5 sm:p-8">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-400">{primaryPartyShortLabel}</p>
+                    <h2 className="mt-2 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                      {eventDisplayName}
+                    </h2>
+                    <p className="mt-2 text-sm text-zinc-300">{coupleDisplayName}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-[#f7ecd4] backdrop-blur-sm">
+                        {layoutProfileForActiveEvent}
+                      </span>
+                      <span className="inline-flex flex-col rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-left backdrop-blur-sm">
+                        <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
+                        <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
+                      </span>
+                      <span className="inline-flex max-w-full rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] text-zinc-200 backdrop-blur-sm">
+                        {eventVenueDisplay}
+                      </span>
+                    </div>
+                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
+                        <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
+                            style={{ width: `${completionPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-5 p-5 sm:p-7">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">{primaryPartyShortLabel}</p>
-                      <h2 className="mt-1 break-words text-2xl font-semibold tracking-tight text-[#f7ecd4] sm:text-3xl">
-                        {eventDisplayName}
-                      </h2>
-                      <p className="mt-1 text-sm text-zinc-400">{coupleDisplayName}</p>
-                      <p className="mt-3 inline-flex rounded-full border border-[#c9a35c]/30 bg-[#c9a35c]/10 px-3 py-1 text-[11px] font-medium text-[#e9d5a8]">
-                        {layoutProfileForActiveEvent}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">Planning</p>
-                      <p className="text-3xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
-                      <p className="mt-0.5 text-[11px] text-zinc-500">overall</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-                      <p className="text-zinc-500">{eventDateGridLabel}</p>
-                      <p className="mt-1 text-sm font-medium text-zinc-100">{eventDateDisplay}</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-                      <p className="text-zinc-500">Venue</p>
-                      <p className="mt-1 text-sm font-medium text-zinc-100">{eventVenueDisplay}</p>
-                    </div>
-                  </div>
+                <div className="space-y-4 border-t border-white/10 p-5 sm:p-7">
+                  <p className="text-[11px] text-zinc-500">
+                    Viewing as{" "}
+                    <span className="font-medium text-[#e9d5a8]">
+                      {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                    </span>
+                  </p>
                   {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
                     <p className="text-[11px] text-zinc-500">
                       <span className="text-zinc-600">Your team</span>
@@ -6395,18 +7263,17 @@ export default function Home() {
                       ) : null}
                     </p>
                   )}
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs text-zinc-400">
-                      <span>Planning progress</span>
-                      <span className="font-medium text-[#e9d5a8]">{completionPercent}%</span>
+                  {canEditEventCover ? (
+                    <div className="flex flex-wrap gap-2">
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => setActiveScreen("Event Settings")}
+                        className="rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/10"
+                      >
+                        Event details & cover photo
+                      </PrimaryButton>
                     </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
-                        style={{ width: `${completionPercent}%` }}
-                      />
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
               </PremiumCard>
 
@@ -6462,7 +7329,8 @@ export default function Home() {
               <div className="space-y-3 px-0.5">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Your planning areas</p>
                 <p className="text-sm text-zinc-400">
-                  Open a section when you are ready—everything stays organized in its own pocket.
+                  Ceremony, music, reception, planning questions, vendors, and your event document—each in one calm
+                  place.
                 </p>
               </div>
 
@@ -6522,59 +7390,90 @@ export default function Home() {
           ) : (
           <>
             <section className="mt-6 space-y-3">
-              <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-br from-[#20160a]/55 via-[#17171d]/85 to-[#121217]/95 backdrop-blur-sm">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[#c9a35c]">
-                  {dashboardEyebrowText}
-                </p>
-                <div className="mt-2 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                      {primaryPartyShortLabel}
-                    </p>
-                    <h2 className="text-2xl font-semibold tracking-tight text-[#f7ecd4]">{coupleDisplayName}</h2>
-                    <p className="mt-1 text-xs text-zinc-400">{eventDisplayName}</p>
-                  </div>
-                  <span className="rounded-full border border-[#c9a35c]/35 bg-[#c9a35c]/15 px-2.5 py-1 text-xs font-semibold text-[#f5e6c8]">
-                    {completionPercent}% complete
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                    <p className="text-zinc-500">{eventDateGridLabel}</p>
-                    <p className="mt-1 font-medium text-zinc-100">{eventDateDisplay}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                    <p className="text-zinc-500">Venue</p>
-                    <p className="mt-1 font-medium text-zinc-100">{eventVenueDisplay}</p>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-zinc-400">
-                  Vendors: <span className="text-zinc-200">{vendors.length}</span>
-                </p>
-                <div className="mt-3 rounded-xl border border-[#c9a35c]/25 bg-gradient-to-r from-[#c9a35c]/15 to-transparent px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">{eventCountdownLabel}</p>
-                  <p className="mt-1 text-sm font-medium text-[#f7ecd4]">
-                    {daysUntilWedding === null
-                      ? "Add an event date to start your countdown"
-                      : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
-                  </p>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <p className="text-zinc-400">Planning completion percentage</p>
-                    <p className="font-semibold text-[#f5e6c8]">{completionPercent}%</p>
-                  </div>
-                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
-                      style={{ width: `${completionPercent}%` }}
+              <PremiumCard className="overflow-hidden border-[#c9a35c]/30 p-0 shadow-[0_20px_70px_-42px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+                <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
+                  {eventSettings.coverPhotoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={eventSettings.coverPhotoDataUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
                     />
+                  ) : (
+                    <div
+                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
+                      aria-hidden
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#050506]/97 via-[#050506]/55 to-[#050506]/20]" />
+                  <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">{primaryPartyShortLabel}</p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                      {eventDisplayName}
+                    </h2>
+                    <p className="mt-1 text-sm text-zinc-300">{coupleDisplayName}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-[#f5e6c8] backdrop-blur-sm">
+                        {layoutProfileForActiveEvent}
+                      </span>
+                      <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left backdrop-blur-sm">
+                        <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
+                        <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
+                      </span>
+                      <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur-sm">
+                        {eventVenueDisplay}
+                      </span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
+                        <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
+                            style={{ width: `${completionPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                      <p className="shrink-0 text-3xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4">
-                  <SectionTitle className="text-[#e9d5a8]">
-                    {isCoupleView ? "Your celebration is coming together beautifully" : "Next recommended tasks"}
-                  </SectionTitle>
+                <div className="space-y-4 border-t border-white/10 bg-gradient-to-br from-[#141419]/95 to-[#0e0e12]/98 p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#c9a35c]">{dashboardEyebrowText}</p>
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        Viewing as{" "}
+                        <span className="font-medium text-[#e9d5a8]">
+                          {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                        </span>
+                      </p>
+                    </div>
+                    {canEditEventCover ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => setActiveScreen("Event Settings")}
+                        className="rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/10"
+                      >
+                        Cover & details
+                      </PrimaryButton>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    Vendors: <span className="text-zinc-200">{vendors.length}</span>
+                  </p>
+                  <div className="rounded-xl border border-[#c9a35c]/25 bg-gradient-to-r from-[#c9a35c]/15 to-transparent px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">{eventCountdownLabel}</p>
+                    <p className="mt-1 text-sm font-medium text-[#f7ecd4]">
+                      {daysUntilWedding === null
+                        ? "Add an event date to start your countdown"
+                        : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
+                    </p>
+                  </div>
+                </div>
+                <div className="border-t border-white/10 px-5 pb-5 sm:px-6">
+                  <div className="mt-4">
+                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.nextTasks}</SectionTitle>
                   <div className="mt-2 space-y-2">
                     {nextChecklistTasks.length > 0 ? (
                       nextChecklistTasks.map((task) => (
@@ -6585,55 +7484,58 @@ export default function Home() {
                           className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-zinc-200 transition hover:border-[#c9a35c]/35 hover:bg-white/10"
                         >
                           <p className="font-medium text-zinc-100">{task.title}</p>
-                          <p className="mt-1 text-zinc-500">
-                            {isCoupleView
-                              ? task.id === "choose-ceremony-songs"
-                                ? "Set the music moments that will define your ceremony."
-                                : task.id === "build-must-play-list"
-                                  ? "Shape the soundtrack that fills your floor all night."
-                                  : task.id === "review-timeline"
-                                    ? "Refine the flow so each moment lands exactly right."
-                                    : task.description
-                              : task.description}
-                          </p>
+                          <p className="mt-1 text-zinc-500">{task.description}</p>
                         </button>
                       ))
                     ) : (
                       <p className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                        {isCoupleView
-                          ? "Beautiful work. Your celebration is set for an unforgettable night."
-                          : "Beautiful work. Your checklist is complete and event-ready."}
+                        Beautiful work. Your checklist is complete and event-ready.
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {dashboardQuickScreens.map((target) => (
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {staffHomeQuickActions.map((action, idx) => (
                     <PrimaryButton
-                      key={`quick-${target}`}
-                      onClick={() => setActiveScreen(target)}
-                      className="rounded-xl border border-white/10 bg-white/10 px-2 py-2 text-[11px] text-zinc-200 transition hover:-translate-y-0.5 hover:border-[#c9a35c]/35 hover:bg-white/15"
+                      key={`staff-quick-${idx}-${action.kind === "screen" ? action.screen : action.section}`}
+                      type="button"
+                      onClick={() => {
+                        if (action.kind === "screen") {
+                          setActiveScreen(action.screen);
+                          return;
+                        }
+                        commitActiveEventPlanningToEventsState();
+                        setAppMode("events");
+                        setActiveScreen("Settings");
+                        setActiveGlobalSettingsSection(action.section);
+                      }}
+                      className={`rounded-xl border px-2 py-2 text-[11px] leading-snug text-zinc-200 transition hover:-translate-y-0.5 hover:bg-white/15 ${
+                        action.kind === "workspace"
+                          ? "border-[#c9a35c]/35 bg-[#c9a35c]/12 hover:border-[#c9a35c]/50"
+                          : "border-white/10 bg-white/10 hover:border-[#c9a35c]/35"
+                      }`}
                     >
-                      {target === "Planning Checklist"
-                        ? "Checklist"
-                        : target === "Planning Questions"
-                          ? "Questions"
-                          : target === "Reception Timeline"
-                            ? "Timeline"
-                            : target}
+                      {action.label}
                     </PrimaryButton>
                   ))}
                 </div>
+                </div>
               </PremiumCard>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {progressCards.map((card) => (
+                {roleDashboardMetricCards.map((card) => (
                   <PremiumCard key={card.label}>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="text-sm text-zinc-300">{card.label}</p>
-                      <span className="text-sm font-semibold text-[#e9d5a8]">{card.value}</span>
+                      <span className="text-sm font-semibold tabular-nums text-[#e9d5a8]">{card.value}</span>
                     </div>
                     <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/90">
-                      <div className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] to-[#e9d5a8]" style={{ width: card.value }} />
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] to-[#e9d5a8]"
+                        style={{
+                          width: /\d+%$/.test(String(card.value)) ? String(card.value) : "100%",
+                          opacity: /\d+%$/.test(String(card.value)) ? 1 : 0.35,
+                        }}
+                      />
                     </div>
                     <p className="mt-3 text-xs text-zinc-400">{card.detail}</p>
                   </PremiumCard>
@@ -6644,9 +7546,7 @@ export default function Home() {
             <section className="mt-6 space-y-3">
               <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
                 <div className="flex items-center justify-between">
-                  <SectionTitle className="text-[#e9d5a8]">
-                    {isCoupleView ? "Upcoming moments to personalize" : "Upcoming planning milestones"}
-                  </SectionTitle>
+                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.milestones}</SectionTitle>
                   <span className="rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-xs font-semibold text-[#f5e6c8]">
                     {completionPercent}%
                   </span>
@@ -6675,9 +7575,7 @@ export default function Home() {
 
               <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
                 <div className="flex items-center justify-between">
-                  <SectionTitle className="text-[#e9d5a8]">
-                    {isCoupleView ? "Most recent updates to your celebration" : "Most recent updates"}
-                  </SectionTitle>
+                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.updates}</SectionTitle>
                   <PrimaryButton
                     onClick={() => setActiveScreen("Notification Center")}
                     className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
@@ -6699,9 +7597,7 @@ export default function Home() {
                   ))}
                   {recentActivityForActiveEvent.length === 0 && (
                     <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
-                      {isCoupleView
-                        ? "Updates will appear here as your celebration takes shape."
-                        : "Activity will appear here as planning updates happen."}
+                      Activity will appear here as planning updates happen.
                     </p>
                   )}
                 </div>
@@ -6744,26 +7640,14 @@ export default function Home() {
 
             <section className="mt-6 space-y-3">
               <SectionTitle className="mb-1 font-medium text-zinc-300">
-                {isCoupleView ? "Let's make this night unforgettable" : "Planning Insights"}
+                {staffDashboardSectionTitles.insightsIntro}
               </SectionTitle>
               <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-amber-950/20 via-[#17171c] to-[#141419]">
-                <SectionTitle className="text-[#e9d5a8]">
-                  {isCoupleView ? "Celebration Guidance" : "Smart Planning Assistant"}
-                </SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {isCoupleView
-                    ? "A refined read on timing, music, and guest flow to keep your celebration feeling effortless."
-                    : "A concise read on timing, music, ceremony, and guest flow — update any section to refresh."}
-                </p>
+                <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.assistant}</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">{staffDashboardSectionTitles.assistantHint}</p>
                 <div className="mt-3">
                   <InsightStack
-                    insights={
-                      isCoupleView
-                        ? planningInsights.filter(
-                            (i) => i.section !== "timeline" && i.section !== "ceremony",
-                          )
-                        : planningInsights
-                    }
+                    insights={insightsForEventDashboard}
                     emptyLabel="No assistant notes yet — your plan reads balanced."
                   />
                 </div>
@@ -6779,11 +7663,11 @@ export default function Home() {
             </section>
 
             <section className="mt-6">
-              <SectionTitle className="mb-3 font-medium text-zinc-300">Planning Sections</SectionTitle>
+              <SectionTitle className="mb-3 font-medium text-zinc-300">
+                {staffDashboardSectionTitles.allSections}
+              </SectionTitle>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                {eventNavItems
-                  .filter((section) => section !== "Dashboard")
-                  .map((section) => (
+                {prioritizedEventNavForDashboard.map((section) => (
                     <PrimaryButton
                       key={section}
                       onClick={() => setActiveScreen(section)}
@@ -7441,72 +8325,102 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
-            {!isCoupleView && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Timeline Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Reception flow, spacing, and overlap checks.
+            <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-[#f7ecd4] md:text-xl">
+                  {activeScreen === "Reception Timeline" ? "Reception timeline" : "Event timeline"}
+                </h2>
+                <p className="mt-1 max-w-prose text-xs text-zinc-500 md:text-sm">
+                  Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit.
                 </p>
-                <div className="mt-3">
-                  <InsightStack
-                    insights={planningInsights.filter((i) => i.section === "timeline")}
-                    emptyLabel="Timeline spacing reads smooth."
-                  />
-                </div>
-              </PremiumCard>
-            )}
+              </div>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  resetTimelineForm();
+                  setReceptionTimelineExpandedId(null);
+                  setTimelineComposerOpen(true);
+                  window.setTimeout(() => {
+                    timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }, 50);
+                }}
+                disabled={!canEditTimeline}
+                className="shrink-0 rounded-xl border border-[#c9a35c]/45 bg-gradient-to-r from-[#c9a35c]/22 to-[#c9a35c]/10 px-4 py-2.5 text-sm font-semibold text-[#f5e6c8] hover:brightness-110 disabled:opacity-45"
+              >
+                + Add moment
+              </PrimaryButton>
+            </div>
 
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Quick Add Presets</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Tap a common moment to add it instantly, then fine-tune inline.
-              </p>
-              <div className="mt-3">
+            <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Quick presets</p>
+                  <p className="mt-1 text-xs text-zinc-400">Drop in starter beats—still editable on the timeline.</p>
+                </div>
                 <PrimaryButton
+                  type="button"
                   onClick={applyTimelinePresetsForActiveEvent}
                   disabled={!canEditTimeline}
-                  className="w-full rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-45"
+                  className="rounded-xl bg-[#c9a35c]/18 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
                 >
-                  Apply Timeline Presets
+                  Apply full presets
                 </PrimaryButton>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {mainTimelinePresetsForActiveEvent.map((preset) => (
                   <PrimaryButton
                     key={`timeline-preset-${preset.id}`}
+                    type="button"
                     onClick={() => addReceptionPreset(preset)}
                     disabled={!canEditTimeline}
-                    className="rounded-lg bg-white/10 px-2.5 py-2 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-45"
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
                   >
-                    {preset.momentName}
+                    + {preset.momentName}
                   </PrimaryButton>
                 ))}
               </div>
             </PremiumCard>
 
-            <PremiumCard>
-              <div ref={timelineFormRef} />
-              <SectionTitle className="text-[#e9d5a8]">
-                {editingTimelineId ? "Edit Timeline Item" : "Add Timeline Item"}
-              </SectionTitle>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="timeline-time"
-                  label="Time"
-                  value={timelineTime}
-                  onChange={setTimelineTime}
-                  placeholder="e.g. 6:30 PM"
-                  disabled={!canEditTimeline}
-                />
-                <TextInput
-                  id="timeline-title"
-                  label="Title"
-                  value={timelineTitle}
-                  onChange={setTimelineTitle}
-                  placeholder="e.g. Dinner Service Begins"
-                  disabled={!canEditTimeline}
-                />
-                <div>
+            {timelineComposerOpen && (
+              <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-b from-[#1a1610]/90 to-[#111115]/95">
+                <div ref={timelineComposerRef}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <SectionTitle className="text-[#e9d5a8]">New moment</SectionTitle>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Lightweight capture—fine-tune anytime inline on the timeline.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetTimelineForm();
+                      setTimelineComposerOpen(false);
+                    }}
+                    className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <TextInput
+                    id="timeline-time"
+                    label="Time"
+                    value={timelineTime}
+                    onChange={setTimelineTime}
+                    placeholder="e.g. 6:30 PM"
+                    disabled={!canEditTimeline}
+                  />
+                  <TextInput
+                    id="timeline-title"
+                    label="Moment"
+                    value={timelineTitle}
+                    onChange={setTimelineTitle}
+                    placeholder="e.g. Dinner service begins"
+                    disabled={!canEditTimeline}
+                  />
+                </div>
+                <div className="mt-3">
                   <label
                     htmlFor="timeline-category"
                     className="text-[11px] uppercase tracking-wide text-zinc-400"
@@ -7529,52 +8443,43 @@ export default function Home() {
                     ))}
                   </select>
                 </div>
-                <TextArea
-                  id="timeline-notes"
-                  label="Notes"
-                  value={timelineNotes}
-                  onChange={setTimelineNotes}
-                  placeholder="Add production notes, cue details, or MC guidance..."
-                  disabled={!canEditTimeline}
-                />
+                <div className="mt-3">
+                  <TextArea
+                    id="timeline-notes"
+                    label="Notes / cues"
+                    value={timelineNotes}
+                    onChange={setTimelineNotes}
+                    placeholder="Production notes, MC guidance, song ideas…"
+                    disabled={!canEditTimeline}
+                  />
+                </div>
                 <PrimaryButton
+                  type="button"
                   onClick={() => setTimelineNeedsAttention((prev) => !prev)}
                   disabled={!canEditTimeline}
-                  className={`w-full ${
+                  className={`mt-3 w-full ${
                     timelineNeedsAttention
                       ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
                       : "bg-white/5 text-zinc-400"
                   }`}
                 >
                   {timelineNeedsAttention
-                    ? "DJ/MC Attention Required"
-                    : "Mark as DJ/MC Attention"}
+                    ? "DJ/MC attention marked"
+                    : "Flag DJ/MC attention"}
                 </PrimaryButton>
-                <div className="grid grid-cols-2 gap-2">
-                  <PrimaryButton
-                    onClick={addOrUpdateTimelineItem}
-                    disabled={!canEditTimeline}
-                    className="w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-                  >
-                    {editingTimelineId ? "Save Changes" : "Add Item"}
-                  </PrimaryButton>
-                  {editingTimelineId ? (
-                    <PrimaryButton
-                      onClick={resetTimelineForm}
-                      disabled={!canEditTimeline}
-                      className="w-full bg-white/10 py-2.5 text-sm text-zinc-200 hover:bg-white/15"
-                    >
-                      Cancel Edit
-                    </PrimaryButton>
-                  ) : (
-                    <PrimaryButton className="w-full bg-white/5 py-2.5 text-sm text-zinc-500">
-                      Timeline Planner
-                    </PrimaryButton>
-                  )}
+                <PrimaryButton
+                  type="button"
+                  onClick={addOrUpdateTimelineItem}
+                  disabled={!canEditTimeline}
+                  className="mt-4 w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                >
+                  Add to timeline
+                </PrimaryButton>
                 </div>
-              </div>
-            </PremiumCard>
+              </PremiumCard>
+            )}
 
+            <div ref={timelineStreamRef} className="space-y-3">
             {mergedTimelineItems.length === 0 ? (
               <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
                 <div className="py-8 text-center">
@@ -7591,12 +8496,30 @@ export default function Home() {
                   item.source === "formality"
                     ? formalities.find((f) => f.id === item.id)
                     : undefined;
+                const rowExpanded = receptionTimelineExpandedId === item.id;
+                const songPreview =
+                  item.source === "formality"
+                    ? [
+                        formalities.find((f) => f.id === item.id)?.songTitle?.trim(),
+                        formalities.find((f) => f.id === item.id)?.artist?.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Song TBD"
+                    : item.notes?.trim()
+                      ? item.notes.trim().split(/\n/)[0].slice(0, 180)
+                      : "—";
                 const isDragging = draggingTimelineId === item.id;
                 const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                 return (
                 <PremiumCard
                   key={item.id}
-                  className={`transition-all duration-200 ${isDragging ? "scale-[1.01] border-[#c9a35c]/55 shadow-[0_16px_36px_rgba(201,163,92,0.20)]" : ""} ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
+                  className={`rounded-2xl border transition-all duration-200 ${
+                    index % 2 === 0
+                      ? "border-white/10 bg-[#121218]/92"
+                      : "border-white/[0.08] bg-[#141419]/88"
+                  } px-4 py-4 sm:px-5 sm:py-5 ${
+                    isDragging ? "scale-[1.005] border-[#c9a35c]/45 shadow-[0_16px_36px_rgba(201,163,92,0.18)]" : ""
+                  } ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
                   onDragOver={
                     isTimelineItem
                       ? (event) => {
@@ -7658,18 +8581,89 @@ export default function Home() {
                   {isDropTarget && (
                     <div className="mb-2 h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-[#c9a35c] to-transparent" />
                   )}
-                  <div className="flex items-start justify-between gap-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] ${
-                        item.category === "Formality"
-                          ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                          : "bg-white/10 text-zinc-300"
-                      }`}
-                    >
-                      {item.category}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {!rowExpanded && (
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex min-w-0 flex-1 gap-3 sm:gap-6">
+                        <div className="w-[4.5rem] shrink-0 pt-0.5 text-right sm:w-24">
+                          <p className="font-mono text-xs font-semibold tabular-nums text-[#e9d5a8] sm:text-sm">
+                            {item.time?.trim() || "—"}
+                          </p>
+                        </div>
+                        <div className="relative min-w-0 flex-1 border-l border-[#c9a35c]/22 pl-4 sm:pl-5">
+                          <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#c9a35c]/85 ring-4 ring-[#131318]" />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                item.category === "Formality"
+                                  ? "bg-[#c9a35c]/18 text-[#f5e6c8]"
+                                  : "bg-white/10 text-zinc-300"
+                              }`}
+                            >
+                              {item.category}
+                            </span>
+                            {item.needsDjMcAttention && item.source === "timeline" ? (
+                              <span className="rounded-full bg-[#c9a35c]/15 px-2 py-0.5 text-[10px] font-medium text-[#f5e6c8]">
+                                DJ/MC
+                              </span>
+                            ) : null}
+                          </div>
+                          <h3 className="mt-2 text-lg font-semibold leading-snug text-zinc-50">{item.title}</h3>
+                          <p className="mt-1.5 text-sm text-[#e9d5a8]/95">
+                            <span className="text-zinc-500">
+                              {item.source === "formality" ? "Song · " : "Cue · "}
+                            </span>
+                            {songPreview}
+                          </p>
+                          {item.notes?.trim() && item.source === "timeline" ? (
+                            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-zinc-500">{item.notes}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => setReceptionTimelineExpandedId(item.id)}
+                          disabled={!canEditTimeline}
+                          className="rounded-lg bg-[#c9a35c]/18 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
+                        >
+                          Details
+                        </PrimaryButton>
+                        {isTimelineItem ? (
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                            disabled={!canEditTimeline}
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                          >
+                            + After
+                          </PrimaryButton>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                  {rowExpanded && (
+                    <>
+                      <div className="mb-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setReceptionTimelineExpandedId(null)}
+                          className="text-[11px] text-zinc-500 transition hover:text-zinc-300"
+                        >
+                          Collapse view
+                        </button>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] ${
+                            item.category === "Formality"
+                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                              : "bg-white/10 text-zinc-300"
+                          }`}
+                        >
+                          {item.category}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <TextInput
                       id={`timeline-inline-time-${item.id}`}
                       label="Time"
@@ -7825,10 +8819,7 @@ export default function Home() {
                       </div>
                     </div>
                   ) : null}
-                  {item.needsDjMcAttention && item.source === "timeline" && (
-                    <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
-                      DJ/MC Attention
-                    </span>
+                    </>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {item.source === "timeline" ? (
@@ -7870,22 +8861,6 @@ export default function Home() {
                           className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
                         >
                           Move Down
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() =>
-                            editTimelineItem({
-                              id: item.id,
-                              title: item.title,
-                              time: item.time,
-                              category: item.category as TimelineCategory,
-                              notes: item.notes,
-                              needsDjMcAttention: item.needsDjMcAttention,
-                            })
-                          }
-                          disabled={!canEditTimeline}
-                          className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
-                        >
-                          Edit
                         </PrimaryButton>
                         <PrimaryButton
                           onClick={() => deleteTimelineItem(item.id)}
@@ -7948,10 +8923,26 @@ export default function Home() {
                     )}
                   </div>
                   <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
-                    Item {index + 1} of {mergedTimelineItems.length}
+                    {index + 1} / {mergedTimelineItems.length}
                   </p>
                 </PremiumCard>
               )})
+            )}
+            </div>
+
+            {!isCoupleView && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Timeline Assistant</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Reception flow, spacing, and overlap checks.
+                </p>
+                <div className="mt-3">
+                  <InsightStack
+                    insights={planningInsights.filter((i) => i.section === "timeline")}
+                    emptyLabel="Timeline spacing reads smooth."
+                  />
+                </div>
+              </PremiumCard>
             )}
           </section>
         )}
@@ -8119,14 +9110,25 @@ export default function Home() {
                     {collab.status === "Pending" ? "Simulate Accept" : "Set Pending"}
                   </PrimaryButton>
                   <PrimaryButton
-                    onClick={() =>
+                    onClick={() => {
+                      const ok =
+                        typeof window === "undefined" ||
+                        window.confirm(
+                          `Remove "${collab.name}" from this event? They lose access until invited again.`,
+                        );
+                      if (!ok) return;
                       updateCollaboratorsForActiveEvent((current) =>
                         current.filter((c) => c.id !== collab.id),
-                      )
-                    }
-                    className="col-span-2 rounded-xl bg-[#6f5353]/40 px-3 py-2 text-xs font-semibold text-[#f2dede] hover:bg-[#6f5353]/55"
+                      );
+                      logActivity(
+                        "collaborator_removed_from_event",
+                        `Removed collaborator ${collab.name} (${collab.role}) from event`,
+                      );
+                    }}
+                    disabled={!canInviteCollaborators}
+                    className="col-span-2 rounded-xl bg-[#6f5353]/40 px-3 py-2 text-xs font-semibold text-[#f2dede] hover:bg-[#6f5353]/55 disabled:opacity-45"
                   >
-                    Remove Collaborator
+                    Remove from Event
                   </PrimaryButton>
                 </div>
               </PremiumCard>
@@ -8355,6 +9357,471 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
           <section className={`mt-6 ${isCoupleView ? "space-y-5" : "space-y-3"}`}>
+            {!canEditTimeline && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
+                <p className="text-xs text-[#f5e6c8]">
+                  {effectiveRole} role can view ceremony timeline, but editing is limited in this prototype.
+                </p>
+              </PremiumCard>
+            )}
+
+            <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight text-[#f7ecd4] md:text-xl">
+                  Ceremony timeline
+                </h2>
+                <p className="mt-1 max-w-prose text-xs text-zinc-500 md:text-sm">
+                  Read top-to-bottom like the ceremony itself—time, moment, music, then cues. Expand a row to edit.
+                </p>
+              </div>
+              <PrimaryButton
+                type="button"
+                onClick={openCeremonyTimelineComposer}
+                disabled={!canEditTimeline}
+                className="shrink-0 rounded-xl border border-[#c9a35c]/45 bg-gradient-to-r from-[#c9a35c]/22 to-[#c9a35c]/10 px-4 py-2.5 text-sm font-semibold text-[#f5e6c8] hover:brightness-110 disabled:opacity-45"
+              >
+                + Add ceremony moment
+              </PrimaryButton>
+            </div>
+
+            <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Ceremony presets</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Drop in common beats—still editable on the timeline.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ceremonyPresetsForActiveEvent.map((preset) => (
+                  <PrimaryButton
+                    key={`ceremony-preset-${preset.id}`}
+                    type="button"
+                    onClick={() => addCeremonyPreset(preset)}
+                    disabled={!canEditTimeline}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                  >
+                    + {preset.momentName}
+                  </PrimaryButton>
+                ))}
+              </div>
+            </PremiumCard>
+
+            {ceremonyTimelineComposerOpen && (
+              <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-b from-[#1a1610]/90 to-[#111115]/95">
+                <div ref={ceremonyTimelineComposerRef}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <SectionTitle className="text-[#e9d5a8]">New ceremony moment</SectionTitle>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Lightweight capture—fine-tune anytime inline on the timeline.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetCeremonyTimelineDraft();
+                        setCeremonyTimelineComposerOpen(false);
+                      }}
+                      className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <TextInput
+                      id="ceremony-composer-time-order"
+                      label="Time / order"
+                      value={ceremonyTimelineDraftTimeOrOrder}
+                      onChange={setCeremonyTimelineDraftTimeOrOrder}
+                      placeholder="e.g. 3:30 PM or Prelude"
+                      disabled={!canEditTimeline}
+                    />
+                    <TextInput
+                      id="ceremony-composer-moment"
+                      label="Moment"
+                      value={ceremonyTimelineDraftMoment}
+                      onChange={setCeremonyTimelineDraftMoment}
+                      placeholder="e.g. Processional"
+                      disabled={!canEditTimeline}
+                    />
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <TextInput
+                      id="ceremony-composer-song-title"
+                      label="Song title"
+                      value={ceremonyTimelineDraftSongTitle}
+                      onChange={setCeremonyTimelineDraftSongTitle}
+                      placeholder="Song title"
+                      disabled={!canEditTimeline}
+                    />
+                    <TextInput
+                      id="ceremony-composer-artist"
+                      label="Artist"
+                      value={ceremonyTimelineDraftArtist}
+                      onChange={setCeremonyTimelineDraftArtist}
+                      placeholder="Artist"
+                      disabled={!canEditTimeline}
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <TextArea
+                      id="ceremony-composer-notes"
+                      label="Notes / cues"
+                      value={ceremonyTimelineDraftNotes}
+                      onChange={setCeremonyTimelineDraftNotes}
+                      placeholder="Cue notes, transitions, and callouts..."
+                      rows={3}
+                      disabled={!canEditTimeline}
+                    />
+                  </div>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
+                    disabled={!canEditTimeline}
+                    className={`mt-3 w-full ${
+                      ceremonyTimelineDraftNeedsAttention
+                        ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                        : "bg-white/5 text-zinc-400"
+                    }`}
+                  >
+                    {ceremonyTimelineDraftNeedsAttention
+                      ? "DJ/MC attention marked"
+                      : "Flag DJ/MC attention"}
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="button"
+                    onClick={saveCeremonyTimelineComposerItem}
+                    disabled={!canEditTimeline}
+                    className="mt-4 w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                  >
+                    Add to ceremony timeline
+                  </PrimaryButton>
+                </div>
+              </PremiumCard>
+            )}
+
+            <div ref={ceremonyTimelineStreamRef} className="space-y-3">
+              {ceremonyTimelineItems.length === 0 ? (
+                <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
+                  <div className="py-8 text-center">
+                    <p className="text-sm font-semibold text-[#f5e6c8]">No ceremony moments yet</p>
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                      Add a moment or pick a preset to build an elegant, scannable cue flow.
+                    </p>
+                  </div>
+                </PremiumCard>
+              ) : (
+                ceremonyTimelineItems.map((item, index) => {
+                  const rowExpanded = ceremonyTimelineExpandedId === item.id;
+                  const songLine = [item.songTitle?.trim(), item.artist?.trim()]
+                    .filter(Boolean)
+                    .join(" · ");
+                  const isDragging = draggingCeremonyTimelineId === item.id;
+                  const isDropTarget =
+                    dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
+                  return (
+                    <PremiumCard
+                      key={item.id}
+                      className={`rounded-2xl border transition-all duration-200 ${
+                        index % 2 === 0
+                          ? "border-white/10 bg-[#121218]/92"
+                          : "border-white/[0.08] bg-[#141419]/88"
+                      } px-4 py-4 sm:px-5 sm:py-5 ${
+                        isDragging
+                          ? "scale-[1.005] border-[#c9a35c]/45 shadow-[0_16px_36px_rgba(201,163,92,0.18)]"
+                          : ""
+                      } ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
+                      data-ceremony-timeline-id={item.id}
+                      onDragOver={(event) => {
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        event.preventDefault();
+                        if (draggingCeremonyTimelineId !== item.id) {
+                          setDropTargetCeremonyTimelineId(item.id);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                      }}
+                      onTouchMove={(event) => {
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        event.preventDefault();
+                        const touch = event.touches[0];
+                        if (!touch) return;
+                        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                        const card = targetElement?.closest(
+                          "[data-ceremony-timeline-id]",
+                        ) as HTMLElement | null;
+                        const targetId = card?.dataset.ceremonyTimelineId;
+                        if (targetId && targetId !== draggingCeremonyTimelineId) {
+                          setDropTargetCeremonyTimelineId(targetId);
+                        }
+                      }}
+                      onTouchEnd={() => {
+                        if (!canEditTimeline || !draggingCeremonyTimelineId || !dropTargetCeremonyTimelineId) {
+                          setDraggingCeremonyTimelineId(null);
+                          setDropTargetCeremonyTimelineId(null);
+                          return;
+                        }
+                        reorderCeremonyTimelineItemToTarget(
+                          draggingCeremonyTimelineId,
+                          dropTargetCeremonyTimelineId,
+                        );
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                      }}
+                    >
+                      {isDropTarget ? (
+                        <div className="mb-2 h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-[#c9a35c] to-transparent" />
+                      ) : null}
+                      {!rowExpanded && (
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="flex min-w-0 flex-1 gap-3 sm:gap-6">
+                            <div className="w-[4.5rem] shrink-0 pt-0.5 text-right sm:w-24">
+                              <p className="font-mono text-xs font-semibold tabular-nums text-[#e9d5a8] sm:text-sm">
+                                {item.timeOrOrder?.trim() || "—"}
+                              </p>
+                            </div>
+                            <div className="relative min-w-0 flex-1 border-l border-[#c9a35c]/22 pl-4 sm:pl-5">
+                              <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#c9a35c]/85 ring-4 ring-[#131318]" />
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-300">
+                                  Ceremony
+                                </span>
+                                {item.needsDjMcAttention ? (
+                                  <span className="rounded-full bg-[#c9a35c]/15 px-2 py-0.5 text-[10px] font-medium text-[#f5e6c8]">
+                                    DJ/MC
+                                  </span>
+                                ) : null}
+                              </div>
+                              <h3 className="mt-2 text-lg font-semibold leading-snug text-zinc-50">
+                                {item.moment}
+                              </h3>
+                              <p className="mt-1.5 text-sm text-[#e9d5a8]/95">
+                                <span className="text-zinc-500">Song · </span>
+                                {songLine || "—"}
+                              </p>
+                              {item.notes?.trim() ? (
+                                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-zinc-500">
+                                  {item.notes}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                              disabled={!canEditTimeline}
+                              className="rounded-lg bg-[#c9a35c]/18 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
+                            >
+                              Details
+                            </PrimaryButton>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                              disabled={!canEditTimeline}
+                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                            >
+                              + After
+                            </PrimaryButton>
+                          </div>
+                        </div>
+                      )}
+                      {rowExpanded && (
+                        <>
+                          <div className="mb-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setCeremonyTimelineExpandedId(null)}
+                              className="text-[11px] text-zinc-500 transition hover:text-zinc-300"
+                            >
+                              Collapse view
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <TextInput
+                              id={`ceremony-inline-time-${item.id}`}
+                              label="Time / order"
+                              value={item.timeOrOrder}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, timeOrOrder: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-moment-${item.id}`}
+                              label="Moment"
+                              value={item.moment}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, moment: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <TextInput
+                              id={`ceremony-inline-song-${item.id}`}
+                              label="Song title"
+                              value={item.songTitle}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, songTitle: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-artist-${item.id}`}
+                              label="Artist"
+                              value={item.artist}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, artist: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <TextArea
+                            id={`ceremony-inline-notes-${item.id}`}
+                            label="Notes"
+                            value={item.notes}
+                            onChange={(value) =>
+                              setCeremonyTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id
+                                    ? { ...existing, notes: value }
+                                    : existing,
+                                ),
+                              )
+                            }
+                            rows={2}
+                            disabled={!canEditTimeline}
+                          />
+                          <PrimaryButton
+                            type="button"
+                            onClick={() =>
+                              setCeremonyTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id
+                                    ? {
+                                        ...existing,
+                                        needsDjMcAttention: !existing.needsDjMcAttention,
+                                      }
+                                    : existing,
+                                ),
+                              )
+                            }
+                            disabled={!canEditTimeline}
+                            className={`mt-3 w-full ${
+                              item.needsDjMcAttention
+                                ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                                : "bg-white/5 text-zinc-400"
+                            }`}
+                          >
+                            {item.needsDjMcAttention
+                              ? "DJ/MC attention: On"
+                              : "Flag DJ/MC attention"}
+                          </PrimaryButton>
+                        </>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          draggable={canEditTimeline}
+                          onDragStart={(event) => {
+                            if (!canEditTimeline) return;
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingCeremonyTimelineId(null);
+                            setDropTargetCeremonyTimelineId(null);
+                          }}
+                          onTouchStart={(event) => {
+                            if (!canEditTimeline) return;
+                            event.preventDefault();
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
+                          disabled={!canEditTimeline}
+                          aria-label={`Drag handle for ${item.moment}`}
+                        >
+                          <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
+                          <span>Reorder</span>
+                        </button>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => moveCeremonyTimelineItem(item.id, "up")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Up
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => moveCeremonyTimelineItem(item.id, "down")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Down
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => deleteCeremonyTimelineItem(item.id)}
+                          disabled={!canEditTimeline}
+                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                        >
+                          Delete
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => duplicateCeremonyTimelineItem(item)}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Duplicate
+                        </PrimaryButton>
+                      </div>
+                      <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
+                        {index + 1} / {ceremonyTimelineItems.length}
+                      </p>
+                    </PremiumCard>
+                  );
+                })
+              )}
+            </div>
+
             {!isCoupleView && (
               <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
                 <SectionTitle className="text-[#e9d5a8]">Ceremony Assistant</SectionTitle>
@@ -8419,225 +9886,6 @@ export default function Home() {
                   placeholder="Cue notes, coordinator timing, special moments..."
                   rows={3}
                 />
-              </div>
-            </PremiumCard>
-
-            <PremiumCard>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <SectionTitle className="text-[#e9d5a8]">Ceremony Timeline</SectionTitle>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Add, edit, and reorder ceremony moments with songs and cues.
-                  </p>
-                </div>
-                <PrimaryButton
-                  onClick={openCreateCeremonyTimelineModal}
-                  disabled={!canEditTimeline}
-                  className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 disabled:opacity-45"
-                >
-                  Add Ceremony Moment
-                </PrimaryButton>
-              </div>
-              <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {ceremonyPresetsForActiveEvent.map((preset) => (
-                    <PrimaryButton
-                      key={`ceremony-preset-${preset.id}`}
-                      onClick={() => addCeremonyPreset(preset)}
-                      disabled={!canEditTimeline}
-                      className="rounded-lg bg-white/10 px-2.5 py-2 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-45"
-                    >
-                      {preset.momentName}
-                    </PrimaryButton>
-                  ))}
-                </div>
-                {ceremonyTimelineItems.map((item, index) => {
-                  const isDragging = draggingCeremonyTimelineId === item.id;
-                  const isDropTarget =
-                    dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-xl border border-white/10 bg-white/[0.04] p-3 transition-all duration-200 ${isDragging ? "scale-[1.01] border-[#c9a35c]/55 shadow-[0_16px_36px_rgba(201,163,92,0.20)]" : ""} ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
-                      onDragOver={(event) => {
-                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
-                        event.preventDefault();
-                        if (draggingCeremonyTimelineId !== item.id) {
-                          setDropTargetCeremonyTimelineId(item.id);
-                        }
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
-                        reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
-                        setDraggingCeremonyTimelineId(null);
-                        setDropTargetCeremonyTimelineId(null);
-                      }}
-                      onDragEnd={() => {
-                        setDraggingCeremonyTimelineId(null);
-                        setDropTargetCeremonyTimelineId(null);
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="w-full">
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <TextInput
-                              id={`ceremony-inline-time-${item.id}`}
-                              label="Time / Order"
-                              value={item.timeOrOrder}
-                              onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, timeOrOrder: value }
-                                      : existing,
-                                  ),
-                                )
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-moment-${item.id}`}
-                              label="Moment"
-                              value={item.moment}
-                              onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, moment: value }
-                                      : existing,
-                                  ),
-                                )
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <TextInput
-                              id={`ceremony-inline-song-${item.id}`}
-                              label="Song Title"
-                              value={item.songTitle}
-                              onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, songTitle: value }
-                                      : existing,
-                                  ),
-                                )
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-artist-${item.id}`}
-                              label="Artist"
-                              value={item.artist}
-                              onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, artist: value }
-                                      : existing,
-                                  ),
-                                )
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <TextArea
-                            id={`ceremony-inline-notes-${item.id}`}
-                            label="Notes"
-                            value={item.notes}
-                            onChange={(value) =>
-                              setCeremonyTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id
-                                    ? { ...existing, notes: value }
-                                    : existing,
-                                ),
-                              )
-                            }
-                            rows={2}
-                            disabled={!canEditTimeline}
-                          />
-                          {item.needsDjMcAttention ? (
-                            <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
-                              DJ/MC Attention
-                            </span>
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          draggable={canEditTimeline}
-                          onDragStart={(event) => {
-                            if (!canEditTimeline) return;
-                            event.dataTransfer.effectAllowed = "move";
-                            setDraggingCeremonyTimelineId(item.id);
-                          }}
-                          onDragEnd={() => {
-                            setDraggingCeremonyTimelineId(null);
-                            setDropTargetCeremonyTimelineId(null);
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
-                          disabled={!canEditTimeline}
-                        >
-                          <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
-                          <span>Reorder</span>
-                        </button>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <PrimaryButton
-                          onClick={() => moveCeremonyTimelineItem(item.id, "up")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Up
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => moveCeremonyTimelineItem(item.id, "down")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Down
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => openEditCeremonyTimelineModal(item)}
-                          disabled={!canEditTimeline}
-                          className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
-                        >
-                          Edit
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => deleteCeremonyTimelineItem(item.id)}
-                          disabled={!canEditTimeline}
-                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
-                        >
-                          Delete
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => duplicateCeremonyTimelineItem(item)}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Duplicate
-                        </PrimaryButton>
-                      </div>
-                      <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
-                        Item {index + 1} of {ceremonyTimelineItems.length}
-                      </p>
-                    </div>
-                  );
-                })}
-                {ceremonyTimelineItems.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115] p-4 text-center">
-                    <p className="text-sm font-semibold text-[#f5e6c8]">
-                      No ceremony moments yet
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      Add your first moment to build a clean ceremony cue sheet.
-                    </p>
-                  </div>
-                ) : null}
               </div>
             </PremiumCard>
           </section>
@@ -9308,6 +10556,102 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Settings" && (
           <section className="mt-6 space-y-3">
+            <input
+              ref={eventCoverPhotoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleEventCoverPhotoChange}
+            />
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Visual identity & cover photo</SectionTitle>
+              <p className="mt-2 text-xs text-zinc-400">
+                Give this event a face. Your cover appears on the home hero and the All Events grid. Images are stored in
+                this browser only (local storage).
+              </p>
+              <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+                <div className="relative aspect-[21/9] min-h-[140px] w-full sm:min-h-[160px]">
+                  {eventSettings.coverPhotoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={eventSettings.coverPhotoDataUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
+                      aria-hidden
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Preview</p>
+                    <p className="mt-0.5 truncate text-sm font-medium text-white drop-shadow">
+                      {eventSettings.eventName || eventDisplayName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <PrimaryButton
+                  type="button"
+                  disabled={!canEditEventCover}
+                  onClick={() => eventCoverPhotoInputRef.current?.click()}
+                  className="rounded-xl border border-white/12 bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.28)] hover:brightness-110 disabled:opacity-45"
+                >
+                  {eventSettings.coverPhotoDataUrl ? "Replace image" : "Upload image"}
+                </PrimaryButton>
+                {eventSettings.coverPhotoDataUrl ? (
+                  <PrimaryButton
+                    type="button"
+                    disabled={!canEditEventCover}
+                    onClick={() => {
+                      if (!window.confirm("Remove the cover image?")) return;
+                      applyEventCoverPhoto(undefined);
+                    }}
+                    className="rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 disabled:opacity-45"
+                  >
+                    Remove
+                  </PrimaryButton>
+                ) : null}
+              </div>
+              {!canEditEventCover ? (
+                <p className="mt-3 text-xs text-zinc-500">Cover editing is not available for the DJ role in this build.</p>
+              ) : null}
+            </PremiumCard>
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Event status</SectionTitle>
+              <p className="mt-2 text-xs text-zinc-400">
+                Control how this event appears on All Events. Archived events stay in your data and remain findable via
+                search, but are hidden from the default list.
+              </p>
+              <div className="mt-3">
+                <label htmlFor="event-lifecycle-status" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                  Status
+                </label>
+                <select
+                  id="event-lifecycle-status"
+                  value={eventSettings.eventLifecycleStatus ?? "active"}
+                  disabled={!canEditEventLifecycle}
+                  onChange={(e) => applyEventLifecycleStatus(e.target.value as EventLifecycleStatus)}
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none disabled:opacity-45"
+                >
+                  <option value="active" className="bg-[#141419]">
+                    Active — in progress
+                  </option>
+                  <option value="completed" className="bg-[#141419]">
+                    Completed
+                  </option>
+                  <option value="archived" className="bg-[#141419]">
+                    Archived
+                  </option>
+                </select>
+              </div>
+              {!canEditEventLifecycle ? (
+                <p className="mt-2 text-xs text-zinc-500">Only Admin and Planner can change event status.</p>
+              ) : null}
+            </PremiumCard>
             <PremiumCard>
               <SectionTitle className="text-[#e9d5a8]">Event Type & Sections</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
@@ -9524,6 +10868,20 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
+                  {canManageEvents && Boolean(eventSettings.assignedDj?.trim()) ? (
+                    <div className="mt-2">
+                      <PrimaryButton
+                        type="button"
+                        onClick={clearAssignedDjFromActiveEvent}
+                        className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-white/15"
+                      >
+                        Remove from Event
+                      </PrimaryButton>
+                      <p className="mt-1.5 text-[11px] text-zinc-500">
+                        Clears the DJ assignment for this event only; team roster profiles are unchanged.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput
@@ -9543,6 +10901,23 @@ export default function Home() {
                     }
                   />
                 </div>
+                {canManageEvents && assignedPlannerTeamMemberForEvent ? (
+                  <div className="mt-1">
+                    <PrimaryButton
+                      type="button"
+                      onClick={() =>
+                        removeTeamMemberFromActiveEvent(assignedPlannerTeamMemberForEvent)
+                      }
+                      className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-white/15"
+                    >
+                      Remove from Event
+                    </PrimaryButton>
+                    <p className="mt-1.5 text-[11px] text-zinc-500">
+                      Clears planner name and email on this event when they match team member{" "}
+                      {assignedPlannerTeamMemberForEvent.name}. The roster entry is not deleted.
+                    </p>
+                  </div>
+                ) : null}
                 <TextInput
                   id="event-settings-package-name"
                   label="Package Name"
@@ -9844,6 +11219,10 @@ export default function Home() {
                       "ceremony_updated",
                       "formality_updated",
                       "collaborator_invited",
+                      "collaborator_removed_from_event",
+                      "team_member_added",
+                      "team_member_assigned",
+                      "team_member_removed_from_event",
                       "vendor_updated",
                       "checklist_completed",
                       "template_applied",
@@ -10482,110 +11861,6 @@ export default function Home() {
                     className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
                   >
                     Save Vendor
-                  </PrimaryButton>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {ceremonyTimelineModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
-          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b0b14]/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-w-2xl sm:max-h-[90vh]">
-            <div className="shrink-0 border-b border-white/10 px-5 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-[#e9d5a8]">
-                  {ceremonyTimelineEditingId ? "Edit Ceremony Moment" : "Add Ceremony Moment"}
-                </SectionTitle>
-                <PrimaryButton
-                  onClick={() => {
-                    setCeremonyTimelineModalOpen(false);
-                    resetCeremonyTimelineDraft();
-                  }}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
-                >
-                  Close
-                </PrimaryButton>
-              </div>
-            </div>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                saveCeremonyTimelineItem();
-              }}
-              className="flex min-h-0 flex-1 flex-col"
-            >
-              <div className="space-y-3 overflow-y-auto px-5 py-4">
-                <TextInput
-                  id="ceremony-timeline-time-order"
-                  label="Time / Order"
-                  value={ceremonyTimelineDraftTimeOrOrder}
-                  onChange={setCeremonyTimelineDraftTimeOrOrder}
-                  placeholder="e.g. 3:30 PM or Prelude"
-                />
-                <TextInput
-                  id="ceremony-timeline-moment"
-                  label="Moment Name"
-                  value={ceremonyTimelineDraftMoment}
-                  onChange={setCeremonyTimelineDraftMoment}
-                    placeholder="e.g. Processional"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput
-                    id="ceremony-timeline-song-title"
-                    label="Song Title"
-                    value={ceremonyTimelineDraftSongTitle}
-                    onChange={setCeremonyTimelineDraftSongTitle}
-                    placeholder="Song title"
-                  />
-                  <TextInput
-                    id="ceremony-timeline-artist"
-                    label="Artist"
-                    value={ceremonyTimelineDraftArtist}
-                    onChange={setCeremonyTimelineDraftArtist}
-                    placeholder="Artist"
-                  />
-                </div>
-                <TextArea
-                  id="ceremony-timeline-notes"
-                  label="Notes"
-                  value={ceremonyTimelineDraftNotes}
-                  onChange={setCeremonyTimelineDraftNotes}
-                  placeholder="Cue notes, transitions, and callouts..."
-                  rows={3}
-                />
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
-                  className={`w-full ${
-                    ceremonyTimelineDraftNeedsAttention
-                      ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                      : "bg-white/5 text-zinc-400"
-                  }`}
-                >
-                  {ceremonyTimelineDraftNeedsAttention
-                    ? "DJ/MC Attention Required"
-                    : "Mark as DJ/MC Attention"}
-                </PrimaryButton>
-              </div>
-              <div className="shrink-0 border-t border-white/10 bg-[#0b0b14]/95 px-5 py-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <PrimaryButton
-                    type="button"
-                    onClick={() => {
-                      setCeremonyTimelineModalOpen(false);
-                      resetCeremonyTimelineDraft();
-                    }}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
-                  >
-                    Cancel
-                  </PrimaryButton>
-                  <PrimaryButton
-                    type="submit"
-                    className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
-                  >
-                    {ceremonyTimelineEditingId ? "Save Changes" : "Add Moment"}
                   </PrimaryButton>
                 </div>
               </div>

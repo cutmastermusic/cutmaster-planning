@@ -1,6 +1,8 @@
 import type {
   CeremonySongPlan,
+  ChecklistStatus,
   DisplayTimelineItem,
+  EventRecord,
   FormalityItem,
   GuestRequestEntry,
   PlanningInsight,
@@ -203,3 +205,129 @@ export function buildPlanningInsights(
 }
 
 export const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+/** Tailwind classes — keep literals static so the JIT compiler retains them. */
+export function eventCoverFallbackClasses(layoutProfile: string): string {
+  switch (layoutProfile) {
+    case "Wedding":
+    case "Gender-Neutral Wedding":
+      return "bg-gradient-to-br from-[#4a3424] via-[#1e1c26] to-[#09090d]";
+    case "Corporate":
+      return "bg-gradient-to-br from-[#1a2738] via-[#12161f] to-[#09090d]";
+    case "Holiday Party":
+      return "bg-gradient-to-br from-[#3b1f28] via-[#1a151c] to-[#09090d]";
+    case "Graduation Celebration":
+      return "bg-gradient-to-br from-[#1f3d36] via-[#141a18] to-[#09090d]";
+    case "Birthday Party":
+      return "bg-gradient-to-br from-[#4a2f52] via-[#1c151f] to-[#09090d]";
+    case "Bar/Club Event":
+      return "bg-gradient-to-br from-[#2b1f4a] via-[#15131f] to-[#09090d]";
+    case "School Dance":
+      return "bg-gradient-to-br from-[#1f3550] via-[#141820] to-[#09090d]";
+    case "Private Party":
+      return "bg-gradient-to-br from-[#342f48] via-[#17161e] to-[#09090d]";
+    default:
+      return "bg-gradient-to-br from-[#2f2838] via-[#16151c] to-[#09090d]";
+  }
+}
+
+/**
+ * Mirrors Dashboard checklist completion for any persisted event (used on All Events cards).
+ */
+export function approximatePlanningProgressPercent(evt: EventRecord): number {
+  const s = evt.settings;
+  const formalities = evt.formalities ?? [];
+  const timelineItems = evt.timelineItems ?? [];
+
+  const hasEventDetailsComplete = Boolean(
+    (s?.eventName ?? "").trim() &&
+      (s?.coupleNames ?? "").trim() &&
+      (s?.venue ?? "").trim() &&
+      (s?.weddingDate ?? "").trim(),
+  );
+
+  const wp = evt.weddingPartyProcessional?.title?.trim();
+  const bp = evt.brideGroomProcessional?.title?.trim();
+  const rs = evt.recessionalSong?.title?.trim();
+  const hasKeyCeremonySongs = Boolean(wp && bp && rs);
+
+  const hasKeyFormalDanceSongs = Boolean(
+    formalities.find((f) => /first dance/i.test(f.momentName) && f.songTitle.trim()) &&
+      formalities.find((f) => /father\/daughter/i.test(f.momentName) && f.songTitle.trim()) &&
+      formalities.find((f) => /mother\/son/i.test(f.momentName) && f.songTitle.trim()),
+  );
+
+  const combinedTimelineTitles = [
+    ...timelineItems.map((item) => item.title.toLowerCase()),
+    ...formalities.filter((item) => item.includeInTimeline).map((item) => item.momentName.toLowerCase()),
+  ];
+  const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every((needle) =>
+    combinedTimelineTitles.some((title) => title.includes(needle)),
+  );
+
+  const guestRequests = evt.guestRequests ?? [];
+  const noPendingGuestRequests = guestRequests.every((request) => request.status !== "Pending");
+
+  const hasFinalDjNotes = Boolean((evt.generalDjNotes ?? "").trim().length >= 16);
+
+  const tasks: { id: string; autoStatus: ChecklistStatus }[] = [
+    {
+      id: "complete-event-details",
+      autoStatus: hasEventDetailsComplete ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "choose-ceremony-songs",
+      autoStatus: hasKeyCeremonySongs ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "add-formal-dance-songs",
+      autoStatus: hasKeyFormalDanceSongs ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "build-must-play-list",
+      autoStatus: (evt.mustPlaySongs?.length ?? 0) > 0 ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "add-do-not-play-songs",
+      autoStatus: (evt.doNotPlaySongs?.length ?? 0) > 0 ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "review-timeline",
+      autoStatus: hasKeyTimelineMoments ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "approve-guest-requests",
+      autoStatus:
+        guestRequests.length > 0 && noPendingGuestRequests ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+    {
+      id: "add-final-dj-notes",
+      autoStatus: hasFinalDjNotes ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+    },
+  ];
+
+  const manual = s?.checklistManualStatuses ?? {};
+  let complete = 0;
+  for (const t of tasks) {
+    const status = manual[t.id] ?? t.autoStatus;
+    if (status === "Complete") complete++;
+  }
+  return tasks.length === 0 ? 0 : Math.round((complete / tasks.length) * 100);
+}
+
+export function readImageFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Please choose an image file."));
+      return;
+    }
+    if (file.size > maxBytes) {
+      reject(new Error(`Choose an image under ${Math.round(maxBytes / (1024 * 1024))} MB.`));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}

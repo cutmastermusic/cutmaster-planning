@@ -205,9 +205,14 @@ export type MusicVibeDetail = {
   cleanMusicPrefs?: string;
 };
 
+/** Workspace lifecycle — archived events stay in data but hide from default lists. */
+export type EventLifecycleStatus = "active" | "completed" | "archived";
+
 export type Event = {
   id: string;
   meta: WeddingDetails;
+  /** Unix ms — last planning save for sorting "recently updated". */
+  lastUpdatedAt: number;
   collaborators: Collaborator[];
   timelineItems: TimelineItem[];
   ceremonyTimelineItems: CeremonyTimelineItem[];
@@ -343,6 +348,10 @@ export type EventSettings = {
   planningQuestionAnswers: Record<string, string>;
   checklistDueDates: Record<string, string>;
   checklistManualStatuses: Record<string, ChecklistStatus>;
+  /** Base64 data URL of event cover/banner image (local browser storage only). */
+  coverPhotoDataUrl?: string;
+  /** Defaults to active when missing (legacy data). */
+  eventLifecycleStatus?: EventLifecycleStatus;
 };
 
 export type ActivityType =
@@ -354,8 +363,10 @@ export type ActivityType =
   | "ceremony_updated"
   | "formality_updated"
   | "collaborator_invited"
+  | "collaborator_removed_from_event"
   | "team_member_added"
   | "team_member_assigned"
+  | "team_member_removed_from_event"
   | "vendor_updated"
   | "checklist_completed"
   | "template_applied";
