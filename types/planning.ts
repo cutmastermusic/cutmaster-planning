@@ -11,11 +11,11 @@ export type Screen =
   | "Guest Requests"
   | "Ceremony"
   | "Formal Dances"
-  | "Live Event Mode"
+  | "Event Prep"
   | "Vendors"
   | "Notes"
-  | "DJ Prep Sheet"
   | "Planning Checklist"
+  | "Planning Questions"
   | "Notification Center"
   | "Settings"
   | "Event Settings";
@@ -215,9 +215,50 @@ export type AppSettings = {
   publicGuestRequestMessage: string;
   coupleWelcomeMessage: string;
   globalTemplateDefaults: string;
+  planningQuestionSets: Partial<Record<EventSettings["eventLayoutProfile"], PlanningQuestionDef[]>>;
+  timelinePresetSets: Partial<Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]>>;
+};
+
+export type PlanningQuestionAnswerType =
+  | "short_text"
+  | "long_text"
+  | "yes_no"
+  | "multiple_choice"
+  | "song"
+  | "contact";
+
+export type PlanningQuestionDef = {
+  id: string;
+  label: string;
+  helpText: string;
+  answerType: PlanningQuestionAnswerType;
+  required: boolean;
+  showInLiveEventMode: boolean;
+  options?: string[];
+  placeholder?: string;
+};
+
+export type TimelinePresetItem = {
+  id: string;
+  timelineType: "ceremony" | "main";
+  timeOrOrder: string;
+  momentName: string;
+  songPlaceholder: string;
+  notesPlaceholder: string;
+  defaultIncluded: boolean;
 };
 
 export type EventSettings = {
+  eventLayoutProfile:
+    | "Wedding"
+    | "Gender-Neutral Wedding"
+    | "Corporate"
+    | "Holiday Party"
+    | "Graduation Celebration"
+    | "Birthday Party"
+    | "Bar/Club Event"
+    | "School Dance"
+    | "Private Party";
   eventName: string;
   coupleNames: string;
   eventType: string;
@@ -236,6 +277,28 @@ export type EventSettings = {
   guestRequestMessageOverride: string;
   prepSheetFooterOverride: string;
   coupleWelcomeMessageOverride: string;
+  liveEventShowMusicNotes: boolean;
+  liveEventShowDoNotPlay: boolean;
+  liveEventShowVendorContacts: boolean;
+  liveEventShowMcScript: boolean;
+  liveEventShowPlaylists: boolean;
+  liveEventShowPlanningQuestions: boolean;
+  liveEventShowGuestRequests: boolean;
+  liveEventCompactMode: boolean;
+  liveEventLargePrintMode: boolean;
+  sectionCeremonyEnabled: boolean;
+  sectionReceptionTimelineEnabled: boolean;
+  sectionPlaylistsEnabled: boolean;
+  sectionMustPlayEnabled: boolean;
+  sectionDoNotPlayEnabled: boolean;
+  sectionMcScriptEnabled: boolean;
+  sectionVendorContactsEnabled: boolean;
+  sectionMusicNotesEnabled: boolean;
+  sectionGuestRequestsEnabled: boolean;
+  sectionFormalitiesEnabled: boolean;
+  sectionPlanningChecklistEnabled: boolean;
+  sectionPlanningQuestionsEnabled: boolean;
+  planningQuestionAnswers: Record<string, string>;
   checklistDueDates: Record<string, string>;
   checklistManualStatuses: Record<string, ChecklistStatus>;
 };

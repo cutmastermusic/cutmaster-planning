@@ -97,7 +97,7 @@ body {
   vertical-align: top;
 }
 
-/* Live Event table hierarchy: quick scan for Time and Moment first. */
+/* Event Prep table hierarchy: quick scan for Time and Moment first. */
 .live-event-timeline-table th:nth-child(1),
 .live-event-timeline-table th:nth-child(2) {
   font-size: 12px;
@@ -130,6 +130,34 @@ body {
 .live-reception-page-break {
   border-top: 1px solid #d1d5db;
   padding-top: 10px;
+}
+
+.doc-mode-compact .doc-table th,
+.doc-mode-compact .doc-table td {
+  padding: 4px 6px;
+}
+
+.doc-mode-compact .doc-section {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.doc-mode-large-print .doc-table {
+  font-size: 13px;
+}
+
+.doc-mode-large-print .doc-table th,
+.doc-mode-large-print .doc-table td {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.doc-mode-large-print .doc-title {
+  font-size: 20px;
+}
+
+.doc-mode-large-print .doc-subtitle {
+  font-size: 13px;
 }
 
 .doc-note {
@@ -228,5 +256,20 @@ body {
   .live-event-timeline-table th,
   .live-event-timeline-table td {
     padding: 4px 6px !important;
+  }
+
+  .doc-mode-compact .doc-table th,
+  .doc-mode-compact .doc-table td {
+    padding: 3px 5px !important;
+  }
+
+  .doc-mode-large-print .doc-table {
+    font-size: 12.5px !important;
+  }
+
+  .doc-mode-large-print .doc-table th,
+  .doc-mode-large-print .doc-table td {
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
   }
 }

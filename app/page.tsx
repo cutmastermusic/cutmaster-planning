@@ -13,6 +13,11 @@ import {
   TextInput,
 } from "@/components/planning-ui";
 import {
+  formatPlanningQuestionsPlainTextLines,
+  getDefaultPlanningQuestionSets,
+  getPlanningQuestionsForProfile,
+} from "@/data/planningQuestionsCatalog";
+import {
   buildSeedEvents,
   initialBrideGroomProcessional,
   initialCeremonyGuestArrivalTime,
@@ -56,11 +61,14 @@ import type {
   GuestRequestEntry,
   GuestRequestStatus,
   ChecklistStatus,
+  PlanningQuestionAnswerType,
+  PlanningQuestionDef,
   Screen,
   SongEntry,
   SongListType,
   TimelineCategory,
   TimelineItem,
+  TimelinePresetItem,
   TimelineTemplate,
   TeamMember,
   UserRole,
@@ -105,21 +113,6 @@ type BackupPayload = {
   appState: LocalAppStateBackup;
 };
 
-type EventModalDraft = {
-  eventName: string;
-  coupleNames: string;
-  eventType: string;
-  weddingDate: string;
-  venue: string;
-  ceremonyLocation: string;
-  receptionLocation: string;
-  assignedDj: string;
-  packageName: string;
-  plannerName: string;
-  plannerEmail: string;
-  internalNotes: string;
-};
-
 const VENDOR_TYPES: VendorType[] = [
   "Planner",
   "Photographer",
@@ -134,6 +127,564 @@ const VENDOR_TYPES: VendorType[] = [
   "Content Creator",
   "Other",
 ];
+
+type EventLayoutProfile =
+  | "Wedding"
+  | "Gender-Neutral Wedding"
+  | "Corporate"
+  | "Holiday Party"
+  | "Graduation Celebration"
+  | "Birthday Party"
+  | "Bar/Club Event"
+  | "School Dance"
+  | "Private Party";
+
+type EventModalDraft = {
+  eventName: string;
+  coupleNames: string;
+  eventType: string;
+  eventLayoutProfile: EventLayoutProfile;
+  weddingDate: string;
+  venue: string;
+  ceremonyLocation: string;
+  receptionLocation: string;
+  assignedDj: string;
+  packageName: string;
+  plannerName: string;
+  plannerEmail: string;
+  internalNotes: string;
+};
+
+const EVENT_TYPES: EventLayoutProfile[] = [
+  "Wedding",
+  "Gender-Neutral Wedding",
+  "Corporate",
+  "Holiday Party",
+  "Graduation Celebration",
+  "Birthday Party",
+  "Private Party",
+  "Bar/Club Event",
+  "School Dance",
+];
+
+const GLOBAL_SETTINGS_SECTIONS = [
+  "Event Types",
+  "Planning Questions",
+  "Timeline Presets",
+  "Live Event Mode",
+  "Team Management",
+  "Branding / App",
+] as const;
+
+type GlobalSettingsSection = (typeof GLOBAL_SETTINGS_SECTIONS)[number];
+
+const getDefaultTimelinePresetSets = (): Record<EventLayoutProfile, TimelinePresetItem[]> => ({
+  Wedding: [
+    { id: "w-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
+    { id: "w-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
+    { id: "w-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
+    { id: "w-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
+    { id: "w-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
+    { id: "w-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+  ],
+  "Gender-Neutral Wedding": [
+    { id: "gnw-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
+    { id: "gnw-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
+    { id: "gnw-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
+    { id: "gnw-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
+    { id: "gnw-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
+    { id: "gnw-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+  ],
+  Corporate: [
+    { id: "co-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Background Set", notesPlaceholder: "Low-volume welcome music.", defaultIncluded: true },
+    { id: "co-main-2", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Run of Show: Welcome Remarks", songPlaceholder: "Walk-up Stinger", notesPlaceholder: "MC/presenter intro.", defaultIncluded: true },
+    { id: "co-main-3", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Program Segment", songPlaceholder: "Segment Bed", notesPlaceholder: "Cue transitions cleanly.", defaultIncluded: true },
+  ],
+  "Holiday Party": [
+    { id: "hp-main-1", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Doors Open", songPlaceholder: "Holiday Welcome Set", notesPlaceholder: "Seasonal background music.", defaultIncluded: true },
+    { id: "hp-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Housekeeping + acknowledgements.", defaultIncluded: true },
+    { id: "hp-main-3", timelineType: "main", timeOrOrder: "8:30 PM", momentName: "Dance Floor Opens", songPlaceholder: "Party Set", notesPlaceholder: "Transition to dance energy.", defaultIncluded: true },
+  ],
+  "Graduation Celebration": [
+    { id: "gc-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Set", notesPlaceholder: "Family/friends arrival.", defaultIncluded: true },
+    { id: "gc-main-2", timelineType: "main", timeOrOrder: "6:45 PM", momentName: "Family / Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Graduate recognition cues.", defaultIncluded: true },
+    { id: "gc-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy lift for celebration.", defaultIncluded: true },
+  ],
+  "Birthday Party": [
+    { id: "bd-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Warm-up while guests arrive.", defaultIncluded: true },
+    { id: "bd-main-2", timelineType: "main", timeOrOrder: "7:15 PM", momentName: "Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Cake / toast / dedication cues.", defaultIncluded: true },
+    { id: "bd-main-3", timelineType: "main", timeOrOrder: "7:45 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Main dance-floor arc.", defaultIncluded: true },
+  ],
+  "Private Party": [
+    { id: "pp-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Low-key opening.", defaultIncluded: true },
+    { id: "pp-main-2", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Main Event Timeline", songPlaceholder: "Core Set", notesPlaceholder: "Flexible flow by host cues.", defaultIncluded: true },
+    { id: "pp-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Raise energy.", defaultIncluded: true },
+  ],
+  "Bar/Club Event": [
+    { id: "bc-main-1", timelineType: "main", timeOrOrder: "9:00 PM", momentName: "Set Time 1", songPlaceholder: "Opening Set", notesPlaceholder: "Start room-building set.", defaultIncluded: true },
+    { id: "bc-main-2", timelineType: "main", timeOrOrder: "10:30 PM", momentName: "Set Time 2", songPlaceholder: "Peak Set", notesPlaceholder: "Main floor energy.", defaultIncluded: true },
+    { id: "bc-main-3", timelineType: "main", timeOrOrder: "12:00 AM", momentName: "Set Time 3", songPlaceholder: "Late Set", notesPlaceholder: "Maintain momentum.", defaultIncluded: true },
+  ],
+  "School Dance": [
+    { id: "sd-main-1", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Doors Open", songPlaceholder: "Clean Opening Set", notesPlaceholder: "Set expectations and tone.", defaultIncluded: true },
+    { id: "sd-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Admin/chaperone lines.", defaultIncluded: true },
+    { id: "sd-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Dance Set", songPlaceholder: "Clean Dance Set", notesPlaceholder: "School-appropriate energy ramp.", defaultIncluded: true },
+  ],
+});
+
+const QUESTION_ANSWER_TYPES: {
+  value: PlanningQuestionAnswerType;
+  label: string;
+}[] = [
+  { value: "short_text", label: "Short text" },
+  { value: "long_text", label: "Long text" },
+  { value: "yes_no", label: "Yes / No" },
+  { value: "multiple_choice", label: "Multiple choice" },
+  { value: "song", label: "Song" },
+  { value: "contact", label: "Contact" },
+];
+
+const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
+  if (profile === "Gender-Neutral Wedding") {
+    return {
+      sectionCeremonyEnabled: true,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: true,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: true,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Corporate") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: true,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: false,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Holiday Party") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: true,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Graduation Celebration") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: false,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Birthday Party") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: false,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Bar/Club Event") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: false,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "School Dance") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: true,
+      sectionMcScriptEnabled: true,
+      sectionVendorContactsEnabled: false,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: true,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  if (profile === "Private Party") {
+    return {
+      sectionCeremonyEnabled: false,
+      sectionReceptionTimelineEnabled: true,
+      sectionPlaylistsEnabled: true,
+      sectionMustPlayEnabled: true,
+      sectionDoNotPlayEnabled: false,
+      sectionMcScriptEnabled: false,
+      sectionVendorContactsEnabled: false,
+      sectionMusicNotesEnabled: true,
+      sectionGuestRequestsEnabled: false,
+      sectionFormalitiesEnabled: false,
+      sectionPlanningChecklistEnabled: true,
+      sectionPlanningQuestionsEnabled: true,
+    };
+  }
+  return {
+    sectionCeremonyEnabled: true,
+    sectionReceptionTimelineEnabled: true,
+    sectionPlaylistsEnabled: true,
+    sectionMustPlayEnabled: true,
+    sectionDoNotPlayEnabled: true,
+    sectionMcScriptEnabled: true,
+    sectionVendorContactsEnabled: true,
+    sectionMusicNotesEnabled: true,
+    sectionGuestRequestsEnabled: true,
+    sectionFormalitiesEnabled: true,
+    sectionPlanningChecklistEnabled: true,
+    sectionPlanningQuestionsEnabled: true,
+  };
+};
+
+type LayoutSectionDefaults = ReturnType<typeof getLayoutProfileDefaults>;
+
+const inferLayoutProfileFromEventType = (eventType: string): EventLayoutProfile => {
+  const normalized = eventType.trim().toLowerCase();
+  if (normalized.includes("gender-neutral")) return "Gender-Neutral Wedding";
+  if (normalized.includes("holiday")) return "Holiday Party";
+  if (normalized.includes("graduation") || normalized.includes("grad")) return "Graduation Celebration";
+  if (normalized.includes("birthday") || normalized.includes("sweet 16")) return "Birthday Party";
+  if (normalized.includes("bar") || normalized.includes("club") || normalized.includes("nightclub")) return "Bar/Club Event";
+  if (normalized.includes("school") || normalized.includes("prom") || normalized.includes("homecoming")) return "School Dance";
+  if (normalized.includes("corporate") || normalized.includes("company") || normalized.includes("business")) return "Corporate";
+  if (normalized.includes("private")) return "Private Party";
+  if (!normalized || normalized.includes("wedding")) return "Wedding";
+  return "Private Party";
+};
+
+const LAYOUT_PROFILE_DESCRIPTIONS: Record<EventLayoutProfile, string> = {
+  Wedding:
+    "Full planning suite with ceremony, reception, formalities, music, vendors, and Event Prep export",
+  "Gender-Neutral Wedding":
+    "Inclusive wedding profile with ceremony, reception, formalities, and full music planning",
+  Corporate: "Run-of-show, playlists, announcements, vendors, and optional scripts",
+  "Holiday Party": "Run-of-show, announcements, guest requests, and festive music planning",
+  "Graduation Celebration": "Timeline, announcements, requests, and clean-event music controls",
+  "Birthday Party": "Party-forward timeline with playlists, requests, and celebration moments",
+  "Bar/Club Event": "Performance-focused timeline, playlists, requests, and floor energy notes",
+  "School Dance": "Playlists, guest requests, announcements, and simplified timeline",
+  "Private Party": "Minimal planning with music, timeline, and notes",
+};
+
+type LiveEventDocumentVisibilityDefaults = Pick<
+  EventSettings,
+  | "liveEventShowMusicNotes"
+  | "liveEventShowDoNotPlay"
+  | "liveEventShowVendorContacts"
+  | "liveEventShowMcScript"
+  | "liveEventShowPlaylists"
+  | "liveEventShowPlanningQuestions"
+  | "liveEventShowGuestRequests"
+>;
+
+/** Defaults for Event Prep on-screen / print section visibility (users can override per event). */
+function getLiveEventDocumentDefaults(profile: EventLayoutProfile): LiveEventDocumentVisibilityDefaults {
+  switch (profile) {
+    case "Wedding":
+    case "Gender-Neutral Wedding":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: true,
+        liveEventShowVendorContacts: true,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: false,
+        liveEventShowPlanningQuestions: true,
+        liveEventShowGuestRequests: false,
+      };
+    case "Corporate":
+    case "Holiday Party":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: false,
+        liveEventShowVendorContacts: true,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: false,
+        liveEventShowGuestRequests: false,
+      };
+    case "School Dance":
+    case "Graduation Celebration":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: true,
+        liveEventShowVendorContacts: false,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: false,
+        liveEventShowGuestRequests: true,
+      };
+    case "Birthday Party":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: true,
+        liveEventShowVendorContacts: false,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: true,
+        liveEventShowGuestRequests: true,
+      };
+    case "Bar/Club Event":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: true,
+        liveEventShowVendorContacts: false,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: false,
+        liveEventShowGuestRequests: true,
+      };
+    case "Private Party":
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: false,
+        liveEventShowVendorContacts: false,
+        liveEventShowMcScript: false,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: false,
+        liveEventShowGuestRequests: false,
+      };
+    default:
+      return {
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: false,
+        liveEventShowVendorContacts: false,
+        liveEventShowMcScript: false,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: false,
+        liveEventShowGuestRequests: false,
+      };
+  }
+}
+
+/** Migrates deprecated screen ids from persisted app state (localStorage / backups). */
+function migrateLegacyScreenId(raw: unknown): Screen {
+  if (
+    raw === "DJ Prep Sheet" ||
+    raw === "Live Event Mode" ||
+    raw === "Event Document"
+  ) {
+    return "Event Prep";
+  }
+  return raw as Screen;
+}
+
+const LAYOUT_SECTION_PREVIEW: {
+  key: keyof LayoutSectionDefaults;
+  label: string;
+}[] = [
+  { key: "sectionCeremonyEnabled", label: "Ceremony" },
+  { key: "sectionReceptionTimelineEnabled", label: "Reception timeline" },
+  { key: "sectionPlaylistsEnabled", label: "Playlists" },
+  { key: "sectionMustPlayEnabled", label: "Must play" },
+  { key: "sectionDoNotPlayEnabled", label: "Do not play" },
+  { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
+  { key: "sectionVendorContactsEnabled", label: "Vendor contacts" },
+  { key: "sectionMusicNotesEnabled", label: "Music notes" },
+  { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
+  { key: "sectionFormalitiesEnabled", label: "Formalities" },
+  { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
+  { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
+];
+
+const getEnabledLayoutSectionLabels = (defaults: LayoutSectionDefaults) =>
+  LAYOUT_SECTION_PREVIEW.filter((row) => defaults[row.key]).map((row) => row.label);
+
+const getEnabledSectionLabels = (
+  profile: EventLayoutProfile | string,
+  defaults?: Partial<LayoutSectionDefaults> | null,
+): string[] => {
+  const safeDefaults = getLayoutProfileDefaults(
+    (EVENT_TYPES.includes(profile as EventLayoutProfile)
+      ? profile
+      : "Wedding") as EventLayoutProfile,
+  );
+  const resolvedDefaults = {
+    ...safeDefaults,
+    ...(defaults ?? {}),
+  } as LayoutSectionDefaults;
+
+  const labels = getEnabledLayoutSectionLabels(resolvedDefaults);
+  return labels.length > 0 ? labels : ["No sections enabled"];
+};
+
+const EVENT_TYPE_USE_CASE: Record<EventLayoutProfile, string> = {
+  Wedding: "Full wedding-day planning with ceremony cues, formalities, and vendor coordination.",
+  "Gender-Neutral Wedding":
+    "Inclusive wedding planning with partner/couple language and full ceremony + reception support.",
+  Corporate:
+    "Programmed event flow for remarks, run-of-show transitions, and brand-aware music control.",
+  "Holiday Party":
+    "Seasonal celebration planning with timeline, playlists, announcements, and optional requests.",
+  "Graduation Celebration":
+    "Family-focused celebration flow with announcements, requests, and milestone moments.",
+  "Birthday Party":
+    "Party-forward planning with special moments, requests, and dance-floor pacing.",
+  "Private Party":
+    "Lean event setup for timeline + music direction with optional restrictions.",
+  "Bar/Club Event":
+    "Set-time driven performance flow with playlists, music direction, and floor management.",
+  "School Dance":
+    "Student event planning with clean music controls, announcements, and request management.",
+};
+
+const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[] => {
+  const visibility = getLiveEventDocumentDefaults(profile);
+  const labels = ["Event Overview"];
+  const layoutDefaults = getLayoutProfileDefaults(profile);
+  if (layoutDefaults.sectionCeremonyEnabled) labels.push("Ceremony Timeline");
+  if (layoutDefaults.sectionReceptionTimelineEnabled) {
+    labels.push(profile === "Corporate" ? "Run of Show" : "Timeline");
+  }
+  if (layoutDefaults.sectionFormalitiesEnabled) labels.push("Formal Dances / Special Moments");
+  if (visibility.liveEventShowMcScript) {
+    labels.push(profile === "Corporate" ? "Announcements / Script Notes" : "Announcements / MC Script");
+  }
+  if (visibility.liveEventShowVendorContacts) labels.push("Vendors");
+  if (visibility.liveEventShowPlaylists) labels.push("Playlists");
+  if (visibility.liveEventShowGuestRequests) labels.push("Guest Requests");
+  if (visibility.liveEventShowDoNotPlay) labels.push("Do Not Play");
+  if (visibility.liveEventShowMusicNotes) {
+    labels.push(profile === "School Dance" ? "Clean Music Notes" : "Music Notes");
+  }
+  return labels;
+};
+
+const PRIMARY_PARTY_FIELD_LABEL: Record<EventLayoutProfile, string> = {
+  Wedding: "Couple / Honoree Names",
+  "Gender-Neutral Wedding": "Partners / Honoree Names",
+  Corporate: "Client / Organization Name",
+  "Holiday Party": "Host / Organization Name",
+  "Graduation Celebration": "Graduate / School Name",
+  "Birthday Party": "Host / Guest of Honor",
+  "Bar/Club Event": "Venue / Event Name",
+  "School Dance": "School / Organization Name",
+  "Private Party": "Host / Guest of Honor",
+};
+
+/** Table headers, cards, and plain-text export prefix for the primary party field */
+const PRIMARY_PARTY_SHORT_LABEL: Record<EventLayoutProfile, string> = {
+  Wedding: "Couple / Honoree",
+  "Gender-Neutral Wedding": "Partners / Honoree",
+  Corporate: "Client / Organization",
+  "Holiday Party": "Host / Organization",
+  "Graduation Celebration": "Graduate / School",
+  "Birthday Party": "Host / Honoree",
+  "Bar/Club Event": "Venue / Event",
+  "School Dance": "School / Organization",
+  "Private Party": "Host / Guest of Honor",
+};
+
+const INVITE_PREVIEW_TITLE: Record<EventLayoutProfile, string> = {
+  Wedding: "You've been invited to plan your celebration with Cutmaster Music",
+  "Gender-Neutral Wedding": "You've been invited to plan your celebration with Cutmaster Music",
+  Corporate: "You've been invited to collaborate on this corporate event with Cutmaster Music",
+  "Holiday Party": "You've been invited to collaborate on this holiday event with Cutmaster Music",
+  "Graduation Celebration": "You've been invited to collaborate on this graduation event with Cutmaster Music",
+  "Birthday Party": "You've been invited to collaborate on this birthday event with Cutmaster Music",
+  "Bar/Club Event": "You've been invited to collaborate on this bar/club event with Cutmaster Music",
+  "School Dance": "You've been invited to collaborate on this school event with Cutmaster Music",
+  "Private Party": "You've been invited to collaborate on this event with Cutmaster Music",
+};
+
+const COPY_INVITE_LINK_LABEL: Record<EventLayoutProfile, string> = {
+  Wedding: "Copy couple invite link",
+  "Gender-Neutral Wedding": "Copy partner invite link",
+  Corporate: "Copy client invite link",
+  "Holiday Party": "Copy holiday event invite link",
+  "Graduation Celebration": "Copy graduation invite link",
+  "Birthday Party": "Copy birthday invite link",
+  "Bar/Club Event": "Copy venue invite link",
+  "School Dance": "Copy school portal invite link",
+  "Private Party": "Copy host invite link",
+};
+
+function migrateLegacyLayoutProfile(
+  rawProfile: unknown,
+  eventType: string,
+): EventLayoutProfile {
+  const value = String(rawProfile ?? "").trim();
+  if (
+    value === "Wedding" ||
+    value === "Gender-Neutral Wedding" ||
+    value === "Corporate" ||
+    value === "Holiday Party" ||
+    value === "Graduation Celebration" ||
+    value === "Birthday Party" ||
+    value === "Private Party" ||
+    value === "Bar/Club Event" ||
+    value === "School Dance"
+  ) {
+    return value;
+  }
+  if (value === "Quinceañera") return "Wedding";
+  if (value === "Custom") return "Private Party";
+  if (value === "Sweet 16") return "Birthday Party";
+  if (value === "En Blanc Experience") return "Bar/Club Event";
+  return inferLayoutProfileFromEventType(eventType);
+}
+
+function resolveLayoutProfileForDisplay(
+  settings: Partial<Pick<EventSettings, "eventLayoutProfile" | "eventType">> | undefined,
+  defaultEventType: string,
+): EventLayoutProfile {
+  return migrateLegacyLayoutProfile(
+    settings?.eventLayoutProfile,
+    settings?.eventType ?? defaultEventType ?? "",
+  );
+}
 
 export default function Home() {
   const timelineFormRef = useRef<HTMLDivElement | null>(null);
@@ -219,6 +770,7 @@ export default function Home() {
   const [activityEventFilter, setActivityEventFilter] = useState<string>("all");
   const [activityTypeFilter, setActivityTypeFilter] = useState<string>("all");
   const [eventSettings, setEventSettings] = useState<EventSettings>({
+    eventLayoutProfile: "Wedding",
     eventName: "Wedding Reception",
     coupleNames: "Alex & Jordan",
     eventType: "Wedding",
@@ -237,6 +789,28 @@ export default function Home() {
     prepSheetFooterOverride: "",
     guestRequestMessageOverride: "",
     coupleWelcomeMessageOverride: "",
+    liveEventShowMusicNotes: true,
+    liveEventShowDoNotPlay: true,
+    liveEventShowVendorContacts: true,
+    liveEventShowMcScript: true,
+    liveEventShowPlaylists: false,
+    liveEventShowPlanningQuestions: true,
+    liveEventShowGuestRequests: false,
+    liveEventCompactMode: false,
+    liveEventLargePrintMode: false,
+    sectionCeremonyEnabled: true,
+    sectionReceptionTimelineEnabled: true,
+    sectionPlaylistsEnabled: true,
+    sectionMustPlayEnabled: true,
+    sectionDoNotPlayEnabled: true,
+    sectionMcScriptEnabled: true,
+    sectionVendorContactsEnabled: true,
+    sectionMusicNotesEnabled: true,
+    sectionGuestRequestsEnabled: true,
+    sectionFormalitiesEnabled: true,
+    sectionPlanningChecklistEnabled: true,
+    sectionPlanningQuestionsEnabled: true,
+    planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
   });
@@ -250,6 +824,8 @@ export default function Home() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [activeGlobalSettingsSection, setActiveGlobalSettingsSection] =
+    useState<GlobalSettingsSection>("Event Types");
 
   // `weddingDetails` is derived from the active event (see event management state below).
 
@@ -292,10 +868,15 @@ export default function Home() {
 
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<"new" | "edit">("new");
+  const [eventModalStatus, setEventModalStatus] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
   const [eventDraft, setEventDraft] = useState<EventModalDraft>({
     eventName: "",
     coupleNames: "",
-    eventType: "",
+    eventType: appSettings.defaultEventType,
+    eventLayoutProfile: inferLayoutProfileFromEventType(appSettings.defaultEventType),
     weddingDate: "",
     venue: "",
     ceremonyLocation: "",
@@ -307,7 +888,6 @@ export default function Home() {
     internalNotes: "",
   });
   const [eventEditingId, setEventEditingId] = useState<string | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("tpl-traditional");
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateModalMode, setTemplateModalMode] = useState<"new" | "edit">("new");
   const [templateEditingId, setTemplateEditingId] = useState<string | null>(null);
@@ -413,9 +993,16 @@ export default function Home() {
     setMcAnnouncements(evt.mcAnnouncements);
     setEventSettings(
       cloneJson({
+        eventLayoutProfile: migrateLegacyLayoutProfile(
+          evt.settings?.eventLayoutProfile,
+          evt.settings?.eventType ?? "",
+        ),
         eventName: evt.settings?.eventName ?? evt.meta.couple ?? "",
         coupleNames: evt.settings?.coupleNames ?? evt.meta.couple ?? "",
-        eventType: evt.settings?.eventType ?? "",
+        eventType: migrateLegacyLayoutProfile(
+          evt.settings?.eventLayoutProfile ?? evt.settings?.eventType,
+          evt.settings?.eventType ?? "",
+        ),
         weddingDate: evt.settings?.weddingDate ?? evt.meta.date ?? "",
         venue: evt.settings?.venue ?? evt.meta.venue ?? "",
         ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
@@ -431,6 +1018,33 @@ export default function Home() {
         prepSheetFooterOverride: evt.settings?.prepSheetFooterOverride ?? "",
         guestRequestMessageOverride: evt.settings?.guestRequestMessageOverride ?? "",
         coupleWelcomeMessageOverride: evt.settings?.coupleWelcomeMessageOverride ?? "",
+        liveEventShowMusicNotes: evt.settings?.liveEventShowMusicNotes ?? true,
+        liveEventShowDoNotPlay: evt.settings?.liveEventShowDoNotPlay ?? true,
+        liveEventShowVendorContacts: evt.settings?.liveEventShowVendorContacts ?? true,
+        liveEventShowMcScript: evt.settings?.liveEventShowMcScript ?? true,
+        liveEventShowPlaylists: evt.settings?.liveEventShowPlaylists ?? true,
+        liveEventShowPlanningQuestions: evt.settings?.liveEventShowPlanningQuestions ?? true,
+        liveEventShowGuestRequests:
+          typeof evt.settings?.liveEventShowGuestRequests === "boolean"
+            ? evt.settings.liveEventShowGuestRequests
+            : getLiveEventDocumentDefaults(
+                (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+              ).liveEventShowGuestRequests,
+        liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
+        liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
+        sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
+        sectionReceptionTimelineEnabled: evt.settings?.sectionReceptionTimelineEnabled ?? true,
+        sectionPlaylistsEnabled: evt.settings?.sectionPlaylistsEnabled ?? true,
+        sectionMustPlayEnabled: evt.settings?.sectionMustPlayEnabled ?? true,
+        sectionDoNotPlayEnabled: evt.settings?.sectionDoNotPlayEnabled ?? true,
+        sectionMcScriptEnabled: evt.settings?.sectionMcScriptEnabled ?? true,
+        sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
+        sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
+        sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
+        sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+        sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
+        sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
+        planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
       }),
@@ -564,6 +1178,7 @@ export default function Home() {
       generalDjNotes,
       mcAnnouncements,
       settings: {
+        eventLayoutProfile: "Wedding",
         eventName: meta.couple || "New Event",
         coupleNames: meta.couple,
         eventType: appSettings.defaultEventType,
@@ -582,6 +1197,28 @@ export default function Home() {
         prepSheetFooterOverride: "",
         guestRequestMessageOverride: "",
         coupleWelcomeMessageOverride: "",
+        liveEventShowMusicNotes: true,
+        liveEventShowDoNotPlay: true,
+        liveEventShowVendorContacts: true,
+        liveEventShowMcScript: true,
+        liveEventShowPlaylists: true,
+        liveEventShowPlanningQuestions: true,
+        liveEventShowGuestRequests: false,
+        liveEventCompactMode: false,
+        liveEventLargePrintMode: false,
+        sectionCeremonyEnabled: true,
+        sectionReceptionTimelineEnabled: true,
+        sectionPlaylistsEnabled: true,
+        sectionMustPlayEnabled: true,
+        sectionDoNotPlayEnabled: true,
+        sectionMcScriptEnabled: true,
+        sectionVendorContactsEnabled: true,
+        sectionMusicNotesEnabled: true,
+        sectionGuestRequestsEnabled: true,
+        sectionFormalitiesEnabled: true,
+        sectionPlanningChecklistEnabled: true,
+        sectionPlanningQuestionsEnabled: true,
+        planningQuestionAnswers: {},
         checklistDueDates: {},
         checklistManualStatuses: {},
       },
@@ -589,6 +1226,11 @@ export default function Home() {
   };
 
   const buildCeremonyTimelineFromLegacyEvent = (evt: Partial<EventRecord>): CeremonyTimelineItem[] => {
+    const inferredProfile = inferLayoutProfileFromEventType(evt.settings?.eventType ?? "");
+    const partnerProcessionalLabel =
+      inferredProfile === "Gender-Neutral Wedding"
+        ? "Partner/Couple Processional"
+        : "Bride/Groom Processional";
     const existing = Array.isArray(evt.ceremonyTimelineItems) ? evt.ceremonyTimelineItems : [];
     if (existing.length > 0) {
       return existing.map((item, index) => ({
@@ -623,8 +1265,8 @@ export default function Home() {
       },
       {
         id: `ceremony-timeline-${Date.now()}-bride-groom`,
-        timeOrOrder: "Bride/Groom Processional",
-        moment: "Bride/Groom Processional",
+        timeOrOrder: partnerProcessionalLabel,
+        moment: partnerProcessionalLabel,
         songTitle: evt.brideGroomProcessional?.title || "",
         artist: evt.brideGroomProcessional?.artist || "",
         notes: evt.brideGroomProcessional?.notes || "",
@@ -671,15 +1313,23 @@ export default function Home() {
     const date = draft.weddingDate.trim();
     const venue = draft.venue.trim();
     const eventName = draft.eventName.trim() || couple || "New Event";
+    const inferredProfile = inferLayoutProfileFromEventType(draft.eventType || appSettings.defaultEventType);
+    const createLayoutProfile = inferredProfile;
+    const profileDefaults = getLayoutProfileDefaults(createLayoutProfile);
 
-    if (!eventName) return;
-    if (!couple) return;
+    if (!eventName || !couple) {
+      const missingPrimaryLabel = PRIMARY_PARTY_FIELD_LABEL[draft.eventLayoutProfile];
+      setEventModalStatus({
+        kind: "error",
+        message: `${missingPrimaryLabel} is required to create an event.`,
+      });
+      return;
+    }
 
     if (eventModalMode === "new") {
-      const template = templates.find((t) => t.id === selectedTemplateId);
       const newEvent = buildEventFromTemplate(
         { couple, date, venue },
-        template,
+        undefined,
         {
           eventId: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           collaboratorId: `col-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
@@ -687,6 +1337,7 @@ export default function Home() {
       );
       newEvent.settings = {
         ...newEvent.settings,
+        eventLayoutProfile: createLayoutProfile,
         eventName,
         coupleNames: couple,
         eventType: draft.eventType || newEvent.settings.eventType,
@@ -699,12 +1350,42 @@ export default function Home() {
         plannerName: draft.plannerName.trim(),
         plannerEmail: draft.plannerEmail.trim(),
         internalNotes: draft.internalNotes.trim(),
+        ...profileDefaults,
+        ...getLiveEventDocumentDefaults(createLayoutProfile),
       };
       newEvent.meta = {
         couple,
         date,
         venue,
       };
+      const timelinePresetDefaults =
+        appSettings.timelinePresetSets?.[createLayoutProfile] ??
+        getDefaultTimelinePresetSets()[createLayoutProfile] ??
+        [];
+      const enabledPresets = timelinePresetDefaults.filter((item) => item.defaultIncluded);
+      newEvent.ceremonyTimelineItems = enabledPresets
+        .filter((item) => item.timelineType === "ceremony")
+        .map((item) => ({
+          id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          timeOrOrder: item.timeOrOrder,
+          moment: item.momentName,
+          songTitle: item.songPlaceholder,
+          artist: "",
+          notes: item.notesPlaceholder,
+          needsDjMcAttention: false,
+        }));
+      newEvent.timelineItems = enabledPresets
+        .filter((item) => item.timelineType === "main")
+        .map((item) => ({
+          id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          title: item.momentName,
+          time: item.timeOrOrder,
+          category: "Reception",
+          notes: item.songPlaceholder
+            ? `${item.notesPlaceholder}${item.notesPlaceholder ? " " : ""}Song: ${item.songPlaceholder}`.trim()
+            : item.notesPlaceholder,
+          needsDjMcAttention: false,
+        }));
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
       loadEventPlanningIntoWorkingState(newEvent);
@@ -712,6 +1393,7 @@ export default function Home() {
       setActiveScreen("Dashboard");
       setEventModalOpen(false);
       setEventEditingId(null);
+      setEventModalStatus(null);
       logActivity("event_created", `Created event: ${couple}`, newEvent.id);
       return;
     }
@@ -725,6 +1407,7 @@ export default function Home() {
                 meta: { couple, date, venue },
                 settings: {
                   ...evt.settings,
+                  eventLayoutProfile: inferredProfile,
                   eventName,
                   coupleNames: couple,
                   eventType: draft.eventType,
@@ -742,6 +1425,7 @@ export default function Home() {
             : evt,
         ),
       );
+      setEventModalStatus(null);
     }
 
     setEventModalOpen(false);
@@ -796,6 +1480,240 @@ export default function Home() {
   const effectiveCoupleWelcomeMessage =
     eventSettings.coupleWelcomeMessageOverride || appSettings.coupleWelcomeMessage;
 
+  const layoutProfileForActiveEvent = useMemo(
+    () => resolveLayoutProfileForDisplay(eventSettings, appSettings.defaultEventType),
+    [eventSettings, appSettings.defaultEventType],
+  );
+  const primaryPartyFieldLabel = PRIMARY_PARTY_FIELD_LABEL[layoutProfileForActiveEvent];
+  const primaryPartyShortLabel = PRIMARY_PARTY_SHORT_LABEL[layoutProfileForActiveEvent];
+  const eventDateGridLabel =
+    layoutProfileForActiveEvent === "Wedding" ||
+    layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+      ? "Wedding date"
+      : "Event date";
+  const eventDateFieldLabel =
+    layoutProfileForActiveEvent === "Wedding" ||
+    layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+      ? "Wedding Date"
+      : "Event Date";
+
+  const eventPrepReceptionHeading =
+    layoutProfileForActiveEvent === "Corporate"
+      ? "Run of Show"
+      : layoutProfileForActiveEvent === "School Dance" ||
+          layoutProfileForActiveEvent === "Private Party" ||
+          layoutProfileForActiveEvent === "Graduation Celebration" ||
+          layoutProfileForActiveEvent === "Birthday Party" ||
+          layoutProfileForActiveEvent === "Bar/Club Event" ||
+          layoutProfileForActiveEvent === "Holiday Party"
+        ? "Timeline"
+        : "Reception Timeline";
+
+  const eventPrepMcHeading =
+    layoutProfileForActiveEvent === "Corporate" || layoutProfileForActiveEvent === "Holiday Party"
+      ? "Announcements / Script Notes"
+      : layoutProfileForActiveEvent === "School Dance" ||
+          layoutProfileForActiveEvent === "Graduation Celebration"
+        ? "Announcements"
+        : "Key Announcements / MC Scripts";
+  const eventCountdownLabel =
+    layoutProfileForActiveEvent === "Wedding" || layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+      ? "Wedding countdown"
+      : "Event countdown";
+
+  const planningQuestionsForEvent = useMemo(() => {
+    const defaultSets = getDefaultPlanningQuestionSets();
+    return (
+      appSettings.planningQuestionSets?.[layoutProfileForActiveEvent] ??
+      defaultSets[layoutProfileForActiveEvent] ??
+      getPlanningQuestionsForProfile(layoutProfileForActiveEvent)
+    );
+  }, [appSettings.planningQuestionSets, layoutProfileForActiveEvent]);
+
+  const planningQuestionSetsForSettings = useMemo(() => {
+    const defaults = getDefaultPlanningQuestionSets();
+    return EVENT_TYPES.reduce((acc, profile) => {
+      acc[profile] = appSettings.planningQuestionSets?.[profile] ?? defaults[profile] ?? [];
+      return acc;
+    }, {} as Record<EventLayoutProfile, PlanningQuestionDef[]>);
+  }, [appSettings.planningQuestionSets]);
+
+  const updatePlanningQuestionSet = useCallback(
+    (
+      profile: EventLayoutProfile,
+      updater: (questions: PlanningQuestionDef[]) => PlanningQuestionDef[],
+    ) => {
+      setAppSettings((prev) => {
+        const defaults = getDefaultPlanningQuestionSets();
+        const current = cloneJson(
+          prev.planningQuestionSets?.[profile] ?? defaults[profile] ?? [],
+        );
+        return {
+          ...prev,
+          planningQuestionSets: {
+            ...(prev.planningQuestionSets ?? {}),
+            [profile]: updater(current),
+          },
+        };
+      });
+    },
+    [setAppSettings],
+  );
+
+  const addPlanningQuestionToSet = (profile: EventLayoutProfile) => {
+    updatePlanningQuestionSet(profile, (questions) => [
+      ...questions,
+      {
+        id: `pq_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        label: "New question",
+        helpText: "",
+        answerType: "long_text",
+        required: false,
+        showInLiveEventMode: true,
+        options: [],
+        placeholder: "",
+      },
+    ]);
+  };
+
+  const resetPlanningQuestionSet = (profile: EventLayoutProfile) => {
+    const defaults = getDefaultPlanningQuestionSets();
+    setAppSettings((prev) => ({
+      ...prev,
+      planningQuestionSets: {
+        ...(prev.planningQuestionSets ?? {}),
+        [profile]: cloneJson(defaults[profile] ?? []),
+      },
+    }));
+  };
+
+  const timelinePresetSetsForSettings = useMemo(() => {
+    const defaults = getDefaultTimelinePresetSets();
+    return EVENT_TYPES.reduce((acc, profile) => {
+      acc[profile] = appSettings.timelinePresetSets?.[profile] ?? defaults[profile] ?? [];
+      return acc;
+    }, {} as Record<EventLayoutProfile, TimelinePresetItem[]>);
+  }, [appSettings.timelinePresetSets]);
+
+  const timelinePresetsForActiveEvent = useMemo(
+    () => timelinePresetSetsForSettings[layoutProfileForActiveEvent] ?? [],
+    [timelinePresetSetsForSettings, layoutProfileForActiveEvent],
+  );
+  const ceremonyPresetsForActiveEvent = useMemo(
+    () => timelinePresetsForActiveEvent.filter((item) => item.timelineType === "ceremony"),
+    [timelinePresetsForActiveEvent],
+  );
+  const mainTimelinePresetsForActiveEvent = useMemo(
+    () => timelinePresetsForActiveEvent.filter((item) => item.timelineType === "main"),
+    [timelinePresetsForActiveEvent],
+  );
+
+  const buildTimelineItemsFromPresets = useCallback((presets: TimelinePresetItem[]) => {
+    const enabledPresets = presets.filter((item) => item.defaultIncluded);
+    const ceremonyItems: CeremonyTimelineItem[] = enabledPresets
+      .filter((item) => item.timelineType === "ceremony")
+      .map((item) => ({
+        id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        timeOrOrder: item.timeOrOrder,
+        moment: item.momentName,
+        songTitle: item.songPlaceholder,
+        artist: "",
+        notes: item.notesPlaceholder,
+        needsDjMcAttention: false,
+      }));
+    const mainItems: TimelineItem[] = enabledPresets
+      .filter((item) => item.timelineType === "main")
+      .map((item) => ({
+        id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: item.momentName,
+        time: item.timeOrOrder,
+        category: "Reception",
+        notes: item.songPlaceholder
+          ? `${item.notesPlaceholder}${item.notesPlaceholder ? " " : ""}Song: ${item.songPlaceholder}`.trim()
+          : item.notesPlaceholder,
+        needsDjMcAttention: false,
+      }));
+    return { ceremonyItems, mainItems };
+  }, []);
+
+  const applyPresetItemsToTimelineState = useCallback(
+    (presets: TimelinePresetItem[], replaceExisting: boolean) => {
+      const { ceremonyItems, mainItems } = buildTimelineItemsFromPresets(presets);
+
+      setCeremonyTimelineItems((prev) => (replaceExisting ? ceremonyItems : [...prev, ...ceremonyItems]));
+      setTimelineItems((prev) => (replaceExisting ? mainItems : [...prev, ...mainItems]));
+    },
+    [buildTimelineItemsFromPresets],
+  );
+
+  const updateTimelinePresetSet = useCallback(
+    (
+      profile: EventLayoutProfile,
+      updater: (presets: TimelinePresetItem[]) => TimelinePresetItem[],
+    ) => {
+      setAppSettings((prev) => {
+        const defaults = getDefaultTimelinePresetSets();
+        const current = cloneJson(prev.timelinePresetSets?.[profile] ?? defaults[profile] ?? []);
+        return {
+          ...prev,
+          timelinePresetSets: {
+            ...(prev.timelinePresetSets ?? {}),
+            [profile]: updater(current),
+          },
+        };
+      });
+    },
+    [setAppSettings],
+  );
+
+  const addTimelinePresetToSet = (profile: EventLayoutProfile) => {
+    updateTimelinePresetSet(profile, (presets) => [
+      ...presets,
+      {
+        id: `tp_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        timelineType: "main",
+        timeOrOrder: "",
+        momentName: "New preset moment",
+        songPlaceholder: "",
+        notesPlaceholder: "",
+        defaultIncluded: true,
+      },
+    ]);
+  };
+
+  const resetTimelinePresetSet = (profile: EventLayoutProfile) => {
+    const defaults = getDefaultTimelinePresetSets();
+    setAppSettings((prev) => ({
+      ...prev,
+      timelinePresetSets: {
+        ...(prev.timelinePresetSets ?? {}),
+        [profile]: cloneJson(defaults[profile] ?? []),
+      },
+    }));
+  };
+
+  const dashboardEyebrowText = useMemo(() => {
+    const coupleView = (currentRole ?? rolePreview) === "Couple";
+    if (coupleView) {
+      if (layoutProfileForActiveEvent === "Wedding") return "Your wedding planning journey";
+      if (layoutProfileForActiveEvent === "Gender-Neutral Wedding") return "Your wedding planning journey";
+      return "Your event planning journey";
+    }
+    return "Event planning dashboard";
+  }, [currentRole, rolePreview, layoutProfileForActiveEvent]);
+
+  const invitePreviewEvent = useMemo(() => {
+    if (!inviteAccessPreview) return undefined;
+    return events.find((e) => e.id === inviteAccessPreview.eventId);
+  }, [inviteAccessPreview, events]);
+
+  const inviteLayoutProfile = useMemo(() => {
+    if (!inviteAccessPreview) return "Wedding" satisfies EventLayoutProfile;
+    return invitePreviewEvent
+      ? resolveLayoutProfileForDisplay(invitePreviewEvent.settings, appSettings.defaultEventType)
+      : ("Wedding" satisfies EventLayoutProfile);
+  }, [inviteAccessPreview, invitePreviewEvent, appSettings.defaultEventType]);
+
   const effectiveRole = currentRole ?? rolePreview;
   const canManageMusic = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Couple";
   const canEditTimeline =
@@ -804,11 +1722,22 @@ export default function Home() {
     effectiveRole === "Planner" ||
     effectiveRole === "Couple";
   const canManageGuestRequests = effectiveRole === "Admin" || effectiveRole === "Couple";
-  const canViewPrepSheet = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canEditNotes = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canManageEvents = effectiveRole === "Admin";
   const canAddFormality = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Planner";
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
+  const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
+  const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
+  const sectionPlaylistsEnabled = eventSettings.sectionPlaylistsEnabled;
+  const sectionMustPlayEnabled = eventSettings.sectionMustPlayEnabled;
+  const sectionDoNotPlayEnabled = eventSettings.sectionDoNotPlayEnabled;
+  const sectionMcScriptEnabled = eventSettings.sectionMcScriptEnabled;
+  const sectionVendorContactsEnabled = eventSettings.sectionVendorContactsEnabled;
+  const sectionMusicNotesEnabled = eventSettings.sectionMusicNotesEnabled;
+  const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
+  const sectionFormalitiesEnabled = eventSettings.sectionFormalitiesEnabled;
+  const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
+  const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
   const showDesktopSidebar =
     authStage === "app" &&
     (effectiveRole === "Admin" || effectiveRole === "DJ");
@@ -898,7 +1827,7 @@ export default function Home() {
       id: "add-final-dj-notes",
       title: "Add Final DJ Notes",
       description: "Document final cues and handoff notes for event day.",
-      linkedSection: "DJ Prep Sheet" as Screen,
+      linkedSection: "Event Prep" as Screen,
       autoStatus: hasFinalDjNotes ? "Complete" : "Not Started",
     },
   ];
@@ -1032,6 +1961,7 @@ export default function Home() {
             eventName: "",
             coupleNames: "",
             eventType: effectiveEventType,
+            eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
             weddingDate: "",
             venue: "",
             ceremonyLocation: "",
@@ -1331,7 +2261,7 @@ export default function Home() {
 
   const workspaceNavItems: Screen[] = useMemo(() => {
     if (effectiveRole === "Admin") {
-      return ["Command Center", "All Events", "Team", "Timeline Templates", "Settings", "Notification Center"];
+      return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
     }
     if (effectiveRole === "DJ") {
       return ["Command Center", "All Events", "Notification Center"];
@@ -1343,16 +2273,106 @@ export default function Home() {
   }, [effectiveRole]);
 
   const eventNavItems: Screen[] = useMemo(() => {
-    const base: Screen[] = ["Dashboard", "Music", "Music Import", "Timeline", "Planning Checklist", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Collaborators", "Event Settings", "DJ Prep Sheet", "Live Event Mode"];
+    const includeExportScreens =
+      sectionReceptionTimelineEnabled ||
+      sectionCeremonyEnabled ||
+      sectionFormalitiesEnabled ||
+      sectionMustPlayEnabled ||
+      sectionPlaylistsEnabled ||
+      sectionDoNotPlayEnabled ||
+      sectionGuestRequestsEnabled ||
+      sectionVendorContactsEnabled ||
+      sectionMcScriptEnabled ||
+      sectionMusicNotesEnabled ||
+      sectionPlanningChecklistEnabled ||
+      sectionPlanningQuestionsEnabled;
+
+    const base: Screen[] = [
+      "Dashboard",
+      ...(sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled
+        ? (["Music", "Music Import"] as Screen[])
+        : []),
+      ...(sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
+      ...(sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
+      ...(sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
+      ...(sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
+      ...(sectionFormalitiesEnabled ? (["Formal Dances"] as Screen[]) : []),
+      ...(sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
+      ...(sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
+      "Collaborators",
+      "Event Settings",
+      ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
+    ];
     if (effectiveRole === "Admin") return base;
     if (effectiveRole === "DJ") {
       return base.filter((item) => item !== "Event Settings");
     }
     if (effectiveRole === "Planner") {
-      return ["Dashboard", "Timeline", "Planning Checklist", "Collaborators", "Event Settings"];
+      return base.filter((item) =>
+        ["Dashboard", "Timeline", "Planning Checklist", "Planning Questions", "Collaborators", "Event Settings", "Event Prep"].includes(item),
+      );
     }
-      return ["Dashboard", "Music", "Music Import", "Planning Checklist", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Event Settings"];
-  }, [effectiveRole]);
+    return base.filter((item) =>
+      ["Dashboard", "Music", "Music Import", "Planning Checklist", "Planning Questions", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Event Settings", "Event Prep"].includes(item),
+    );
+  }, [
+    effectiveRole,
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionFormalitiesEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMustPlayEnabled,
+    sectionMcScriptEnabled,
+    sectionMusicNotesEnabled,
+    sectionPlanningChecklistEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+    sectionVendorContactsEnabled,
+  ]);
+
+  const dashboardQuickScreens = useMemo((): Screen[] => {
+    const includeExportScreens =
+      sectionReceptionTimelineEnabled ||
+      sectionCeremonyEnabled ||
+      sectionFormalitiesEnabled ||
+      sectionMustPlayEnabled ||
+      sectionPlaylistsEnabled ||
+      sectionDoNotPlayEnabled ||
+      sectionGuestRequestsEnabled ||
+      sectionVendorContactsEnabled ||
+      sectionMcScriptEnabled ||
+      sectionMusicNotesEnabled ||
+      sectionPlanningChecklistEnabled ||
+      sectionPlanningQuestionsEnabled;
+
+    return [
+      ...(sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled
+        ? (["Music"] as Screen[])
+        : []),
+      ...(sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
+      ...(sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
+      ...(sectionFormalitiesEnabled ? (["Formal Dances"] as Screen[]) : []),
+      ...(sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
+      ...(sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
+      ...(sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
+      ...(sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
+      ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
+    ];
+  }, [
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionFormalitiesEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMustPlayEnabled,
+    sectionMcScriptEnabled,
+    sectionMusicNotesEnabled,
+    sectionPlanningChecklistEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+    sectionVendorContactsEnabled,
+  ]);
 
   const currentNavItems = appMode === "events" ? workspaceNavItems : eventNavItems;
 
@@ -1434,9 +2454,16 @@ export default function Home() {
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
         ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
         settings: {
+          eventLayoutProfile: migrateLegacyLayoutProfile(
+            evt.settings?.eventLayoutProfile,
+            evt.settings?.eventType ?? "",
+          ),
           eventName: evt.settings?.eventName ?? evt.meta.couple ?? "",
           coupleNames: evt.settings?.coupleNames ?? evt.meta.couple ?? "",
-          eventType: evt.settings?.eventType ?? "",
+          eventType: migrateLegacyLayoutProfile(
+            evt.settings?.eventLayoutProfile ?? evt.settings?.eventType,
+            evt.settings?.eventType ?? "",
+          ),
           weddingDate: evt.settings?.weddingDate ?? evt.meta.date ?? "",
           venue: evt.settings?.venue ?? evt.meta.venue ?? "",
           ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
@@ -1452,6 +2479,33 @@ export default function Home() {
           prepSheetFooterOverride: evt.settings?.prepSheetFooterOverride ?? "",
           guestRequestMessageOverride: evt.settings?.guestRequestMessageOverride ?? "",
           coupleWelcomeMessageOverride: evt.settings?.coupleWelcomeMessageOverride ?? "",
+          liveEventShowMusicNotes: evt.settings?.liveEventShowMusicNotes ?? true,
+          liveEventShowDoNotPlay: evt.settings?.liveEventShowDoNotPlay ?? true,
+          liveEventShowVendorContacts: evt.settings?.liveEventShowVendorContacts ?? true,
+          liveEventShowMcScript: evt.settings?.liveEventShowMcScript ?? true,
+          liveEventShowPlaylists: evt.settings?.liveEventShowPlaylists ?? true,
+          liveEventShowPlanningQuestions: evt.settings?.liveEventShowPlanningQuestions ?? true,
+          liveEventShowGuestRequests:
+            typeof evt.settings?.liveEventShowGuestRequests === "boolean"
+              ? evt.settings.liveEventShowGuestRequests
+              : getLiveEventDocumentDefaults(
+                  (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+                ).liveEventShowGuestRequests,
+          liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
+          liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
+          sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
+          sectionReceptionTimelineEnabled: evt.settings?.sectionReceptionTimelineEnabled ?? true,
+          sectionPlaylistsEnabled: evt.settings?.sectionPlaylistsEnabled ?? true,
+          sectionMustPlayEnabled: evt.settings?.sectionMustPlayEnabled ?? true,
+          sectionDoNotPlayEnabled: evt.settings?.sectionDoNotPlayEnabled ?? true,
+          sectionMcScriptEnabled: evt.settings?.sectionMcScriptEnabled ?? true,
+          sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
+          sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
+          sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
+          sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+          sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
+          sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
+          planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
           checklistDueDates: evt.settings?.checklistDueDates ?? {},
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         },
@@ -1475,7 +2529,7 @@ export default function Home() {
         setRolePreview(isValidUserRole(parsed.appState.rolePreview) ? parsed.appState.rolePreview : "Admin");
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
-        setActiveScreen(parsed.appState.activeScreen ?? "Dashboard");
+        setActiveScreen(migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard"));
       }
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
       if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
@@ -1509,9 +2563,16 @@ export default function Home() {
         setGeneralDjNotes(active.generalDjNotes);
         setMcAnnouncements(active.mcAnnouncements);
         setEventSettings({
+          eventLayoutProfile: migrateLegacyLayoutProfile(
+            active.settings?.eventLayoutProfile,
+            active.settings?.eventType ?? "",
+          ),
           eventName: active.settings?.eventName ?? active.meta.couple ?? "",
           coupleNames: active.settings?.coupleNames ?? active.meta.couple ?? "",
-          eventType: active.settings?.eventType ?? "",
+          eventType: migrateLegacyLayoutProfile(
+            active.settings?.eventLayoutProfile ?? active.settings?.eventType,
+            active.settings?.eventType ?? "",
+          ),
           weddingDate: active.settings?.weddingDate ?? active.meta.date ?? "",
           venue: active.settings?.venue ?? active.meta.venue ?? "",
           ceremonyLocation: active.settings?.ceremonyLocation ?? "",
@@ -1527,6 +2588,33 @@ export default function Home() {
           prepSheetFooterOverride: active.settings?.prepSheetFooterOverride ?? "",
           guestRequestMessageOverride: active.settings?.guestRequestMessageOverride ?? "",
           coupleWelcomeMessageOverride: active.settings?.coupleWelcomeMessageOverride ?? "",
+          liveEventShowMusicNotes: active.settings?.liveEventShowMusicNotes ?? true,
+          liveEventShowDoNotPlay: active.settings?.liveEventShowDoNotPlay ?? true,
+          liveEventShowVendorContacts: active.settings?.liveEventShowVendorContacts ?? true,
+          liveEventShowMcScript: active.settings?.liveEventShowMcScript ?? true,
+          liveEventShowPlaylists: active.settings?.liveEventShowPlaylists ?? true,
+          liveEventShowPlanningQuestions: active.settings?.liveEventShowPlanningQuestions ?? true,
+          liveEventShowGuestRequests:
+            typeof active.settings?.liveEventShowGuestRequests === "boolean"
+              ? active.settings.liveEventShowGuestRequests
+              : getLiveEventDocumentDefaults(
+                  (active.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+                ).liveEventShowGuestRequests,
+          liveEventCompactMode: active.settings?.liveEventCompactMode ?? false,
+          liveEventLargePrintMode: active.settings?.liveEventLargePrintMode ?? false,
+          sectionCeremonyEnabled: active.settings?.sectionCeremonyEnabled ?? true,
+          sectionReceptionTimelineEnabled: active.settings?.sectionReceptionTimelineEnabled ?? true,
+          sectionPlaylistsEnabled: active.settings?.sectionPlaylistsEnabled ?? true,
+          sectionMustPlayEnabled: active.settings?.sectionMustPlayEnabled ?? true,
+          sectionDoNotPlayEnabled: active.settings?.sectionDoNotPlayEnabled ?? true,
+          sectionMcScriptEnabled: active.settings?.sectionMcScriptEnabled ?? true,
+          sectionVendorContactsEnabled: active.settings?.sectionVendorContactsEnabled ?? true,
+          sectionMusicNotesEnabled: active.settings?.sectionMusicNotesEnabled ?? true,
+          sectionGuestRequestsEnabled: active.settings?.sectionGuestRequestsEnabled ?? true,
+          sectionFormalitiesEnabled: active.settings?.sectionFormalitiesEnabled ?? true,
+          sectionPlanningChecklistEnabled: active.settings?.sectionPlanningChecklistEnabled ?? true,
+          sectionPlanningQuestionsEnabled: active.settings?.sectionPlanningQuestionsEnabled ?? true,
+          planningQuestionAnswers: active.settings?.planningQuestionAnswers ?? {},
           checklistDueDates: active.settings?.checklistDueDates ?? {},
           checklistManualStatuses: active.settings?.checklistManualStatuses ?? {},
         });
@@ -1954,9 +3042,16 @@ export default function Home() {
       ...evt,
       collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
       settings: {
+        eventLayoutProfile: migrateLegacyLayoutProfile(
+          evt.settings?.eventLayoutProfile,
+          evt.settings?.eventType ?? "",
+        ),
         eventName: evt.settings?.eventName ?? evt.meta?.couple ?? "",
         coupleNames: evt.settings?.coupleNames ?? evt.meta?.couple ?? "",
-        eventType: evt.settings?.eventType ?? "",
+        eventType: migrateLegacyLayoutProfile(
+          evt.settings?.eventLayoutProfile ?? evt.settings?.eventType,
+          evt.settings?.eventType ?? "",
+        ),
         weddingDate: evt.settings?.weddingDate ?? evt.meta?.date ?? "",
         venue: evt.settings?.venue ?? evt.meta?.venue ?? "",
         ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
@@ -1972,6 +3067,33 @@ export default function Home() {
         prepSheetFooterOverride: evt.settings?.prepSheetFooterOverride ?? "",
         guestRequestMessageOverride: evt.settings?.guestRequestMessageOverride ?? "",
         coupleWelcomeMessageOverride: evt.settings?.coupleWelcomeMessageOverride ?? "",
+        liveEventShowMusicNotes: evt.settings?.liveEventShowMusicNotes ?? true,
+        liveEventShowDoNotPlay: evt.settings?.liveEventShowDoNotPlay ?? true,
+        liveEventShowVendorContacts: evt.settings?.liveEventShowVendorContacts ?? true,
+        liveEventShowMcScript: evt.settings?.liveEventShowMcScript ?? true,
+        liveEventShowPlaylists: evt.settings?.liveEventShowPlaylists ?? true,
+        liveEventShowPlanningQuestions: evt.settings?.liveEventShowPlanningQuestions ?? true,
+        liveEventShowGuestRequests:
+          typeof evt.settings?.liveEventShowGuestRequests === "boolean"
+            ? evt.settings.liveEventShowGuestRequests
+            : getLiveEventDocumentDefaults(
+                (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+              ).liveEventShowGuestRequests,
+        liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
+        liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
+        sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
+        sectionReceptionTimelineEnabled: evt.settings?.sectionReceptionTimelineEnabled ?? true,
+        sectionPlaylistsEnabled: evt.settings?.sectionPlaylistsEnabled ?? true,
+        sectionMustPlayEnabled: evt.settings?.sectionMustPlayEnabled ?? true,
+        sectionDoNotPlayEnabled: evt.settings?.sectionDoNotPlayEnabled ?? true,
+        sectionMcScriptEnabled: evt.settings?.sectionMcScriptEnabled ?? true,
+        sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
+        sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
+        sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
+        sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+        sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
+        sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
+        planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
       },
@@ -2007,7 +3129,7 @@ export default function Home() {
     setRolePreview(isValidUserRole(backupAppState.rolePreview) ? backupAppState.rolePreview : "Admin");
     setGuestRequestView(backupAppState.guestRequestView === "guest" ? "guest" : "admin");
     setInviteAccessPreview(backupAppState.inviteAccessPreview ?? null);
-    setActiveScreen(backupAppState.activeScreen ?? "Dashboard");
+    setActiveScreen(migrateLegacyScreenId(backupAppState.activeScreen ?? "Dashboard"));
   };
 
   const importBackupJson = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -2356,6 +3478,77 @@ export default function Home() {
     pushNotification("Timeline updated", "timeline_updated");
   };
 
+  const duplicateTimelineItem = (item: TimelineItem) => {
+    const duplicate: TimelineItem = {
+      ...item,
+      id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: `${item.title} (Copy)`,
+    };
+    setTimelineItems((prev) => [...prev, duplicate]);
+    logActivity("timeline_updated", `Duplicated timeline item: ${item.title}`);
+    pushNotification("Timeline updated", "timeline_updated");
+  };
+
+  const duplicateFormality = (item: FormalityItem) => {
+    const duplicate: FormalityItem = {
+      ...item,
+      id: `formality-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      momentName: `${item.momentName} (Copy)`,
+    };
+    setFormalities((prev) => [...prev, duplicate]);
+    logActivity("formality_updated", `Duplicated formality: ${item.momentName}`);
+    pushNotification("Timeline updated", "timeline_updated");
+  };
+
+  const addReceptionPreset = (preset: TimelinePresetItem) => {
+    const newItem: TimelineItem = {
+      id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: preset.momentName,
+      time: preset.timeOrOrder,
+      category: "Reception",
+      notes: preset.songPlaceholder
+        ? `${preset.notesPlaceholder}${preset.notesPlaceholder ? " " : ""}Song: ${preset.songPlaceholder}`.trim()
+        : preset.notesPlaceholder,
+      needsDjMcAttention: false,
+    };
+    setTimelineItems((prev) => [...prev, newItem]);
+    logActivity("timeline_updated", `Added preset: ${preset.momentName}`);
+    pushNotification("Timeline updated", "timeline_updated");
+  };
+
+  const addCeremonyPreset = (preset: TimelinePresetItem) => {
+    const newItem: CeremonyTimelineItem = {
+      id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timeOrOrder: preset.timeOrOrder,
+      moment: preset.momentName,
+      songTitle: preset.songPlaceholder,
+      artist: "",
+      notes: preset.notesPlaceholder,
+      needsDjMcAttention: false,
+    };
+    setCeremonyTimelineItems((prev) => [...prev, newItem]);
+    logActivity("ceremony_updated", `Added ceremony preset: ${preset.momentName}`);
+    pushNotification("Ceremony timeline updated", "ceremony_updated");
+  };
+
+  const applyTimelinePresetsForActiveEvent = () => {
+    const ok = window.confirm(
+      `Apply timeline presets for ${layoutProfileForActiveEvent}? This can append defaults to your current timeline.`,
+    );
+    if (!ok) return;
+    const replaceExisting = window.confirm(
+      "Replace existing timeline and ceremony moments with presets? Click Cancel to keep your current items and append presets instead.",
+    );
+    applyPresetItemsToTimelineState(timelinePresetsForActiveEvent, replaceExisting);
+    logActivity(
+      "timeline_updated",
+      replaceExisting
+        ? "Replaced timeline with current event-type presets"
+        : "Appended current event-type timeline presets",
+    );
+    pushNotification("Timeline presets applied", "timeline_updated");
+  };
+
   const resetCeremonyTimelineDraft = () => {
     setCeremonyTimelineEditingId(null);
     setCeremonyTimelineDraftTimeOrOrder("");
@@ -2431,6 +3624,17 @@ export default function Home() {
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
 
+  const duplicateCeremonyTimelineItem = (item: CeremonyTimelineItem) => {
+    const duplicate: CeremonyTimelineItem = {
+      ...item,
+      id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      moment: `${item.moment} (Copy)`,
+    };
+    setCeremonyTimelineItems((prev) => [...prev, duplicate]);
+    logActivity("ceremony_updated", `Duplicated ceremony moment: ${item.moment}`);
+    pushNotification("Ceremony timeline updated", "ceremony_updated");
+  };
+
   const moveCeremonyTimelineItem = (itemId: string, direction: "up" | "down") => {
     setCeremonyTimelineItems((prev) => {
       const currentIndex = prev.findIndex((item) => item.id === itemId);
@@ -2495,11 +3699,11 @@ export default function Home() {
   const includedFormalityNames = useMemo(
     () =>
       new Set(
-        formalities
+        (sectionFormalitiesEnabled ? formalities : [])
           .filter((item) => item.includeInTimeline)
           .map((item) => item.momentName.trim().toLowerCase()),
       ),
-    [formalities],
+    [formalities, sectionFormalitiesEnabled],
   );
 
   const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
@@ -2515,7 +3719,7 @@ export default function Home() {
           notes: item.notes,
           needsDjMcAttention: item.needsDjMcAttention,
         })),
-      ...formalities
+      ...(sectionFormalitiesEnabled ? formalities : [])
         .filter((item) => item.includeInTimeline)
         .map((item) => ({
           id: item.id,
@@ -2527,7 +3731,7 @@ export default function Home() {
           needsDjMcAttention: item.needsDjMcAttention,
         })),
     ],
-    [formalities, includedFormalityNames, timelineItems],
+    [formalities, includedFormalityNames, sectionFormalitiesEnabled, timelineItems],
   );
 
   const ceremonyTimelineRows = useMemo(() => {
@@ -2545,6 +3749,17 @@ export default function Home() {
         .join(" · "),
     }));
   }, [ceremonyTimelineItems]);
+
+  const parsePlaylistSongLine = useCallback((line: string) => {
+    const raw = line.trim();
+    if (!raw) return { song: "", artist: "" };
+    const parts = raw.split(" - ");
+    if (parts.length < 2) return { song: raw, artist: "" };
+    return {
+      song: parts.slice(0, parts.length - 1).join(" - ").trim(),
+      artist: parts[parts.length - 1].trim(),
+    };
+  }, []);
 
   const planningInsights = useMemo(
     () =>
@@ -2570,143 +3785,278 @@ export default function Home() {
     ],
   );
 
-  const prepSheetText = [
-    `${appSettings.appName.toUpperCase()} - DJ PREP SHEET`,
-    "",
-    "EVENT OVERVIEW",
-    `Event Name: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
-    `Couple: ${eventSettings.coupleNames || weddingDetails.couple || "TBD"}`,
-    `Date: ${eventSettings.weddingDate || weddingDetails.date || "TBD"}`,
-    `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
-    `Timezone: ${effectiveTimezone || "TBD"}`,
-    `Event Type: ${effectiveEventType || "TBD"}`,
-    `Ceremony Start: ${ceremonyStartTime || "TBD"}`,
-    `Ceremony Guest Arrival: ${ceremonyGuestArrivalTime || "TBD"}`,
-    `Officiant: ${officiantName || "TBD"}`,
-    `Microphones: ${microphoneNeeds || "TBD"}`,
-    "",
-    "TIMELINE",
-    ...mergedTimelineItems.map(
-      (item) =>
-        `- ${item.time || "TBD"} | ${item.title} [${item.category}]${item.needsDjMcAttention ? " (DJ/MC ATTENTION)" : ""}${item.notes ? ` - ${item.notes}` : ""}`,
-    ),
-    "",
-    "CEREMONY TIMELINE",
-    ...ceremonyTimelineItems.map(
-      (item) =>
-        `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
-    ),
-    `- General Ceremony Notes: ${ceremonyNotes || "None"}`,
-    "",
-    "FORMAL DANCES / FORMALITIES",
-    ...formalities.map(
-      (item) =>
-        `- ${item.time || "TBD"} | ${item.momentName || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.fadeOutEarly ? ` | Fade at ${item.fadeOutTimestamp || "TBD"}` : ""}${item.includeInTimeline ? " | In Timeline" : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
-    ),
-    "",
-    "MUST PLAY SONGS",
-    ...mustPlaySongs.map(
-      (song) =>
-        `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
-    ),
-    "",
-    "DO NOT PLAY SONGS",
-    ...doNotPlaySongs.map(
-      (song) =>
-        `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY BLOCK)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
-    ),
-    "",
-    "GUEST REQUESTS",
-    ...guestRequests.map((request) => {
-      const songLine = `${request.songTitle}${request.artist ? ` - ${request.artist}` : ""}`;
-      const ded = request.dedication ? ` | Dedication: ${request.dedication}` : "";
-      const playlist = [
-        request.addedToMustPlay ? "Added to Must Play" : null,
-        request.addedToDoNotPlay ? "Added to Do Not Play" : null,
-      ]
-        .filter(Boolean)
-        .join(", ");
-      const extra = playlist ? ` | ${playlist}` : "";
-      return `- ${songLine} | ${request.guestName} | ${request.status}${ded}${extra}`;
-    }),
-    "",
-    "GENERAL DJ NOTES",
-    generalDjNotes || "None",
-    "",
-    "EVENT NOTES / PREFERENCES",
-    eventSettings.internalNotes || "None",
-    eventSettings.clientFacingNotes || "None",
-    "",
-    "MC ANNOUNCEMENTS",
-    mcAnnouncements || "None",
-    "",
-    "FOOTER",
-    effectivePrepSheetFooter || "None",
-    "",
-  ].join("\n");
+  const liveEventText = useMemo(() => {
+    const assignedDjLabel = (() => {
+      const value = eventSettings.assignedDj || "";
+      if (!value.trim()) return "TBD";
+      return teamMembers.find((member) => member.id === value)?.name || value;
+    })();
 
-  const liveEventText = [
-    `${appSettings.appName.toUpperCase()} - LIVE EVENT MODE`,
-    "",
-    `Event: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
-    `Couple: ${eventSettings.coupleNames || weddingDetails.couple || "TBD"}`,
-    `Date: ${eventSettings.weddingDate || weddingDetails.date || "TBD"}`,
-    `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
-    `Package: ${eventSettings.packageName || "TBD"}`,
-    `Assigned DJ: ${getTeamMemberName(eventSettings.assignedDj || "")}`,
-    "",
-    `Setup Time: ${eventSettings.eventStartTime || "TBD"}`,
-    `Ceremony Guest Arrival: ${ceremonyGuestArrivalTime || "TBD"}`,
-    `Ceremony Needs: ${microphoneNeeds || "None"}`,
-    "",
-    "CEREMONY TIMELINE",
-    ...ceremonyTimelineItems.map(
-      (item) =>
-        `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
-    ),
-    "",
-    "RECEPTION TIMELINE",
-    ...mergedTimelineItems.map((item) => `- ${item.time || "TBD"} | ${item.title}`),
-    "",
-    "FORMALITIES",
-    ...formalities.map(
-      (item) =>
-        `- ${item.time || "TBD"} | ${item.momentName} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}`,
-    ),
-    "",
-    "MC ANNOUNCEMENTS",
-    mcAnnouncements || "None",
-    "",
-    "VENDOR CONTACTS",
-    ...vendors.map(
-      (vendor) =>
-        `- ${vendor.vendorType}: ${vendor.companyName} | ${vendor.contactName || "No Contact"}${vendor.phone ? ` | ${vendor.phone}` : ""}${vendor.email ? ` | ${vendor.email}` : ""}${vendor.arrivalTime ? ` | Arrival ${vendor.arrivalTime}` : ""}`,
-    ),
-    "",
-    "MUSIC NOTES",
-    generalDjNotes || "None",
-    "",
-    "DO NOT PLAY",
-    ...doNotPlaySongs.map((song) => `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}`),
-    "",
-    "IMPORTANT DJ NOTES",
-    eventSettings.internalNotes || "None",
-  ].join("\n");
+    const showMc = sectionMcScriptEnabled && eventSettings.liveEventShowMcScript;
+    const showMusicNotes = sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes;
+    const showDnp = sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay;
+    const showVendors = sectionVendorContactsEnabled && eventSettings.liveEventShowVendorContacts;
+    const showPlaylists = sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists;
+    const showGuestRequestsDoc =
+      sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests;
+    const showPlanningQs =
+      sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions;
+    const liveEventPlanningQuestions = planningQuestionsForEvent.filter(
+      (question) => question.showInLiveEventMode,
+    );
+    const layoutProf = eventSettings.eventLayoutProfile;
+    const receptionPlainHeading =
+      layoutProf === "Corporate"
+        ? "RUN OF SHOW"
+        : layoutProf === "School Dance" || layoutProf === "Private Party"
+          ? "TIMELINE"
+          : "RECEPTION TIMELINE";
+
+    const cocktailLines =
+      importCocktailSuggestions.length > 0
+        ? importCocktailSuggestions
+        : vibeBuckets.find((b) => b.title.includes("Cocktail"))?.songs ?? [];
+    const dinnerLines =
+      importDinnerSuggestions.length > 0
+        ? importDinnerSuggestions
+        : vibeBuckets.find((b) => b.title.includes("Dinner"))?.songs ?? [];
+    const openLines =
+      importOpenDancingSuggestions.length > 0
+        ? importOpenDancingSuggestions
+        : vibeBuckets.find((b) => b.title.includes("Open Dancing"))?.songs ?? [];
+
+    const lines: string[] = [
+      `${appSettings.appName.toUpperCase()} - EVENT PREP`,
+      "",
+      "EVENT OVERVIEW",
+      `Event Name: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
+      `${primaryPartyShortLabel}: ${eventSettings.coupleNames || weddingDetails.couple || "TBD"}`,
+      `Date: ${eventSettings.weddingDate || weddingDetails.date || "TBD"}`,
+      `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
+      `Timezone: ${effectiveTimezone || "TBD"}`,
+      `Event Type: ${effectiveEventType || "TBD"}`,
+      `Package: ${eventSettings.packageName || "TBD"}`,
+      `Assigned DJ: ${assignedDjLabel}`,
+    ];
+
+    if (sectionCeremonyEnabled) {
+      lines.push(
+        `Setup Time: ${eventSettings.eventStartTime || "TBD"}`,
+        `Ceremony Start: ${ceremonyStartTime || "TBD"}`,
+        `Ceremony Guest Arrival: ${ceremonyGuestArrivalTime || "TBD"}`,
+        `Officiant: ${officiantName || "TBD"}`,
+        `Microphones: ${microphoneNeeds || "TBD"}`,
+      );
+    }
+
+    lines.push("", "");
+
+    if (sectionCeremonyEnabled) {
+      lines.push(
+        "CEREMONY TIMELINE",
+        ...ceremonyTimelineItems.map(
+          (item) =>
+            `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
+        ),
+        `- General Ceremony Notes: ${ceremonyNotes || "None"}`,
+        "",
+      );
+    }
+
+    if (sectionReceptionTimelineEnabled) {
+      lines.push(
+        receptionPlainHeading,
+        ...mergedTimelineItems.map(
+          (item) =>
+            `- ${item.time || "TBD"} | ${item.title} [${item.category}]${item.needsDjMcAttention ? " (DJ/MC ATTENTION)" : ""}${item.notes ? ` - ${item.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (sectionFormalitiesEnabled) {
+      lines.push(
+        "FORMAL DANCES / FORMALITIES",
+        ...formalities.map(
+          (item) =>
+            `- ${item.time || "TBD"} | ${item.momentName || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.fadeOutEarly ? ` | Fade at ${item.fadeOutTimestamp || "TBD"}` : ""}${item.includeInTimeline ? " | In Timeline" : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (sectionMustPlayEnabled) {
+      lines.push(
+        "MUST PLAY SONGS",
+        ...mustPlaySongs.map(
+          (song) =>
+            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (showMc) {
+      lines.push("MC SCRIPTS / ANNOUNCEMENTS", mcAnnouncements || "None", "");
+    }
+
+    if (showVendors) {
+      lines.push(
+        "VENDOR CONTACTS",
+        ...vendors.map(
+          (vendor) =>
+            `- ${vendor.vendorType}: ${vendor.companyName} | ${vendor.contactName || "No Contact"}${vendor.phone ? ` | ${vendor.phone}` : ""}${vendor.email ? ` | ${vendor.email}` : ""}${vendor.arrivalTime ? ` | Arrival ${vendor.arrivalTime}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (showPlaylists) {
+      const pushPlaylistBucket = (bucketLines: string[], header: string) => {
+        lines.push(header);
+        if (bucketLines.length === 0) {
+          lines.push("(none)", "");
+          return;
+        }
+        bucketLines.forEach((line, index) => {
+          const parsed = parsePlaylistSongLine(line);
+          lines.push(
+            `${index + 1}. ${parsed.song || "-"}${parsed.artist ? ` - ${parsed.artist}` : ""}`,
+          );
+        });
+        lines.push("");
+      };
+
+      pushPlaylistBucket(cocktailLines, "COCKTAIL HOUR");
+      pushPlaylistBucket(dinnerLines, "DINNER");
+      pushPlaylistBucket(openLines, "OPEN DANCING");
+    }
+
+    if (showGuestRequestsDoc) {
+      lines.push(
+        "GUEST REQUESTS",
+        ...guestRequests.map((request) => {
+          const songLine = `${request.songTitle}${request.artist ? ` - ${request.artist}` : ""}`;
+          const ded = request.dedication ? ` | Dedication: ${request.dedication}` : "";
+          const playlist = [
+            request.addedToMustPlay ? "Added to Must Play" : null,
+            request.addedToDoNotPlay ? "Added to Do Not Play" : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          const extra = playlist ? ` | ${playlist}` : "";
+          return `- ${songLine} | ${request.guestName} | ${request.status}${ded}${extra}`;
+        }),
+        "",
+      );
+    }
+
+    if (showDnp) {
+      lines.push(
+        "DO NOT PLAY",
+        ...doNotPlaySongs.map(
+          (song) =>
+            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY BLOCK)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (showMusicNotes) {
+      lines.push("MUSIC NOTES");
+      if (eventSettings.eventLayoutProfile === "School Dance") {
+        lines.push("(Clean edits / school-appropriate content)");
+      }
+      lines.push(generalDjNotes || "None", "");
+    }
+
+    if (showPlanningQs) {
+      lines.push(
+        "",
+        ...formatPlanningQuestionsPlainTextLines(
+          liveEventPlanningQuestions,
+          eventSettings.planningQuestionAnswers,
+        ),
+        "",
+      );
+    }
+
+    lines.push(
+      "INTERNAL NOTES",
+      eventSettings.internalNotes || "None",
+      "",
+      "CLIENT-FACING NOTES",
+      eventSettings.clientFacingNotes || "None",
+      "",
+      "PREP FOOTER",
+      effectivePrepSheetFooter || "None",
+      "",
+    );
+
+    return lines.join("\n");
+  }, [
+    appSettings.appName,
+    ceremonyGuestArrivalTime,
+    ceremonyNotes,
+    ceremonyStartTime,
+    ceremonyTimelineItems,
+    doNotPlaySongs,
+    effectiveEventType,
+    effectivePrepSheetFooter,
+    effectiveTimezone,
+    eventSettings.assignedDj,
+    eventSettings.clientFacingNotes,
+    eventSettings.coupleNames,
+    eventSettings.eventName,
+    eventSettings.eventStartTime,
+    eventSettings.eventLayoutProfile,
+    eventSettings.internalNotes,
+    eventSettings.liveEventShowDoNotPlay,
+    eventSettings.liveEventShowGuestRequests,
+    eventSettings.liveEventShowMcScript,
+    eventSettings.liveEventShowMusicNotes,
+    eventSettings.liveEventShowPlanningQuestions,
+    eventSettings.liveEventShowPlaylists,
+    eventSettings.liveEventShowVendorContacts,
+    eventSettings.packageName,
+    eventSettings.planningQuestionAnswers,
+    eventSettings.venue,
+    eventSettings.weddingDate,
+    formalities,
+    generalDjNotes,
+    guestRequests,
+    importCocktailSuggestions,
+    importDinnerSuggestions,
+    importOpenDancingSuggestions,
+    mcAnnouncements,
+    mergedTimelineItems,
+    microphoneNeeds,
+    mustPlaySongs,
+    officiantName,
+    parsePlaylistSongLine,
+    planningQuestionsForEvent,
+    primaryPartyShortLabel,
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionFormalitiesEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMcScriptEnabled,
+    sectionMusicNotesEnabled,
+    sectionMustPlayEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+    sectionVendorContactsEnabled,
+    teamMembers,
+    vendors,
+    weddingDetails.couple,
+    weddingDetails.date,
+    weddingDetails.venue,
+  ]);
 
   const copyLiveEventText = async () => {
     try {
       await navigator.clipboard.writeText(liveEventText);
-      setCopyStatus("copied");
-      setTimeout(() => setCopyStatus(""), 1800);
-    } catch {
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus(""), 2200);
-    }
-  };
-
-  const copyPrepSheetText = async () => {
-    try {
-      await navigator.clipboard.writeText(prepSheetText);
       setCopyStatus("copied");
       setTimeout(() => setCopyStatus(""), 1800);
     } catch {
@@ -2874,12 +4224,16 @@ export default function Home() {
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-[#1d1a14] to-[#141419]">
               <SectionTitle className="text-[#f5e6c8]">
-                You&apos;ve been invited to plan your wedding with Cutmaster Music
+                {INVITE_PREVIEW_TITLE[inviteLayoutProfile]}
               </SectionTitle>
               <div className="mt-3 space-y-1 text-xs text-zinc-300">
-                <p>Event: {events.find((e) => e.id === inviteAccessPreview.eventId)?.meta.couple || "Event"}</p>
-                <p>Date: {events.find((e) => e.id === inviteAccessPreview.eventId)?.meta.date || "TBD"}</p>
-                <p>Venue: {events.find((e) => e.id === inviteAccessPreview.eventId)?.meta.venue || "TBD"}</p>
+                <p>
+                  Event: {invitePreviewEvent?.settings?.eventName || invitePreviewEvent?.meta.couple || "Event"}
+                </p>
+                <p>
+                  Date: {invitePreviewEvent?.settings?.weddingDate || invitePreviewEvent?.meta.date || "TBD"}
+                </p>
+                <p>Venue: {invitePreviewEvent?.settings?.venue || invitePreviewEvent?.meta.venue || "TBD"}</p>
                 <p>Role: {inviteAccessPreview.role}</p>
                 <p className="break-all text-zinc-500">{inviteAccessPreview.link}</p>
               </div>
@@ -2932,58 +4286,616 @@ export default function Home() {
               <p className="mt-2 text-xs text-zinc-400">
                 Global settings apply across all events and are stored outside event records.
               </p>
-              <div className="mt-4 space-y-3">
-                <TextInput id="global-company-name" label="Company Name" value={appSettings.companyName} onChange={(value) => setAppSettings((prev) => ({ ...prev, companyName: value }))} disabled={!canManageEvents} />
-                <TextInput id="global-app-name" label="App Name" value={appSettings.appName} onChange={(value) => setAppSettings((prev) => ({ ...prev, appName: value }))} disabled={!canManageEvents} />
-                <TextInput id="global-logo-url" label="Logo/Branding Path" value={appSettings.logoUrl} onChange={(value) => setAppSettings((prev) => ({ ...prev, logoUrl: value }))} disabled={!canManageEvents} />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput id="global-brand-color" label="Brand Color" value={appSettings.brandColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, brandColor: value }))} disabled={!canManageEvents} />
-                  <TextInput id="global-accent-color" label="Accent Color" value={appSettings.accentColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, accentColor: value }))} disabled={!canManageEvents} />
+
+              <div className="mt-4 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-4">
+                <aside className="hidden md:block">
+                  <div className="sticky top-4 rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                    <p className="px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                      Settings Sections
+                    </p>
+                    <div className="mt-1 space-y-1">
+                      {GLOBAL_SETTINGS_SECTIONS.map((section) => (
+                        <PrimaryButton
+                          key={`settings-side-${section}`}
+                          onClick={() => setActiveGlobalSettingsSection(section)}
+                          className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] ${
+                            activeGlobalSettingsSection === section
+                              ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
+                              : "bg-white/5 text-zinc-300 hover:bg-white/10"
+                          }`}
+                        >
+                          {section}
+                        </PrimaryButton>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+
+                <div>
+                  <div className="sticky top-0 z-10 -mx-2 overflow-x-auto border-y border-white/10 bg-[#141419]/95 px-2 py-2 backdrop-blur md:hidden">
+                    <div className="flex gap-2">
+                      {GLOBAL_SETTINGS_SECTIONS.map((section) => (
+                        <PrimaryButton
+                          key={`settings-tab-${section}`}
+                          onClick={() => setActiveGlobalSettingsSection(section)}
+                          className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] ${
+                            activeGlobalSettingsSection === section
+                              ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
+                              : "bg-white/10 text-zinc-300 hover:bg-white/15"
+                          }`}
+                        >
+                          {section}
+                        </PrimaryButton>
+                      ))}
+                    </div>
+                  </div>
+
+              {activeGlobalSettingsSection === "Event Types" && (
+                <div className="mt-4 space-y-3">
+                  <SectionTitle className="text-[#e9d5a8]">Event Types</SectionTitle>
+                  <TextInput
+                    id="global-event-type"
+                    label="Default Event Type"
+                    value={appSettings.defaultEventType}
+                    onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventType: value }))}
+                    disabled={!canManageEvents}
+                  />
+                  <div className="space-y-2">
+                    {EVENT_TYPES.map((profile) => {
+                      const defaults = getLayoutProfileDefaults(profile);
+                      return (
+                        <div key={`etype-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {LAYOUT_PROFILE_DESCRIPTIONS[profile]}
+                          </p>
+                          <p className="mt-2 text-[11px] text-zinc-400">
+                            Default sections: {getEnabledSectionLabels(profile, defaults).join(", ")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
-                <TextInput id="global-event-type" label="Default Event Type" value={appSettings.defaultEventType} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventType: value }))} disabled={!canManageEvents} />
-                <TextArea id="global-prep-footer" label="Default Prep Sheet Footer" value={appSettings.prepSheetFooterText} onChange={(value) => setAppSettings((prev) => ({ ...prev, prepSheetFooterText: value }))} rows={3} disabled={!canManageEvents} />
-                <TextArea id="global-guest-msg" label="Default Guest Request Message" value={appSettings.publicGuestRequestMessage} onChange={(value) => setAppSettings((prev) => ({ ...prev, publicGuestRequestMessage: value }))} rows={3} disabled={!canManageEvents} />
-                <TextInput id="global-couple-welcome" label="Default Couple Welcome Message" value={appSettings.coupleWelcomeMessage} onChange={(value) => setAppSettings((prev) => ({ ...prev, coupleWelcomeMessage: value }))} disabled={!canManageEvents} />
-                <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
-              </div>
-              <div className="mt-5 rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 p-3 text-xs text-[#f5e6c8]">
-                Backup recommended while this remains a frontend-only prototype.
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <PrimaryButton
-                  onClick={exportBackupJson}
-                  disabled={!canManageEvents}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-100 hover:bg-white/15 disabled:opacity-50"
-                >
-                  Export Backup JSON
-                </PrimaryButton>
-                <PrimaryButton
-                  onClick={triggerBackupFilePicker}
-                  disabled={!canManageEvents}
-                  className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
-                >
-                  Import Backup JSON
-                </PrimaryButton>
-                <input
-                  ref={backupFileInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={importBackupJson}
-                  className="hidden"
-                />
-              </div>
-              {backupStatus && (
-                <p
-                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${
-                    backupStatus.kind === "success"
-                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
-                  }`}
-                >
-                  {backupStatus.message}
-                </p>
               )}
+
+              {activeGlobalSettingsSection === "Planning Questions" && (
+                <div className="mt-4 space-y-3">
+                  <SectionTitle className="text-[#e9d5a8]">Planning Question Sets</SectionTitle>
+                  <p className="text-xs text-zinc-400">
+                    Customize planning questions by Event Type. Existing event answers remain saved even if questions are hidden or removed.
+                  </p>
+                  {EVENT_TYPES.map((profile) => {
+                    const questions = planningQuestionSetsForSettings[profile] ?? [];
+                    return (
+                      <div key={`pqset-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
+                          <div className="flex gap-2">
+                            <PrimaryButton
+                              onClick={() => addPlanningQuestionToSet(profile)}
+                              disabled={!canManageEvents}
+                              className="rounded-lg bg-[#c9a35c]/20 px-2 py-1.5 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                            >
+                              Add Question
+                            </PrimaryButton>
+                            <PrimaryButton
+                              onClick={() => resetPlanningQuestionSet(profile)}
+                              disabled={!canManageEvents}
+                              className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-white/15 disabled:opacity-50"
+                            >
+                              Reset Defaults
+                            </PrimaryButton>
+                          </div>
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-500">
+                          Default set: {getPlanningQuestionsForProfile(profile).length} questions · Current set: {questions.length}
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {questions.map((question, index) => (
+                            <div key={`pq-row-${profile}-${question.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5">
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <TextInput
+                                  id={`pq-label-${profile}-${question.id}`}
+                                  label="Question Label"
+                                  value={question.label}
+                                  onChange={(value) =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id ? { ...item, label: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                                <TextInput
+                                  id={`pq-help-${profile}-${question.id}`}
+                                  label="Help Text / Description"
+                                  value={question.helpText ?? ""}
+                                  onChange={(value) =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id ? { ...item, helpText: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                                <div>
+                                  <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">Answer Type</label>
+                                  <select
+                                    value={question.answerType}
+                                    onChange={(event) =>
+                                      updatePlanningQuestionSet(profile, (items) =>
+                                        items.map((item) =>
+                                          item.id === question.id
+                                            ? { ...item, answerType: event.target.value as PlanningQuestionAnswerType }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    disabled={!canManageEvents}
+                                    className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
+                                  >
+                                    {QUESTION_ANSWER_TYPES.map((type) => (
+                                      <option key={`pq-type-${type.value}`} value={type.value} className="bg-[#141419]">
+                                        {type.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <TextInput
+                                  id={`pq-placeholder-${profile}-${question.id}`}
+                                  label="Placeholder"
+                                  value={question.placeholder ?? ""}
+                                  onChange={(value) =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id ? { ...item, placeholder: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                              </div>
+                              {question.answerType === "multiple_choice" && (
+                                <TextInput
+                                  id={`pq-options-${profile}-${question.id}`}
+                                  label="Multiple Choice Options (comma-separated)"
+                                  value={(question.options ?? []).join(", ")}
+                                  onChange={(value) =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id
+                                          ? {
+                                              ...item,
+                                              options: value
+                                                .split(",")
+                                                .map((part) => part.trim())
+                                                .filter(Boolean),
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                              )}
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id ? { ...item, required: !item.required } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.required ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                >
+                                  {question.required ? "Required" : "Optional"}
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === question.id
+                                          ? { ...item, showInLiveEventMode: !item.showInLiveEventMode }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.showInLiveEventMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                >
+                                  {question.showInLiveEventMode ? "Shown in Event Prep" : "Hidden in Event Prep"}
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updatePlanningQuestionSet(profile, (items) => {
+                                      if (index === 0) return items;
+                                      const next = [...items];
+                                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                      return next;
+                                    })
+                                  }
+                                  disabled={!canManageEvents || index === 0}
+                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                >
+                                  Move Up
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updatePlanningQuestionSet(profile, (items) => {
+                                      if (index >= items.length - 1) return items;
+                                      const next = [...items];
+                                      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                      return next;
+                                    })
+                                  }
+                                  disabled={!canManageEvents || index >= questions.length - 1}
+                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                >
+                                  Move Down
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updatePlanningQuestionSet(profile, (items) =>
+                                      items.filter((item) => item.id !== question.id),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                  className="rounded-lg bg-rose-500/20 px-2 py-1.5 text-[11px] text-rose-100 disabled:opacity-50"
+                                >
+                                  Delete
+                                </PrimaryButton>
+                              </div>
+                            </div>
+                          ))}
+                          {questions.length === 0 && (
+                            <p className="text-xs text-zinc-500">No questions configured. Add your first question for this Event Type.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeGlobalSettingsSection === "Timeline Presets" && (
+                <div className="mt-4 space-y-3">
+                  <SectionTitle className="text-[#e9d5a8]">Timeline Presets</SectionTitle>
+                  <p className="text-xs text-zinc-400">
+                    Customize default ceremony and main-event timeline moments by Event Type. New events use these presets.
+                  </p>
+                  {EVENT_TYPES.map((profile) => {
+                    const presets = timelinePresetSetsForSettings[profile] ?? [];
+                    const defaultCount = (getDefaultTimelinePresetSets()[profile] ?? []).length;
+                    return (
+                      <div key={`tpset-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
+                          <div className="flex gap-2">
+                            <PrimaryButton
+                              onClick={() => addTimelinePresetToSet(profile)}
+                              disabled={!canManageEvents}
+                              className="rounded-lg bg-[#c9a35c]/20 px-2 py-1.5 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                            >
+                              Add Preset
+                            </PrimaryButton>
+                            <PrimaryButton
+                              onClick={() => resetTimelinePresetSet(profile)}
+                              disabled={!canManageEvents}
+                              className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-white/15 disabled:opacity-50"
+                            >
+                              Reset Defaults
+                            </PrimaryButton>
+                          </div>
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-500">
+                          Default set: {defaultCount} moments · Current set: {presets.length}
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {presets.map((preset, index) => (
+                            <div key={`tp-row-${profile}-${preset.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5">
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div>
+                                  <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">Timeline Type</label>
+                                  <select
+                                    value={preset.timelineType}
+                                    onChange={(event) =>
+                                      updateTimelinePresetSet(profile, (items) =>
+                                        items.map((item) =>
+                                          item.id === preset.id
+                                            ? { ...item, timelineType: event.target.value as "ceremony" | "main" }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    disabled={!canManageEvents}
+                                    className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
+                                  >
+                                    <option value="ceremony" className="bg-[#141419]">Ceremony</option>
+                                    <option value="main" className="bg-[#141419]">Main Event</option>
+                                  </select>
+                                </div>
+                                <TextInput
+                                  id={`tp-time-${profile}-${preset.id}`}
+                                  label="Time / Order Label"
+                                  value={preset.timeOrOrder}
+                                  onChange={(value) =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === preset.id ? { ...item, timeOrOrder: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                                <TextInput
+                                  id={`tp-moment-${profile}-${preset.id}`}
+                                  label="Moment Name"
+                                  value={preset.momentName}
+                                  onChange={(value) =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === preset.id ? { ...item, momentName: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                                <TextInput
+                                  id={`tp-song-${profile}-${preset.id}`}
+                                  label="Song Placeholder"
+                                  value={preset.songPlaceholder}
+                                  onChange={(value) =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === preset.id ? { ...item, songPlaceholder: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                                <TextInput
+                                  id={`tp-notes-${profile}-${preset.id}`}
+                                  label="Notes Placeholder"
+                                  value={preset.notesPlaceholder}
+                                  onChange={(value) =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === preset.id ? { ...item, notesPlaceholder: value } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                />
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.map((item) =>
+                                        item.id === preset.id ? { ...item, defaultIncluded: !item.defaultIncluded } : item,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${preset.defaultIncluded ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                >
+                                  {preset.defaultIncluded ? "Included by Default" : "Excluded by Default"}
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updateTimelinePresetSet(profile, (items) => {
+                                      if (index === 0) return items;
+                                      const next = [...items];
+                                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                      return next;
+                                    })
+                                  }
+                                  disabled={!canManageEvents || index === 0}
+                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                >
+                                  Move Up
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updateTimelinePresetSet(profile, (items) => {
+                                      if (index >= items.length - 1) return items;
+                                      const next = [...items];
+                                      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                      return next;
+                                    })
+                                  }
+                                  disabled={!canManageEvents || index >= presets.length - 1}
+                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                >
+                                  Move Down
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  onClick={() =>
+                                    updateTimelinePresetSet(profile, (items) =>
+                                      items.filter((item) => item.id !== preset.id),
+                                    )
+                                  }
+                                  disabled={!canManageEvents}
+                                  className="rounded-lg bg-rose-500/20 px-2 py-1.5 text-[11px] text-rose-100 disabled:opacity-50"
+                                >
+                                  Delete
+                                </PrimaryButton>
+                              </div>
+                            </div>
+                          ))}
+                          {presets.length === 0 && (
+                            <p className="text-xs text-zinc-500">No timeline presets configured. Add your first preset moment.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeGlobalSettingsSection === "Live Event Mode" && (
+                <div className="mt-4 space-y-3">
+                  <SectionTitle className="text-[#e9d5a8]">Live Event Mode</SectionTitle>
+                  <TextArea
+                    id="global-prep-footer"
+                    label="Default Event Prep Footer"
+                    value={appSettings.prepSheetFooterText}
+                    onChange={(value) => setAppSettings((prev) => ({ ...prev, prepSheetFooterText: value }))}
+                    rows={3}
+                    disabled={!canManageEvents}
+                  />
+                  <TextArea
+                    id="global-guest-msg"
+                    label="Default Guest Request Message"
+                    value={appSettings.publicGuestRequestMessage}
+                    onChange={(value) => setAppSettings((prev) => ({ ...prev, publicGuestRequestMessage: value }))}
+                    rows={3}
+                    disabled={!canManageEvents}
+                  />
+                  <TextInput
+                    id="global-couple-welcome"
+                    label="Default Welcome Message"
+                    value={appSettings.coupleWelcomeMessage}
+                    onChange={(value) => setAppSettings((prev) => ({ ...prev, coupleWelcomeMessage: value }))}
+                    disabled={!canManageEvents}
+                  />
+                  <div className="space-y-2">
+                    {EVENT_TYPES.map((profile) => {
+                      const liveDefaults = getLiveEventDocumentDefaults(profile);
+                      return (
+                        <div key={`live-defaults-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
+                          <p className="font-semibold text-zinc-100">{profile}</p>
+                          <p className="mt-1 text-zinc-500">
+                            Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
+                            Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
+                            Vendors: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
+                            MC: {liveDefaults.liveEventShowMcScript ? "On" : "Off"} ·
+                            Playlists: {liveDefaults.liveEventShowPlaylists ? "On" : "Off"} ·
+                            Questions: {liveDefaults.liveEventShowPlanningQuestions ? "On" : "Off"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeGlobalSettingsSection === "Team Management" && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle className="text-[#e9d5a8]">Team Management</SectionTitle>
+                    <PrimaryButton
+                      onClick={openAddTeamMemberModal}
+                      disabled={!canManageEvents}
+                      className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                    >
+                      Add Team Member
+                    </PrimaryButton>
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    Manage users, role assignments, and planning permissions at the account level.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
+                      Admins: <span className="text-white">{teamMembers.filter((m) => m.role === "Admin").length}</span>
+                    </div>
+                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
+                      DJs: <span className="text-white">{teamMembers.filter((m) => m.role === "DJ").length}</span>
+                    </div>
+                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
+                      Planners: <span className="text-white">{teamMembers.filter((m) => m.role === "Planner").length}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {teamMembers.map((member) => (
+                      <div key={`settings-team-${member.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">{member.name}</p>
+                            <p className="mt-1 text-xs text-zinc-500">{member.email}</p>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(member.role)}`}>
+                            {member.role}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-zinc-400">
+                          Permissions: {member.role === "Admin" ? "Full settings + event management" : member.role === "DJ" ? "Timeline/music/event prep" : "Planning/timeline/vendor coordination"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {teamFormStatus && (
+                    <p
+                      className={`rounded-xl px-3 py-2 text-xs ${
+                        teamFormStatus.kind === "success"
+                          ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                          : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                      }`}
+                    >
+                      {teamFormStatus.message}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {activeGlobalSettingsSection === "Branding / App" && (
+                <div className="mt-4 space-y-3">
+                  <SectionTitle className="text-[#e9d5a8]">Branding / App Settings</SectionTitle>
+                  <TextInput id="global-company-name" label="Company Name" value={appSettings.companyName} onChange={(value) => setAppSettings((prev) => ({ ...prev, companyName: value }))} disabled={!canManageEvents} />
+                  <TextInput id="global-app-name" label="App Name" value={appSettings.appName} onChange={(value) => setAppSettings((prev) => ({ ...prev, appName: value }))} disabled={!canManageEvents} />
+                  <TextInput id="global-logo-url" label="Logo/Branding Path" value={appSettings.logoUrl} onChange={(value) => setAppSettings((prev) => ({ ...prev, logoUrl: value }))} disabled={!canManageEvents} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <TextInput id="global-brand-color" label="Brand Color" value={appSettings.brandColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, brandColor: value }))} disabled={!canManageEvents} />
+                    <TextInput id="global-accent-color" label="Accent Color" value={appSettings.accentColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, accentColor: value }))} disabled={!canManageEvents} />
+                  </div>
+                  <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
+                  <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
+                  <div className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 p-3 text-xs text-[#f5e6c8]">
+                    Backup recommended while this remains a frontend-only prototype.
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <PrimaryButton
+                      onClick={exportBackupJson}
+                      disabled={!canManageEvents}
+                      className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-100 hover:bg-white/15 disabled:opacity-50"
+                    >
+                      Export Backup JSON
+                    </PrimaryButton>
+                    <PrimaryButton
+                      onClick={triggerBackupFilePicker}
+                      disabled={!canManageEvents}
+                      className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                    >
+                      Import Backup JSON
+                    </PrimaryButton>
+                    <input
+                      ref={backupFileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={importBackupJson}
+                      className="hidden"
+                    />
+                  </div>
+                  {backupStatus && (
+                    <p
+                      className={`rounded-xl px-3 py-2 text-xs ${
+                        backupStatus.kind === "success"
+                          ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                          : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                      }`}
+                    >
+                      {backupStatus.message}
+                    </p>
+                  )}
+                </div>
+              )}
+                </div>
+              </div>
             </PremiumCard>
           </section>
         )}
@@ -3093,6 +5005,7 @@ export default function Home() {
                         eventName: "",
                         coupleNames: "",
                         eventType: effectiveEventType,
+                        eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
                         weddingDate: "",
                         venue: "",
                         ceremonyLocation: "",
@@ -3103,6 +5016,7 @@ export default function Home() {
                         plannerEmail: "",
                         internalNotes: "",
                       });
+                      setEventModalStatus(null);
                       setEventModalOpen(true);
                     }}
                     className="rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/10"
@@ -3134,6 +5048,7 @@ export default function Home() {
                             eventName: "",
                             coupleNames: "",
                             eventType: effectiveEventType,
+                            eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
                             weddingDate: "",
                             venue: "",
                             ceremonyLocation: "",
@@ -3144,6 +5059,7 @@ export default function Home() {
                             plannerEmail: "",
                             internalNotes: "",
                           });
+                          setEventModalStatus(null);
                           setEventModalOpen(true);
                         }}
                         className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
@@ -3158,6 +5074,10 @@ export default function Home() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleEvents.map((evt) => {
                   const isActive = evt.id === activeEventId;
+                  const cardProfile = resolveLayoutProfileForDisplay(
+                    evt.settings,
+                    appSettings.defaultEventType,
+                  );
                   const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
                   const cardEventType = evt.settings?.eventType || "Event";
                   const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
@@ -3184,6 +5104,9 @@ export default function Home() {
                           </p>
                           <p className="mt-1 text-xs uppercase tracking-[0.12em] text-zinc-500">
                             {cardEventType}
+                          </p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                            {PRIMARY_PARTY_SHORT_LABEL[cardProfile]}
                           </p>
                           <p className="mt-1 text-xs text-zinc-400">
                             {cardCoupleNames} · {cardEventDate}
@@ -3214,10 +5137,15 @@ export default function Home() {
                             onClick={() => {
                               setEventModalMode("edit");
                               setEventEditingId(evt.id);
+                              const migratedProfile = migrateLegacyLayoutProfile(
+                                evt.settings?.eventLayoutProfile,
+                                evt.settings?.eventType || effectiveEventType,
+                              );
                               setEventDraft({
                                 eventName: evt.settings?.eventName || evt.meta.couple,
                                 coupleNames: evt.settings?.coupleNames || evt.meta.couple,
-                                eventType: evt.settings?.eventType || effectiveEventType,
+                                eventType: migratedProfile,
+                                eventLayoutProfile: migratedProfile,
                                 weddingDate: evt.settings?.weddingDate || evt.meta.date,
                                 venue: evt.settings?.venue || evt.meta.venue,
                                 ceremonyLocation: evt.settings?.ceremonyLocation || "",
@@ -3228,6 +5156,7 @@ export default function Home() {
                                 plannerEmail: evt.settings?.plannerEmail || "",
                                 internalNotes: evt.settings?.internalNotes || "",
                               });
+                              setEventModalStatus(null);
                               setEventModalOpen(true);
                             }}
                             className="rounded-xl bg-white/5 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/10"
@@ -3293,7 +5222,7 @@ export default function Home() {
                           }}
                           className="w-full rounded-xl bg-[#c9a35c]/18 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/28"
                         >
-                          Copy Couple Invite Link
+                          {COPY_INVITE_LINK_LABEL[cardProfile]}
                         </PrimaryButton>
                       </div>
                     </PremiumCard>
@@ -3340,11 +5269,22 @@ export default function Home() {
                 <PremiumCard>
                   <SectionTitle className="text-[#e9d5a8]">Upcoming Events</SectionTitle>
                   <div className="mt-3 space-y-2">
-                    {commandCenterUpcomingEvents.map((evt) => (
+                    {commandCenterUpcomingEvents.map((evt) => {
+                      const cmdProfile = resolveLayoutProfileForDisplay(
+                        evt.settings,
+                        appSettings.defaultEventType,
+                      );
+                      return (
                       <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold text-zinc-100">{evt.settings.eventName || evt.meta.couple}</p>
+                            <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                              {PRIMARY_PARTY_SHORT_LABEL[cmdProfile]}:{" "}
+                              <span className="font-medium text-zinc-300">
+                                {evt.settings.coupleNames || evt.meta.couple || "TBD"}
+                              </span>
+                            </p>
                             <p className="mt-1 text-xs text-zinc-400">
                               {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
                             </p>
@@ -3367,10 +5307,10 @@ export default function Home() {
                             View Event
                           </PrimaryButton>
                           <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "DJ Prep Sheet")}
+                            onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
                             className="rounded-lg bg-[#c9a35c]/20 px-2 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
                           >
-                            Open Prep Sheet
+                            Open Event Prep
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
@@ -3386,7 +5326,8 @@ export default function Home() {
                           </PrimaryButton>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     {commandCenterUpcomingEvents.length === 0 && (
                       <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
                         No upcoming events available for this role.
@@ -3461,10 +5402,13 @@ export default function Home() {
             <section className="mt-6 space-y-3">
               <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-br from-[#20160a]/55 via-[#17171d]/85 to-[#121217]/95 backdrop-blur-sm">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-[#c9a35c]">
-                  {isCoupleView ? "Your wedding planning journey" : "Event planning dashboard"}
+                  {dashboardEyebrowText}
                 </p>
                 <div className="mt-2 flex items-start justify-between gap-3">
                   <div>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                      {primaryPartyShortLabel}
+                    </p>
                     <h2 className="text-2xl font-semibold tracking-tight text-[#f7ecd4]">{coupleDisplayName}</h2>
                     <p className="mt-1 text-xs text-zinc-400">{eventDisplayName}</p>
                   </div>
@@ -3474,7 +5418,7 @@ export default function Home() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                    <p className="text-zinc-500">Wedding date</p>
+                    <p className="text-zinc-500">{eventDateGridLabel}</p>
                     <p className="mt-1 font-medium text-zinc-100">{eventDateDisplay}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
@@ -3486,11 +5430,11 @@ export default function Home() {
                   Vendors: <span className="text-zinc-200">{vendors.length}</span>
                 </p>
                 <div className="mt-3 rounded-xl border border-[#c9a35c]/25 bg-gradient-to-r from-[#c9a35c]/15 to-transparent px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">Wedding countdown</p>
+                  <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">{eventCountdownLabel}</p>
                   <p className="mt-1 text-sm font-medium text-[#f7ecd4]">
                     {daysUntilWedding === null
-                      ? "Add a wedding date to start your countdown"
-                      : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your wedding`}
+                      ? "Add an event date to start your countdown"
+                      : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
                   </p>
                 </div>
                 <div className="mt-3">
@@ -3542,13 +5486,17 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
-                  {(["Music", "Timeline", "Ceremony", "Formal Dances", "Guest Requests", "DJ Prep Sheet"] as Screen[]).map((target) => (
+                  {dashboardQuickScreens.map((target) => (
                     <PrimaryButton
                       key={`quick-${target}`}
                       onClick={() => setActiveScreen(target)}
                       className="rounded-xl border border-white/10 bg-white/10 px-2 py-2 text-[11px] text-zinc-200 transition hover:-translate-y-0.5 hover:border-[#c9a35c]/35 hover:bg-white/15"
                     >
-                      {target === "DJ Prep Sheet" ? "Prep Sheet" : target}
+                      {target === "Planning Checklist"
+                        ? "Checklist"
+                        : target === "Planning Questions"
+                          ? "Questions"
+                          : target}
                     </PrimaryButton>
                   ))}
                 </div>
@@ -3719,7 +5667,7 @@ export default function Home() {
           </>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Music" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Music" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
           <section className="mt-6 space-y-3">
             {!canManageMusic && (
               <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
@@ -3816,6 +5764,7 @@ export default function Home() {
               </div>
             </PremiumCard>
 
+            {sectionMustPlayEnabled && (
             <PremiumCard>
               <div className="flex items-center justify-between">
                 <SectionTitle className="text-[#e9d5a8]">Must Play Songs</SectionTitle>
@@ -3836,7 +5785,9 @@ export default function Home() {
                 ))}
               </div>
             </PremiumCard>
+            )}
 
+            {sectionDoNotPlayEnabled && (
             <PremiumCard>
               <div className="flex items-center justify-between">
                 <SectionTitle className="text-[#d8c7aa]">Do Not Play Songs</SectionTitle>
@@ -3857,8 +5808,9 @@ export default function Home() {
                 ))}
               </div>
             </PremiumCard>
+            )}
 
-            {musicVibeBuckets.map((bucket) => (
+            {sectionPlaylistsEnabled && musicVibeBuckets.map((bucket) => (
               <PremiumCard key={bucket.title}>
                 <SectionTitle className="text-[#e9d5a8]">{bucket.title}</SectionTitle>
                 <ul className="mt-3 space-y-2">
@@ -3881,7 +5833,7 @@ export default function Home() {
             <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/20 via-[#17171c] to-[#141419]">
               <SectionTitle className="text-[#e9d5a8]">Spotify Playlist Import (Prototype)</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
-                Paste a Spotify playlist link to simulate import and build wedding-ready song guidance.
+                Paste a Spotify playlist link to simulate import and build event-ready song guidance.
               </p>
               <div className="mt-4 space-y-3">
                 <TextInput
@@ -3906,7 +5858,7 @@ export default function Home() {
                 )}
                 {musicImportStage === "building" && (
                   <p className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 px-3 py-2 text-xs text-[#f5e6c8]">
-                    Building your wedding soundtrack...
+                    Building your event soundtrack...
                   </p>
                 )}
               </div>
@@ -3955,7 +5907,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Timeline" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Timeline" && sectionReceptionTimelineEnabled && (
           <section className="mt-6 space-y-3">
             {!canEditTimeline && (
               <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
@@ -3974,6 +5926,34 @@ export default function Home() {
                   insights={planningInsights.filter((i) => i.section === "timeline")}
                   emptyLabel="Timeline spacing reads smooth."
                 />
+              </div>
+            </PremiumCard>
+
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Quick Add Presets</SectionTitle>
+              <p className="mt-1 text-xs text-zinc-500">
+                Tap a common moment to add it instantly, then fine-tune inline.
+              </p>
+              <div className="mt-3">
+                <PrimaryButton
+                  onClick={applyTimelinePresetsForActiveEvent}
+                  disabled={!canEditTimeline}
+                  className="w-full rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-45"
+                >
+                  Apply Timeline Presets
+                </PrimaryButton>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {mainTimelinePresetsForActiveEvent.map((preset) => (
+                  <PrimaryButton
+                    key={`timeline-preset-${preset.id}`}
+                    onClick={() => addReceptionPreset(preset)}
+                    disabled={!canEditTimeline}
+                    className="rounded-lg bg-white/10 px-2.5 py-2 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-45"
+                  >
+                    {preset.momentName}
+                  </PrimaryButton>
+                ))}
               </div>
             </PremiumCard>
 
@@ -4148,12 +6128,6 @@ export default function Home() {
                     <div className="mb-2 h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-[#c9a35c] to-transparent" />
                   )}
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-xs font-medium text-[#e9d5a8]">
-                        {item.time || "TBD"}
-                      </span>
-                      <SectionTitle className="mt-2 text-zinc-100">{item.title}</SectionTitle>
-                    </div>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] ${
                         item.category === "Formality"
@@ -4164,7 +6138,92 @@ export default function Home() {
                       {item.category}
                     </span>
                   </div>
-                  {item.notes && <p className="mt-2 text-xs text-zinc-400">{item.notes}</p>}
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <TextInput
+                      id={`timeline-inline-time-${item.id}`}
+                      label="Time"
+                      value={item.time}
+                      onChange={(value) => {
+                        if (item.source === "formality") {
+                          updateFormality(item.id, { time: value });
+                          return;
+                        }
+                        setTimelineItems((prev) =>
+                          prev.map((existing) =>
+                            existing.id === item.id ? { ...existing, time: value } : existing,
+                          ),
+                        );
+                      }}
+                      disabled={!canEditTimeline}
+                    />
+                    <TextInput
+                      id={`timeline-inline-title-${item.id}`}
+                      label="Moment"
+                      value={item.title}
+                      onChange={(value) => {
+                        if (item.source === "formality") {
+                          updateFormality(item.id, { momentName: value });
+                          return;
+                        }
+                        setTimelineItems((prev) =>
+                          prev.map((existing) =>
+                            existing.id === item.id ? { ...existing, title: value } : existing,
+                          ),
+                        );
+                      }}
+                      disabled={!canEditTimeline}
+                    />
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <TextInput
+                      id={`timeline-inline-song-${item.id}`}
+                      label="Song"
+                      value={
+                        item.source === "formality"
+                          ? `${
+                              formalities.find((f) => f.id === item.id)?.songTitle || ""
+                            }`
+                          : ""
+                      }
+                      onChange={(value) => {
+                        if (item.source === "formality") {
+                          updateFormality(item.id, { songTitle: value });
+                        }
+                      }}
+                      placeholder={item.source === "formality" ? "Song title" : "Song handled in formalities"}
+                      disabled={!canEditTimeline || item.source !== "formality"}
+                    />
+                    <TextInput
+                      id={`timeline-inline-song-artist-${item.id}`}
+                      label="Artist"
+                      value={item.source === "formality" ? `${formalities.find((f) => f.id === item.id)?.artist || ""}` : ""}
+                      onChange={(value) => {
+                        if (item.source === "formality") {
+                          updateFormality(item.id, { artist: value });
+                        }
+                      }}
+                      placeholder={item.source === "formality" ? "Artist" : "-"}
+                      disabled={!canEditTimeline || item.source !== "formality"}
+                    />
+                  </div>
+                  <TextArea
+                    id={`timeline-inline-notes-${item.id}`}
+                    label="Notes"
+                    value={item.notes}
+                    onChange={(value) => {
+                      if (item.source === "formality") {
+                        updateFormality(item.id, { notes: value });
+                        return;
+                      }
+                      setTimelineItems((prev) =>
+                        prev.map((existing) =>
+                          existing.id === item.id ? { ...existing, notes: value } : existing,
+                        ),
+                      );
+                    }}
+                    rows={2}
+                    disabled={!canEditTimeline}
+                  />
                   {item.needsDjMcAttention && (
                     <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
                       DJ/MC Attention
@@ -4190,7 +6249,7 @@ export default function Home() {
                             event.preventDefault();
                             setDraggingTimelineId(item.id);
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/30 bg-gradient-to-b from-[#c9a35c]/15 to-[#c9a35c]/5 px-3 py-2 text-[11px] text-[#f5e6c8] transition hover:border-[#c9a35c]/45 hover:bg-[#c9a35c]/20 active:scale-[0.98] disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
                           disabled={!canEditTimeline}
                           aria-label={`Drag handle for ${item.title}`}
                         >
@@ -4234,14 +6293,41 @@ export default function Home() {
                         >
                           Delete
                         </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() =>
+                            duplicateTimelineItem({
+                              id: item.id,
+                              title: item.title,
+                              time: item.time,
+                              category: item.category as TimelineCategory,
+                              notes: item.notes,
+                              needsDjMcAttention: item.needsDjMcAttention,
+                            })
+                          }
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Duplicate
+                        </PrimaryButton>
                       </>
                     ) : (
-                      <PrimaryButton
-                        onClick={() => setActiveScreen("Formal Dances")}
-                        className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
-                      >
-                        Edit in Formal Dances
-                      </PrimaryButton>
+                      <>
+                        <PrimaryButton
+                          onClick={() => {
+                            const formality = formalities.find((f) => f.id === item.id);
+                            if (formality) duplicateFormality(formality);
+                          }}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Duplicate
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => setActiveScreen("Formal Dances")}
+                          className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                        >
+                          Edit in Formal Dances
+                        </PrimaryButton>
+                      </>
                     )}
                   </div>
                   <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
@@ -4441,7 +6527,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
           <section className="mt-6 space-y-3">
             {!canManageGuestRequests && (
               <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
@@ -4650,7 +6736,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
               <SectionTitle className="text-[#e9d5a8]">Ceremony Assistant</SectionTitle>
@@ -4734,6 +6820,18 @@ export default function Home() {
                 </PrimaryButton>
               </div>
               <div className="mt-4 space-y-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {ceremonyPresetsForActiveEvent.map((preset) => (
+                    <PrimaryButton
+                      key={`ceremony-preset-${preset.id}`}
+                      onClick={() => addCeremonyPreset(preset)}
+                      disabled={!canEditTimeline}
+                      className="rounded-lg bg-white/10 px-2.5 py-2 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-45"
+                    >
+                      {preset.momentName}
+                    </PrimaryButton>
+                  ))}
+                </div>
                 {ceremonyTimelineItems.map((item, index) => {
                   const isDragging = draggingCeremonyTimelineId === item.id;
                   const isDropTarget =
@@ -4762,18 +6860,87 @@ export default function Home() {
                       }}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-xs font-medium text-[#e9d5a8]">
-                            {item.timeOrOrder || "TBD"}
-                          </span>
-                          <SectionTitle className="mt-2 text-zinc-100">{item.moment}</SectionTitle>
-                          <p className="mt-2 text-xs text-zinc-300">
-                            {item.songTitle || "Song TBD"}
-                            {item.artist ? ` - ${item.artist}` : ""}
-                          </p>
-                          {item.notes ? (
-                            <p className="mt-1 text-xs text-zinc-500">{item.notes}</p>
-                          ) : null}
+                        <div className="w-full">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <TextInput
+                              id={`ceremony-inline-time-${item.id}`}
+                              label="Time / Order"
+                              value={item.timeOrOrder}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, timeOrOrder: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-moment-${item.id}`}
+                              label="Moment"
+                              value={item.moment}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, moment: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <TextInput
+                              id={`ceremony-inline-song-${item.id}`}
+                              label="Song Title"
+                              value={item.songTitle}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, songTitle: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-artist-${item.id}`}
+                              label="Artist"
+                              value={item.artist}
+                              onChange={(value) =>
+                                setCeremonyTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id
+                                      ? { ...existing, artist: value }
+                                      : existing,
+                                  ),
+                                )
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <TextArea
+                            id={`ceremony-inline-notes-${item.id}`}
+                            label="Notes"
+                            value={item.notes}
+                            onChange={(value) =>
+                              setCeremonyTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id
+                                    ? { ...existing, notes: value }
+                                    : existing,
+                                ),
+                              )
+                            }
+                            rows={2}
+                            disabled={!canEditTimeline}
+                          />
                           {item.needsDjMcAttention ? (
                             <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
                               DJ/MC Attention
@@ -4792,7 +6959,7 @@ export default function Home() {
                             setDraggingCeremonyTimelineId(null);
                             setDropTargetCeremonyTimelineId(null);
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/30 bg-gradient-to-b from-[#c9a35c]/15 to-[#c9a35c]/5 px-3 py-2 text-[11px] text-[#f5e6c8] transition hover:border-[#c9a35c]/45 hover:bg-[#c9a35c]/20 active:scale-[0.98] disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
                           disabled={!canEditTimeline}
                         >
                           <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
@@ -4828,6 +6995,13 @@ export default function Home() {
                         >
                           Delete
                         </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => duplicateCeremonyTimelineItem(item)}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Duplicate
+                        </PrimaryButton>
                       </div>
                       <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
                         Item {index + 1} of {ceremonyTimelineItems.length}
@@ -4850,7 +7024,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Formal Dances" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Formal Dances" && sectionFormalitiesEnabled && (
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
               <SectionTitle className="text-[#e9d5a8]">Formalities Assistant</SectionTitle>
@@ -5045,7 +7219,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && sectionVendorContactsEnabled && (
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
               <div className="flex items-center justify-between gap-2">
@@ -5210,124 +7384,214 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "DJ Prep Sheet" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Event Prep" && (
           <section className="mt-6 space-y-3 print-doc">
-            {!canViewPrepSheet && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10 no-print">
-                <p className="text-xs text-[#f5e6c8]">
-                  {effectiveRole} role can’t access full prep sheet in this prototype.
-                </p>
-              </PremiumCard>
-            )}
-            <div className="doc-sheet">
-              <div className="no-print mb-3 grid grid-cols-2 gap-2">
-                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">
-                  Print Prep Sheet
+            <PremiumCard className="no-print">
+              <SectionTitle className="text-[#e9d5a8]">Document Options</SectionTitle>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {sectionMusicNotesEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowMusicNotes: !prev.liveEventShowMusicNotes,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowMusicNotes ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowMusicNotes ? "Hide Music Notes" : "Show Music Notes"}
                 </PrimaryButton>
-                <PrimaryButton onClick={copyPrepSheetText} className="w-full bg-zinc-200 text-zinc-900 hover:bg-zinc-300">
-                  Copy Prep Sheet Text
+                ) : null}
+                {sectionDoNotPlayEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowDoNotPlay: !prev.liveEventShowDoNotPlay,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowDoNotPlay ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowDoNotPlay ? "Hide Do Not Play" : "Show Do Not Play"}
+                </PrimaryButton>
+                ) : null}
+                {sectionVendorContactsEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowVendorContacts: !prev.liveEventShowVendorContacts,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowVendorContacts ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowVendorContacts ? "Hide Vendor Contacts" : "Show Vendor Contacts"}
+                </PrimaryButton>
+                ) : null}
+                {sectionMcScriptEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowMcScript: !prev.liveEventShowMcScript,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowMcScript ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowMcScript ? "Hide MC Script" : "Show MC Script"}
+                </PrimaryButton>
+                ) : null}
+                {sectionPlaylistsEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowPlaylists: !prev.liveEventShowPlaylists,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowPlaylists ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowPlaylists ? "Hide Playlists" : "Show Playlists"}
+                </PrimaryButton>
+                ) : null}
+                {sectionGuestRequestsEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowGuestRequests: !prev.liveEventShowGuestRequests,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowGuestRequests ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowGuestRequests ? "Hide Guest Requests" : "Show Guest Requests"}
+                </PrimaryButton>
+                ) : null}
+                {sectionPlanningQuestionsEnabled ? (
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventShowPlanningQuestions: !prev.liveEventShowPlanningQuestions,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventShowPlanningQuestions ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventShowPlanningQuestions ? "Hide Planning Q&A" : "Show Planning Q&A"}
+                </PrimaryButton>
+                ) : null}
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventCompactMode: !prev.liveEventCompactMode,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventCompactMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventCompactMode ? "Compact Mode: On" : "Compact Mode"}
+                </PrimaryButton>
+                <PrimaryButton
+                  onClick={() =>
+                    setEventSettings((prev) => ({
+                      ...prev,
+                      liveEventLargePrintMode: !prev.liveEventLargePrintMode,
+                    }))
+                  }
+                  className={`w-full ${eventSettings.liveEventLargePrintMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                >
+                  {eventSettings.liveEventLargePrintMode ? "Large Print: On" : "Large Print Mode"}
                 </PrimaryButton>
               </div>
-              {copyStatus === "copied" && <p className="doc-subtitle no-print">Text copied.</p>}
-              {copyStatus === "error" && <p className="doc-subtitle no-print">Copy failed. Please try again.</p>}
-              <p className="doc-title">DJ Prep Sheet</p>
-              <p className="doc-subtitle">{eventSettings.eventName || weddingDetails.couple || "Event"} · {eventSettings.weddingDate || weddingDetails.date || "TBD"}</p>
-
-              <div className="doc-section print-break-avoid">
-                <h3>Event Overview</h3>
-                <table className="doc-table live-event-timeline-table">
-                  <tbody>
-                    <tr><th>Couple</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
-                    <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Type</th><td>{effectiveEventType || "TBD"}</td></tr>
-                    <tr><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
-                    <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="doc-section">
-                <h3>Timeline</h3>
-                <table className="doc-table">
-                  <thead><tr><th>Time</th><th>Moment</th><th>Notes</th></tr></thead>
-                  <tbody>
-                    {mergedTimelineItems.map((item) => (
-                      <tr key={`${item.source}-${item.id}`}>
-                        <td>{item.time || "TBD"}</td>
-                        <td>{item.title} ({item.category})</td>
-                        <td>{item.notes || (item.needsDjMcAttention ? "DJ/MC Attention" : "-")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="doc-section"><h3>MC Announcements</h3><p>{mcAnnouncements || "None"}</p></div>
-              <div className="doc-section"><h3>General DJ Notes</h3><p>{generalDjNotes || "None"}</p></div>
-              <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`${song.id}-block`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
-              <div className="doc-section"><h3>Prep Footer</h3><p>{effectivePrepSheetFooter}</p></div>
-            </div>
-          </section>
-        )}
-
-        {authStage === "app" && appMode === "event" && activeScreen === "Live Event Mode" && (
-          <section className="mt-6 space-y-3 print-doc">
-            <div className="doc-sheet">
+            </PremiumCard>
+            <div
+              className={`doc-sheet ${eventSettings.liveEventCompactMode ? "doc-mode-compact" : ""} ${eventSettings.liveEventLargePrintMode ? "doc-mode-large-print" : ""}`}
+            >
               <div className="no-print mb-3 grid grid-cols-3 gap-2">
-                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">Print Live Event Mode</PrimaryButton>
+                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">Print Event Prep</PrimaryButton>
                 <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-700 text-white hover:bg-zinc-600">Export / Save as PDF</PrimaryButton>
                 <PrimaryButton onClick={copyLiveEventText} className="w-full bg-zinc-200 text-zinc-900 hover:bg-zinc-300">Copy Plain Text</PrimaryButton>
               </div>
               {copyStatus === "copied" && <p className="doc-subtitle no-print">Text copied.</p>}
               {copyStatus === "error" && <p className="doc-subtitle no-print">Copy failed. Please try again.</p>}
 
-              <p className="doc-title">Live Event Mode</p>
-              <p className="doc-subtitle">{eventSettings.eventName || weddingDetails.couple || "TBD"} · {eventSettings.weddingDate || weddingDetails.date || "TBD"}</p>
+              <p className="doc-title">Event Prep</p>
+              <p className="doc-subtitle">
+                {eventSettings.eventName || weddingDetails.couple || "TBD"} · {primaryPartyShortLabel}:{" "}
+                {eventSettings.coupleNames || weddingDetails.couple || "TBD"} ·{" "}
+                {eventSettings.weddingDate || weddingDetails.date || "TBD"}
+              </p>
 
               <div className="doc-section print-break-avoid">
-                <h3>Event Header</h3>
+                <h3>Event overview</h3>
                 <table className="doc-table">
                   <tbody>
-                    <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>Couple</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
+                    <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
                     <tr><th>Date</th><td>{eventSettings.weddingDate || weddingDetails.date || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
+                    <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Event type</th><td>{effectiveEventType || "TBD"}</td></tr>
                     <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
                   </tbody>
                 </table>
               </div>
 
-              <p className="doc-subtitle no-print">Page 1: Event Overview + Ceremony Timeline</p>
-              <div className="doc-section">
-                <h3>Ceremony Timeline</h3>
-                <table className="doc-table">
-                  <tbody>
-                    <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                    <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                    <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
-                  </tbody>
-                </table>
-                <table className="doc-table mt-2">
-                  <thead>
-                    <tr>
-                      <th>Time / Order</th>
-                      <th>Moment</th>
-                      <th>Song</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ceremonyTimelineRows.map((row, index) => (
-                      <tr key={`live-ceremony-row-${index}-${row.moment}`}>
-                        <td>{row.order}</td>
-                        <td>{row.moment}</td>
-                        <td>{row.song}</td>
-                        <td>{row.notes || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="doc-subtitle no-print">Page 2: Reception Timeline</p>
+              {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
+                <div className="doc-section print-break-avoid">
+                  <h3>Planning Questions</h3>
+                  <table className="doc-table">
+                    <tbody>
+                      {planningQuestionsForEvent
+                        .filter((q) => q.showInLiveEventMode)
+                        .map((q) => (
+                        <tr key={`live-planned-q-${q.id}`}>
+                          <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
+                          <td>{(eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {sectionCeremonyEnabled && (
+                <>
+                  <p className="doc-subtitle no-print">Page 1: Event Overview + Ceremony Timeline</p>
+                  <div className="doc-section">
+                    <h3>Ceremony Timeline</h3>
+                    <table className="doc-table">
+                      <tbody>
+                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
+                        <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
+                      </tbody>
+                    </table>
+                    <table className="doc-table mt-2">
+                      <thead>
+                        <tr>
+                          <th>Time / Order</th>
+                          <th>Moment</th>
+                          <th>Song</th>
+                          <th>Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ceremonyTimelineRows.map((row, index) => (
+                          <tr key={`live-ceremony-row-${index}-${row.moment}`}>
+                            <td>{row.order}</td>
+                            <td>{row.moment}</td>
+                            <td>{row.song}</td>
+                            <td>{row.notes || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+              {sectionReceptionTimelineEnabled && (
+              <>
+              <p className="doc-subtitle no-print">Page 2: {eventPrepReceptionHeading}</p>
               <div className="doc-section live-reception-page-break print-break-avoid">
-                <h3>Reception Timeline</h3>
+                <h3>{eventPrepReceptionHeading}</h3>
                 <table className="doc-table live-event-timeline-table">
                   <thead>
                     <tr>
@@ -5368,17 +7632,283 @@ export default function Home() {
                   </tbody>
                 </table>
               </div>
-              <div className="doc-section"><h3>Key Announcements / MC Scripts</h3><p>{mcAnnouncements || "None"}</p></div>
-              <div className="doc-section"><h3>Vendor Contacts</h3><table className="doc-table"><thead><tr><th>Type</th><th>Company</th><th>Contact</th></tr></thead><tbody>{vendors.map((vendor) => <tr key={`live-vendor-${vendor.id}`}><td>{vendor.vendorType}</td><td>{vendor.companyName}</td><td>{vendor.contactName || "No Contact"}{vendor.phone ? ` · ${vendor.phone}` : ""}{vendor.email ? ` · ${vendor.email}` : ""}</td></tr>)}</tbody></table></div>
-              <div className="doc-section"><h3>Music Notes</h3><p>{generalDjNotes || "None"}</p></div>
-              <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`live-dnp-${song.id}`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
+              </>
+              )}
+              {sectionFormalitiesEnabled && (
+                <div className="doc-section print-break-avoid">
+                  <h3>Formal Dances & Formalities</h3>
+                  <table className="doc-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Moment</th>
+                        <th>Song</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formalities.map((item) => (
+                        <tr key={`live-formality-${item.id}`}>
+                          <td>{item.time || "TBD"}</td>
+                          <td>{item.momentName || "Untitled"}</td>
+                          <td>
+                            {item.songTitle || "Song TBD"}
+                            {item.artist ? ` - ${item.artist}` : ""}
+                            {item.fadeOutEarly ? ` (Fade ${item.fadeOutTimestamp || "TBD"})` : ""}
+                          </td>
+                          <td>
+                            {[
+                              item.notes || "",
+                              item.needsDjMcAttention ? "MC/DJ Attention" : "",
+                              item.includeInTimeline ? "In timeline" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
+                <div className="doc-section"><h3>{eventPrepMcHeading}</h3><p>{mcAnnouncements || "None"}</p></div>
+              )}
+              {sectionVendorContactsEnabled && eventSettings.liveEventShowVendorContacts && (
+                <div className="doc-section"><h3>Vendor Contacts</h3><table className="doc-table"><thead><tr><th>Type</th><th>Company</th><th>Contact</th></tr></thead><tbody>{vendors.map((vendor) => <tr key={`live-vendor-${vendor.id}`}><td>{vendor.vendorType}</td><td>{vendor.companyName}</td><td>{vendor.contactName || "No Contact"}{vendor.phone ? ` · ${vendor.phone}` : ""}{vendor.email ? ` · ${vendor.email}` : ""}</td></tr>)}</tbody></table></div>
+              )}
+              {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && (
+                <>
+                  <p className="doc-subtitle no-print">Page 3+: Playlists</p>
+                  <div className="doc-section">
+                    <h3>Cocktail Hour</h3>
+                    <table className="doc-table">
+                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        {(importCocktailSuggestions.length > 0
+                          ? importCocktailSuggestions
+                          : vibeBuckets.find((bucket) => bucket.title.includes("Cocktail"))?.songs || []
+                        ).map((line, index) => {
+                          const parsed = parsePlaylistSongLine(line);
+                          return <tr key={`playlist-cocktail-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="doc-section">
+                    <h3>Dinner</h3>
+                    <table className="doc-table">
+                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        {(importDinnerSuggestions.length > 0
+                          ? importDinnerSuggestions
+                          : vibeBuckets.find((bucket) => bucket.title.includes("Dinner"))?.songs || []
+                        ).map((line, index) => {
+                          const parsed = parsePlaylistSongLine(line);
+                          return <tr key={`playlist-dinner-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="doc-section">
+                    <h3>Open Dancing</h3>
+                    <table className="doc-table">
+                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        {(importOpenDancingSuggestions.length > 0
+                          ? importOpenDancingSuggestions
+                          : vibeBuckets.find((bucket) => bucket.title.includes("Open Dancing"))?.songs || []
+                        ).map((line, index) => {
+                          const parsed = parsePlaylistSongLine(line);
+                          return <tr key={`playlist-open-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="doc-section">
+                    <h3>Must Play</h3>
+                    <table className="doc-table">
+                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        {(sectionMustPlayEnabled ? mustPlaySongs : []).map((song, index) => (
+                          <tr key={`playlist-must-${song.id}`}>
+                            <td>{index + 1}</td>
+                            <td>{song.title || "-"}</td>
+                            <td>{song.artist || ""}</td>
+                            <td>{song.notes || ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!eventSettings.liveEventShowGuestRequests ? (
+                  <div className="doc-section">
+                    <h3>Guest Approved Requests</h3>
+                    <table className="doc-table">
+                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                      <tbody>
+                        {(sectionGuestRequestsEnabled ? guestRequests : [])
+                          .filter((request) => request.status === "Approved")
+                          .map((request, index) => (
+                            <tr key={`playlist-approved-${request.id}`}>
+                              <td>{index + 1}</td>
+                              <td>{request.songTitle || "-"}</td>
+                              <td>{request.artist || ""}</td>
+                              <td>{request.dedication || ""}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  ) : null}
+                </>
+              )}
+              {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
+                <div className="doc-section print-break-avoid">
+                  <h3>Guest Requests</h3>
+                  <table className="doc-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Guest</th>
+                        <th>Song</th>
+                        <th>Artist</th>
+                        <th>Status</th>
+                        <th>Dedication</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {guestRequests.map((request, index) => (
+                        <tr key={`live-guest-doc-${request.id}`}>
+                          <td>{index + 1}</td>
+                          <td>{request.guestName}</td>
+                          <td>{request.songTitle || "—"}</td>
+                          <td>{request.artist || "—"}</td>
+                          <td>{request.status}</td>
+                          <td>{request.dedication || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
+                <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`live-dnp-${song.id}`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
+              )}
+              {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
+                <div className="doc-section">
+                  <h3>Music Notes</h3>
+                  {layoutProfileForActiveEvent === "School Dance" ? (
+                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600">Clean edits and school-appropriate selections.</p>
+                  ) : null}
+                  <p>{generalDjNotes || "None"}</p>
+                </div>
+              )}
               <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
+              {(eventSettings.clientFacingNotes ?? "").trim() ? (
+                <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
+              ) : null}
+              <div className="doc-section"><h3>Prep footer</h3><p>{effectivePrepSheetFooter}</p></div>
             </div>
           </section>
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Settings" && (
           <section className="mt-6 space-y-3">
+            <PremiumCard>
+              <SectionTitle className="text-[#e9d5a8]">Event Type & Sections</SectionTitle>
+              <p className="mt-2 text-xs text-zinc-400">
+                Event Type is the primary workflow selector. It applies defaults, then you can fine-tune section visibility. Hiding a
+                section only tucks it out of the way; your data stays in the file.
+              </p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label htmlFor="event-layout-profile" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                    Event Type
+                  </label>
+                  <select
+                    id="event-layout-profile"
+                    value={eventSettings.eventLayoutProfile}
+                    onChange={(event) =>
+                      setEventSettings((prev) => ({
+                        ...prev,
+                        eventLayoutProfile: event.target.value as EventLayoutProfile,
+                        eventType: event.target.value as EventLayoutProfile,
+                        ...getLayoutProfileDefaults(event.target.value as EventLayoutProfile),
+                        ...getLiveEventDocumentDefaults(event.target.value as EventLayoutProfile),
+                      }))
+                    }
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  >
+                    {EVENT_TYPES.map((profile) => (
+                      <option key={`layout-profile-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
+                        {profile}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                    {LAYOUT_PROFILE_DESCRIPTIONS[eventSettings.eventLayoutProfile]}
+                  </p>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          "Apply the default sections for this event type? Existing planning data is kept even when a section is hidden.",
+                        )
+                      ) {
+                        return;
+                      }
+                      setEventSettings((prev) => ({
+                        ...prev,
+                        ...getLayoutProfileDefaults(prev.eventLayoutProfile),
+                        ...getLiveEventDocumentDefaults(prev.eventLayoutProfile),
+                      }));
+                    }}
+                    className="mt-3 w-full rounded-xl border border-white/12 bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                  >
+                    Apply Event Type Defaults
+                  </PrimaryButton>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: "sectionCeremonyEnabled", label: "Ceremony" },
+                    { key: "sectionReceptionTimelineEnabled", label: "Reception Timeline" },
+                    { key: "sectionPlaylistsEnabled", label: "Playlists" },
+                    { key: "sectionMustPlayEnabled", label: "Must Play" },
+                    { key: "sectionDoNotPlayEnabled", label: "Do Not Play" },
+                    { key: "sectionMcScriptEnabled", label: "MC Script" },
+                    { key: "sectionVendorContactsEnabled", label: "Vendor Contacts" },
+                    { key: "sectionMusicNotesEnabled", label: "Music Notes" },
+                    { key: "sectionGuestRequestsEnabled", label: "Guest Requests" },
+                    { key: "sectionFormalitiesEnabled", label: "Formalities" },
+                    { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
+                    { key: "sectionPlanningQuestionsEnabled", label: "Planning Questions" },
+                  ].map((item) => {
+                    const enabled = Boolean(
+                      eventSettings[item.key as keyof EventSettings],
+                    );
+                    return (
+                      <PrimaryButton
+                        key={`event-section-toggle-${item.key}`}
+                        onClick={() =>
+                          setEventSettings((prev) => ({
+                            ...prev,
+                            [item.key]:
+                              !Boolean(
+                                prev[item.key as keyof EventSettings],
+                              ),
+                          }))
+                        }
+                        className={`w-full ${enabled ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                      >
+                        {enabled ? `Hide ${item.label}` : `Show ${item.label}`}
+                      </PrimaryButton>
+                    );
+                  })}
+                </div>
+              </div>
+            </PremiumCard>
             <PremiumCard>
               <SectionTitle className="text-[#e9d5a8]">Event Settings</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
@@ -5393,20 +7923,42 @@ export default function Home() {
                 />
                 <TextInput
                   id="event-settings-couple-names"
-                  label="Couple Names"
+                  label={primaryPartyFieldLabel}
                   value={eventSettings.coupleNames}
                   onChange={(value) => setEventSettings((prev) => ({ ...prev, coupleNames: value }))}
                 />
-                <TextInput
-                  id="event-settings-event-type"
-                  label="Event Type"
-                  value={eventSettings.eventType}
-                  onChange={(value) => setEventSettings((prev) => ({ ...prev, eventType: value }))}
-                  placeholder={appSettings.defaultEventType}
-                />
+                <div>
+                  <label
+                    htmlFor="event-settings-event-type"
+                    className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                  >
+                    Event Type
+                  </label>
+                  <select
+                    id="event-settings-event-type"
+                    value={eventSettings.eventLayoutProfile}
+                    onChange={(event) => {
+                      const nextType = event.target.value as EventLayoutProfile;
+                      setEventSettings((prev) => ({
+                        ...prev,
+                        eventLayoutProfile: nextType,
+                        eventType: nextType,
+                        ...getLayoutProfileDefaults(nextType),
+                        ...getLiveEventDocumentDefaults(nextType),
+                      }));
+                    }}
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  >
+                    {EVENT_TYPES.map((type) => (
+                      <option key={`event-type-setting-${type}`} value={type} className="bg-[#141419] text-zinc-100">
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <TextInput
                   id="event-settings-date"
-                  label="Wedding Date"
+                  label={eventDateFieldLabel}
                   value={eventSettings.weddingDate}
                   onChange={(value) => setEventSettings((prev) => ({ ...prev, weddingDate: value }))}
                 />
@@ -5559,7 +8111,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && sectionPlanningChecklistEnabled && (
           <section className="mt-6 space-y-3">
             <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
               <div className="flex items-center justify-between">
@@ -5650,6 +8202,117 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ))}
+          </section>
+        )}
+
+        {authStage === "app" &&
+          appMode === "event" &&
+          activeScreen === "Planning Questions" &&
+          sectionPlanningQuestionsEnabled && (
+          <section className="mt-6 space-y-3">
+            <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
+              <SectionTitle className="text-[#e9d5a8]">Planning Questions</SectionTitle>
+              <p className="mt-2 text-xs text-zinc-400">
+                Prompts match your event type. Responses save with this event and can surface in Event Prep when that block is turned on.
+              </p>
+              <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                Event Type · {layoutProfileForActiveEvent}
+              </p>
+            </PremiumCard>
+            <div className="grid gap-3 md:grid-cols-2">
+              {planningQuestionsForEvent.map((q) => (
+                <PremiumCard key={`pq-card-${q.id}`}>
+                  {q.answerType === "long_text" ? (
+                    <TextArea
+                      id={`planning-q-${q.id}`}
+                      label={`${q.label}${q.required ? " *" : ""}`}
+                      value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                      onChange={(value) =>
+                        setEventSettings((prev) => ({
+                          ...prev,
+                          planningQuestionAnswers: {
+                            ...(prev.planningQuestionAnswers ?? {}),
+                            [q.id]: value,
+                          },
+                        }))
+                      }
+                      rows={3}
+                      placeholder={q.placeholder ?? "Add notes…"}
+                    />
+                  ) : q.answerType === "yes_no" ? (
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+                        {q.label}
+                        {q.required ? " *" : ""}
+                      </label>
+                      <select
+                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                        onChange={(event) =>
+                          setEventSettings((prev) => ({
+                            ...prev,
+                            planningQuestionAnswers: {
+                              ...(prev.planningQuestionAnswers ?? {}),
+                              [q.id]: event.target.value,
+                            },
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                      >
+                        <option value="" className="bg-[#141419] text-zinc-100">Select…</option>
+                        <option value="Yes" className="bg-[#141419] text-zinc-100">Yes</option>
+                        <option value="No" className="bg-[#141419] text-zinc-100">No</option>
+                      </select>
+                    </div>
+                  ) : q.answerType === "multiple_choice" ? (
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+                        {q.label}
+                        {q.required ? " *" : ""}
+                      </label>
+                      <select
+                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                        onChange={(event) =>
+                          setEventSettings((prev) => ({
+                            ...prev,
+                            planningQuestionAnswers: {
+                              ...(prev.planningQuestionAnswers ?? {}),
+                              [q.id]: event.target.value,
+                            },
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                      >
+                        <option value="" className="bg-[#141419] text-zinc-100">Select…</option>
+                        {(q.options ?? []).map((option) => (
+                          <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-[#141419] text-zinc-100">
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <TextInput
+                      id={`planning-q-${q.id}`}
+                      label={`${q.label}${q.required ? " *" : ""}`}
+                      value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                      onChange={(value) =>
+                        setEventSettings((prev) => ({
+                          ...prev,
+                          planningQuestionAnswers: {
+                            ...(prev.planningQuestionAnswers ?? {}),
+                            [q.id]: value,
+                          },
+                        }))
+                      }
+                      placeholder={q.placeholder ?? "Add answer…"}
+                    />
+                  )}
+                  {(q.helpText ?? "").trim() ? (
+                    <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+                  ) : null}
+                </PremiumCard>
+              ))}
+            </div>
           </section>
         )}
 
@@ -6007,6 +8670,7 @@ export default function Home() {
                 onClick={() => {
                   setEventModalOpen(false);
                   setEventEditingId(null);
+                  setEventModalStatus(null);
                 }}
                 className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
               >
@@ -6014,7 +8678,13 @@ export default function Home() {
               </PrimaryButton>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleSaveEventModal();
+              }}
+              className="mt-4 space-y-4"
+            >
               <TextInput
                 id="event-name"
                 label="Event Name"
@@ -6022,29 +8692,102 @@ export default function Home() {
                 onChange={(value) =>
                   setEventDraft((prev) => ({ ...prev, eventName: value }))
                 }
-                placeholder="e.g. Matt & Chaandra Wedding"
+                placeholder="e.g. Jordan Graduation Celebration"
               />
               <TextInput
                 id="event-couple-names"
-                label="Couple Names"
+                label={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
                 value={eventDraft.coupleNames}
                 onChange={(value) =>
                   setEventDraft((prev) => ({ ...prev, coupleNames: value }))
                 }
-                placeholder="e.g. Matt & Chaandra"
+                placeholder="e.g. Jordan Vega"
               />
-              <TextInput
-                id="event-type"
-                label="Event Type"
-                value={eventDraft.eventType}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, eventType: value }))
-                }
-                placeholder={effectiveEventType}
-              />
+              <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3">
+                <label
+                  htmlFor="event-type"
+                  className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                >
+                  Event Type
+                </label>
+                <select
+                  id="event-type"
+                  value={eventDraft.eventLayoutProfile}
+                  onChange={(event) =>
+                    setEventDraft((prev) => ({
+                      ...prev,
+                      eventLayoutProfile: event.target.value as EventLayoutProfile,
+                      eventType: event.target.value as EventLayoutProfile,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                >
+                  {EVENT_TYPES.map((profile) => (
+                    <option key={`draft-layout-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
+                      {profile}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs leading-relaxed text-zinc-500">
+                  {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
+                </p>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">Event Type Preview</p>
+                  <p className="mt-2 text-xs text-zinc-300">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
+                  <div className="mt-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                      Enabled Sections
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-300">
+                      {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
+                    </p>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                      Default Planning Questions
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-300">
+                      {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
+                        .map((q) => q.label)
+                        .slice(0, 4)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                      Event Prep Default Sections
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-300">
+                      {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Sections enabled by default
+                  </p>
+                  <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-zinc-300 sm:grid-cols-2">
+                    {getEnabledLayoutSectionLabels(
+                      getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
+                    ).map((label) => (
+                      <li key={`draft-section-${label}`} className="flex gap-2">
+                        <span className="text-[#c9a35c]" aria-hidden>
+                          ✓
+                        </span>
+                        <span>{label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
               <TextInput
                 id="event-date"
-                label="Wedding/Event Date"
+                label={
+                  eventDraft.eventLayoutProfile === "Wedding" ||
+                  eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
+                    ? "Wedding Date"
+                    : "Event Date"
+                }
                 value={eventDraft.weddingDate}
                 onChange={(value) =>
                   setEventDraft((prev) => ({ ...prev, weddingDate: value }))
@@ -6141,50 +8884,38 @@ export default function Home() {
                 }
                 rows={3}
               />
-              {eventModalMode === "new" && (
-                <div>
-                  <label
-                    htmlFor="event-template"
-                    className="text-[11px] uppercase tracking-wide text-zinc-400"
-                  >
-                    Apply Template
-                  </label>
-                  <select
-                    id="event-template"
-                    value={selectedTemplateId}
-                    onChange={(event) => setSelectedTemplateId(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
-                  >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id} className="bg-[#141419] text-zinc-100">
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-[11px] text-zinc-500">
-                    Defaults: {effectiveEventType} · {effectiveTimezone}
-                  </p>
-                </div>
+              {eventModalStatus && (
+                <p
+                  className={`rounded-xl px-3 py-2 text-xs ${
+                    eventModalStatus.kind === "success"
+                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                  }`}
+                >
+                  {eventModalStatus.message}
+                </p>
               )}
-            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <PrimaryButton
+                type="button"
                 onClick={() => {
                   setEventModalOpen(false);
                   setEventEditingId(null);
+                  setEventModalStatus(null);
                 }}
                 className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
               >
                 Cancel
               </PrimaryButton>
               <PrimaryButton
-                onClick={handleSaveEventModal}
+                type="submit"
                 className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
               >
                 {eventModalMode === "new" ? "Create Event" : "Save Changes"}
               </PrimaryButton>
             </div>
+            </form>
           </div>
         </div>
       )}
@@ -6312,7 +9043,7 @@ export default function Home() {
                   label="Moment Name"
                   value={ceremonyTimelineDraftMoment}
                   onChange={setCeremonyTimelineDraftMoment}
-                  placeholder="e.g. Wedding Party Processional"
+                    placeholder="e.g. Processional"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput

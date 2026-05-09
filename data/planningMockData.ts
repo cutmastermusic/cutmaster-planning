@@ -13,8 +13,10 @@ import type {
   AppSettings,
   EventSettings,
   TeamMember,
+  TimelinePresetItem,
   Vendor,
 } from "@/types/planning";
+import { getDefaultPlanningQuestionSets } from "@/data/planningQuestionsCatalog";
 
 type SeedEventPlanningPayload = {
   timelineItems: TimelineItem[];
@@ -37,6 +39,60 @@ type SeedEventPlanningPayload = {
   generalDjNotes: string;
   mcAnnouncements: string;
 };
+
+const getDefaultTimelinePresetSets = (): Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]> => ({
+  Wedding: [
+    { id: "w-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
+    { id: "w-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
+    { id: "w-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
+    { id: "w-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
+    { id: "w-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
+    { id: "w-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+  ],
+  "Gender-Neutral Wedding": [
+    { id: "gnw-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
+    { id: "gnw-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
+    { id: "gnw-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
+    { id: "gnw-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
+    { id: "gnw-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
+    { id: "gnw-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+  ],
+  Corporate: [
+    { id: "co-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Background Set", notesPlaceholder: "Low-volume welcome music.", defaultIncluded: true },
+    { id: "co-main-2", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Run of Show: Welcome Remarks", songPlaceholder: "Walk-up Stinger", notesPlaceholder: "MC/presenter intro.", defaultIncluded: true },
+    { id: "co-main-3", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Program Segment", songPlaceholder: "Segment Bed", notesPlaceholder: "Cue transitions cleanly.", defaultIncluded: true },
+  ],
+  "Holiday Party": [
+    { id: "hp-main-1", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Doors Open", songPlaceholder: "Holiday Welcome Set", notesPlaceholder: "Seasonal background music.", defaultIncluded: true },
+    { id: "hp-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Housekeeping + acknowledgements.", defaultIncluded: true },
+    { id: "hp-main-3", timelineType: "main", timeOrOrder: "8:30 PM", momentName: "Dance Floor Opens", songPlaceholder: "Party Set", notesPlaceholder: "Transition to dance energy.", defaultIncluded: true },
+  ],
+  "Graduation Celebration": [
+    { id: "gc-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Set", notesPlaceholder: "Family/friends arrival.", defaultIncluded: true },
+    { id: "gc-main-2", timelineType: "main", timeOrOrder: "6:45 PM", momentName: "Family / Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Graduate recognition cues.", defaultIncluded: true },
+    { id: "gc-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy lift for celebration.", defaultIncluded: true },
+  ],
+  "Birthday Party": [
+    { id: "bd-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Warm-up while guests arrive.", defaultIncluded: true },
+    { id: "bd-main-2", timelineType: "main", timeOrOrder: "7:15 PM", momentName: "Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Cake / toast / dedication cues.", defaultIncluded: true },
+    { id: "bd-main-3", timelineType: "main", timeOrOrder: "7:45 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Main dance-floor arc.", defaultIncluded: true },
+  ],
+  "Private Party": [
+    { id: "pp-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Low-key opening.", defaultIncluded: true },
+    { id: "pp-main-2", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Main Event Timeline", songPlaceholder: "Core Set", notesPlaceholder: "Flexible flow by host cues.", defaultIncluded: true },
+    { id: "pp-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Raise energy.", defaultIncluded: true },
+  ],
+  "Bar/Club Event": [
+    { id: "bc-main-1", timelineType: "main", timeOrOrder: "9:00 PM", momentName: "Set Time 1", songPlaceholder: "Opening Set", notesPlaceholder: "Start room-building set.", defaultIncluded: true },
+    { id: "bc-main-2", timelineType: "main", timeOrOrder: "10:30 PM", momentName: "Set Time 2", songPlaceholder: "Peak Set", notesPlaceholder: "Main floor energy.", defaultIncluded: true },
+    { id: "bc-main-3", timelineType: "main", timeOrOrder: "12:00 AM", momentName: "Set Time 3", songPlaceholder: "Late Set", notesPlaceholder: "Maintain momentum.", defaultIncluded: true },
+  ],
+  "School Dance": [
+    { id: "sd-main-1", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Doors Open", songPlaceholder: "Clean Opening Set", notesPlaceholder: "Set expectations and tone.", defaultIncluded: true },
+    { id: "sd-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Admin/chaperone lines.", defaultIncluded: true },
+    { id: "sd-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Dance Set", songPlaceholder: "Clean Dance Set", notesPlaceholder: "School-appropriate energy ramp.", defaultIncluded: true },
+  ],
+});
 
 export const initialMustPlaySongs: SongEntry[] = [
   {
@@ -309,7 +365,7 @@ export const sectionTabs: Screen[] = [
   "Ceremony",
   "Formal Dances",
   "Notes",
-  "DJ Prep Sheet",
+  "Event Prep",
 ];
 
 export const initialTeamMembers: TeamMember[] = [
@@ -372,6 +428,7 @@ const seedCollaborators3: Collaborator[] = [
 
 export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[] {
   const defaultEventSettings: EventSettings = {
+    eventLayoutProfile: "Wedding",
     eventName: "Wedding Reception",
     coupleNames: "Alex & Jordan",
     eventType: "Wedding",
@@ -390,6 +447,28 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     prepSheetFooterOverride: "",
     guestRequestMessageOverride: "",
     coupleWelcomeMessageOverride: "",
+    liveEventShowMusicNotes: true,
+    liveEventShowDoNotPlay: true,
+    liveEventShowVendorContacts: true,
+    liveEventShowMcScript: true,
+    liveEventShowPlaylists: false,
+    liveEventShowPlanningQuestions: true,
+    liveEventShowGuestRequests: false,
+    liveEventCompactMode: false,
+    liveEventLargePrintMode: false,
+    sectionCeremonyEnabled: true,
+    sectionReceptionTimelineEnabled: true,
+    sectionPlaylistsEnabled: true,
+    sectionMustPlayEnabled: true,
+    sectionDoNotPlayEnabled: true,
+    sectionMcScriptEnabled: true,
+    sectionVendorContactsEnabled: true,
+    sectionMusicNotesEnabled: true,
+    sectionGuestRequestsEnabled: true,
+    sectionFormalitiesEnabled: true,
+    sectionPlanningChecklistEnabled: true,
+    sectionPlanningQuestionsEnabled: true,
+    planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
   };
@@ -440,9 +519,9 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     {
       id: "evt-3",
       meta: {
-        couple: "En Blanc Showcase",
+        couple: "Downtown Showcase",
         date: "Saturday, November 2, 2026",
-        venue: "En Blanc Pavilion",
+        venue: "Downtown Pavilion",
       },
       collaborators: seedCollaborators3,
       ...common,
@@ -452,8 +531,8 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
 
 export const initialTemplates: TimelineTemplate[] = [
   {
-    id: "tpl-traditional",
-    name: "Traditional Wedding",
+    id: "tpl-wedding",
+    name: "Wedding",
     kind: "built_in",
     timelineItems: [
       { id: "t1", time: "5:00 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "Lounge and mingling set.", needsDjMcAttention: false },
@@ -472,103 +551,111 @@ export const initialTemplates: TimelineTemplate[] = [
     planningSuggestions: ["Leave a 10-minute speech buffer.", "Add one high-energy open dancing kickoff song."],
   },
   {
-    id: "tpl-catholic",
-    name: "Catholic Wedding",
+    id: "tpl-gender-neutral-wedding",
+    name: "Gender-Neutral Wedding",
     kind: "built_in",
     timelineItems: [
-      { id: "ct1", time: "3:30 PM", title: "Ceremony", category: "Ceremony", notes: "Full mass schedule with live cues.", needsDjMcAttention: true },
-      { id: "ct2", time: "5:00 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "Extended guest transition.", needsDjMcAttention: false },
-      { id: "ct3", time: "6:15 PM", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "ct4", time: "6:30 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "ct5", time: "7:30 PM", title: "Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "ct6", time: "8:15 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "gn1", time: "4:30 PM", title: "Ceremony", category: "Ceremony", notes: "Processional and vows.", needsDjMcAttention: true },
+      { id: "gn2", time: "5:30 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+      { id: "gn3", time: "6:15 PM", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "gn4", time: "6:30 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "gn5", time: "7:25 PM", title: "Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "gn6", time: "8:00 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [
-      { id: "cf1", momentName: "First Dance", time: "7:50 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
+      { id: "gnf1", momentName: "First Dance", time: "7:45 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
     ],
-    planningSuggestions: ["Set clear ceremony mic plan for readings.", "Plan extra cocktail hour music coverage."],
-  },
-  {
-    id: "tpl-micro",
-    name: "Micro Wedding",
-    kind: "built_in",
-    timelineItems: [
-      { id: "m1", time: "4:30 PM", title: "Ceremony", category: "Ceremony", notes: "", needsDjMcAttention: true },
-      { id: "m2", time: "5:00 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
-      { id: "m3", time: "6:00 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "m4", time: "7:00 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
-    ],
-    formalities: [],
-    planningSuggestions: ["Keep transitions short and intentional.", "Use intimate dinner playlist arc."],
-  },
-  {
-    id: "tpl-party",
-    name: "High-Energy Party Wedding",
-    kind: "built_in",
-    timelineItems: [
-      { id: "p1", time: "5:00 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
-      { id: "p2", time: "6:00 PM", title: "Grand Entrance", category: "Formalities", notes: "Big hype intro.", needsDjMcAttention: true },
-      { id: "p3", time: "6:20 PM", title: "Dinner", category: "Reception", notes: "Shorter dinner window.", needsDjMcAttention: false },
-      { id: "p4", time: "7:15 PM", title: "Open Dancing", category: "Dancing", notes: "Early dance-floor launch.", needsDjMcAttention: true },
-      { id: "p5", time: "10:55 PM", title: "Last Dance", category: "Dancing", notes: "", needsDjMcAttention: true },
-    ],
-    formalities: [
-      { id: "pf1", momentName: "Open Dancing Kickoff", time: "7:15 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-    ],
-    planningSuggestions: ["Add 2-3 trusted floor-fillers.", "Keep formalities concise."],
+    planningSuggestions: ["Use inclusive announcement language.", "Confirm pronunciation for all names in scripts."],
   },
   {
     id: "tpl-corporate",
-    name: "Corporate Event",
+    name: "Corporate",
     kind: "built_in",
     timelineItems: [
       { id: "co1", time: "6:00 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
       { id: "co2", time: "6:30 PM", title: "Welcome Remarks", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "co3", time: "7:00 PM", title: "Dinner Service", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "co4", time: "8:15 PM", title: "Networking + Music", category: "Dancing", notes: "", needsDjMcAttention: false },
+      { id: "co3", time: "7:00 PM", title: "Program Segment", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "co4", time: "7:45 PM", title: "Networking + Music", category: "Dancing", notes: "", needsDjMcAttention: false },
     ],
     formalities: [],
     planningSuggestions: ["Prioritize speech clarity.", "Keep music conversational during networking."],
   },
   {
-    id: "tpl-quince",
-    name: "Quinceañera",
+    id: "tpl-holiday-party",
+    name: "Holiday Party",
     kind: "built_in",
     timelineItems: [
-      { id: "q1", time: "5:00 PM", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "q2", time: "5:30 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "q3", time: "6:30 PM", title: "Family Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "q4", time: "7:00 PM", title: "Formal Dances", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "q5", time: "8:00 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
-    ],
-    formalities: [{ id: "qf1", momentName: "Father/Daughter Dance", time: "7:10 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true }],
-    planningSuggestions: ["Coordinate spotlight cues for formal dances."],
-  },
-  {
-    id: "tpl-sweet16",
-    name: "Sweet 16",
-    kind: "built_in",
-    timelineItems: [
-      { id: "s1", time: "6:00 PM", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "s2", time: "6:20 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "s3", time: "7:15 PM", title: "Special Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "s4", time: "7:45 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "hp1", time: "6:30 PM", title: "Doors Open / Welcome", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "hp2", time: "7:00 PM", title: "Dinner + Mingling", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "hp3", time: "8:00 PM", title: "Holiday Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "hp4", time: "8:30 PM", title: "Dance Floor Opens", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
-    planningSuggestions: ["Front-load teen favorites for early dance momentum."],
+    planningSuggestions: ["Keep announcements brief and upbeat.", "Use themed transitions for seasonal moments."],
   },
   {
-    id: "tpl-enblanc",
-    name: "En Blanc Experience",
+    id: "tpl-graduation",
+    name: "Graduation Celebration",
     kind: "built_in",
     timelineItems: [
-      { id: "eb1", time: "5:30 PM", title: "Guest Arrival + Lounge", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "eb2", time: "6:30 PM", title: "Elegant Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "eb3", time: "8:00 PM", title: "Feature Set", category: "Dancing", notes: "Curated house/disco blend.", needsDjMcAttention: true },
-      { id: "eb4", time: "10:45 PM", title: "Finale", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "gc1", time: "6:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "gc2", time: "6:30 PM", title: "Graduate Entrance", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "gc3", time: "7:15 PM", title: "Family Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "gc4", time: "8:00 PM", title: "Dance Floor", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
-    planningSuggestions: ["Use clean white-light transitions between sets.", "Keep stage intros concise and elegant."],
+    planningSuggestions: ["Keep clean edits queued early.", "Prepare shout-out blocks for family recognition."],
+  },
+  {
+    id: "tpl-birthday",
+    name: "Birthday Party",
+    kind: "built_in",
+    timelineItems: [
+      { id: "bd1", time: "6:00 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "bd2", time: "6:30 PM", title: "Birthday Intro", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bd3", time: "7:15 PM", title: "Cake Moment", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bd4", time: "7:45 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+    ],
+    formalities: [],
+    planningSuggestions: ["Front-load celebratory singalong tracks.", "Mark special dedications in MC notes."],
+  },
+  {
+    id: "tpl-private-party",
+    name: "Private Party",
+    kind: "built_in",
+    timelineItems: [
+      { id: "pp1", time: "5:30 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "pp2", time: "6:30 PM", title: "Dinner / Social", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "pp3", time: "7:45 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+    ],
+    formalities: [],
+    planningSuggestions: ["Capture any surprise cues before doors open.", "Build a smooth energy arc between dinner and dancing."],
+  },
+  {
+    id: "tpl-bar-club",
+    name: "Bar/Club Event",
+    kind: "built_in",
+    timelineItems: [
+      { id: "bc1", time: "9:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "bc2", time: "10:30 PM", title: "Peak Set 1", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bc3", time: "12:00 AM", title: "Peak Set 2", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bc4", time: "1:45 AM", title: "Last Call Push", category: "Dancing", notes: "", needsDjMcAttention: true },
+    ],
+    formalities: [],
+    planningSuggestions: ["Stage transitions between sets to avoid dead air.", "Pre-plan clean fallback tracks for request-heavy windows."],
+  },
+  {
+    id: "tpl-school-dance",
+    name: "School Dance",
+    kind: "built_in",
+    timelineItems: [
+      { id: "sd1", time: "7:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "sd2", time: "7:30 PM", title: "Announcements", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "sd3", time: "8:00 PM", title: "Dance Set 1", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "sd4", time: "9:15 PM", title: "Dance Set 2", category: "Dancing", notes: "", needsDjMcAttention: true },
+    ],
+    formalities: [],
+    planningSuggestions: ["Keep clean edits in a dedicated crate.", "Plan admin announcement checkpoints."],
   },
 ];
 
@@ -584,5 +671,7 @@ export const defaultAppSettings: AppSettings = {
   publicGuestRequestMessage:
     "For Alex & Jordan's celebration. The couple and DJ review all requests.",
   coupleWelcomeMessage: "Welcome back",
-  globalTemplateDefaults: "Traditional Wedding, Catholic Wedding, Micro Wedding",
+  globalTemplateDefaults: "Wedding, Corporate, Private Party",
+  planningQuestionSets: getDefaultPlanningQuestionSets(),
+  timelinePresetSets: getDefaultTimelinePresetSets(),
 };
