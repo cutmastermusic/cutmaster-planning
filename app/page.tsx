@@ -76,8 +76,117 @@ import type {
   VendorType,
   WeddingDetails,
   NotificationItem,
+  MusicVibeDetail,
+  PlaylistBucketId,
 } from "@/types/planning";
+import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
 import { buildPlanningInsights, cloneJson } from "@/utils/planning";
+import {
+  computePlanningQuestionGroupCompletion,
+  groupPlanningQuestionsBySection,
+} from "@/data/planningQuestionGroups";
+
+function PlanningQuestionAnswerEditor({
+  q,
+  value,
+  onChange,
+}: {
+  q: PlanningQuestionDef;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const labelSuffix = q.required ? " *" : "";
+
+  if (q.answerType === "long_text") {
+    return (
+      <PremiumCard>
+        <TextArea
+          id={`planning-q-${q.id}`}
+          label={`${q.label}${labelSuffix}`}
+          value={value}
+          onChange={onChange}
+          rows={3}
+          placeholder={q.placeholder ?? "Add notes…"}
+        />
+        {(q.helpText ?? "").trim() ? (
+          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+        ) : null}
+      </PremiumCard>
+    );
+  }
+
+  if (q.answerType === "yes_no") {
+    return (
+      <PremiumCard>
+        <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+          {q.label}
+          {labelSuffix}
+        </label>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+        >
+          <option value="" className="bg-[#141419] text-zinc-100">
+            Select…
+          </option>
+          <option value="Yes" className="bg-[#141419] text-zinc-100">
+            Yes
+          </option>
+          <option value="No" className="bg-[#141419] text-zinc-100">
+            No
+          </option>
+        </select>
+        {(q.helpText ?? "").trim() ? (
+          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+        ) : null}
+      </PremiumCard>
+    );
+  }
+
+  if (q.answerType === "multiple_choice") {
+    return (
+      <PremiumCard>
+        <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+          {q.label}
+          {labelSuffix}
+        </label>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+        >
+          <option value="" className="bg-[#141419] text-zinc-100">
+            Select…
+          </option>
+          {(q.options ?? []).map((option) => (
+            <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-[#141419] text-zinc-100">
+              {option}
+            </option>
+          ))}
+        </select>
+        {(q.helpText ?? "").trim() ? (
+          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+        ) : null}
+      </PremiumCard>
+    );
+  }
+
+  return (
+    <PremiumCard>
+      <TextInput
+        id={`planning-q-${q.id}`}
+        label={`${q.label}${labelSuffix}`}
+        value={value}
+        onChange={onChange}
+        placeholder={q.placeholder ?? "Add answer…"}
+      />
+      {(q.helpText ?? "").trim() ? (
+        <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+      ) : null}
+    </PremiumCard>
+  );
+}
 
 type ImportedPlaylistSong = {
   title: string;
@@ -111,6 +220,19 @@ type BackupPayload = {
   activities: ActivityItem[];
   notifications: NotificationItem[];
   appState: LocalAppStateBackup;
+};
+
+const MUSIC_HUB_BUCKET_SHELL: Record<PlaylistBucketId, string> = {
+  cocktailHour:
+    "border-amber-400/25 bg-[radial-gradient(circle_at_0%_0%,rgba(251,191,36,0.09),transparent_50%)]",
+  dinner:
+    "border-rose-400/20 bg-[radial-gradient(circle_at_100%_0%,rgba(251,113,133,0.07),transparent_48%)]",
+  openDancing:
+    "border-violet-400/25 bg-[radial-gradient(circle_at_0%_100%,rgba(167,139,250,0.08),transparent_50%)]",
+  afterparty:
+    "border-fuchsia-400/20 bg-[radial-gradient(circle_at_100%_100%,rgba(232,121,249,0.07),transparent_48%)]",
+  custom:
+    "border-emerald-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(52,211,153,0.07),transparent_45%)]",
 };
 
 const VENDOR_TYPES: VendorType[] = [
@@ -518,6 +640,9 @@ function migrateLegacyScreenId(raw: unknown): Screen {
   ) {
     return "Event Prep";
   }
+  if (raw === "Music") {
+    return "Music Hub";
+  }
   return raw as Screen;
 }
 
@@ -686,6 +811,130 @@ function resolveLayoutProfileForDisplay(
   );
 }
 
+type EventNavSectionFlags = {
+  sectionCeremonyEnabled: boolean;
+  sectionReceptionTimelineEnabled: boolean;
+  sectionFormalitiesEnabled: boolean;
+  sectionPlaylistsEnabled: boolean;
+  sectionMustPlayEnabled: boolean;
+  sectionDoNotPlayEnabled: boolean;
+  sectionMcScriptEnabled: boolean;
+  sectionVendorContactsEnabled: boolean;
+  sectionMusicNotesEnabled: boolean;
+  sectionGuestRequestsEnabled: boolean;
+  sectionPlanningChecklistEnabled: boolean;
+  sectionPlanningQuestionsEnabled: boolean;
+};
+
+/** Shared by event nav and perspective switching so role changes keep the same event + valid screen. */
+function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Screen[] {
+  const includeExportScreens =
+    s.sectionReceptionTimelineEnabled ||
+    s.sectionCeremonyEnabled ||
+    s.sectionFormalitiesEnabled ||
+    s.sectionMustPlayEnabled ||
+    s.sectionPlaylistsEnabled ||
+    s.sectionDoNotPlayEnabled ||
+    s.sectionGuestRequestsEnabled ||
+    s.sectionVendorContactsEnabled ||
+    s.sectionMcScriptEnabled ||
+    s.sectionMusicNotesEnabled ||
+    s.sectionPlanningChecklistEnabled ||
+    s.sectionPlanningQuestionsEnabled;
+
+  const base: Screen[] = [
+    "Dashboard",
+    ...(s.sectionMustPlayEnabled || s.sectionDoNotPlayEnabled || s.sectionPlaylistsEnabled
+      ? (["Music Hub", "Music Import"] as Screen[])
+      : []),
+    ...(s.sectionReceptionTimelineEnabled || s.sectionFormalitiesEnabled
+      ? (["Timeline"] as Screen[])
+      : []),
+    ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
+    ...(s.sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
+    ...(s.sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
+    ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
+    ...(s.sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
+    ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
+    "Collaborators",
+    "Event Settings",
+    ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
+  ];
+  if (role === "Admin") return base;
+  if (role === "DJ") {
+    return base.filter((item) => item !== "Event Settings");
+  }
+  if (role === "Planner") {
+    return base;
+  }
+  const receptionHubEligible = s.sectionReceptionTimelineEnabled || s.sectionFormalitiesEnabled;
+  const coupleAllowedScreens: Screen[] = [
+    "Dashboard",
+    "Reception Hub",
+    "Reception Timeline",
+    "Music Hub",
+    "Music Import",
+    "Planning Checklist",
+    "Planning Questions",
+    "Ceremony",
+    "Timeline",
+    "Vendors",
+    "Guest Requests",
+    "Event Settings",
+    "Event Prep",
+    "Collaborators",
+    "Notes",
+  ];
+  let coupleNav = base.filter((item) => coupleAllowedScreens.includes(item));
+  if (receptionHubEligible) {
+    coupleNav = coupleNav.filter((item) => item !== "Timeline");
+    const dashIdx = coupleNav.indexOf("Dashboard");
+    if (dashIdx !== -1 && !coupleNav.includes("Reception Hub")) {
+      coupleNav = [
+        ...coupleNav.slice(0, dashIdx + 1),
+        "Reception Hub",
+        ...coupleNav.slice(dashIdx + 1),
+      ];
+    }
+  } else {
+    coupleNav = coupleNav.filter((item) => item !== "Reception Hub");
+  }
+  return coupleNav;
+}
+
+function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
+  if (role === "Admin") {
+    return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
+  }
+  if (role === "DJ") {
+    return ["Command Center", "All Events", "Notification Center"];
+  }
+  return ["All Events", "Notification Center"];
+}
+
+function perspectiveRoleLabel(role: UserRole): string {
+  return role === "Couple" ? "Client" : role;
+}
+
+function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
+  return {
+    sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
+    sectionReceptionTimelineEnabled: evt.settings?.sectionReceptionTimelineEnabled ?? true,
+    sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+    sectionPlaylistsEnabled: evt.settings?.sectionPlaylistsEnabled ?? true,
+    sectionMustPlayEnabled: evt.settings?.sectionMustPlayEnabled ?? true,
+    sectionDoNotPlayEnabled: evt.settings?.sectionDoNotPlayEnabled ?? true,
+    sectionMcScriptEnabled: evt.settings?.sectionMcScriptEnabled ?? true,
+    sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
+    sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
+    sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
+    sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
+    sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
+  };
+}
+
+const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
+
 export default function Home() {
   const timelineFormRef = useRef<HTMLDivElement | null>(null);
   const hasParsedInviteParams = useRef(false);
@@ -760,6 +1009,15 @@ export default function Home() {
   );
   const [microphoneNeeds, setMicrophoneNeeds] = useState(initialMicrophoneNeeds);
   const [generalDjNotes, setGeneralDjNotes] = useState(initialGeneralDjNotes);
+  const [playlistVibeOverrides, setPlaylistVibeOverrides] =
+    useState<Partial<Record<PlaylistBucketId, string[]>>>({});
+  const [musicVibeDetail, setMusicVibeDetail] = useState<MusicVibeDetail>({});
+  const [playlistAddDrafts, setPlaylistAddDrafts] = useState<
+    Partial<Record<PlaylistBucketId, string>>
+  >({});
+  const [playlistDrag, setPlaylistDrag] = useState<{ id: PlaylistBucketId; index: number } | null>(
+    null,
+  );
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
   const [rolePreview, setRolePreview] = useState<UserRole>("Admin");
@@ -933,7 +1191,7 @@ export default function Home() {
   const [draggingCeremonyTimelineId, setDraggingCeremonyTimelineId] = useState<string | null>(null);
   const [dropTargetCeremonyTimelineId, setDropTargetCeremonyTimelineId] = useState<string | null>(null);
 
-  const commitActiveEventPlanningToEventsState = () => {
+  const commitActiveEventPlanningToEventsState = useCallback(() => {
     setEvents((prev) =>
       prev.map((evt) =>
         evt.id === activeEventId
@@ -963,13 +1221,39 @@ export default function Home() {
               vendors,
               guestRequests,
               generalDjNotes,
+              playlistVibeOverrides,
+              musicVibeDetail,
               mcAnnouncements,
               settings: eventSettings,
             }
           : evt,
       ),
     );
-  };
+  }, [
+    activeEventId,
+    brideGroomProcessional,
+    ceremonyGuestArrivalTime,
+    ceremonyNotes,
+    ceremonyStartTime,
+    ceremonyTimelineItems,
+    eventSettings,
+    formalities,
+    generalDjNotes,
+    guestRequests,
+    mcAnnouncements,
+    microphoneNeeds,
+    musicVibeDetail,
+    mustPlaySongs,
+    doNotPlaySongs,
+    officiantName,
+    plannerNotes,
+    playlistVibeOverrides,
+    recessionalSong,
+    timelineItems,
+    unityCeremonySong,
+    vendors,
+    weddingPartyProcessional,
+  ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
     setTimelineItems(cloneJson(evt.timelineItems));
@@ -990,6 +1274,8 @@ export default function Home() {
     setVendors(cloneJson(evt.vendors ?? []));
     setGuestRequests(cloneJson(evt.guestRequests));
     setGeneralDjNotes(evt.generalDjNotes);
+    setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
+    setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
     setMcAnnouncements(evt.mcAnnouncements);
     setEventSettings(
       cloneJson({
@@ -1176,6 +1462,8 @@ export default function Home() {
       vendors: cloneJson(vendors),
       guestRequests: cloneJson(guestRequests),
       generalDjNotes,
+      playlistVibeOverrides: cloneJson(playlistVibeOverrides),
+      musicVibeDetail: cloneJson(musicVibeDetail),
       mcAnnouncements,
       settings: {
         eventLayoutProfile: "Wedding",
@@ -1530,6 +1818,15 @@ export default function Home() {
     );
   }, [appSettings.planningQuestionSets, layoutProfileForActiveEvent]);
 
+  const planningQuestionsGroupedBySection = useMemo(
+    () => groupPlanningQuestionsBySection(planningQuestionsForEvent, layoutProfileForActiveEvent),
+    [planningQuestionsForEvent, layoutProfileForActiveEvent],
+  );
+
+  const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
+    Record<string, boolean>
+  >({});
+
   const planningQuestionSetsForSettings = useMemo(() => {
     const defaults = getDefaultPlanningQuestionSets();
     return EVENT_TYPES.reduce((acc, profile) => {
@@ -1572,6 +1869,7 @@ export default function Home() {
         showInLiveEventMode: true,
         options: [],
         placeholder: "",
+        sectionGroup: "event_details",
       },
     ]);
   };
@@ -1738,6 +2036,9 @@ export default function Home() {
   const sectionFormalitiesEnabled = eventSettings.sectionFormalitiesEnabled;
   const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
+  /** Used for Reception Hub + distinct reception timeline / formalities routes (couple-friendly). */
+  const receptionHubEligibleNav =
+    sectionReceptionTimelineEnabled || sectionFormalitiesEnabled;
   const showDesktopSidebar =
     authStage === "app" &&
     (effectiveRole === "Admin" || effectiveRole === "DJ");
@@ -1772,65 +2073,84 @@ export default function Home() {
       eventSettings.weddingDate.trim(),
   );
 
-  const checklistTasks = [
-    {
-      id: "complete-event-details",
-      title: "Complete Event Details",
-      description: "Finalize names, date, venue, and key event basics.",
-      linkedSection: "Event Settings" as Screen,
-      autoStatus: hasEventDetailsComplete ? "Complete" : "Not Started",
-    },
-    {
-      id: "choose-ceremony-songs",
-      title: "Choose Ceremony Songs",
-      description: "Set processional and recessional songs for ceremony cues.",
-      linkedSection: "Ceremony" as Screen,
-      autoStatus: hasKeyCeremonySongs ? "Complete" : "Not Started",
-    },
-    {
-      id: "add-formal-dance-songs",
-      title: "Add Formal Dance Songs",
-      description: "Set first dance and parent dance songs.",
-      linkedSection: "Formal Dances" as Screen,
-      autoStatus: hasKeyFormalDanceSongs ? "Complete" : "Not Started",
-    },
-    {
-      id: "build-must-play-list",
-      title: "Build Must Play List",
-      description: "Add must-play songs for the dance floor.",
-      linkedSection: "Music" as Screen,
-      autoStatus: mustPlaySongs.length > 0 ? "Complete" : "Not Started",
-    },
-    {
-      id: "add-do-not-play-songs",
-      title: "Add Do Not Play Songs",
-      description: "Capture songs and genres to avoid.",
-      linkedSection: "Music" as Screen,
-      autoStatus: doNotPlaySongs.length > 0 ? "Complete" : "Not Started",
-    },
-    {
-      id: "review-timeline",
-      title: "Review Timeline",
-      description: "Confirm key reception flow and transitions.",
-      linkedSection: "Timeline" as Screen,
-      autoStatus: hasKeyTimelineMoments ? "Complete" : "Not Started",
-    },
-    {
-      id: "approve-guest-requests",
-      title: "Approve Guest Requests",
-      description: "Review and resolve all pending guest requests.",
-      linkedSection: "Guest Requests" as Screen,
-      autoStatus:
-        guestRequests.length > 0 && noPendingGuestRequests ? "Complete" : "Not Started",
-    },
-    {
-      id: "add-final-dj-notes",
-      title: "Add Final DJ Notes",
-      description: "Document final cues and handoff notes for event day.",
-      linkedSection: "Event Prep" as Screen,
-      autoStatus: hasFinalDjNotes ? "Complete" : "Not Started",
-    },
-  ];
+  const checklistTasks = useMemo(
+    () => [
+      {
+        id: "complete-event-details",
+        title: "Complete Event Details",
+        description: "Finalize names, date, venue, and key event basics.",
+        linkedSection: "Event Settings" as Screen,
+        autoStatus: hasEventDetailsComplete ? "Complete" : "Not Started",
+      },
+      {
+        id: "choose-ceremony-songs",
+        title: "Choose Ceremony Songs",
+        description: "Set processional and recessional songs for ceremony cues.",
+        linkedSection: "Ceremony" as Screen,
+        autoStatus: hasKeyCeremonySongs ? "Complete" : "Not Started",
+      },
+      {
+        id: "add-formal-dance-songs",
+        title: "Add Formal Dance Songs",
+        description: "Set first dance and parent dance songs.",
+        linkedSection: (receptionHubEligibleNav ? "Reception Timeline" : "Timeline") as Screen,
+        autoStatus: hasKeyFormalDanceSongs ? "Complete" : "Not Started",
+      },
+      {
+        id: "build-must-play-list",
+        title: "Build Must Play List",
+        description: "Add must-play songs for the dance floor.",
+        linkedSection: "Music Hub" as Screen,
+        autoStatus: mustPlaySongs.length > 0 ? "Complete" : "Not Started",
+      },
+      {
+        id: "add-do-not-play-songs",
+        title: "Add Do Not Play Songs",
+        description: "Capture songs and genres to avoid.",
+        linkedSection: "Music Hub" as Screen,
+        autoStatus: doNotPlaySongs.length > 0 ? "Complete" : "Not Started",
+      },
+      {
+        id: "review-timeline",
+        title: "Review Timeline",
+        description: "Confirm key reception flow and transitions.",
+        linkedSection: (receptionHubEligibleNav &&
+        (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+          ? "Reception Timeline"
+          : "Timeline") as Screen,
+        autoStatus: hasKeyTimelineMoments ? "Complete" : "Not Started",
+      },
+      {
+        id: "approve-guest-requests",
+        title: "Approve Guest Requests",
+        description: "Review and resolve all pending guest requests.",
+        linkedSection: "Guest Requests" as Screen,
+        autoStatus:
+          guestRequests.length > 0 && noPendingGuestRequests ? "Complete" : "Not Started",
+      },
+      {
+        id: "add-final-dj-notes",
+        title: "Add Final DJ Notes",
+        description: "Document final cues and handoff notes for event day.",
+        linkedSection: "Event Prep" as Screen,
+        autoStatus: hasFinalDjNotes ? "Complete" : "Not Started",
+      },
+    ],
+    [
+      hasEventDetailsComplete,
+      hasKeyCeremonySongs,
+      hasKeyFormalDanceSongs,
+      hasKeyTimelineMoments,
+      hasFinalDjNotes,
+      mustPlaySongs.length,
+      doNotPlaySongs.length,
+      guestRequests,
+      noPendingGuestRequests,
+      receptionHubEligibleNav,
+      sectionFormalitiesEnabled,
+      sectionReceptionTimelineEnabled,
+    ],
+  );
 
   const planningChecklist = checklistTasks.map((task) => {
     const dueDate = eventSettings.checklistDueDates?.[task.id] || "";
@@ -1862,22 +2182,63 @@ export default function Home() {
   const recentActivityForActiveEvent = activities
     .filter((item) => item.eventId === activeEventId)
     .slice(0, 4);
-  const musicVibeBuckets = useMemo(
-    () =>
-      vibeBuckets.map((bucket) => {
-        if (bucket.title === "Cocktail Hour Vibe") {
-          return { ...bucket, songs: [...importCocktailSuggestions, ...bucket.songs] };
-        }
-        if (bucket.title === "Dinner Vibe") {
-          return { ...bucket, songs: [...importDinnerSuggestions, ...bucket.songs] };
-        }
-        if (bucket.title === "Open Dancing Vibe") {
-          return { ...bucket, songs: [...importOpenDancingSuggestions, ...bucket.songs] };
-        }
-        return bucket;
-      }),
-    [importCocktailSuggestions, importDinnerSuggestions, importOpenDancingSuggestions],
+  const defaultPlaylistLinesById = useMemo((): Record<PlaylistBucketId, string[]> => {
+    const cocktailSeed =
+      vibeBuckets.find((bucket) => bucket.title === "Cocktail Hour Vibe")?.songs ?? [];
+    const dinnerSeed = vibeBuckets.find((bucket) => bucket.title === "Dinner Vibe")?.songs ?? [];
+    const openSeed =
+      vibeBuckets.find((bucket) => bucket.title === "Open Dancing Vibe")?.songs ?? [];
+    return {
+      cocktailHour: [...importCocktailSuggestions, ...cocktailSeed],
+      dinner: [...importDinnerSuggestions, ...dinnerSeed],
+      openDancing: [...importOpenDancingSuggestions, ...openSeed],
+      afterparty: [],
+      custom: [],
+    };
+  }, [importCocktailSuggestions, importDinnerSuggestions, importOpenDancingSuggestions]);
+
+  const getPlaylistLines = useCallback(
+    (id: PlaylistBucketId) => playlistVibeOverrides[id] ?? defaultPlaylistLinesById[id],
+    [playlistVibeOverrides, defaultPlaylistLinesById],
   );
+
+  const addPlaylistLineToBucket = useCallback(
+    (id: PlaylistBucketId, rawLine: string) => {
+      const trimmed = rawLine.trim();
+      if (!trimmed) return;
+      const lines = [...getPlaylistLines(id), trimmed];
+      setPlaylistVibeOverrides((prev) => ({ ...prev, [id]: lines }));
+    },
+    [getPlaylistLines],
+  );
+
+  const removePlaylistLineFromBucket = useCallback(
+    (id: PlaylistBucketId, index: number) => {
+      const lines = getPlaylistLines(id).filter((_, i) => i !== index);
+      setPlaylistVibeOverrides((prev) => ({ ...prev, [id]: lines }));
+    },
+    [getPlaylistLines],
+  );
+
+  const reorderPlaylistLineInBucket = useCallback(
+    (id: PlaylistBucketId, from: number, to: number) => {
+      const lines = [...getPlaylistLines(id)];
+      if (from === to || from < 0 || from >= lines.length || to < 0 || to >= lines.length) return;
+      const [item] = lines.splice(from, 1);
+      lines.splice(to, 0, item);
+      setPlaylistVibeOverrides((prev) => ({ ...prev, [id]: lines }));
+    },
+    [getPlaylistLines],
+  );
+
+  const resetPlaylistBucketToDefaults = useCallback((id: PlaylistBucketId) => {
+    setPlaylistVibeOverrides((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   const unreadBadgeCount =
     activities.filter((a) => a.unread).length + notifications.filter((n) => n.unread).length;
   const filteredActivities = activities.filter((item) => {
@@ -1898,17 +2259,23 @@ export default function Home() {
         label: "Add Song",
         visible: appMode === "event" && canManageMusic,
         onClick: () => {
-          setActiveScreen("Music");
+          setActiveScreen("Music Hub");
           setNewSongListType("mustPlay");
         },
-        priority: activeScreen === "Music" ? 100 : 40,
+        priority: activeScreen === "Music Hub" ? 100 : 40,
       },
       {
         id: "add-timeline",
         label: "Add Timeline Item",
         visible: appMode === "event" && canEditTimeline,
         onClick: () => {
-          setActiveScreen("Timeline");
+          const timelineScreen: Screen =
+            isCoupleView &&
+            receptionHubEligibleNav &&
+            (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+              ? "Reception Timeline"
+              : "Timeline";
+          setActiveScreen(timelineScreen);
           setTimelineTitle("");
           setTimelineTime("");
           setTimelineCategory("Ceremony");
@@ -1919,14 +2286,38 @@ export default function Home() {
             timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
           }, 0);
         },
-        priority: activeScreen === "Timeline" ? 100 : 39,
+        priority:
+          activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 39,
       },
       {
         id: "add-formality",
         label: "Add Formality",
-        visible: appMode === "event" && canAddFormality,
-        onClick: () => setActiveScreen("Formal Dances"),
-        priority: activeScreen === "Formal Dances" ? 100 : 38,
+        visible: appMode === "event" && canAddFormality && sectionFormalitiesEnabled,
+        onClick: () => {
+          const timelineScreen: Screen =
+            isCoupleView && receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
+          setActiveScreen(timelineScreen);
+          const newItem: FormalityItem = {
+            id: `formality-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            momentName: "New special moment",
+            time: "",
+            songTitle: "",
+            artist: "",
+            notes: "",
+            fadeOutEarly: false,
+            fadeOutTimestamp: "",
+            includeInTimeline: true,
+            needsDjMcAttention: false,
+          };
+          setFormalities((prev) => [...prev, newItem]);
+          logActivity("formality_updated", "Added formality");
+          pushNotification("Timeline updated", "timeline_updated");
+          window.setTimeout(() => {
+            timelineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+          }, 0);
+        },
+        priority:
+          activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 38,
       },
       {
         id: "add-guest-request",
@@ -1983,33 +2374,50 @@ export default function Home() {
     appMode,
     canAddFormality,
     canEditTimeline,
+    isCoupleView,
+    receptionHubEligibleNav,
+    sectionFormalitiesEnabled,
+    sectionReceptionTimelineEnabled,
     canInviteCollaborators,
     canManageEvents,
     canManageGuestRequests,
     canManageMusic,
     effectiveEventType,
+    logActivity,
+    pushNotification,
     setActiveScreen,
+    setFormalities,
     timelineFormRef,
   ]);
 
   const visibleEvents = useMemo(() => {
-    if (!currentRole || currentRole === "Admin") return events;
-    if (currentRole === "DJ") {
+    let list: EventRecord[];
+    if (!currentRole || currentRole === "Admin") {
+      list = events;
+    } else if (currentRole === "DJ") {
       const activeDj = teamMembers.find((member) => member.role === "DJ" && member.isActive);
       if (activeDj) {
-        return events.filter(
+        list = events.filter(
           (evt) =>
             evt.settings?.assignedDj === activeDj.id ||
             evt.settings?.assignedDj === activeDj.name,
         );
+      } else {
+        list = [];
       }
+    } else {
+      list = events.filter((evt) =>
+        (evt.collaborators ?? []).some(
+          (c) => c.role === currentRole && c.status === "Accepted",
+        ),
+      );
     }
-    return events.filter((evt) =>
-      (evt.collaborators ?? []).some(
-        (c) => c.role === currentRole && c.status === "Accepted",
-      ),
-    );
-  }, [events, currentRole, teamMembers]);
+    const pinned = activeEventId ? events.find((evt) => evt.id === activeEventId) : undefined;
+    if (pinned && !list.some((evt) => evt.id === pinned.id)) {
+      return [pinned, ...list];
+    }
+    return list;
+  }, [events, currentRole, teamMembers, activeEventId]);
 
   const parseEventDateTime = useCallback((value: string) => {
     const parsed = Date.parse(value);
@@ -2273,48 +2681,20 @@ export default function Home() {
   }, [effectiveRole]);
 
   const eventNavItems: Screen[] = useMemo(() => {
-    const includeExportScreens =
-      sectionReceptionTimelineEnabled ||
-      sectionCeremonyEnabled ||
-      sectionFormalitiesEnabled ||
-      sectionMustPlayEnabled ||
-      sectionPlaylistsEnabled ||
-      sectionDoNotPlayEnabled ||
-      sectionGuestRequestsEnabled ||
-      sectionVendorContactsEnabled ||
-      sectionMcScriptEnabled ||
-      sectionMusicNotesEnabled ||
-      sectionPlanningChecklistEnabled ||
-      sectionPlanningQuestionsEnabled;
-
-    const base: Screen[] = [
-      "Dashboard",
-      ...(sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled
-        ? (["Music", "Music Import"] as Screen[])
-        : []),
-      ...(sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
-      ...(sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
-      ...(sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
-      ...(sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
-      ...(sectionFormalitiesEnabled ? (["Formal Dances"] as Screen[]) : []),
-      ...(sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
-      ...(sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
-      "Collaborators",
-      "Event Settings",
-      ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
-    ];
-    if (effectiveRole === "Admin") return base;
-    if (effectiveRole === "DJ") {
-      return base.filter((item) => item !== "Event Settings");
-    }
-    if (effectiveRole === "Planner") {
-      return base.filter((item) =>
-        ["Dashboard", "Timeline", "Planning Checklist", "Planning Questions", "Collaborators", "Event Settings", "Event Prep"].includes(item),
-      );
-    }
-    return base.filter((item) =>
-      ["Dashboard", "Music", "Music Import", "Planning Checklist", "Planning Questions", "Ceremony", "Formal Dances", "Vendors", "Guest Requests", "Event Settings", "Event Prep"].includes(item),
-    );
+    return buildEventNavItemsForRole(effectiveRole, {
+      sectionCeremonyEnabled,
+      sectionReceptionTimelineEnabled,
+      sectionFormalitiesEnabled,
+      sectionPlaylistsEnabled,
+      sectionMustPlayEnabled,
+      sectionDoNotPlayEnabled,
+      sectionMcScriptEnabled,
+      sectionVendorContactsEnabled,
+      sectionMusicNotesEnabled,
+      sectionGuestRequestsEnabled,
+      sectionPlanningChecklistEnabled,
+      sectionPlanningQuestionsEnabled,
+    });
   }, [
     effectiveRole,
     sectionCeremonyEnabled,
@@ -2346,20 +2726,31 @@ export default function Home() {
       sectionPlanningChecklistEnabled ||
       sectionPlanningQuestionsEnabled;
 
-    return [
+    const base: Screen[] = [
       ...(sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled
-        ? (["Music"] as Screen[])
+        ? (["Music Hub"] as Screen[])
         : []),
-      ...(sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
+      ...(sectionReceptionTimelineEnabled || sectionFormalitiesEnabled
+        ? (["Timeline"] as Screen[])
+        : []),
       ...(sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
-      ...(sectionFormalitiesEnabled ? (["Formal Dances"] as Screen[]) : []),
       ...(sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
       ...(sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
       ...(sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
       ...(sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
       ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
     ];
+    const receptionHubEligibleQuick =
+      sectionReceptionTimelineEnabled || sectionFormalitiesEnabled;
+    if (effectiveRole !== "Couple" || !receptionHubEligibleQuick) return base;
+    return base.map((s) => {
+      if (s === "Timeline" && (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)) {
+        return "Reception Timeline";
+      }
+      return s;
+    });
   }, [
+    effectiveRole,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
     sectionFormalitiesEnabled,
@@ -2374,11 +2765,401 @@ export default function Home() {
     sectionVendorContactsEnabled,
   ]);
 
+  const coupleTimelineEntryScreen = useMemo((): Screen | null => {
+    if (receptionHubEligibleNav) return "Reception Hub";
+    if (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) return "Timeline";
+    return null;
+  }, [
+    receptionHubEligibleNav,
+    sectionFormalitiesEnabled,
+    sectionReceptionTimelineEnabled,
+  ]);
+
+  const coupleGuidedNextScreen = useMemo((): Screen => {
+    const answers = eventSettings.planningQuestionAnswers ?? {};
+    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+      (q) => !answers[q.id]?.trim(),
+    ).length;
+    const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
+    const hasUserPlaylistLines = PLAYLIST_BUCKET_IDS.some(
+      (id) => (playlistVibeOverrides[id]?.length ?? 0) > 0,
+    );
+
+    const mergedChecklist = checklistTasks.map((task) => {
+      const manualStatus = eventSettings.checklistManualStatuses?.[task.id];
+      const status = manualStatus ?? task.autoStatus;
+      return { ...task, status };
+    });
+
+    if (!hasEventDetailsComplete) return "Event Settings";
+    if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return "Ceremony";
+
+    if (sectionReceptionTimelineEnabled && !hasKeyTimelineMoments) {
+      return receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
+    }
+    if (sectionFormalitiesEnabled && !hasKeyFormalDanceSongs) {
+      return receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
+    }
+
+    if (sectionMustPlayEnabled && mustPlaySongs.length === 0) return "Music Hub";
+    if (sectionDoNotPlayEnabled && doNotPlaySongs.length === 0) return "Music Hub";
+    if (sectionPlaylistsEnabled && !hasUserPlaylistLines) return "Music Hub";
+
+    if (sectionPlanningQuestionsEnabled && unansweredPlanningQuestionCount > 0) {
+      return "Planning Questions";
+    }
+    if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Guest Requests";
+
+    const nextIncomplete = mergedChecklist.find((t) => t.status !== "Complete");
+    if (nextIncomplete) return nextIncomplete.linkedSection;
+
+    if (sectionPlanningChecklistEnabled) return "Planning Checklist";
+    return eventNavItems.includes("Event Prep") ? "Event Prep" : "Music Hub";
+  }, [
+    checklistTasks,
+    eventSettings.checklistManualStatuses,
+    eventSettings.planningQuestionAnswers,
+    eventNavItems,
+    guestRequests,
+    hasEventDetailsComplete,
+    hasKeyCeremonySongs,
+    hasKeyFormalDanceSongs,
+    hasKeyTimelineMoments,
+    mustPlaySongs.length,
+    doNotPlaySongs.length,
+    playlistVibeOverrides,
+    planningQuestionsForEvent,
+    receptionHubEligibleNav,
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionFormalitiesEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMustPlayEnabled,
+    sectionPlanningChecklistEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+  ]);
+
+  const coupleGuidedNextHint = useMemo(() => {
+    const labels: Partial<Record<Screen, string>> = {
+      "Event Settings": "Next: your names, date & venue",
+      Ceremony: "Next: ceremony music",
+      "Reception Timeline": "Next: reception flow",
+      Timeline: "Next: timeline",
+      "Music Hub": "Next: playlists & requests",
+      "Planning Questions": "Next: your questionnaire",
+      "Guest Requests": "Next: guest song ideas",
+      "Planning Checklist": "Review your checklist",
+      "Event Prep": "Next: your event document",
+      Vendors: "Next: vendor contacts",
+      Notes: "Next: notes",
+    };
+    return labels[coupleGuidedNextScreen] ?? "Continue your planning";
+  }, [coupleGuidedNextScreen]);
+
+  const coupleHomePlanningSections = useMemo(() => {
+    type CoupleHomeSectionCard = {
+      id: string;
+      kicker: string;
+      title: string;
+      description: string;
+      screen: Screen;
+      completion: number;
+      ctaLabel: string;
+      pendingBadge?: string;
+      completionStatusLabel?: "Not Started" | "In Progress" | "Complete";
+    };
+    const cards: CoupleHomeSectionCard[] = [];
+
+    if (sectionCeremonyEnabled) {
+      cards.push({
+        id: "ceremony",
+        kicker: "Ceremony",
+        title: "Ceremony",
+        description: "Processional moments, music, and ceremony flow.",
+        screen: "Ceremony",
+        completion: hasKeyCeremonySongs ? 100 : 38,
+        ctaLabel: hasKeyCeremonySongs ? "Review" : "Continue",
+      });
+    }
+
+    if (coupleTimelineEntryScreen) {
+      let completion = 100;
+      if (receptionHubEligibleNav && sectionReceptionTimelineEnabled && sectionFormalitiesEnabled) {
+        completion = Math.round(
+          (hasKeyTimelineMoments ? 50 : 0) + (hasKeyFormalDanceSongs ? 50 : 0),
+        );
+      } else if (sectionReceptionTimelineEnabled) {
+        completion = hasKeyTimelineMoments ? 100 : 42;
+      } else if (sectionFormalitiesEnabled) {
+        completion = hasKeyFormalDanceSongs ? 100 : 42;
+      }
+      const needsWork = completion < 100;
+      cards.push({
+        id: "reception",
+        kicker: "Main event",
+        title: receptionHubEligibleNav ? "Reception & main event" : "Reception / main event",
+        description: receptionHubEligibleNav
+          ? "Timeline and formalities in one guided workspace."
+          : "Shape the arc of your celebration.",
+        screen: coupleTimelineEntryScreen,
+        completion,
+        ctaLabel: needsWork ? "Continue" : "Review",
+      });
+    }
+
+    if (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) {
+      const parts: number[] = [];
+      if (sectionMustPlayEnabled) parts.push(mustPlaySongs.length > 0 ? 100 : 0);
+      if (sectionDoNotPlayEnabled) parts.push(doNotPlaySongs.length > 0 ? 100 : 0);
+      if (sectionPlaylistsEnabled) {
+        const hasUserPlaylistLines = PLAYLIST_BUCKET_IDS.some(
+          (id) => (playlistVibeOverrides[id]?.length ?? 0) > 0,
+        );
+        parts.push(hasUserPlaylistLines ? 100 : 0);
+      }
+      const completion = parts.length
+        ? Math.round(parts.reduce((acc, n) => acc + n, 0) / parts.length)
+        : 100;
+      cards.push({
+        id: "music",
+        kicker: "Music",
+        title: "Music hub",
+        description: "Must-play, do-not-play, and playlists by moment.",
+        screen: "Music Hub",
+        completion,
+        ctaLabel: completion >= 100 ? "Review" : "Continue",
+      });
+    }
+
+    if (sectionVendorContactsEnabled) {
+      const completion =
+        vendors.length === 0 ? 28 : Math.min(100, 35 + Math.min(vendors.length, 5) * 13);
+      cards.push({
+        id: "vendors",
+        kicker: "Partners",
+        title: "Vendors",
+        description: "Your creative partners and day-of contacts.",
+        screen: "Vendors",
+        completion,
+        ctaLabel: vendors.length === 0 ? "Continue" : "Review",
+      });
+    }
+
+    if (sectionGuestRequestsEnabled) {
+      const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
+      const completion =
+        pendingGuestCount > 0 ? 52 : guestRequests.length === 0 ? 72 : 100;
+      cards.push({
+        id: "guest-requests",
+        kicker: "Guests",
+        title: "Guest requests",
+        description: "Song ideas and notes from the people you love.",
+        screen: "Guest Requests",
+        completion,
+        ctaLabel: pendingGuestCount > 0 ? "Continue" : "Review",
+        pendingBadge: pendingGuestCount > 0 ? `${pendingGuestCount} pending` : undefined,
+      });
+    }
+
+    if (sectionPlanningQuestionsEnabled && planningQuestionsForEvent.length > 0) {
+      const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
+      const pqHasAnswer = (qId: string) => Boolean(pqAnswers[qId]?.trim());
+      const pqList = planningQuestionsForEvent;
+      const answeredCount = pqList.filter((q) => pqHasAnswer(q.id)).length;
+      const requiredQs = pqList.filter((q) => q.required);
+      const requiredComplete =
+        requiredQs.length > 0
+          ? requiredQs.every((q) => pqHasAnswer(q.id))
+          : pqList.every((q) => pqHasAnswer(q.id));
+      let completionStatus: "Not Started" | "In Progress" | "Complete";
+      let pqCta: string;
+      if (answeredCount === 0) {
+        completionStatus = "Not Started";
+        pqCta = "Start Questions";
+      } else if (!requiredComplete) {
+        completionStatus = "In Progress";
+        pqCta = "Continue Questions";
+      } else {
+        completionStatus = "Complete";
+        pqCta = "Review / Edit Answers";
+      }
+      const pqPct =
+        pqList.length === 0 ? 100 : Math.round((answeredCount / pqList.length) * 100);
+      cards.push({
+        id: "planning-questions",
+        kicker: "Details",
+        title: "Planning questions",
+        description: "Thoughtful prompts for your event—answers stay with your plan and Event Document.",
+        screen: "Planning Questions",
+        completion: pqPct,
+        ctaLabel: pqCta,
+        completionStatusLabel: completionStatus,
+      });
+    }
+
+    if (eventNavItems.includes("Event Prep")) {
+      cards.push({
+        id: "event-prep",
+        kicker: "Live event",
+        title: "Event document",
+        description: "Live event mode and exports for your team.",
+        screen: "Event Prep",
+        completion: hasFinalDjNotes ? 100 : 48,
+        ctaLabel: hasFinalDjNotes ? "Review" : "Continue",
+      });
+    }
+
+    return cards;
+  }, [
+    coupleTimelineEntryScreen,
+    eventNavItems,
+    eventSettings.planningQuestionAnswers,
+    guestRequests,
+    hasFinalDjNotes,
+    hasKeyCeremonySongs,
+    hasKeyFormalDanceSongs,
+    hasKeyTimelineMoments,
+    mustPlaySongs.length,
+    doNotPlaySongs.length,
+    playlistVibeOverrides,
+    receptionHubEligibleNav,
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionFormalitiesEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMustPlayEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+    sectionVendorContactsEnabled,
+    vendors.length,
+    planningQuestionsForEvent,
+  ]);
+
+  const coupleAttentionSummary = useMemo(() => {
+    const answers = eventSettings.planningQuestionAnswers ?? {};
+    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+      (q) => !answers[q.id]?.trim(),
+    ).length;
+    const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
+    return { unansweredPlanningQuestionCount, pendingGuestCount };
+  }, [
+    eventSettings.planningQuestionAnswers,
+    guestRequests,
+    planningQuestionsForEvent,
+  ]);
+
   const currentNavItems = appMode === "events" ? workspaceNavItems : eventNavItems;
+
+  const shellNavActiveScreen = useMemo((): Screen => {
+    if (activeScreen === "Reception Timeline") {
+      return "Reception Hub";
+    }
+    return activeScreen;
+  }, [activeScreen]);
+
+  const allowedActiveEventScreens = useMemo((): Screen[] => {
+    if (appMode !== "event") return workspaceNavItems;
+    const extras: Screen[] = [];
+    if (receptionHubEligibleNav) {
+      if (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) {
+        extras.push("Reception Timeline");
+      }
+    }
+    return [...eventNavItems, ...extras];
+  }, [
+    appMode,
+    workspaceNavItems,
+    eventNavItems,
+    receptionHubEligibleNav,
+    sectionReceptionTimelineEnabled,
+    sectionFormalitiesEnabled,
+  ]);
+
+  const switchPerspectiveRole = useCallback(
+    (nextRole: UserRole) => {
+      commitActiveEventPlanningToEventsState();
+      setCurrentRole(nextRole);
+      setRolePreview(nextRole);
+
+      const flags: EventNavSectionFlags = {
+        sectionCeremonyEnabled,
+        sectionReceptionTimelineEnabled,
+        sectionFormalitiesEnabled,
+        sectionPlaylistsEnabled,
+        sectionMustPlayEnabled,
+        sectionDoNotPlayEnabled,
+        sectionMcScriptEnabled,
+        sectionVendorContactsEnabled,
+        sectionMusicNotesEnabled,
+        sectionGuestRequestsEnabled,
+        sectionPlanningChecklistEnabled,
+        sectionPlanningQuestionsEnabled,
+      };
+
+      let candidate: Screen = activeScreen;
+
+      if (activeScreen === "Reception Hub" && nextRole !== "Couple") {
+        candidate = receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
+      } else if (activeScreen === "Event Settings" && nextRole === "DJ") {
+        candidate = "Dashboard";
+      }
+
+      if (appMode === "event") {
+        const eventNav = buildEventNavItemsForRole(nextRole, flags);
+        const extras: Screen[] = [];
+        if (receptionHubEligibleNav) {
+          extras.push("Reception Timeline");
+        }
+        const allowed = [...eventNav, ...extras];
+        const nextScreen = allowed.includes(candidate)
+          ? candidate
+          : eventNav.includes("Dashboard")
+            ? "Dashboard"
+            : (eventNav[0] ?? "Dashboard");
+        setActiveScreen(nextScreen);
+        return;
+      }
+
+      const wsNav = getWorkspaceNavItemsForRole(nextRole);
+      const nextScreen = wsNav.includes(candidate)
+        ? candidate
+        : wsNav.includes("All Events")
+          ? "All Events"
+          : (wsNav[0] ?? "All Events");
+      setActiveScreen(nextScreen);
+    },
+    [
+      commitActiveEventPlanningToEventsState,
+      sectionCeremonyEnabled,
+      sectionReceptionTimelineEnabled,
+      sectionFormalitiesEnabled,
+      sectionPlaylistsEnabled,
+      sectionMustPlayEnabled,
+      sectionDoNotPlayEnabled,
+      sectionMcScriptEnabled,
+      sectionVendorContactsEnabled,
+      sectionMusicNotesEnabled,
+      sectionGuestRequestsEnabled,
+      sectionPlanningChecklistEnabled,
+      sectionPlanningQuestionsEnabled,
+      activeScreen,
+      appMode,
+      receptionHubEligibleNav,
+      setActiveScreen,
+      setCurrentRole,
+      setRolePreview,
+    ],
+  );
 
   const navLabel = (screen: Screen) => {
     if (screen === "Dashboard") return "Event Dashboard";
     if (screen === "Settings") return "Global Settings";
+    if (screen === "Reception Hub") return "Reception & timeline";
+    if (screen === "Reception Timeline") return "Reception timeline";
+    if (screen === "Reception Formalities") return "Special moments";
     return screen;
   };
 
@@ -2561,6 +3342,8 @@ export default function Home() {
         setVendors(active.vendors ?? []);
         setGuestRequests(active.guestRequests);
         setGeneralDjNotes(active.generalDjNotes);
+        setPlaylistVibeOverrides(cloneJson(active.playlistVibeOverrides ?? {}));
+        setMusicVibeDetail(cloneJson(active.musicVibeDetail ?? {}));
         setMcAnnouncements(active.mcAnnouncements);
         setEventSettings({
           eventLayoutProfile: migrateLegacyLayoutProfile(
@@ -2664,6 +3447,8 @@ export default function Home() {
             vendors,
             guestRequests,
             generalDjNotes,
+            playlistVibeOverrides,
+            musicVibeDetail,
             mcAnnouncements,
             settings: eventSettings,
           }
@@ -2732,6 +3517,8 @@ export default function Home() {
     vendors,
     guestRequests,
     generalDjNotes,
+    playlistVibeOverrides,
+    musicVibeDetail,
     mcAnnouncements,
     eventSettings,
     setSavedLocally,
@@ -2770,10 +3557,10 @@ export default function Home() {
       }
       return;
     }
-    if (!eventNavItems.includes(activeScreen)) {
+    if (!allowedActiveEventScreens.includes(activeScreen)) {
       window.setTimeout(() => setActiveScreen("Dashboard"), 0);
     }
-  }, [activeScreen, appMode, authStage, eventNavItems, setActiveScreen, workspaceNavItems]);
+  }, [activeScreen, appMode, authStage, allowedActiveEventScreens, setActiveScreen, workspaceNavItems]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -2933,6 +3720,8 @@ export default function Home() {
               plannerNotes,
               guestRequests,
               generalDjNotes,
+              playlistVibeOverrides,
+              musicVibeDetail,
               mcAnnouncements,
               settings: eventSettings,
             }
@@ -2958,6 +3747,8 @@ export default function Home() {
       plannerNotes,
       guestRequests,
       generalDjNotes,
+      playlistVibeOverrides,
+      musicVibeDetail,
       mcAnnouncements,
       eventSettings,
     ],
@@ -3500,6 +4291,32 @@ export default function Home() {
     pushNotification("Timeline updated", "timeline_updated");
   };
 
+  const deleteFormality = (formalityId: string) => {
+    setFormalities((prev) => prev.filter((f) => f.id !== formalityId));
+    logActivity("formality_updated", "Removed formality");
+    pushNotification("Timeline updated", "timeline_updated");
+  };
+
+  const moveFormalityAmongIncluded = (formalityId: string, direction: "up" | "down") => {
+    setFormalities((prev) => {
+      const includedOrder = prev.filter((f) => f.includeInTimeline);
+      const idxInIncluded = includedOrder.findIndex((f) => f.id === formalityId);
+      if (idxInIncluded === -1) return prev;
+      const swapIdxInIncluded = direction === "up" ? idxInIncluded - 1 : idxInIncluded + 1;
+      if (swapIdxInIncluded < 0 || swapIdxInIncluded >= includedOrder.length) return prev;
+      const idA = formalityId;
+      const idB = includedOrder[swapIdxInIncluded].id;
+      const fullIdxA = prev.findIndex((f) => f.id === idA);
+      const fullIdxB = prev.findIndex((f) => f.id === idB);
+      if (fullIdxA === -1 || fullIdxB === -1) return prev;
+      const next = [...prev];
+      [next[fullIdxA], next[fullIdxB]] = [next[fullIdxB], next[fullIdxA]];
+      return next;
+    });
+    logActivity("timeline_updated", "Reordered formalities");
+    pushNotification("Timeline updated", "timeline_updated");
+  };
+
   const addReceptionPreset = (preset: TimelinePresetItem) => {
     const newItem: TimelineItem = {
       id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -3812,18 +4629,11 @@ export default function Home() {
           ? "TIMELINE"
           : "RECEPTION TIMELINE";
 
-    const cocktailLines =
-      importCocktailSuggestions.length > 0
-        ? importCocktailSuggestions
-        : vibeBuckets.find((b) => b.title.includes("Cocktail"))?.songs ?? [];
-    const dinnerLines =
-      importDinnerSuggestions.length > 0
-        ? importDinnerSuggestions
-        : vibeBuckets.find((b) => b.title.includes("Dinner"))?.songs ?? [];
-    const openLines =
-      importOpenDancingSuggestions.length > 0
-        ? importOpenDancingSuggestions
-        : vibeBuckets.find((b) => b.title.includes("Open Dancing"))?.songs ?? [];
+    const cocktailLines = getPlaylistLines("cocktailHour");
+    const dinnerLines = getPlaylistLines("dinner");
+    const openLines = getPlaylistLines("openDancing");
+    const afterpartyLines = getPlaylistLines("afterparty");
+    const customLines = getPlaylistLines("custom");
 
     const lines: string[] = [
       `${appSettings.appName.toUpperCase()} - EVENT PREP`,
@@ -3930,6 +4740,8 @@ export default function Home() {
       pushPlaylistBucket(cocktailLines, "COCKTAIL HOUR");
       pushPlaylistBucket(dinnerLines, "DINNER");
       pushPlaylistBucket(openLines, "OPEN DANCING");
+      pushPlaylistBucket(afterpartyLines, "AFTERPARTY");
+      pushPlaylistBucket(customLines, "CUSTOM PLAYLIST");
     }
 
     if (showGuestRequestsDoc) {
@@ -3967,7 +4779,13 @@ export default function Home() {
       if (eventSettings.eventLayoutProfile === "School Dance") {
         lines.push("(Clean edits / school-appropriate content)");
       }
-      lines.push(generalDjNotes || "None", "");
+      lines.push(`Overall vibe: ${generalDjNotes || "None"}`);
+      if (musicVibeDetail.genres?.trim()) lines.push(`Genres: ${musicVibeDetail.genres.trim()}`);
+      if (musicVibeDetail.energy?.trim()) lines.push(`Energy: ${musicVibeDetail.energy.trim()}`);
+      if (musicVibeDetail.crowdNotes?.trim()) lines.push(`Crowd: ${musicVibeDetail.crowdNotes.trim()}`);
+      if (musicVibeDetail.cleanMusicPrefs?.trim())
+        lines.push(`Clean / content prefs: ${musicVibeDetail.cleanMusicPrefs.trim()}`);
+      lines.push("");
     }
 
     if (showPlanningQs) {
@@ -4024,11 +4842,10 @@ export default function Home() {
     eventSettings.weddingDate,
     formalities,
     generalDjNotes,
+    getPlaylistLines,
     guestRequests,
-    importCocktailSuggestions,
-    importDinnerSuggestions,
-    importOpenDancingSuggestions,
     mcAnnouncements,
+    musicVibeDetail,
     mergedTimelineItems,
     microphoneNeeds,
     mustPlaySongs,
@@ -4070,7 +4887,15 @@ export default function Home() {
       <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(201,163,92,0.12),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,#090909_0%,#101012_55%,#0b0b0c_100%)] text-zinc-100">
         <main className="mx-auto w-full max-w-md px-4 pb-32 pt-5">
           <AppHeader
-            screenTitle={appMode === "events" ? navLabel(activeScreen) : screenTitle}
+            screenTitle={
+              appMode === "events"
+                ? navLabel(activeScreen)
+                : appMode === "event" &&
+                    (currentRole ?? rolePreview) === "Couple" &&
+                    activeScreen === "Dashboard"
+                  ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
+                  : screenTitle
+            }
             weddingDetails={weddingDetails}
             savedLocally={false}
             appSettings={{
@@ -4107,7 +4932,7 @@ export default function Home() {
                 key={`desktop-nav-${item}`}
                 onClick={() => setActiveScreen(item)}
                 className={`w-full justify-start rounded-xl border px-3 text-left ${
-                  activeScreen === item
+                  shellNavActiveScreen === item
                     ? "border-[#c9a35c]/35 bg-[#c9a35c]/20 text-[#f5e6c8]"
                     : "border-transparent bg-white/5 text-zinc-300 hover:border-white/10 hover:bg-white/10"
                 }`}
@@ -4126,7 +4951,15 @@ export default function Home() {
         }`}
       >
         <AppHeader
-          screenTitle={appMode === "events" ? navLabel(activeScreen) : screenTitle}
+          screenTitle={
+            appMode === "events"
+              ? navLabel(activeScreen)
+              : appMode === "event" &&
+                  (currentRole ?? rolePreview) === "Couple" &&
+                  activeScreen === "Dashboard"
+                ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
+                : screenTitle
+          }
           weddingDetails={weddingDetails}
           savedLocally={savedLocally}
           appSettings={{
@@ -4136,12 +4969,48 @@ export default function Home() {
           }}
         />
 
-        {authStage === "app" && currentRole && (
-          <div className="no-print mt-4 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs backdrop-blur-sm">
-            <span className="text-zinc-300">
-              Current role: <span className="text-[#f5e6c8]">{currentRole}</span>
-            </span>
-            <div className="flex items-center gap-2">
+        {authStage === "app" &&
+          appMode === "event" &&
+          (currentRole ?? rolePreview) === "Couple" &&
+          activeScreen !== "Dashboard" && (
+            <div className="no-print mt-4">
+              <PrimaryButton
+                type="button"
+                onClick={() => setActiveScreen("Dashboard")}
+                className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
+              >
+                ← Back to your event
+              </PrimaryButton>
+            </div>
+          )}
+
+        {authStage === "app" && (
+          <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <span className="text-zinc-400">
+                Viewing as{" "}
+                <span className="font-semibold text-[#f5e6c8]">
+                  {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                </span>
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {PERSPECTIVE_ROLES.map((role) => (
+                  <PrimaryButton
+                    key={`perspective-${role}`}
+                    type="button"
+                    onClick={() => switchPerspectiveRole(role)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] ${
+                      (currentRole ?? rolePreview) === role
+                        ? "border border-[#c9a35c]/40 bg-[#c9a35c]/25 text-[#f5e6c8]"
+                        : "border border-transparent bg-white/10 text-zinc-200 hover:bg-white/15"
+                    }`}
+                  >
+                    {perspectiveRoleLabel(role)}
+                  </PrimaryButton>
+                ))}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               <PrimaryButton
                 onClick={() => setActiveScreen("Notification Center")}
                 className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
@@ -4157,7 +5026,7 @@ export default function Home() {
                 onClick={() => setAuthStage("login")}
                 className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
               >
-                Switch Role
+                Sign out
               </PrimaryButton>
             </div>
           </div>
@@ -4177,34 +5046,107 @@ export default function Home() {
                     onClick={() => {
                       setCurrentRole(role);
                       setRolePreview(role);
-                      const scopedEvents =
-                        role === "Admin"
-                          ? events
-                          : events.filter((evt) =>
-                              (evt.collaborators ?? []).some(
-                                (c) => c.role === role && c.status === "Accepted",
-                              ),
-                            );
-                      if (scopedEvents.length > 0) {
-                        const first = scopedEvents[0];
-                        setActiveEventId(first.id);
-                        loadEventPlanningIntoWorkingState(first);
-                        setAppMode(role === "Couple" ? "event" : "events");
+
+                      const pinned = activeEventId ? events.find((e) => e.id === activeEventId) : undefined;
+
+                      let targetEvt: EventRecord | undefined;
+
+                      if (pinned) {
+                        targetEvt = pinned;
+                      } else if (role === "Admin") {
+                        targetEvt = events[0];
+                      } else if (role === "DJ") {
+                        const activeDj = teamMembers.find((m) => m.role === "DJ" && m.isActive);
+                        if (activeDj) {
+                          targetEvt = events.find(
+                            (evt) =>
+                              evt.settings?.assignedDj === activeDj.id ||
+                              evt.settings?.assignedDj === activeDj.name,
+                          );
+                        }
+                        if (!targetEvt) targetEvt = events[0];
                       } else {
-                        setAppMode("events");
+                        targetEvt =
+                          events.find((evt) =>
+                            (evt.collaborators ?? []).some(
+                              (c) => c.role === role && c.status === "Accepted",
+                            ),
+                          ) ?? events[0];
                       }
-                      setAuthStage("app");
-                      setActiveScreen(
-                        role === "Couple"
-                          ? "Dashboard"
-                          : role === "Admin" || role === "DJ"
-                            ? "Command Center"
-                            : "All Events",
+
+                      if (targetEvt) {
+                        setActiveEventId(targetEvt.id);
+                        loadEventPlanningIntoWorkingState(targetEvt);
+                      }
+
+                      const sameEventAsBefore = Boolean(
+                        pinned && targetEvt && pinned.id === targetEvt.id,
                       );
+
+                      const nextAppMode: AppMode =
+                        role === "Couple"
+                          ? "event"
+                          : sameEventAsBefore && appMode === "event"
+                            ? "event"
+                            : "events";
+
+                      setAppMode(nextAppMode);
+
+                      let nextScreen: Screen;
+
+                      if (sameEventAsBefore && targetEvt) {
+                        let m = activeScreen;
+                        const hubEligible =
+                          (targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
+                          (targetEvt.settings?.sectionFormalitiesEnabled ?? true);
+
+                        if (m === "Reception Hub" && role !== "Couple") {
+                          m = hubEligible ? "Reception Timeline" : "Timeline";
+                        }
+                        if (m === "Event Settings" && role === "DJ") {
+                          m = "Dashboard";
+                        }
+
+                        if (nextAppMode === "event") {
+                          const flags = eventNavFlagsFromRecord(targetEvt);
+                          const eventNav = buildEventNavItemsForRole(role, flags);
+                          const extras: Screen[] = [];
+                          if (
+                            hubEligible &&
+                            ((targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
+                              (targetEvt.settings?.sectionFormalitiesEnabled ?? true))
+                          ) {
+                            extras.push("Reception Timeline");
+                          }
+                          const allowed = [...eventNav, ...extras];
+                          nextScreen = allowed.includes(m)
+                            ? m
+                            : eventNav.includes("Dashboard")
+                              ? "Dashboard"
+                              : (eventNav[0] ?? "Dashboard");
+                        } else {
+                          const wsNav = getWorkspaceNavItemsForRole(role);
+                          nextScreen = wsNav.includes(m)
+                            ? m
+                            : role === "Admin" || role === "DJ"
+                              ? "Command Center"
+                              : "All Events";
+                        }
+                      } else {
+                        nextScreen =
+                          role === "Couple"
+                            ? "Dashboard"
+                            : role === "Admin" || role === "DJ"
+                              ? "Command Center"
+                              : "All Events";
+                      }
+
+                      setActiveScreen(nextScreen);
+                      setAuthStage("app");
                     }}
                     className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                   >
-                    Continue as {role}
+                    Continue as {perspectiveRoleLabel(role)}
                   </PrimaryButton>
                 ))}
               </div>
@@ -5398,6 +6340,186 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Dashboard" && (
+          isCoupleView ? (
+            <section className="mt-6 space-y-8">
+              <PremiumCard className="overflow-hidden border-[#c9a35c]/25 p-0 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
+                <div className="relative aspect-[20/9] min-h-[140px] overflow-hidden bg-gradient-to-br from-[#3a2e1f] via-[#1a1820] to-[#0c0c0f]">
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(201,163,92,0.18),transparent_55%)]" />
+                  <div className="relative flex h-full flex-col items-center justify-center gap-1 px-6 py-8 text-center">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Cover photo</p>
+                    <p className="text-sm text-zinc-400">A beautiful image of your day will live here</p>
+                  </div>
+                </div>
+                <div className="space-y-5 p-5 sm:p-7">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">{primaryPartyShortLabel}</p>
+                      <h2 className="mt-1 break-words text-2xl font-semibold tracking-tight text-[#f7ecd4] sm:text-3xl">
+                        {eventDisplayName}
+                      </h2>
+                      <p className="mt-1 text-sm text-zinc-400">{coupleDisplayName}</p>
+                      <p className="mt-3 inline-flex rounded-full border border-[#c9a35c]/30 bg-[#c9a35c]/10 px-3 py-1 text-[11px] font-medium text-[#e9d5a8]">
+                        {layoutProfileForActiveEvent}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">Planning</p>
+                      <p className="text-3xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
+                      <p className="mt-0.5 text-[11px] text-zinc-500">overall</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-zinc-500">{eventDateGridLabel}</p>
+                      <p className="mt-1 text-sm font-medium text-zinc-100">{eventDateDisplay}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-zinc-500">Venue</p>
+                      <p className="mt-1 text-sm font-medium text-zinc-100">{eventVenueDisplay}</p>
+                    </div>
+                  </div>
+                  {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
+                    <p className="text-[11px] text-zinc-500">
+                      <span className="text-zinc-600">Your team</span>
+                      {eventSettings.assignedDj?.trim() ? (
+                        <>
+                          {" "}
+                          · DJ {getTeamMemberName(eventSettings.assignedDj)}
+                        </>
+                      ) : null}
+                      {eventSettings.plannerName?.trim() ? (
+                        <>
+                          {" "}
+                          · Planner {eventSettings.plannerName}
+                        </>
+                      ) : null}
+                    </p>
+                  )}
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-zinc-400">
+                      <span>Planning progress</span>
+                      <span className="font-medium text-[#e9d5a8]">{completionPercent}%</span>
+                    </div>
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
+                        style={{ width: `${completionPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </PremiumCard>
+
+              {(coupleAttentionSummary.unansweredPlanningQuestionCount > 0 ||
+                coupleAttentionSummary.pendingGuestCount > 0) && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Still needs love</p>
+                  <ul className="mt-2 space-y-1.5 text-sm text-zinc-300">
+                    {sectionPlanningQuestionsEnabled &&
+                    coupleAttentionSummary.unansweredPlanningQuestionCount > 0 ? (
+                      <li className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span>
+                          {coupleAttentionSummary.unansweredPlanningQuestionCount} planning question
+                          {coupleAttentionSummary.unansweredPlanningQuestionCount === 1 ? "" : "s"} open
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveScreen("Planning Questions")}
+                          className="text-xs font-medium text-[#c9a35c] underline-offset-4 hover:underline"
+                        >
+                          Answer
+                        </button>
+                      </li>
+                    ) : null}
+                    {sectionGuestRequestsEnabled && coupleAttentionSummary.pendingGuestCount > 0 ? (
+                      <li className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span>
+                          {coupleAttentionSummary.pendingGuestCount} guest request
+                          {coupleAttentionSummary.pendingGuestCount === 1 ? "" : "s"} waiting
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveScreen("Guest Requests")}
+                          className="text-xs font-medium text-[#c9a35c] underline-offset-4 hover:underline"
+                        >
+                          Review
+                        </button>
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              )}
+
+              <PrimaryButton
+                type="button"
+                onClick={() => setActiveScreen(coupleGuidedNextScreen)}
+                className="w-full min-h-[4.75rem] justify-center rounded-2xl border border-[#c9a35c]/40 bg-gradient-to-br from-[#c9a35c]/22 to-white/5 px-5 py-5 text-center shadow-[0_12px_40px_-18px_rgba(201,163,92,0.55)]"
+              >
+                <span className="block text-base font-semibold text-[#f5e6c8]">Continue planning</span>
+                <span className="mt-1 block text-xs font-normal text-zinc-400">{coupleGuidedNextHint}</span>
+              </PrimaryButton>
+
+              <div className="space-y-3 px-0.5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Your planning areas</p>
+                <p className="text-sm text-zinc-400">
+                  Open a section when you are ready—everything stays organized in its own pocket.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {coupleHomePlanningSections.map((section) => (
+                  <button
+                    type="button"
+                    key={section.id}
+                    onClick={() => setActiveScreen(section.screen)}
+                    className="group flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent px-5 py-5 text-left transition hover:border-[#c9a35c]/38 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a35c]/50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{section.kicker}</p>
+                        <h3 className="mt-1 text-lg font-semibold text-[#f5e6c8]">{section.title}</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{section.description}</p>
+                      </div>
+                      {section.pendingBadge ? (
+                        <span className="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-100/95">
+                          {section.pendingBadge}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-5">
+                      <div className="mb-1 flex justify-between text-[11px] text-zinc-500">
+                        <span>{section.completionStatusLabel ?? "Progress"}</span>
+                        <span className="tabular-nums text-[#e9d5a8]">{section.completion}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-500"
+                          style={{ width: `${section.completion}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-end border-t border-white/5 pt-4">
+                      <span className="text-xs font-semibold text-[#c9a35c] transition group-hover:text-[#e9d5a8]">
+                        {section.ctaLabel} →
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {(sectionPlanningChecklistEnabled || sectionMusicNotesEnabled) && (
+                <div className="flex justify-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveScreen("Notes")}
+                    className="text-xs text-zinc-500 underline-offset-4 transition hover:text-zinc-300 hover:underline"
+                  >
+                    Notes & personal reminders
+                  </button>
+                </div>
+              )}
+            </section>
+          ) : (
           <>
             <section className="mt-6 space-y-3">
               <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-br from-[#20160a]/55 via-[#17171d]/85 to-[#121217]/95 backdrop-blur-sm">
@@ -5496,7 +6618,9 @@ export default function Home() {
                         ? "Checklist"
                         : target === "Planning Questions"
                           ? "Questions"
-                          : target}
+                          : target === "Reception Timeline"
+                            ? "Timeline"
+                            : target}
                     </PrimaryButton>
                   ))}
                 </div>
@@ -5633,7 +6757,13 @@ export default function Home() {
                 </p>
                 <div className="mt-3">
                   <InsightStack
-                    insights={planningInsights}
+                    insights={
+                      isCoupleView
+                        ? planningInsights.filter(
+                            (i) => i.section !== "timeline" && i.section !== "ceremony",
+                          )
+                        : planningInsights
+                    }
                     emptyLabel="No assistant notes yet — your plan reads balanced."
                   />
                 </div>
@@ -5665,10 +6795,90 @@ export default function Home() {
               </div>
             </section>
           </>
+          )
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Music" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
-          <section className="mt-6 space-y-3">
+        {authStage === "app" &&
+          appMode === "event" &&
+          activeScreen === "Reception Hub" &&
+          receptionHubEligibleNav && (
+            <section className="mt-6 space-y-3">
+              <div className="no-print">
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen("Dashboard")}
+                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
+                >
+                  ← Back to event
+                </PrimaryButton>
+              </div>
+              <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1f1a14]/80 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Reception & main event</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Your timeline, special moments, and notes—everything for the heart of your celebration.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {(sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) && (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setActiveScreen("Reception Timeline")}
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#c9a35c]/35 sm:col-span-2"
+                    >
+                      <span className="block text-sm font-semibold text-zinc-100">
+                        {sectionReceptionTimelineEnabled && sectionFormalitiesEnabled
+                          ? "Timeline & special moments"
+                          : sectionFormalitiesEnabled
+                            ? "Special moments & timeline"
+                            : "Timeline"}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
+                        {sectionFormalitiesEnabled && sectionReceptionTimelineEnabled
+                          ? "Flow, dances, and spotlight moments in one workspace"
+                          : sectionFormalitiesEnabled
+                            ? "Dances and spotlight moments—edited alongside your flow"
+                            : "Flow and timing for your event"}
+                      </span>
+                    </PrimaryButton>
+                  )}
+                  {(sectionPlanningChecklistEnabled || sectionMusicNotesEnabled) && (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setActiveScreen("Notes")}
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#c9a35c]/35 sm:col-span-2"
+                    >
+                      <span className="block text-sm font-semibold text-zinc-100">Planning notes</span>
+                      <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
+                        Shared notes for your vendor team
+                      </span>
+                    </PrimaryButton>
+                  )}
+                </div>
+              </PremiumCard>
+            </section>
+          )}
+
+        {authStage === "app" && appMode === "event" && activeScreen === "Music Hub" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
+          <section className="mt-6 space-y-4">
+            {!isCoupleView && (
+              <div className="no-print">
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen("Dashboard")}
+                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
+                >
+                  ← Back to event
+                </PrimaryButton>
+              </div>
+            )}
+
+            <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-br from-amber-950/30 via-[#17171f]/90 to-[#121218]">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#c9a35c]/75">Soundtrack</p>
+              <SectionTitle className="mt-1 text-[#f5e6c8]">Music Hub</SectionTitle>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Keep must-plays, playlists, guest requests, and vibe notes in one calm place—organized by moment, not spreadsheets.
+              </p>
+            </PremiumCard>
+
             {!canManageMusic && (
               <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
                 <p className="text-xs text-[#f5e6c8]">
@@ -5676,23 +6886,25 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <SectionTitle className="text-[#e9d5a8]">Music Assistant</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Playlist balance and formality song cues.
-              </p>
-              <div className="mt-3">
-                <InsightStack
-                  insights={planningInsights.filter((i) => i.section === "music")}
-                  emptyLabel="Music lists look intentional."
-                />
-              </div>
-            </PremiumCard>
+            {!isCoupleView && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Music Assistant</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Playlist balance and formality song cues.
+                </p>
+                <div className="mt-3">
+                  <InsightStack
+                    insights={planningInsights.filter((i) => i.section === "music")}
+                    emptyLabel="Music lists look intentional."
+                  />
+                </div>
+              </PremiumCard>
+            )}
 
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Add Song</SectionTitle>
+            <PremiumCard className="border-white/10 bg-white/[0.03]">
+              <SectionTitle className="text-[#e9d5a8]">Quick add</SectionTitle>
               <p className="mt-1 text-xs text-zinc-400">
-                Build your custom must-play and do-not-play lists for the DJ.
+                Drop a song onto Must Play or Do Not Play—notes are optional.
               </p>
               <div className="mt-4 space-y-3">
                 <TextInput
@@ -5764,67 +6976,366 @@ export default function Home() {
               </div>
             </PremiumCard>
 
-            {sectionMustPlayEnabled && (
-            <PremiumCard>
-              <div className="flex items-center justify-between">
-                <SectionTitle className="text-[#e9d5a8]">Must Play Songs</SectionTitle>
-                <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-[11px] text-[#e9d5a8]">
-                  {mustPlaySongs.length}
-                </span>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {sectionMustPlayEnabled && (
+                <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#c9a35c]/[0.06] to-transparent">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <SectionTitle className="text-[#e9d5a8]">Must play</SectionTitle>
+                      <p className="mt-1 text-xs text-zinc-500">Non‑negotiable songs for your celebration.</p>
+                    </div>
+                    <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-[11px] text-[#e9d5a8]">
+                      {mustPlaySongs.length}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {mustPlaySongs.length === 0 ? (
+                      <p className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
+                        Add the songs that have to hit the speakers.
+                      </p>
+                    ) : null}
+                    {mustPlaySongs.map((song) => (
+                      <SongCard
+                        key={song.id}
+                        song={song}
+                        listType="mustPlay"
+                        onTogglePriority={togglePriority}
+                        onRemove={removeSong}
+                        disabled={!canManageMusic}
+                      />
+                    ))}
+                  </div>
+                </PremiumCard>
+              )}
+
+              {sectionDoNotPlayEnabled && (
+                <PremiumCard className="border-[#7a5c5c]/35 bg-gradient-to-b from-[#6f5353]/[0.12] to-transparent">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <SectionTitle className="text-[#e5d7be]">Do not play</SectionTitle>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Songs, artists, genres, or vibes to steer away from—notes optional.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#6f5353]/35 px-2.5 py-1 text-[11px] text-[#e5d7be]">
+                      {doNotPlaySongs.length}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {doNotPlaySongs.length === 0 ? (
+                      <p className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
+                        Clear guardrails help the DJ protect the mood.
+                      </p>
+                    ) : null}
+                    {doNotPlaySongs.map((song) => (
+                      <SongCard
+                        key={song.id}
+                        song={song}
+                        listType="doNotPlay"
+                        onTogglePriority={togglePriority}
+                        onRemove={removeSong}
+                        disabled={!canManageMusic}
+                      />
+                    ))}
+                  </div>
+                </PremiumCard>
+              )}
+            </div>
+
+            {sectionPlaylistsEnabled && (
+              <div className="space-y-4">
+                <div className="px-1">
+                  <SectionTitle className="text-[#e9d5a8]">Playlists by moment</SectionTitle>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Each block is its own pocket—drag to reorder, or nudge with arrows.
+                  </p>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {PLAYLIST_BUCKET_IDS.map((bucketId) => {
+                    const lines = getPlaylistLines(bucketId);
+                    const usingDefaults = playlistVibeOverrides[bucketId] === undefined;
+                    return (
+                      <PremiumCard
+                        key={bucketId}
+                        className={`border ${MUSIC_HUB_BUCKET_SHELL[bucketId]}`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <SectionTitle className="text-[#f5e6c8]">
+                              {PLAYLIST_BUCKET_LABELS[bucketId]}
+                            </SectionTitle>
+                            <p className="mt-1 text-[11px] text-zinc-500">
+                              {lines.length} song{lines.length === 1 ? "" : "s"}
+                              {usingDefaults ? " · Includes starter ideas + imports" : " · Custom list"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => resetPlaylistBucketToDefaults(bucketId)}
+                              disabled={!canManageMusic || usingDefaults}
+                              className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-40"
+                            >
+                              Reset
+                            </PrimaryButton>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                          <TextInput
+                            id={`playlist-draft-${bucketId}`}
+                            label="Add line (Song - Artist)"
+                            value={playlistAddDrafts[bucketId] ?? ""}
+                            onChange={(value) =>
+                              setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: value }))
+                            }
+                            placeholder="Levitating - Dua Lipa"
+                            disabled={!canManageMusic}
+                          />
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => {
+                              addPlaylistLineToBucket(bucketId, playlistAddDrafts[bucketId] ?? "");
+                              setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: "" }));
+                            }}
+                            disabled={!canManageMusic}
+                            className="rounded-xl bg-[#c9a35c]/20 px-3 py-2.5 text-xs font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                          >
+                            Add
+                          </PrimaryButton>
+                        </div>
+
+                        <ul className="mt-3 space-y-2">
+                          {lines.length === 0 ? (
+                            <li className="rounded-xl border border-white/6 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
+                              Drop songs here—think energy and pacing for this chapter of the night.
+                            </li>
+                          ) : null}
+                          {lines.map((line, index) => {
+                            const parsed = parsePlaylistSongLine(line);
+                            return (
+                              <li
+                                key={`${bucketId}-line-${index}`}
+                                draggable={canManageMusic}
+                                onDragStart={() => setPlaylistDrag({ id: bucketId, index })}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (!playlistDrag || playlistDrag.id !== bucketId) return;
+                                  reorderPlaylistLineInBucket(bucketId, playlistDrag.index, index);
+                                  setPlaylistDrag(null);
+                                }}
+                                className="flex items-start gap-2 rounded-xl border border-white/8 bg-white/[0.04] px-2 py-2.5 text-xs"
+                              >
+                                <span
+                                  className="mt-0.5 cursor-grab select-none text-zinc-600"
+                                  title="Drag to reorder"
+                                >
+                                  ⋮⋮
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-zinc-100">
+                                    {parsed.song || line || "—"}
+                                  </p>
+                                  <p className="truncate text-[11px] text-zinc-500">
+                                    {parsed.artist ? parsed.artist : "—"}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() =>
+                                      reorderPlaylistLineInBucket(bucketId, index, index - 1)
+                                    }
+                                    disabled={!canManageMusic || index === 0}
+                                    className="rounded-lg bg-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                                  >
+                                    Up
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() =>
+                                      reorderPlaylistLineInBucket(bucketId, index, index + 1)
+                                    }
+                                    disabled={!canManageMusic || index >= lines.length - 1}
+                                    className="rounded-lg bg-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                                  >
+                                    Down
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => removePlaylistLineFromBucket(bucketId, index)}
+                                    disabled={!canManageMusic}
+                                    className="rounded-lg bg-[#6f5353]/35 px-2 py-1 text-[10px] text-[#f2dede]"
+                                  >
+                                    Remove
+                                  </PrimaryButton>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </PremiumCard>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="mt-3 space-y-2">
-                {mustPlaySongs.map((song) => (
-                  <SongCard
-                    key={song.id}
-                    song={song}
-                    listType="mustPlay"
-                    onTogglePriority={togglePriority}
-                    onRemove={removeSong}
-                    disabled={!canManageMusic}
-                  />
-                ))}
-              </div>
-            </PremiumCard>
             )}
 
-            {sectionDoNotPlayEnabled && (
-            <PremiumCard>
-              <div className="flex items-center justify-between">
-                <SectionTitle className="text-[#d8c7aa]">Do Not Play Songs</SectionTitle>
-                <span className="rounded-full bg-[#6f5353]/35 px-2.5 py-1 text-[11px] text-[#e5d7be]">
-                  {doNotPlaySongs.length}
-                </span>
-              </div>
-              <div className="mt-3 space-y-2">
-                {doNotPlaySongs.map((song) => (
-                  <SongCard
-                    key={song.id}
-                    song={song}
-                    listType="doNotPlay"
-                    onTogglePriority={togglePriority}
-                    onRemove={removeSong}
-                    disabled={!canManageMusic}
-                  />
-                ))}
-              </div>
-            </PremiumCard>
-            )}
-
-            {sectionPlaylistsEnabled && musicVibeBuckets.map((bucket) => (
-              <PremiumCard key={bucket.title}>
-                <SectionTitle className="text-[#e9d5a8]">{bucket.title}</SectionTitle>
-                <ul className="mt-3 space-y-2">
-                  {bucket.songs.map((song, index) => (
-                    <li
-                      key={`vibe-${bucket.title}-${song}-${index}`}
-                      className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-300"
-                    >
-                      {song}
-                    </li>
-                  ))}
-                </ul>
+            {sectionGuestRequestsEnabled ? (
+              <PremiumCard className="border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <SectionTitle className="text-[#e9d5a8]">Guest requests</SectionTitle>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      What guests are asking for—approve in one tap on the full screen.
+                    </p>
+                  </div>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => setActiveScreen("Guest Requests")}
+                    className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                  >
+                    Open guest requests
+                  </PrimaryButton>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-200/90">Approved</p>
+                    <div className="mt-2 space-y-2">
+                      {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
+                        <p className="text-xs text-zinc-500">No approved songs yet.</p>
+                      ) : (
+                        guestRequests
+                          .filter((r) => r.status === "Approved")
+                          .map((request) => (
+                            <div
+                              key={`hub-approved-${request.id}`}
+                              className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                            >
+                              <p className="text-sm text-zinc-100">
+                                {request.songTitle}
+                                {request.artist ? (
+                                  <span className="font-normal text-zinc-400"> — {request.artist}</span>
+                                ) : null}
+                              </p>
+                              <p className="mt-1 text-[11px] text-zinc-500">{request.guestName}</p>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-amber-100/90">Pending</p>
+                    <div className="mt-2 space-y-2">
+                      {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
+                        <p className="text-xs text-zinc-500">Inbox is quiet.</p>
+                      ) : (
+                        guestRequests
+                          .filter((r) => r.status === "Pending")
+                          .map((request) => (
+                            <div
+                              key={`hub-pending-${request.id}`}
+                              className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                            >
+                              <p className="text-sm text-zinc-100">
+                                {request.songTitle}
+                                {request.artist ? (
+                                  <span className="font-normal text-zinc-400"> — {request.artist}</span>
+                                ) : null}
+                              </p>
+                              <p className="mt-1 text-[11px] text-zinc-500">{request.guestName}</p>
+                              <span
+                                className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${guestRequestStatusBadgeClass(request.status)}`}
+                              >
+                                {request.status}
+                              </span>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                </div>
               </PremiumCard>
-            ))}
+            ) : (
+              <PremiumCard className="border-white/8 bg-white/[0.02]">
+                <SectionTitle className="text-zinc-300">Guest requests</SectionTitle>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Guest requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
+                  here.
+                </p>
+              </PremiumCard>
+            )}
+
+            {sectionMusicNotesEnabled && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/12 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Music notes &amp; vibe</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Give your DJ emotional guardrails—not just logistics.
+                </p>
+                <div className="mt-4 space-y-3">
+                  <TextArea
+                    id="music-hub-overall-vibe"
+                    label="Overall vibe"
+                    value={generalDjNotes}
+                    onChange={setGeneralDjNotes}
+                    rows={4}
+                    disabled={!canManageMusic}
+                    placeholder="Big-picture direction: nostalgic, sing-alongs, era mix…"
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <TextArea
+                      id="music-hub-genres"
+                      label="Genres / eras"
+                      value={musicVibeDetail.genres ?? ""}
+                      onChange={(value) =>
+                        setMusicVibeDetail((prev) => ({ ...prev, genres: value }))
+                      }
+                      rows={3}
+                      disabled={!canManageMusic}
+                      placeholder="e.g. 90s R&B, Latin nights, indie sing-alongs…"
+                    />
+                    <TextArea
+                      id="music-hub-energy"
+                      label="Energy arc"
+                      value={musicVibeDetail.energy ?? ""}
+                      onChange={(value) =>
+                        setMusicVibeDetail((prev) => ({ ...prev, energy: value }))
+                      }
+                      rows={3}
+                      disabled={!canManageMusic}
+                      placeholder="Warm welcome → peak dance → softer landing…"
+                    />
+                    <TextArea
+                      id="music-hub-crowd"
+                      label="Crowd notes"
+                      value={musicVibeDetail.crowdNotes ?? ""}
+                      onChange={(value) =>
+                        setMusicVibeDetail((prev) => ({ ...prev, crowdNotes: value }))
+                      }
+                      rows={3}
+                      disabled={!canManageMusic}
+                      placeholder="Families, college friends, shy dancers up front…"
+                    />
+                    <TextArea
+                      id="music-hub-clean"
+                      label={
+                        layoutProfileForActiveEvent === "School Dance"
+                          ? "Clean selections"
+                          : "Clean / content preferences"
+                      }
+                      value={musicVibeDetail.cleanMusicPrefs ?? ""}
+                      onChange={(value) =>
+                        setMusicVibeDetail((prev) => ({ ...prev, cleanMusicPrefs: value }))
+                      }
+                      rows={3}
+                      disabled={!canManageMusic}
+                      placeholder="Radio edits, avoid explicit, requests handling…"
+                    />
+                  </div>
+                </div>
+              </PremiumCard>
+            )}
           </section>
         )}
 
@@ -5907,8 +7418,22 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Timeline" && sectionReceptionTimelineEnabled && (
-          <section className="mt-6 space-y-3">
+        {authStage === "app" &&
+          appMode === "event" &&
+          (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
+          (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) && (
+          <section className={`mt-6 ${isCoupleView ? "space-y-5" : "space-y-3"}`}>
+            {activeScreen === "Reception Timeline" && (
+              <div className="no-print">
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen("Reception Hub")}
+                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
+                >
+                  ← Back to Reception
+                </PrimaryButton>
+              </div>
+            )}
             {!canEditTimeline && (
               <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
                 <p className="text-xs text-[#f5e6c8]">
@@ -5916,18 +7441,20 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <SectionTitle className="text-[#e9d5a8]">Timeline Assistant</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Reception flow, spacing, and overlap checks.
-              </p>
-              <div className="mt-3">
-                <InsightStack
-                  insights={planningInsights.filter((i) => i.section === "timeline")}
-                  emptyLabel="Timeline spacing reads smooth."
-                />
-              </div>
-            </PremiumCard>
+            {!isCoupleView && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Timeline Assistant</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Reception flow, spacing, and overlap checks.
+                </p>
+                <div className="mt-3">
+                  <InsightStack
+                    insights={planningInsights.filter((i) => i.section === "timeline")}
+                    emptyLabel="Timeline spacing reads smooth."
+                  />
+                </div>
+              </PremiumCard>
+            )}
 
             <PremiumCard>
               <SectionTitle className="text-[#e9d5a8]">Quick Add Presets</SectionTitle>
@@ -6060,6 +7587,10 @@ export default function Home() {
             ) : (
               mergedTimelineItems.map((item, index) => {
                 const isTimelineItem = item.source === "timeline";
+                const formalityRow =
+                  item.source === "formality"
+                    ? formalities.find((f) => f.id === item.id)
+                    : undefined;
                 const isDragging = draggingTimelineId === item.id;
                 const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                 return (
@@ -6190,7 +7721,7 @@ export default function Home() {
                           updateFormality(item.id, { songTitle: value });
                         }
                       }}
-                      placeholder={item.source === "formality" ? "Song title" : "Song handled in formalities"}
+                      placeholder={item.source === "formality" ? "Song title" : "Optional — add song in notes"}
                       disabled={!canEditTimeline || item.source !== "formality"}
                     />
                     <TextInput
@@ -6224,7 +7755,77 @@ export default function Home() {
                     rows={2}
                     disabled={!canEditTimeline}
                   />
-                  {item.needsDjMcAttention && (
+                  {item.source === "formality" && formalityRow ? (
+                    <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            updateFormality(formalityRow.id, {
+                              fadeOutEarly: !formalityRow.fadeOutEarly,
+                            })
+                          }
+                          disabled={!canEditTimeline}
+                          className={`w-full ${
+                            formalityRow.fadeOutEarly
+                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                              : "bg-white/5 text-zinc-400"
+                          }`}
+                        >
+                          {formalityRow.fadeOutEarly ? "Fade out early: On" : "Fade out early"}
+                        </PrimaryButton>
+                        <TextInput
+                          id={`timeline-inline-fade-${item.id}`}
+                          label="Fade timestamp"
+                          value={formalityRow.fadeOutTimestamp}
+                          onChange={(value) =>
+                            updateFormality(formalityRow.id, { fadeOutTimestamp: value })
+                          }
+                          placeholder="e.g. 1:20"
+                          disabled={!canEditTimeline}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            updateFormality(formalityRow.id, {
+                              includeInTimeline: !formalityRow.includeInTimeline,
+                            })
+                          }
+                          disabled={!canEditTimeline}
+                          className={`w-full ${
+                            formalityRow.includeInTimeline
+                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                              : "bg-white/5 text-zinc-400"
+                          }`}
+                        >
+                          {formalityRow.includeInTimeline
+                            ? "Shown on timeline"
+                            : "Include on timeline"}
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            updateFormality(formalityRow.id, {
+                              needsDjMcAttention: !formalityRow.needsDjMcAttention,
+                            })
+                          }
+                          disabled={!canEditTimeline}
+                          className={`w-full ${
+                            formalityRow.needsDjMcAttention
+                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
+                              : "bg-white/5 text-zinc-400"
+                          }`}
+                        >
+                          {formalityRow.needsDjMcAttention
+                            ? "DJ/MC attention: On"
+                            : "DJ/MC attention"}
+                        </PrimaryButton>
+                      </div>
+                    </div>
+                  ) : null}
+                  {item.needsDjMcAttention && item.source === "timeline" && (
                     <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
                       DJ/MC Attention
                     </span>
@@ -6313,19 +7914,35 @@ export default function Home() {
                     ) : (
                       <>
                         <PrimaryButton
+                          onClick={() => moveFormalityAmongIncluded(item.id, "up")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Up
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => moveFormalityAmongIncluded(item.id, "down")}
+                          disabled={!canEditTimeline}
+                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        >
+                          Move Down
+                        </PrimaryButton>
+                        <PrimaryButton
                           onClick={() => {
                             const formality = formalities.find((f) => f.id === item.id);
                             if (formality) duplicateFormality(formality);
                           }}
+                          disabled={!canEditTimeline}
                           className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
                         >
                           Duplicate
                         </PrimaryButton>
                         <PrimaryButton
-                          onClick={() => setActiveScreen("Formal Dances")}
-                          className="bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                          onClick={() => deleteFormality(item.id)}
+                          disabled={!canEditTimeline}
+                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
                         >
-                          Edit in Formal Dances
+                          Delete
                         </PrimaryButton>
                       </>
                     )}
@@ -6737,19 +8354,21 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <SectionTitle className="text-[#e9d5a8]">Ceremony Assistant</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Processionals and audio readiness.
-              </p>
-              <div className="mt-3">
-                <InsightStack
-                  insights={planningInsights.filter((i) => i.section === "ceremony")}
-                  emptyLabel="Ceremony prep looks complete."
-                />
-              </div>
-            </PremiumCard>
+          <section className={`mt-6 ${isCoupleView ? "space-y-5" : "space-y-3"}`}>
+            {!isCoupleView && (
+              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
+                <SectionTitle className="text-[#e9d5a8]">Ceremony Assistant</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Processionals and audio readiness.
+                </p>
+                <div className="mt-3">
+                  <InsightStack
+                    insights={planningInsights.filter((i) => i.section === "ceremony")}
+                    emptyLabel="Ceremony prep looks complete."
+                  />
+                </div>
+              </PremiumCard>
+            )}
 
             <PremiumCard>
               <SectionTitle className="text-[#e9d5a8]">Ceremony Details</SectionTitle>
@@ -7024,164 +8643,28 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Formal Dances" && sectionFormalitiesEnabled && (
+        {authStage === "app" &&
+          appMode === "event" &&
+          (activeScreen === "Formal Dances" || activeScreen === "Reception Formalities") &&
+          sectionFormalitiesEnabled && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <SectionTitle className="text-[#e9d5a8]">Formalities Assistant</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Spacing between formal moments and key dance-floor cues.
+            <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-[#1d1a14]/90 to-[#141419]">
+              <SectionTitle className="text-[#e9d5a8]">Special moments moved to your timeline</SectionTitle>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Formal dances and spotlight moments are edited in the Reception Timeline—same song,
+                notes, and DJ cues, without switching screens.
               </p>
-              <div className="mt-3">
-                <InsightStack
-                  insights={planningInsights.filter(
-                    (i) =>
-                      i.id.startsWith("tl-formality-gap") ||
-                      i.id === "music-last-dance" ||
-                      i.id === "music-kickoff",
-                  )}
-                  emptyLabel="Formalities read well spaced and song-ready."
-                />
-              </div>
-            </PremiumCard>
-
-            {formalities.map((formality) => (
-              <PremiumCard key={formality.id}>
-                <SectionTitle className="text-[#e9d5a8]">{formality.momentName}</SectionTitle>
-                <div className="mt-4 space-y-3">
-                  <TextInput
-                    id={`${formality.id}-time`}
-                    label="Approximate Time"
-                    value={formality.time}
-                    onChange={(value) => updateFormality(formality.id, { time: value })}
-                    placeholder="e.g. 7:30 PM"
-                  />
-                  <TextInput
-                    id={`${formality.id}-moment-name`}
-                    label="Moment Name"
-                    value={formality.momentName}
-                    onChange={(value) =>
-                      updateFormality(formality.id, { momentName: value })
-                    }
-                    placeholder="Moment name"
-                  />
-                  <TextInput
-                    id={`${formality.id}-song-title`}
-                    label="Song Title"
-                    value={formality.songTitle}
-                    onChange={(value) => updateFormality(formality.id, { songTitle: value })}
-                    placeholder="Song title"
-                  />
-                  <TextInput
-                    id={`${formality.id}-artist`}
-                    label="Artist"
-                    value={formality.artist}
-                    onChange={(value) => updateFormality(formality.id, { artist: value })}
-                    placeholder="Artist"
-                  />
-                  <TextArea
-                    id={`${formality.id}-notes`}
-                    label="Notes"
-                    value={formality.notes}
-                    onChange={(value) => updateFormality(formality.id, { notes: value })}
-                    placeholder="MC cues, transitions, crowd management notes..."
-                    rows={2}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <PrimaryButton
-                      onClick={() =>
-                        updateFormality(formality.id, {
-                          fadeOutEarly: !formality.fadeOutEarly,
-                        })
-                      }
-                      className={`w-full ${
-                        formality.fadeOutEarly
-                          ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                          : "bg-white/5 text-zinc-400"
-                      }`}
-                    >
-                      {formality.fadeOutEarly ? "Fade Out Early: On" : "Fade Out Early"}
-                    </PrimaryButton>
-                    <TextInput
-                      id={`${formality.id}-fade-timestamp`}
-                      label="Fade Timestamp"
-                      value={formality.fadeOutTimestamp}
-                      onChange={(value) =>
-                        updateFormality(formality.id, { fadeOutTimestamp: value })
-                      }
-                      placeholder="e.g. 1:20"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <PrimaryButton
-                      onClick={() =>
-                        updateFormality(formality.id, {
-                          includeInTimeline: !formality.includeInTimeline,
-                        })
-                      }
-                      className={`w-full ${
-                        formality.includeInTimeline
-                          ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                          : "bg-white/5 text-zinc-400"
-                      }`}
-                    >
-                      {formality.includeInTimeline
-                        ? "Included in Timeline"
-                        : "Include in Timeline"}
-                    </PrimaryButton>
-                    <PrimaryButton
-                      onClick={() =>
-                        updateFormality(formality.id, {
-                          needsDjMcAttention: !formality.needsDjMcAttention,
-                        })
-                      }
-                      className={`w-full ${
-                        formality.needsDjMcAttention
-                          ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                          : "bg-white/5 text-zinc-400"
-                      }`}
-                    >
-                      {formality.needsDjMcAttention
-                        ? "DJ/MC Attention: On"
-                        : "DJ/MC Attention"}
-                    </PrimaryButton>
-                  </div>
-                </div>
-              </PremiumCard>
-            ))}
-
-            <PremiumCard className="border-[#c9a35c]/40 bg-gradient-to-b from-[#1d1a14] to-[#141419]">
-              <SectionTitle className="text-[#f5e6c8]">DJ Formalities Prep Summary</SectionTitle>
-              <div className="mt-3 space-y-2">
-                {formalities.map((item) => (
-                  <div key={`${item.id}-summary`} className="rounded-xl bg-white/5 p-3 text-xs">
-                    <p className="text-zinc-100">
-                      {item.time || "TBD"} - {item.momentName || "Untitled Formality"}
-                    </p>
-                    <p className="mt-1 text-zinc-400">
-                      {item.songTitle || "Song TBD"}
-                      {item.artist ? ` - ${item.artist}` : ""}
-                    </p>
-                    <p className="mt-1 text-zinc-500">{item.notes || "No notes yet."}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.includeInTimeline && (
-                        <span className="rounded-full bg-[#c9a35c]/20 px-2 py-1 text-[10px] text-[#f5e6c8]">
-                          In Timeline
-                        </span>
-                      )}
-                      {item.needsDjMcAttention && (
-                        <span className="rounded-full bg-[#c9a35c]/20 px-2 py-1 text-[10px] text-[#f5e6c8]">
-                          DJ/MC Attention
-                        </span>
-                      )}
-                      {item.fadeOutEarly && (
-                        <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-zinc-300">
-                          Fade: {item.fadeOutTimestamp || "TBD"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <PrimaryButton
+                type="button"
+                onClick={() =>
+                  setActiveScreen(
+                    receptionHubEligibleNav ? "Reception Timeline" : "Timeline",
+                  )
+                }
+                className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 sm:w-auto"
+              >
+                Open reception timeline
+              </PrimaryButton>
             </PremiumCard>
           </section>
         )}
@@ -7680,51 +9163,34 @@ export default function Home() {
               {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && (
                 <>
                   <p className="doc-subtitle no-print">Page 3+: Playlists</p>
-                  <div className="doc-section">
-                    <h3>Cocktail Hour</h3>
-                    <table className="doc-table">
-                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                      <tbody>
-                        {(importCocktailSuggestions.length > 0
-                          ? importCocktailSuggestions
-                          : vibeBuckets.find((bucket) => bucket.title.includes("Cocktail"))?.songs || []
-                        ).map((line, index) => {
-                          const parsed = parsePlaylistSongLine(line);
-                          return <tr key={`playlist-cocktail-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="doc-section">
-                    <h3>Dinner</h3>
-                    <table className="doc-table">
-                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                      <tbody>
-                        {(importDinnerSuggestions.length > 0
-                          ? importDinnerSuggestions
-                          : vibeBuckets.find((bucket) => bucket.title.includes("Dinner"))?.songs || []
-                        ).map((line, index) => {
-                          const parsed = parsePlaylistSongLine(line);
-                          return <tr key={`playlist-dinner-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="doc-section">
-                    <h3>Open Dancing</h3>
-                    <table className="doc-table">
-                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                      <tbody>
-                        {(importOpenDancingSuggestions.length > 0
-                          ? importOpenDancingSuggestions
-                          : vibeBuckets.find((bucket) => bucket.title.includes("Open Dancing"))?.songs || []
-                        ).map((line, index) => {
-                          const parsed = parsePlaylistSongLine(line);
-                          return <tr key={`playlist-open-${index}-${line}`}><td>{index + 1}</td><td>{parsed.song || "-"}</td><td>{parsed.artist}</td><td /></tr>;
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  {PLAYLIST_BUCKET_IDS.map((bucketId) => (
+                    <div key={`doc-pl-${bucketId}`} className="doc-section">
+                      <h3>{PLAYLIST_BUCKET_LABELS[bucketId]}</h3>
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Song</th>
+                            <th>Artist</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getPlaylistLines(bucketId).map((line, index) => {
+                            const parsed = parsePlaylistSongLine(line);
+                            return (
+                              <tr key={`playlist-${bucketId}-${index}-${line}`}>
+                                <td>{index + 1}</td>
+                                <td>{parsed.song || "-"}</td>
+                                <td>{parsed.artist}</td>
+                                <td />
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                   <div className="doc-section">
                     <h3>Must Play</h3>
                     <table className="doc-table">
@@ -7801,7 +9267,34 @@ export default function Home() {
                   {layoutProfileForActiveEvent === "School Dance" ? (
                     <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600">Clean edits and school-appropriate selections.</p>
                   ) : null}
-                  <p>{generalDjNotes || "None"}</p>
+                  <p className="doc-note mb-1 font-medium text-zinc-700">Overall vibe</p>
+                  <p className="mb-3">{generalDjNotes || "None"}</p>
+                  {(musicVibeDetail.genres ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700">Genres / eras: </span>
+                      {musicVibeDetail.genres}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.energy ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700">Energy: </span>
+                      {musicVibeDetail.energy}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700">Crowd: </span>
+                      {musicVibeDetail.crowdNotes}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700">
+                        {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
+                      </span>
+                      {musicVibeDetail.cleanMusicPrefs}
+                    </p>
+                  ) : null}
                 </div>
               )}
               <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
@@ -8197,7 +9690,7 @@ export default function Home() {
                     onClick={() => setActiveScreen(task.linkedSection)}
                     className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                   >
-                    Go to {task.linkedSection}
+                    Go to {navLabel(task.linkedSection)}
                   </PrimaryButton>
                 </div>
               </PremiumCard>
@@ -8210,109 +9703,102 @@ export default function Home() {
           activeScreen === "Planning Questions" &&
           sectionPlanningQuestionsEnabled && (
           <section className="mt-6 space-y-3">
+            {isCoupleView && (
+              <div className="no-print">
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen("Dashboard")}
+                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
+                >
+                  ← Back to Event
+                </PrimaryButton>
+              </div>
+            )}
             <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
               <SectionTitle className="text-[#e9d5a8]">Planning Questions</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
-                Prompts match your event type. Responses save with this event and can surface in Event Prep when that block is turned on.
+                Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in Event Prep when that block is turned on.
               </p>
               <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
                 Event Type · {layoutProfileForActiveEvent}
               </p>
             </PremiumCard>
-            <div className="grid gap-3 md:grid-cols-2">
-              {planningQuestionsForEvent.map((q) => (
-                <PremiumCard key={`pq-card-${q.id}`}>
-                  {q.answerType === "long_text" ? (
-                    <TextArea
-                      id={`planning-q-${q.id}`}
-                      label={`${q.label}${q.required ? " *" : ""}`}
-                      value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                      onChange={(value) =>
-                        setEventSettings((prev) => ({
-                          ...prev,
-                          planningQuestionAnswers: {
-                            ...(prev.planningQuestionAnswers ?? {}),
-                            [q.id]: value,
-                          },
-                        }))
-                      }
-                      rows={3}
-                      placeholder={q.placeholder ?? "Add notes…"}
-                    />
-                  ) : q.answerType === "yes_no" ? (
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wide text-zinc-400">
-                        {q.label}
-                        {q.required ? " *" : ""}
-                      </label>
-                      <select
-                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                        onChange={(event) =>
-                          setEventSettings((prev) => ({
-                            ...prev,
-                            planningQuestionAnswers: {
-                              ...(prev.planningQuestionAnswers ?? {}),
-                              [q.id]: event.target.value,
-                            },
+            {planningQuestionsForEvent.length === 0 ? (
+              <PremiumCard className="border-dashed border-white/15 bg-white/[0.03]">
+                <p className="text-sm text-zinc-400">
+                  No planning questions are configured for this event type yet.
+                </p>
+              </PremiumCard>
+            ) : (
+              <div className="space-y-3">
+                {planningQuestionsGroupedBySection.map((row) => {
+                  const pct = computePlanningQuestionGroupCompletion(
+                    row.questions,
+                    eventSettings.planningQuestionAnswers,
+                  );
+                  const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
+                  return (
+                    <PremiumCard
+                      key={`pq-group-${row.group.id}`}
+                      className="border-white/12 bg-gradient-to-br from-white/[0.05] to-transparent"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-start gap-3 rounded-xl text-left transition hover:bg-white/[0.04] sm:items-center sm:justify-between"
+                        onClick={() =>
+                          setExpandedPlanningQuestionGroups((p) => ({
+                            ...p,
+                            [row.group.id]: !(p[row.group.id] ?? true),
                           }))
                         }
-                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
                       >
-                        <option value="" className="bg-[#141419] text-zinc-100">Select…</option>
-                        <option value="Yes" className="bg-[#141419] text-zinc-100">Yes</option>
-                        <option value="No" className="bg-[#141419] text-zinc-100">No</option>
-                      </select>
-                    </div>
-                  ) : q.answerType === "multiple_choice" ? (
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wide text-zinc-400">
-                        {q.label}
-                        {q.required ? " *" : ""}
-                      </label>
-                      <select
-                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                        onChange={(event) =>
-                          setEventSettings((prev) => ({
-                            ...prev,
-                            planningQuestionAnswers: {
-                              ...(prev.planningQuestionAnswers ?? {}),
-                              [q.id]: event.target.value,
-                            },
-                          }))
-                        }
-                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
-                      >
-                        <option value="" className="bg-[#141419] text-zinc-100">Select…</option>
-                        {(q.options ?? []).map((option) => (
-                          <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-[#141419] text-zinc-100">
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <TextInput
-                      id={`planning-q-${q.id}`}
-                      label={`${q.label}${q.required ? " *" : ""}`}
-                      value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                      onChange={(value) =>
-                        setEventSettings((prev) => ({
-                          ...prev,
-                          planningQuestionAnswers: {
-                            ...(prev.planningQuestionAnswers ?? {}),
-                            [q.id]: value,
-                          },
-                        }))
-                      }
-                      placeholder={q.placeholder ?? "Add answer…"}
-                    />
-                  )}
-                  {(q.helpText ?? "").trim() ? (
-                    <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
-                  ) : null}
-                </PremiumCard>
-              ))}
-            </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-semibold text-[#f5e6c8]">{row.group.label}</p>
+                          <p className="mt-1 text-[11px] text-zinc-500">
+                            {pct}% answered · {row.questions.length}{" "}
+                            {row.questions.length === 1 ? "question" : "questions"}
+                          </p>
+                          <div className="mt-2 h-1.5 max-w-full overflow-hidden rounded-full bg-zinc-800/90 sm:max-w-xs">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8]"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span
+                          className="shrink-0 pt-0.5 text-sm text-zinc-500"
+                          aria-hidden
+                        >
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                      </button>
+                      {isExpanded ? (
+                        <div className="mt-4 border-t border-white/10 pt-4">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {row.questions.map((q) => (
+                              <PlanningQuestionAnswerEditor
+                                key={q.id}
+                                q={q}
+                                value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                                onChange={(next) =>
+                                  setEventSettings((prev) => ({
+                                    ...prev,
+                                    planningQuestionAnswers: {
+                                      ...(prev.planningQuestionAnswers ?? {}),
+                                      [q.id]: next,
+                                    },
+                                  }))
+                                }
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </PremiumCard>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
@@ -9111,7 +10597,7 @@ export default function Home() {
       {authStage === "app" && (
         <BottomNav
           items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
-          activeScreen={activeScreen}
+          activeScreen={shellNavActiveScreen}
           onSelect={setActiveScreen}
         />
       )}

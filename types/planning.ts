@@ -3,13 +3,18 @@ export type Screen =
   | "Team"
   | "Dashboard"
   | "Command Center"
-  | "Music"
+  | "Music Hub"
   | "Music Import"
   | "Timeline"
   | "Timeline Templates"
   | "Collaborators"
   | "Guest Requests"
   | "Ceremony"
+  | "Reception Hub"
+  /** Couple/staff entry from Reception Hub — same editor as Timeline */
+  | "Reception Timeline"
+  /** Couple/staff entry from Reception Hub — same editor as Formal Dances */
+  | "Reception Formalities"
   | "Formal Dances"
   | "Event Prep"
   | "Vendors"
@@ -168,6 +173,38 @@ export type InviteAccessPreview = {
   link: string;
 };
 
+/** Stable ids for editable playlist buckets (persisted via optional overrides). */
+export type PlaylistBucketId =
+  | "cocktailHour"
+  | "dinner"
+  | "openDancing"
+  | "afterparty"
+  | "custom";
+
+export const PLAYLIST_BUCKET_LABELS: Record<PlaylistBucketId, string> = {
+  cocktailHour: "Cocktail Hour",
+  dinner: "Dinner",
+  openDancing: "Open Dancing",
+  afterparty: "Afterparty",
+  custom: "Custom",
+};
+
+export const PLAYLIST_BUCKET_IDS: PlaylistBucketId[] = [
+  "cocktailHour",
+  "dinner",
+  "openDancing",
+  "afterparty",
+  "custom",
+];
+
+/** Optional structured fields for Music Hub / DJ vibe (stored on the event). */
+export type MusicVibeDetail = {
+  genres?: string;
+  energy?: string;
+  crowdNotes?: string;
+  cleanMusicPrefs?: string;
+};
+
 export type Event = {
   id: string;
   meta: WeddingDetails;
@@ -190,6 +227,9 @@ export type Event = {
   guestRequests: SongRequest[];
   generalDjNotes: string;
   mcAnnouncements: string;
+  /** Full playlist line lists per bucket; replaces merged defaults when set for that bucket. */
+  playlistVibeOverrides?: Partial<Record<PlaylistBucketId, string[]>>;
+  musicVibeDetail?: MusicVibeDetail;
   vendors: Vendor[];
   settings: EventSettings;
 };
@@ -234,6 +274,8 @@ export type PlanningQuestionDef = {
   answerType: PlanningQuestionAnswerType;
   required: boolean;
   showInLiveEventMode: boolean;
+  /** Section bucket for grouped Planning Questions UI (event-type-specific group ids). */
+  sectionGroup?: string;
   options?: string[];
   placeholder?: string;
 };

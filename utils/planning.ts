@@ -149,7 +149,7 @@ export function buildPlanningInsights(
       section: "music",
       variant: "suggestion",
       message:
-        "Pick a last dance song in Formal Dances so the closing moment feels intentional.",
+        "Pick a last dance song in your reception timeline so the closing moment feels intentional.",
     });
   }
 

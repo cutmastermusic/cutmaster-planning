@@ -357,7 +357,7 @@ export const progressCards = [
 
 export const sectionTabs: Screen[] = [
   "Dashboard",
-  "Music",
+  "Music Hub",
   "Timeline",
   "Timeline Templates",
   "Collaborators",
