@@ -6998,8 +6998,8 @@ export default function Home() {
         {authStage === "app" && appMode === "events" && activeScreen === "Settings" && (
           <section className="mt-6 space-y-3">
             {!canManageEvents && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
-                <p className="text-xs text-zinc-100">Global Settings are admin-only.</p>
+              <PremiumCard className="border-amber-200/90 bg-amber-50">
+                <p className="text-xs font-medium leading-relaxed text-amber-950">Global Settings are admin-only.</p>
               </PremiumCard>
             )}
             <PremiumCard>
@@ -7007,19 +7007,19 @@ export default function Home() {
                 <SectionTitle className="text-stone-950">Global Admin Settings</SectionTitle>
                 <PrimaryButton
                   onClick={() => setActiveScreen("All Events")}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                  className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
                 >
                   Back to Events
                 </PrimaryButton>
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-stone-600">
                 Global settings apply across all events and are stored outside event records.
               </p>
 
               <div className="mt-4 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-4">
                 <aside className="hidden md:block">
-                  <div className="sticky top-4 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                    <p className="px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                  <div className="sticky top-4 rounded-xl border border-stone-200 bg-stone-50 p-2">
+                    <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-stone-500">
                       Settings Sections
                     </p>
                     <div className="mt-1 space-y-1">
@@ -7027,10 +7027,10 @@ export default function Home() {
                         <PrimaryButton
                           key={`settings-side-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
-                          className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] ${
+                          className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] font-medium ${
                             activeGlobalSettingsSection === section
-                              ? "bg-[#00D4FF]/25 text-zinc-100"
-                              : "bg-white/5 text-zinc-300 hover:bg-white/10"
+                              ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
+                              : "bg-transparent text-stone-700 hover:bg-stone-100"
                           }`}
                         >
                           {section}
@@ -7041,16 +7041,16 @@ export default function Home() {
                 </aside>
 
                 <div>
-                  <div className="sticky top-0 z-10 -mx-2 overflow-x-auto border-y border-stone-700/80 bg-[#141419] px-2 py-2 md:hidden">
+                  <div className="sticky top-0 z-10 -mx-2 overflow-x-auto border-y border-stone-200 bg-stone-100 px-2 py-2 md:hidden">
                     <div className="flex gap-2">
                       {GLOBAL_SETTINGS_SECTIONS.map((section) => (
                         <PrimaryButton
                           key={`settings-tab-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
-                          className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] ${
+                          className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
                             activeGlobalSettingsSection === section
-                              ? "bg-[#00D4FF]/25 text-zinc-100"
-                              : "bg-white/10 text-zinc-300 hover:bg-white/15"
+                              ? "border-cyan-500/40 bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
+                              : "border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50"
                           }`}
                         >
                           {section}
@@ -7073,12 +7073,12 @@ export default function Home() {
                     {EVENT_TYPES.map((profile) => {
                       const defaults = getLayoutProfileDefaults(profile);
                       return (
-                        <div key={`etype-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
-                          <p className="mt-1 text-xs text-zinc-500">
+                        <div key={`etype-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                          <p className="text-sm font-semibold text-stone-950">{profile}</p>
+                          <p className="mt-1 text-xs text-stone-600">
                             {LAYOUT_PROFILE_DESCRIPTIONS[profile]}
                           </p>
-                          <p className="mt-2 text-[11px] text-zinc-400">
+                          <p className="mt-2 text-[11px] text-stone-600">
                             Default sections: {getEnabledSectionLabels(profile, defaults).join(", ")}
                           </p>
                         </div>
@@ -7091,38 +7091,38 @@ export default function Home() {
               {activeGlobalSettingsSection === "Planning Questions" && (
                 <div className="mt-4 space-y-3">
                   <SectionTitle className="text-stone-950">Planning Question Sets</SectionTitle>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs leading-relaxed text-stone-600">
                     Customize planning questions by Event Type. Existing event answers remain saved even if questions are hidden or removed.
                   </p>
                   {EVENT_TYPES.map((profile) => {
                     const questions = planningQuestionSetsForSettings[profile] ?? [];
                     return (
-                      <div key={`pqset-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
+                      <div key={`pqset-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm font-semibold text-stone-950">{profile}</p>
                           <div className="flex gap-2">
                             <PrimaryButton
                               onClick={() => addPlanningQuestionToSet(profile)}
                               disabled={!canManageEvents}
-                              className="rounded-lg bg-[#00D4FF]/20 px-2 py-1.5 text-[11px] text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
+                              className="rounded-lg bg-[#00D4FF] px-2 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
                             >
                               Add Question
                             </PrimaryButton>
                             <PrimaryButton
                               onClick={() => resetPlanningQuestionSet(profile)}
                               disabled={!canManageEvents}
-                              className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-white/15 disabled:opacity-50"
+                              className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-100 disabled:opacity-50"
                             >
                               Reset Defaults
                             </PrimaryButton>
                           </div>
                         </div>
-                        <p className="mt-1 text-[11px] text-zinc-500">
+                        <p className="mt-1 text-[11px] text-stone-600">
                           Default set: {getPlanningQuestionsForProfile(profile).length} questions · Current set: {questions.length}
                         </p>
                         <div className="mt-3 space-y-2">
                           {questions.map((question, index) => (
-                            <div key={`pq-row-${profile}-${question.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5">
+                            <div key={`pq-row-${profile}-${question.id}`} className="rounded-lg border border-stone-200 bg-white p-2.5">
                               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <TextInput
                                   id={`pq-label-${profile}-${question.id}`}
@@ -7220,7 +7220,7 @@ export default function Home() {
                                     )
                                   }
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.required ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.required ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
                                 >
                                   {question.required ? "Required" : "Optional"}
                                 </PrimaryButton>
@@ -7235,7 +7235,7 @@ export default function Home() {
                                     )
                                   }
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.showInLiveEventMode ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.showInLiveEventMode ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
                                 >
                                   {question.showInLiveEventMode ? "Shown in Event Document" : "Hidden in Event Document"}
                                 </PrimaryButton>
@@ -7635,7 +7635,7 @@ export default function Home() {
               {activeGlobalSettingsSection === "Event Document" && (
                 <div className="mt-4 space-y-3">
                   <SectionTitle className="text-stone-950">Event Document</SectionTitle>
-                  <p className="text-xs text-zinc-500">Defaults for the printable Event Document. Live Event Mode refers to the same export.</p>
+                  <p className="text-xs leading-relaxed text-stone-600">Defaults for the printable Event Document. Live Event Mode refers to the same export.</p>
                   <TextArea
                     id="global-prep-footer"
                     label="Default Event Document Footer"
@@ -7663,9 +7663,9 @@ export default function Home() {
                     {EVENT_TYPES.map((profile) => {
                       const liveDefaults = getLiveEventDocumentDefaults(profile);
                       return (
-                        <div key={`live-defaults-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
-                          <p className="font-semibold text-zinc-100">{profile}</p>
-                          <p className="mt-1 text-zinc-500">
+                        <div key={`live-defaults-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs">
+                          <p className="font-semibold text-stone-950">{profile}</p>
+                          <p className="mt-1 text-stone-600">
                             Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
                             Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
                             Vendors: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
@@ -7682,47 +7682,50 @@ export default function Home() {
 
               {activeGlobalSettingsSection === "Team Management" && (
                 <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <SectionTitle className="text-stone-950">Team Management</SectionTitle>
                     <PrimaryButton
                       onClick={openAddTeamMemberModal}
                       disabled={!canManageEvents}
-                      className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
+                      className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
                     >
                       Add Team Member
                     </PrimaryButton>
                   </div>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs leading-relaxed text-stone-600">
                     Manage users, role assignments, and planning permissions at the account level.
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs leading-relaxed text-stone-600">
                     Remove from Event unassigns someone from the event you last had selected (DJ assignment or planner fields that match a roster member) without deleting them from the team. To delete a profile entirely, use{" "}
-                    <span className="text-zinc-400">Workspace → Team → Delete from Team</span>.
+                    <span className="font-medium text-stone-800">Workspace → Team → Delete from Team</span>.
                   </p>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
-                      Admins: <span className="text-white">{teamMembers.filter((m) => m.role === "Admin").length}</span>
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                      Admins:{" "}
+                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Admin").length}</span>
                     </div>
-                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
-                      DJs: <span className="text-white">{teamMembers.filter((m) => m.role === "DJ").length}</span>
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                      DJs:{" "}
+                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "DJ").length}</span>
                     </div>
-                    <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
-                      Planners: <span className="text-white">{teamMembers.filter((m) => m.role === "Planner").length}</span>
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                      Planners:{" "}
+                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Planner").length}</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     {teamMembers.map((member) => (
-                      <div key={`settings-team-${member.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <div key={`settings-team-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                         <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-zinc-100">{member.name}</p>
-                            <p className="mt-1 text-xs text-zinc-500">{member.email}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-stone-950">{member.name}</p>
+                            <p className="mt-1 truncate text-xs text-stone-600">{member.email}</p>
                           </div>
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(member.role)}`}>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(member.role)}`}>
                             {member.role}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs text-zinc-400">
+                        <p className="mt-2 text-xs leading-relaxed text-stone-600">
                           Permissions: {member.role === "Admin" ? "Full settings + event management" : member.role === "DJ" ? "Timeline/music/event prep" : "Planning/timeline/vendor coordination"}
                         </p>
                         {canManageEvents &&
@@ -7732,7 +7735,7 @@ export default function Home() {
                             <PrimaryButton
                               type="button"
                               onClick={() => removeTeamMemberFromActiveEvent(member)}
-                              className="w-full rounded-lg bg-white/10 px-2 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-white/15"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
                             >
                               Remove from Event
                             </PrimaryButton>
@@ -7745,8 +7748,8 @@ export default function Home() {
                     <p
                       className={`rounded-xl px-3 py-2 text-xs ${
                         teamFormStatus.kind === "success"
-                          ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                          : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                          ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                          : "border border-rose-300/80 bg-rose-50 text-rose-950"
                       }`}
                     >
                       {teamFormStatus.message}
@@ -7767,21 +7770,21 @@ export default function Home() {
                   </div>
                   <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
                   <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
-                  <div className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 p-3 text-xs text-zinc-100">
+                  <div className="rounded-xl border border-cyan-400/40 bg-cyan-50/90 p-3 text-xs font-medium leading-relaxed text-stone-800">
                     Backup recommended while this remains a frontend-only prototype.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <PrimaryButton
                       onClick={exportBackupJson}
                       disabled={!canManageEvents}
-                      className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-100 hover:bg-white/15 disabled:opacity-50"
+                      className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100 disabled:opacity-50"
                     >
                       Export Backup JSON
                     </PrimaryButton>
                     <PrimaryButton
                       onClick={triggerBackupFilePicker}
                       disabled={!canManageEvents}
-                      className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
+                      className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
                     >
                       Import Backup JSON
                     </PrimaryButton>
@@ -7797,8 +7800,8 @@ export default function Home() {
                     <p
                       className={`rounded-xl px-3 py-2 text-xs ${
                         backupStatus.kind === "success"
-                          ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                          : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                          ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                          : "border border-rose-300/80 bg-rose-50 text-rose-950"
                       }`}
                     >
                       {backupStatus.message}
@@ -7815,30 +7818,30 @@ export default function Home() {
         {authStage === "app" && appMode === "events" && activeScreen === "Team" && (
           <section className="mt-6 space-y-3">
             {!canManageEvents && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
-                <p className="text-xs text-zinc-100">Team Management is admin-only.</p>
+              <PremiumCard className="border-amber-200/90 bg-amber-50">
+                <p className="text-xs font-medium leading-relaxed text-amber-950">Team Management is admin-only.</p>
               </PremiumCard>
             )}
             <PremiumCard>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <SectionTitle className="text-stone-950">Team Management</SectionTitle>
                 <PrimaryButton
                   onClick={openAddTeamMemberModal}
                   disabled={!canManageEvents}
-                  className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
+                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
                 >
                   Add Team Member
                 </PrimaryButton>
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
                 Manage internal Admin, DJ, and Planner team members for assignments.
               </p>
               {teamFormStatus && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${
                     teamFormStatus.kind === "success"
-                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                      : "border border-rose-300/80 bg-rose-50 text-rose-950"
                   }`}
                 >
                   {teamFormStatus.message}
@@ -7850,18 +7853,28 @@ export default function Home() {
               <SectionTitle className="text-stone-950">Team Members</SectionTitle>
               <div className="mt-3 space-y-2">
                 {teamMembers.map((member) => (
-                  <div key={`team-member-${member.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div key={`team-member-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-100">{member.name}</p>
-                        <p className="mt-1 text-xs text-zinc-400">
-                          {member.role} · {member.email} {member.phone ? `· ${member.phone}` : ""}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-stone-950">{member.name}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                          <span className="font-medium text-stone-800">{member.role}</span>
+                          {" · "}
+                          <span className="break-all">{member.email}</span>
+                          {member.phone ? (
+                            <>
+                              {" · "}
+                              <span>{member.phone}</span>
+                            </>
+                          ) : null}
                         </p>
-                        {member.notes && <p className="mt-1 text-xs text-zinc-500">{member.notes}</p>}
+                        {member.notes && <p className="mt-1 text-xs text-stone-600">{member.notes}</p>}
                       </div>
                       <span
-                        className={`rounded-full px-2 py-1 text-[10px] ${
-                          member.isActive ? "bg-emerald-500/20 text-emerald-100" : "bg-white/10 text-zinc-400"
+                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                          member.isActive
+                            ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
+                            : "border border-stone-200 bg-stone-100 text-stone-600"
                         }`}
                       >
                         {member.isActive ? "Active" : "Inactive"}
@@ -7871,14 +7884,14 @@ export default function Home() {
                       <PrimaryButton
                         onClick={() => startEditingTeamMember(member)}
                         disabled={!canManageEvents}
-                        className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                        className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
                       >
                         Edit
                       </PrimaryButton>
                       <PrimaryButton
                         onClick={() => deleteTeamMember(member.id)}
                         disabled={!canManageEvents}
-                        className="rounded-lg bg-[#6f5353]/40 px-2 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                        className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
                       >
                         Delete from Team
                       </PrimaryButton>
@@ -7886,7 +7899,7 @@ export default function Home() {
                   </div>
                 ))}
                 {teamMembers.length === 0 && (
-                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs text-stone-600">
                     No team members yet.
                   </p>
                 )}
@@ -13118,7 +13131,7 @@ export default function Home() {
               </SectionTitle>
               <PrimaryButton
                 onClick={closeTeamMemberModal}
-                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Close
               </PrimaryButton>
@@ -13132,7 +13145,7 @@ export default function Home() {
                 disabled={!canManageEvents}
               />
               <div>
-                <label htmlFor="team-member-role" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
                   Role
                 </label>
                 <select
@@ -13140,10 +13153,10 @@ export default function Home() {
                   value={teamRoleDraft}
                   disabled={!canManageEvents}
                   onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none disabled:opacity-60"
+                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
                 >
                   {(["Admin", "DJ", "Planner"] as const).map((role) => (
-                    <option key={`team-role-${role}`} value={role} className="bg-[#141419] text-zinc-100">
+                    <option key={`team-role-${role}`} value={role} className="bg-white text-stone-900">
                       {role}
                     </option>
                   ))}
@@ -13176,8 +13189,10 @@ export default function Home() {
               <PrimaryButton
                 onClick={() => setTeamActiveDraft((prev) => !prev)}
                 disabled={!canManageEvents}
-                className={`w-full rounded-xl px-3 py-2 text-xs ${
-                  teamActiveDraft ? "bg-emerald-500/20 text-emerald-100" : "bg-white/10 text-zinc-300"
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${
+                  teamActiveDraft
+                    ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
+                    : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
                 }`}
               >
                 {teamActiveDraft ? "Active Member" : "Inactive Member"}
@@ -13185,14 +13200,14 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-2">
                 <PrimaryButton
                   onClick={closeTeamMemberModal}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                 >
                   {teamEditingId ? "Cancel Edit" : "Cancel"}
                 </PrimaryButton>
                 <PrimaryButton
                   onClick={saveTeamMember}
                   disabled={!canManageEvents}
-                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110 disabled:opacity-60"
+                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
                 >
                   {teamEditingId ? "Save Changes" : "Add Team Member"}
                 </PrimaryButton>
