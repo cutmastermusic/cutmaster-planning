@@ -22,6 +22,9 @@ import {
   SongCard,
   TextArea,
   TextInput,
+  lightUiCyanPrimaryButtonClass,
+  lightUiDestructiveButtonClass,
+  lightUiSecondaryButtonClass,
 } from "@/components/planning-ui";
 import type { PersistFeedback } from "@/components/planning-ui";
 import {
@@ -7916,7 +7919,7 @@ export default function Home() {
                 {canManageEvents && (
                   <PrimaryButton
                     onClick={() => setActiveScreen("Settings")}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/10"
+                    className={lightUiSecondaryButtonClass}
                   >
                     Global Settings
                   </PrimaryButton>
@@ -7944,7 +7947,7 @@ export default function Home() {
                       setEventModalStatus(null);
                       setEventModalOpen(true);
                     }}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/10"
+                    className={lightUiCyanPrimaryButtonClass}
                   >
                     New Event
                   </PrimaryButton>
@@ -7987,7 +7990,7 @@ export default function Home() {
                           setEventModalStatus(null);
                           setEventModalOpen(true);
                         }}
-                        className="w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                        className={`w-full ${lightUiCyanPrimaryButtonClass} py-2.5 text-sm`}
                       >
                         Create Event
                       </PrimaryButton>
@@ -8229,16 +8232,16 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-3 p-4">
-                        <p className="line-clamp-2 text-xs text-zinc-400">{cardVenue}</p>
-                        <p className="text-[11px] text-zinc-500">
+                        <p className="line-clamp-2 text-xs text-stone-600">{cardVenue}</p>
+                        <p className="text-[11px] text-stone-600">
                           {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
                         </p>
                         <div>
-                          <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
+                          <div className="mb-1 flex items-center justify-between text-[11px] text-stone-600">
                             <span>Planning progress</span>
-                            <span className="font-semibold tabular-nums text-[#e9d5a8]">{cardProgress}%</span>
+                            <span className="font-semibold tabular-nums text-stone-800">{cardProgress}%</span>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
                             <div
                               className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
                               style={{ width: `${cardProgress}%` }}
@@ -8251,7 +8254,7 @@ export default function Home() {
                           onClick={() => {
                             switchToEvent(evt.id);
                           }}
-                          className="rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                          className={lightUiCyanPrimaryButtonClass}
                         >
                           Select
                         </PrimaryButton>
@@ -8282,14 +8285,14 @@ export default function Home() {
                               setEventModalStatus(null);
                               setEventModalOpen(true);
                             }}
-                            className="rounded-xl bg-white/5 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/10"
+                            className={lightUiSecondaryButtonClass}
                           >
                             Edit
                           </PrimaryButton>
                         ) : (
                           <PrimaryButton
                             onClick={() => switchToEvent(evt.id)}
-                            className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                            className={lightUiSecondaryButtonClass}
                           >
                             Open
                           </PrimaryButton>
@@ -8317,7 +8320,7 @@ export default function Home() {
                                 }
                               }
                             }}
-                            className="col-span-2 rounded-xl bg-[#6f5353]/40 px-3 py-2.5 text-xs font-semibold text-[#f2dede] hover:bg-[#6f5353]/55"
+                            className={`col-span-2 ${lightUiDestructiveButtonClass}`}
                           >
                             Delete
                           </PrimaryButton>
@@ -8343,7 +8346,7 @@ export default function Home() {
                               link,
                             });
                           }}
-                          className="w-full rounded-xl bg-[#00D4FF]/18 px-3 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-[#00D4FF]/28"
+                          className={`w-full ${lightUiCyanPrimaryButtonClass} py-2.5 text-[11px]`}
                         >
                           {COPY_INVITE_LINK_LABEL[cardProfile]}
                         </PrimaryButton>
@@ -8367,7 +8370,7 @@ export default function Home() {
                 setAppMode("events");
                 setActiveScreen("All Events");
               }}
-              className="w-full rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/10"
+              className={`w-full ${lightUiSecondaryButtonClass}`}
             >
               Back to All Events
             </PrimaryButton>

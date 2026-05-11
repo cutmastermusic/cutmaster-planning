@@ -144,6 +144,18 @@ export function PrimaryButton({
   );
 }
 
+/** Secondary control on white / stone-50 cards (workspace, All Events, admin). */
+export const lightUiSecondaryButtonClass =
+  "rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-stone-50 active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400/35 focus-visible:ring-offset-2";
+
+/** Brand primary on light surfaces: charcoal on solid cyan (readable on mobile). */
+export const lightUiCyanPrimaryButtonClass =
+  "rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
+
+/** Destructive control on light surfaces. */
+export const lightUiDestructiveButtonClass =
+  "rounded-xl border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-950 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-rose-100/90 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/35 focus-visible:ring-offset-2";
+
 type EventHomeNavAction = {
   label: string;
   onClick: () => void;
