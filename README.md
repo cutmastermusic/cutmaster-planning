@@ -16,6 +16,8 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+**LAN / iPad / non-localhost dev:** `next.config.ts` adds this machine’s non-local IPv4 addresses to `allowedDevOrigins` so Next.js dev does not 403-block `/_next` requests (which otherwise leaves the app on the loading skeleton). If you still hit that, set `NEXT_DEV_ALLOWED_ORIGINS` to a comma-separated host list (no ports), or set `NEXT_DEV_DISABLE_LAN_ORIGINS=1` and configure origins manually. The dev script binds `--hostname 0.0.0.0` so the server accepts connections on your network interfaces.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

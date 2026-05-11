@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import {
   AppHeader,
   BottomNav,
@@ -107,7 +115,14 @@ import {
   readImageFileAsDataUrl,
   mainTimelineItemFromPreset,
   ceremonyTimelineItemFromPreset,
+  receptionTimelineHasClockOrderConflict,
+  sortTimelineItemsChronologically,
 } from "@/utils/planning";
+import {
+  redrawRunOfShowAnnotationCanvas,
+  runOfShowClientToContentCoords,
+  type RunOfShowAnnotationStroke,
+} from "@/lib/runOfShowAnnotations";
 import {
   computePlanningQuestionGroupCompletion,
   groupPlanningQuestionsBySection,
@@ -262,6 +277,72 @@ const EVENT_PACKET_SECTION_TOGGLE_ON =
   "w-full border border-stone-900/20 bg-[#00D4FF] text-stone-950 shadow-none hover:brightness-[1.02]";
 const EVENT_PACKET_SECTION_TOGGLE_OFF =
   "w-full border border-stone-300 bg-white text-stone-700 shadow-none hover:border-stone-400 hover:bg-stone-50 hover:text-stone-900";
+
+const TIMELINE_DRAG_EDGE_PX = 76;
+const TIMELINE_DRAG_SCROLL_STEP = 18;
+
+/** Nearest vertical scroll container (including `start`) for timeline drag auto-scroll. */
+function findVerticalScrollContainer(start: HTMLElement | null): HTMLElement | null {
+  if (typeof document === "undefined" || !start) return null;
+  let el: HTMLElement | null = start;
+  while (el) {
+    const { overflowY } = window.getComputedStyle(el);
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      el.scrollHeight > el.clientHeight + 2
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+/** First names for Run Of Show headline (e.g. "Alex + Jordan") from stored couple / client string. */
+function formatRunOfShowCoupleFirstNames(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const firstToken = (segment: string) => {
+    const t = segment.trim();
+    if (!t) return "";
+    const word = t.split(/\s+/).find((w) => /[A-Za-z0-9]/.test(w)) ?? t;
+    return word.replace(/^[^A-Za-z0-9]+/, "").replace(/[^A-Za-z0-9'-]+$/, "");
+  };
+  const parts = trimmed
+    .split(/\s*(?:&|\+|\/|,|\||\band\b)\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    const a = firstToken(parts[0]);
+    const b = firstToken(parts[1]);
+    if (a && b) return `${a} + ${b}`;
+  }
+  const one = firstToken(parts[0] ?? trimmed);
+  return one || null;
+}
+
+/** Run Of Show header accent (subtle chrome only); swap when white-label themes ship. */
+const DEFAULT_RUN_OF_SHOW_BRAND_ACCENT = "#00D4FF";
+
+/** Run Of Show live view: collapse key for the ceremony moment list (not persisted planning data). */
+const RUN_OF_SHOW_CEREMONY_SECTION_ID = "ros:ceremony";
+
+function autoScrollForDragClientY(clientY: number, scrollContainer: HTMLElement | null): void {
+  if (typeof window === "undefined") return;
+  if (scrollContainer) {
+    const r = scrollContainer.getBoundingClientRect();
+    if (clientY < r.top + TIMELINE_DRAG_EDGE_PX) {
+      scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - TIMELINE_DRAG_SCROLL_STEP);
+    } else if (clientY > r.bottom - TIMELINE_DRAG_EDGE_PX) {
+      const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+      scrollContainer.scrollTop = Math.min(maxScroll, scrollContainer.scrollTop + TIMELINE_DRAG_SCROLL_STEP);
+    }
+  } else if (clientY < TIMELINE_DRAG_EDGE_PX) {
+    window.scrollBy({ top: -TIMELINE_DRAG_SCROLL_STEP, left: 0, behavior: "auto" });
+  } else if (clientY > window.innerHeight - TIMELINE_DRAG_EDGE_PX) {
+    window.scrollBy({ top: TIMELINE_DRAG_SCROLL_STEP, left: 0, behavior: "auto" });
+  }
+}
 
 type EventLayoutProfile =
   | "Wedding"
@@ -1151,10 +1232,39 @@ export default function Home() {
   const [editingTimelineId, setEditingTimelineId] = useState<string | null>(null);
   const [draggingTimelineId, setDraggingTimelineId] = useState<string | null>(null);
   const [dropTargetTimelineId, setDropTargetTimelineId] = useState<string | null>(null);
+  const dropTargetTimelineIdRef = useRef<string | null>(null);
+  const touchDragTimelineSourceRef = useRef<string | null>(null);
   /** Reception/main timeline: collapsed summary vs expanded inline edit */
   const [receptionTimelineExpandedId, setReceptionTimelineExpandedId] = useState<string | null>(null);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
+  /** Event Document: distraction-free live execution view (same timeline order as packet). */
+  const [runOfShowOpen, setRunOfShowOpen] = useState(false);
+  const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
+  /** Live execution only: per-moment done flags (localStorage), never synced to planning timeline. */
+  const [runOfShowDoneKeys, setRunOfShowDoneKeys] = useState<Set<string>>(() => new Set());
+  /**
+   * Sections that are still all-done but the operator chose to expand again (prevents immediate
+   * re-collapse until at least one moment in that section is marked not done).
+   */
+  const [runOfShowUserExpandedWhileCompleteIds, setRunOfShowUserExpandedWhileCompleteIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const runOfShowScrollRef = useRef<HTMLElement | null>(null);
+  /** Whether the current Up Next timeline row intersects the Run Of Show scroll viewport (for floating cue). */
+  const [runOfShowUpNextRowInView, setRunOfShowUpNextRowInView] = useState(true);
+  /** Apple Pencil / touch ink layer over Run Of Show scroll area (local only). */
+  const [runOfShowAnnotateMode, setRunOfShowAnnotateMode] = useState(false);
+  const [runOfShowAnnotationStrokes, setRunOfShowAnnotationStrokes] = useState<RunOfShowAnnotationStroke[]>([]);
+  const [runOfShowAnnotationCanvasSize, setRunOfShowAnnotationCanvasSize] = useState({ w: 0, h: 0 });
+  const runOfShowAnnotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const runOfShowAnnotationInProgressRef = useRef<{ x: number; y: number }[] | null>(null);
+  const runOfShowAnnotationStrokesRef = useRef<RunOfShowAnnotationStroke[]>([]);
+  const runOfShowAnnotationCanvasSizeRef = useRef({ w: 0, h: 0 });
+  const runOfShowAnnotationPersistTimerRef = useRef<number | null>(null);
+  const runOfShowAnnotationPointerRafRef = useRef<number | null>(null);
+  runOfShowAnnotationStrokesRef.current = runOfShowAnnotationStrokes;
+  runOfShowAnnotationCanvasSizeRef.current = runOfShowAnnotationCanvasSize;
   const [weddingPartyProcessional, setWeddingPartyProcessional] = useState<CeremonySongPlan>(
     initialWeddingPartyProcessional,
   );
@@ -1376,6 +1486,12 @@ export default function Home() {
   const [ceremonyTimelineDraftNeedsAttention, setCeremonyTimelineDraftNeedsAttention] = useState(false);
   const [draggingCeremonyTimelineId, setDraggingCeremonyTimelineId] = useState<string | null>(null);
   const [dropTargetCeremonyTimelineId, setDropTargetCeremonyTimelineId] = useState<string | null>(null);
+  const dropTargetCeremonyTimelineIdRef = useRef<string | null>(null);
+  const touchDragCeremonyTimelineSourceRef = useRef<string | null>(null);
+  const reorderTimelineItemToTargetRef = useRef<(itemId: string, targetId: string) => void>(() => {});
+  const reorderCeremonyTimelineItemToTargetRef = useRef<(itemId: string, targetId: string) => void>(
+    () => {},
+  );
 
   const commitActiveEventPlanningToEventsState = useCallback(() => {
     setEvents((prev) =>
@@ -2446,6 +2562,10 @@ export default function Home() {
       100,
   );
   const isCoupleView = effectiveRole === "Couple";
+  /** Run Of Show is operator-facing only — not for couple/client packet review. */
+  const canAccessRunOfShow = effectiveRole !== "Couple";
+  /** Couple role cannot see ROS UI; keeps scroll lock off if `runOfShowOpen` is stale. */
+  const runOfShowOverlayActive = runOfShowOpen && canAccessRunOfShow;
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
   /** Same resolution as {@link AppHeader} — Cutmaster default is `/cmm-logo-white.png` (light artwork). */
   const resolvedDocLogoSrc = useMemo(() => {
@@ -2457,6 +2577,56 @@ export default function Home() {
   const coupleDisplayName = eventSettings.coupleNames || weddingDetails.couple;
   const eventDateDisplay = eventSettings.weddingDate || weddingDetails.date || "TBD";
   const eventVenueDisplay = eventSettings.venue || weddingDetails.venue || "TBD";
+
+  const runOfShowHeadline = useMemo(() => {
+    const weddingLike =
+      layoutProfileForActiveEvent === "Wedding" ||
+      layoutProfileForActiveEvent === "Gender-Neutral Wedding";
+    if (weddingLike) {
+      const fromCouple = formatRunOfShowCoupleFirstNames(
+        eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "",
+      );
+      if (fromCouple) return fromCouple;
+      return (
+        eventSettings.eventName?.trim() ||
+        weddingDetails.couple?.trim() ||
+        eventDisplayName ||
+        "Event"
+      );
+    }
+    return (
+      eventSettings.eventName?.trim() ||
+      weddingDetails.couple?.trim() ||
+      eventDisplayName ||
+      "Event"
+    );
+  }, [
+    layoutProfileForActiveEvent,
+    eventSettings.coupleNames,
+    eventSettings.eventName,
+    weddingDetails.couple,
+    eventDisplayName,
+  ]);
+
+  const runOfShowSubline = useMemo(() => {
+    const bits: string[] = ["Run Of Show"];
+    const date = (eventSettings.weddingDate || weddingDetails.date || "").trim();
+    const venue = (eventSettings.venue || weddingDetails.venue || "").trim();
+    if (date && date !== "TBD") bits.push(date);
+    if (venue && venue !== "TBD") bits.push(venue);
+    return bits.join(" · ");
+  }, [eventSettings.weddingDate, eventSettings.venue, weddingDetails.date, weddingDetails.venue]);
+
+  /** White-label: drive from `appSettings` today; later replace with tenant brand config object. */
+  const runOfShowHeaderBrand = useMemo(
+    () => ({
+      companyName: appSettings.companyName?.trim() || "Cutmaster Music",
+      logoSrc: resolvedDocLogoSrc,
+      brandAccentColor: DEFAULT_RUN_OF_SHOW_BRAND_ACCENT,
+    }),
+    [appSettings.companyName, resolvedDocLogoSrc],
+  );
+
   const parsedWeddingDate = eventDateDisplay && eventDateDisplay !== "TBD" ? new Date(eventDateDisplay) : null;
   const hasValidWeddingDate = Boolean(parsedWeddingDate && !Number.isNaN(parsedWeddingDate.getTime()));
   const safeWeddingTimestamp = hasValidWeddingDate && parsedWeddingDate ? parsedWeddingDate.getTime() : null;
@@ -3937,6 +4107,9 @@ export default function Home() {
 
   const EVENTS_STORAGE_KEY = "cutmaster_planning_events_v1";
   const GLOBAL_SETTINGS_STORAGE_KEY = "cutmaster_planning_global_settings_v1";
+  const RUN_OF_SHOW_DONE_STORAGE_KEY = "cutmaster_run_of_show_done_v1";
+  const RUN_OF_SHOW_SECTION_UI_STORAGE_KEY = "cutmaster_run_of_show_section_ui_v1";
+  const RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY = "cutmaster_run_of_show_annotations_v1";
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -5003,6 +5176,12 @@ export default function Home() {
     pushNotification("Timeline updated", "timeline_updated");
   };
 
+  const sortReceptionTimelineByEnteredTime = () => {
+    if (!canEditTimeline) return;
+    setTimelineItems((prev) => sortTimelineItemsChronologically(prev));
+    logActivity("timeline_updated", "Sorted reception timeline by entered time");
+  };
+
   const duplicateTimelineItem = (item: TimelineItem) => {
     const duplicate: TimelineItem = {
       ...item,
@@ -5176,6 +5355,141 @@ export default function Home() {
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
 
+  reorderTimelineItemToTargetRef.current = reorderTimelineItemToTarget;
+  reorderCeremonyTimelineItemToTargetRef.current = reorderCeremonyTimelineItemToTarget;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!draggingTimelineId) return;
+    if (touchDragTimelineSourceRef.current) return;
+
+    const onDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      autoScrollForDragClientY(
+        event.clientY,
+        findVerticalScrollContainer(timelineStreamRef.current),
+      );
+    };
+
+    window.addEventListener("dragover", onDragOver);
+    return () => window.removeEventListener("dragover", onDragOver);
+  }, [draggingTimelineId]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!draggingTimelineId) return;
+    if (!touchDragTimelineSourceRef.current) return;
+    if (!canEditTimeline) return;
+
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      autoScrollForDragClientY(
+        touch.clientY,
+        findVerticalScrollContainer(timelineStreamRef.current),
+      );
+      const over = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = over?.closest("[data-timeline-id]") as HTMLElement | null;
+      const id = row?.dataset.timelineId ?? null;
+      const src = touchDragTimelineSourceRef.current;
+      if (id && src && id !== src) {
+        dropTargetTimelineIdRef.current = id;
+        setDropTargetTimelineId(id);
+      } else if (!id) {
+        dropTargetTimelineIdRef.current = null;
+        setDropTargetTimelineId(null);
+      }
+      event.preventDefault();
+    };
+
+    const finish = () => {
+      const src = touchDragTimelineSourceRef.current;
+      const tgt = dropTargetTimelineIdRef.current;
+      touchDragTimelineSourceRef.current = null;
+      dropTargetTimelineIdRef.current = null;
+      setDraggingTimelineId(null);
+      setDropTargetTimelineId(null);
+      if (src && tgt && src !== tgt) {
+        reorderTimelineItemToTargetRef.current(src, tgt);
+      }
+    };
+
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", finish, true);
+    document.addEventListener("touchcancel", finish, true);
+    return () => {
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", finish, true);
+      document.removeEventListener("touchcancel", finish, true);
+    };
+  }, [draggingTimelineId, canEditTimeline]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!draggingCeremonyTimelineId) return;
+    if (touchDragCeremonyTimelineSourceRef.current) return;
+
+    const onDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      autoScrollForDragClientY(
+        event.clientY,
+        findVerticalScrollContainer(ceremonyTimelineStreamRef.current),
+      );
+    };
+
+    window.addEventListener("dragover", onDragOver);
+    return () => window.removeEventListener("dragover", onDragOver);
+  }, [draggingCeremonyTimelineId]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!draggingCeremonyTimelineId) return;
+    if (!touchDragCeremonyTimelineSourceRef.current) return;
+    if (!canEditTimeline) return;
+
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      autoScrollForDragClientY(
+        touch.clientY,
+        findVerticalScrollContainer(ceremonyTimelineStreamRef.current),
+      );
+      const over = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = over?.closest("[data-ceremony-timeline-id]") as HTMLElement | null;
+      const id = row?.dataset.ceremonyTimelineId ?? null;
+      const src = touchDragCeremonyTimelineSourceRef.current;
+      if (id && src && id !== src) {
+        dropTargetCeremonyTimelineIdRef.current = id;
+        setDropTargetCeremonyTimelineId(id);
+      } else if (!id) {
+        dropTargetCeremonyTimelineIdRef.current = null;
+        setDropTargetCeremonyTimelineId(null);
+      }
+      event.preventDefault();
+    };
+
+    const finish = () => {
+      const src = touchDragCeremonyTimelineSourceRef.current;
+      const tgt = dropTargetCeremonyTimelineIdRef.current;
+      touchDragCeremonyTimelineSourceRef.current = null;
+      dropTargetCeremonyTimelineIdRef.current = null;
+      setDraggingCeremonyTimelineId(null);
+      setDropTargetCeremonyTimelineId(null);
+      if (src && tgt && src !== tgt) {
+        reorderCeremonyTimelineItemToTargetRef.current(src, tgt);
+      }
+    };
+
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", finish, true);
+    document.addEventListener("touchcancel", finish, true);
+    return () => {
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", finish, true);
+      document.removeEventListener("touchcancel", finish, true);
+    };
+  }, [draggingCeremonyTimelineId, canEditTimeline]);
+
   const updateCollaboratorsForActiveEvent = (
     updater: (current: Collaborator[]) => Collaborator[],
   ) => {
@@ -5207,6 +5521,147 @@ export default function Home() {
     [timelineItems],
   );
 
+  /** Reception/main timeline: consecutive rows with the same category form one collapsible phase in Run Of Show. */
+  const runOfShowReceptionPhaseGroups = useMemo(() => {
+    type Phase = { id: string; category: TimelineCategory; items: DisplayTimelineItem[] };
+    const groups: Phase[] = [];
+    for (const item of mergedTimelineItems) {
+      const tail = groups[groups.length - 1];
+      if (tail && tail.category === item.category) {
+        tail.items.push(item);
+      } else {
+        groups.push({ id: `ros:recv:${item.id}`, category: item.category, items: [item] });
+      }
+    }
+    return groups;
+  }, [mergedTimelineItems]);
+
+  const runOfShowCeremonyAllMomentsDone = useMemo(
+    () =>
+      sectionCeremonyEnabled &&
+      ceremonyTimelineItems.length > 0 &&
+      ceremonyTimelineItems.every((item) => runOfShowDoneKeys.has(`c:${item.id}`)),
+    [sectionCeremonyEnabled, ceremonyTimelineItems, runOfShowDoneKeys],
+  );
+
+  /** Ceremony (if enabled) then reception — matches on-screen Run Of Show order. */
+  const runOfShowOrderedSteps = useMemo(() => {
+    const steps: { key: string; title: string }[] = [];
+    if (sectionCeremonyEnabled) {
+      ceremonyTimelineItems.forEach((item) => {
+        steps.push({
+          key: `c:${item.id}`,
+          title: item.moment?.trim() || "Untitled moment",
+        });
+      });
+    }
+    if (sectionReceptionTimelineEnabled) {
+      mergedTimelineItems.forEach((item) => {
+        steps.push({
+          key: `r:${item.id}`,
+          title: item.title?.trim() || "Untitled moment",
+        });
+      });
+    }
+    return steps;
+  }, [
+    sectionCeremonyEnabled,
+    sectionReceptionTimelineEnabled,
+    ceremonyTimelineItems,
+    mergedTimelineItems,
+  ]);
+
+  const runOfShowUpNextMeta = useMemo(() => {
+    const steps = runOfShowOrderedSteps;
+    if (steps.length === 0) return { banner: "none" as const, upNextKey: null as string | null };
+    const firstUndone = steps.find((s) => !runOfShowDoneKeys.has(s.key));
+    if (!firstUndone) return { banner: "complete" as const, upNextKey: null as string | null };
+    return {
+      banner: "upNext" as const,
+      upNextKey: firstUndone.key,
+      upNextTitle: firstUndone.title,
+    };
+  }, [runOfShowOrderedSteps, runOfShowDoneKeys]);
+
+  /** Concise copy for the contextual floating Up Next cue (not the sticky header). */
+  const runOfShowUpNextCueDetail = useMemo(() => {
+    if (runOfShowUpNextMeta.banner !== "upNext" || !runOfShowUpNextMeta.upNextKey) return null;
+    const key = runOfShowUpNextMeta.upNextKey;
+    if (key.startsWith("c:")) {
+      const id = key.slice(2);
+      const item = ceremonyTimelineItems.find((row) => row.id === id);
+      if (!item) return null;
+      const song = [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" - ");
+      const time = item.timeOrOrder?.trim();
+      const subline = song || time || undefined;
+      return { title: item.moment?.trim() || "Untitled moment", subline };
+    }
+    if (key.startsWith("r:")) {
+      const id = key.slice(2);
+      const item = mergedTimelineItems.find((row) => row.id === id);
+      if (!item) return null;
+      const song = [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" - ");
+      const time = item.time?.trim();
+      const subline = song || time || undefined;
+      return { title: item.title?.trim() || "Untitled moment", subline };
+    }
+    return null;
+  }, [runOfShowUpNextMeta, ceremonyTimelineItems, mergedTimelineItems]);
+
+  useLayoutEffect(() => {
+    if (!runOfShowOverlayActive) {
+      window.setTimeout(() => setRunOfShowUpNextRowInView(true), 0);
+      return;
+    }
+    if (runOfShowUpNextMeta.banner !== "upNext") {
+      window.setTimeout(() => setRunOfShowUpNextRowInView(true), 0);
+      return;
+    }
+    const root = runOfShowScrollRef.current;
+    const target = root?.querySelector<HTMLElement>("[data-run-of-show-up-next]");
+    if (!root || !target) {
+      window.setTimeout(() => setRunOfShowUpNextRowInView(true), 0);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        setRunOfShowUpNextRowInView(entry.isIntersecting);
+      },
+      { root, threshold: 0.1, rootMargin: "-10px 0px -28px 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [runOfShowOverlayActive, runOfShowUpNextMeta, runOfShowUpNextCueDetail]);
+
+  const receptionTimelineClockOrderConflict = useMemo(
+    () => receptionTimelineHasClockOrderConflict(timelineItems),
+    [timelineItems],
+  );
+
+  useEffect(() => {
+    if (!runOfShowOverlayActive) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [runOfShowOverlayActive]);
+
+  useEffect(() => {
+    if (activeScreen === "Event Prep" && appMode === "event") return;
+    const t = window.setTimeout(() => setRunOfShowOpen(false), 0);
+    return () => window.clearTimeout(t);
+  }, [activeScreen, appMode]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const syncFs = () => setRunOfShowIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", syncFs);
+    return () => document.removeEventListener("fullscreenchange", syncFs);
+  }, []);
+
   const showTimelinePresetOnboarding =
     mergedTimelineItems.length === 0 && ceremonyTimelineItems.length === 0;
   const hasAnyTimelinePresetTools =
@@ -5214,6 +5669,7 @@ export default function Home() {
 
   const ceremonyTimelineRows = useMemo(() => {
     return ceremonyTimelineItems.map((item) => ({
+      id: item.id,
       order: item.timeOrOrder?.trim() ?? "",
       moment: item.moment || "Untitled Moment",
       song: [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" - ") ?? "",
@@ -5807,6 +6263,401 @@ export default function Home() {
     () => ({ phase: persistPhase, hasBaseline: persistBaseline }),
     [persistPhase, persistBaseline],
   );
+
+  const closeRunOfShow = useCallback(() => {
+    setRunOfShowOpen(false);
+    setRunOfShowAnnotateMode(false);
+    runOfShowAnnotationInProgressRef.current = null;
+    if (typeof document !== "undefined" && document.fullscreenElement) {
+      void document.exitFullscreen();
+    }
+  }, []);
+
+  const scrollRunOfShowToUpNext = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const root = runOfShowScrollRef.current;
+    const target = root?.querySelector<HTMLElement>("[data-run-of-show-up-next]");
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }, []);
+
+  const persistRunOfShowDoneKeys = useCallback(
+    (next: Set<string>) => {
+      if (typeof window === "undefined" || !activeEventId) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
+        const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+        map[activeEventId] = [...next];
+        window.localStorage.setItem(RUN_OF_SHOW_DONE_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        /* ignore corrupt storage */
+      }
+    },
+    [activeEventId],
+  );
+
+  const persistRunOfShowSectionUi = useCallback(
+    (expandedWhileComplete: Set<string>) => {
+      if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY);
+        const map = raw ? (JSON.parse(raw) as Record<string, { expandedWhileComplete?: string[] }>) : {};
+        map[activeEventId] = { expandedWhileComplete: [...expandedWhileComplete] };
+        window.localStorage.setItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        /* ignore corrupt storage */
+      }
+    },
+    [activeEventId, hasHydrated],
+  );
+
+  const persistRunOfShowAnnotations = useCallback(
+    (strokes: RunOfShowAnnotationStroke[]) => {
+      if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY);
+        const map = raw ? (JSON.parse(raw) as Record<string, RunOfShowAnnotationStroke[]>) : {};
+        map[activeEventId] = strokes;
+        window.localStorage.setItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        /* ignore quota / corrupt storage */
+      }
+    },
+    [activeEventId, hasHydrated],
+  );
+
+  const clearRunOfShowAnnotations = useCallback(() => {
+    if (runOfShowAnnotationPersistTimerRef.current) {
+      window.clearTimeout(runOfShowAnnotationPersistTimerRef.current);
+      runOfShowAnnotationPersistTimerRef.current = null;
+    }
+    setRunOfShowAnnotationStrokes([]);
+    persistRunOfShowAnnotations([]);
+  }, [persistRunOfShowAnnotations]);
+
+  const undoLastRunOfShowAnnotation = useCallback(() => {
+    setRunOfShowAnnotationStrokes((prev) => (prev.length === 0 ? prev : prev.slice(0, -1)));
+  }, []);
+
+  const toggleRunOfShowDoneKey = useCallback(
+    (key: string) => {
+      setRunOfShowDoneKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        persistRunOfShowDoneKeys(next);
+        return next;
+      });
+    },
+    [persistRunOfShowDoneKeys],
+  );
+
+  const markRunOfShowSectionUserExpanded = useCallback(
+    (sectionId: string) => {
+      setRunOfShowUserExpandedWhileCompleteIds((prev) => {
+        const next = new Set(prev);
+        next.add(sectionId);
+        persistRunOfShowSectionUi(next);
+        return next;
+      });
+    },
+    [persistRunOfShowSectionUi],
+  );
+
+  const collapseRunOfShowCompletedSection = useCallback(
+    (sectionId: string) => {
+      setRunOfShowUserExpandedWhileCompleteIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sectionId);
+        persistRunOfShowSectionUi(next);
+        return next;
+      });
+    },
+    [persistRunOfShowSectionUi],
+  );
+
+  const resetRunOfShowDone = useCallback(() => {
+    setRunOfShowDoneKeys(new Set());
+    setRunOfShowUserExpandedWhileCompleteIds(new Set());
+    setRunOfShowAnnotationStrokes([]);
+    if (typeof window === "undefined" || !activeEventId) return;
+    try {
+      const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
+      if (raw) {
+        const map = JSON.parse(raw) as Record<string, string[]>;
+        delete map[activeEventId];
+        window.localStorage.setItem(RUN_OF_SHOW_DONE_STORAGE_KEY, JSON.stringify(map));
+      }
+      const rawSec = window.localStorage.getItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY);
+      if (rawSec) {
+        const mapSec = JSON.parse(rawSec) as Record<string, { expandedWhileComplete?: string[] }>;
+        delete mapSec[activeEventId];
+        window.localStorage.setItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY, JSON.stringify(mapSec));
+      }
+      const rawAn = window.localStorage.getItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY);
+      if (rawAn) {
+        const mapAn = JSON.parse(rawAn) as Record<string, RunOfShowAnnotationStroke[]>;
+        delete mapAn[activeEventId];
+        window.localStorage.setItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY, JSON.stringify(mapAn));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [activeEventId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasHydrated || !activeEventId) return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
+        if (!raw) {
+          setRunOfShowDoneKeys(new Set());
+        } else {
+          const map = JSON.parse(raw) as Record<string, string[]>;
+          const keys = map[activeEventId];
+          setRunOfShowDoneKeys(new Set(Array.isArray(keys) ? keys : []));
+        }
+        const rawSec = window.localStorage.getItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY);
+        if (!rawSec) {
+          setRunOfShowUserExpandedWhileCompleteIds(new Set());
+        } else {
+          const mapSec = JSON.parse(rawSec) as Record<string, { expandedWhileComplete?: string[] }>;
+          const row = mapSec[activeEventId];
+          const expanded = row?.expandedWhileComplete;
+          setRunOfShowUserExpandedWhileCompleteIds(new Set(Array.isArray(expanded) ? expanded : []));
+        }
+        const rawAn = window.localStorage.getItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY);
+        if (!rawAn) {
+          setRunOfShowAnnotationStrokes([]);
+        } else {
+          const mapAn = JSON.parse(rawAn) as Record<string, RunOfShowAnnotationStroke[]>;
+          const ann = mapAn[activeEventId];
+          setRunOfShowAnnotationStrokes(
+            Array.isArray(ann)
+              ? ann.filter(
+                  (s) =>
+                    s &&
+                    Array.isArray(s.points) &&
+                    s.points.every((p) => typeof p.x === "number" && typeof p.y === "number"),
+                )
+              : [],
+          );
+        }
+      } catch {
+        setRunOfShowDoneKeys(new Set());
+        setRunOfShowUserExpandedWhileCompleteIds(new Set());
+        setRunOfShowAnnotationStrokes([]);
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [hasHydrated, activeEventId]);
+
+  useEffect(() => {
+    if (!hasHydrated || !activeEventId) return;
+    /** Run after the hydration load effect (timeout 0) so we prune the loaded expanded set, not an empty default. */
+    const t = window.setTimeout(() => {
+      setRunOfShowUserExpandedWhileCompleteIds((prev) => {
+        const validIds = new Set<string>([RUN_OF_SHOW_CEREMONY_SECTION_ID]);
+        for (const phase of runOfShowReceptionPhaseGroups) validIds.add(phase.id);
+        const filtered = new Set([...prev].filter((id) => validIds.has(id)));
+
+        const ceremonyAll =
+          sectionCeremonyEnabled &&
+          ceremonyTimelineItems.length > 0 &&
+          ceremonyTimelineItems.every((item) => runOfShowDoneKeys.has(`c:${item.id}`));
+        if (!ceremonyAll) filtered.delete(RUN_OF_SHOW_CEREMONY_SECTION_ID);
+
+        for (const phase of runOfShowReceptionPhaseGroups) {
+          const allDone = phase.items.every((item) => runOfShowDoneKeys.has(`r:${item.id}`));
+          if (!allDone) filtered.delete(phase.id);
+        }
+
+        if (filtered.size === prev.size && [...filtered].every((x) => prev.has(x))) return prev;
+        persistRunOfShowSectionUi(filtered);
+        return filtered;
+      });
+    }, 1);
+    return () => window.clearTimeout(t);
+  }, [
+    hasHydrated,
+    activeEventId,
+    runOfShowDoneKeys,
+    runOfShowReceptionPhaseGroups,
+    ceremonyTimelineItems,
+    sectionCeremonyEnabled,
+    persistRunOfShowSectionUi,
+  ]);
+
+  useEffect(() => {
+    if (canAccessRunOfShow) return;
+    const t = window.setTimeout(() => setRunOfShowOpen(false), 0);
+    return () => window.clearTimeout(t);
+  }, [canAccessRunOfShow]);
+
+  useEffect(() => {
+    if (!runOfShowAnnotateMode) {
+      runOfShowAnnotationInProgressRef.current = null;
+    }
+  }, [runOfShowAnnotateMode]);
+
+  useEffect(() => {
+    if (runOfShowAnnotationPersistTimerRef.current) {
+      window.clearTimeout(runOfShowAnnotationPersistTimerRef.current);
+      runOfShowAnnotationPersistTimerRef.current = null;
+    }
+    if (!hasHydrated || !activeEventId) return;
+    runOfShowAnnotationPersistTimerRef.current = window.setTimeout(() => {
+      persistRunOfShowAnnotations(runOfShowAnnotationStrokes);
+      runOfShowAnnotationPersistTimerRef.current = null;
+    }, 450);
+    return () => {
+      if (runOfShowAnnotationPersistTimerRef.current) {
+        window.clearTimeout(runOfShowAnnotationPersistTimerRef.current);
+        runOfShowAnnotationPersistTimerRef.current = null;
+      }
+    };
+  }, [runOfShowAnnotationStrokes, hasHydrated, activeEventId, persistRunOfShowAnnotations]);
+
+  useLayoutEffect(() => {
+    if (!runOfShowOverlayActive) return;
+    const main = runOfShowScrollRef.current;
+    if (!main) return;
+    const inner = main.querySelector<HTMLElement>("[data-run-of-show-inner]");
+    const measure = () => {
+      const w = main.clientWidth;
+      const h = Math.max(main.scrollHeight, main.clientHeight);
+      runOfShowAnnotationCanvasSizeRef.current = { w, h };
+      setRunOfShowAnnotationCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(main);
+    if (inner) ro.observe(inner);
+    main.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      ro.disconnect();
+      main.removeEventListener("scroll", measure);
+    };
+  }, [runOfShowOverlayActive]);
+
+  useEffect(() => {
+    if (!runOfShowOverlayActive) return;
+    const canvas = runOfShowAnnotationCanvasRef.current;
+    if (!canvas || runOfShowAnnotationCanvasSize.w <= 0 || runOfShowAnnotationCanvasSize.h <= 0) return;
+    redrawRunOfShowAnnotationCanvas(
+      canvas,
+      runOfShowAnnotationStrokes,
+      null,
+      runOfShowAnnotationCanvasSize.w,
+      runOfShowAnnotationCanvasSize.h,
+    );
+  }, [
+    runOfShowOverlayActive,
+    runOfShowAnnotationStrokes,
+    runOfShowAnnotationCanvasSize.w,
+    runOfShowAnnotationCanvasSize.h,
+  ]);
+
+  useEffect(() => {
+    if (!runOfShowOverlayActive || !runOfShowAnnotateMode) return;
+    const canvas = runOfShowAnnotationCanvasRef.current;
+    const main = runOfShowScrollRef.current;
+    if (!canvas || !main) return;
+
+    const scheduleFlush = () => {
+      if (runOfShowAnnotationPointerRafRef.current != null) return;
+      runOfShowAnnotationPointerRafRef.current = window.requestAnimationFrame(() => {
+        runOfShowAnnotationPointerRafRef.current = null;
+        const c = runOfShowAnnotationCanvasRef.current;
+        if (!c) return;
+        redrawRunOfShowAnnotationCanvas(
+          c,
+          runOfShowAnnotationStrokesRef.current,
+          runOfShowAnnotationInProgressRef.current,
+          runOfShowAnnotationCanvasSizeRef.current.w,
+          runOfShowAnnotationCanvasSizeRef.current.h,
+        );
+      });
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (e.pointerType !== "mouse" && e.pointerType !== "pen" && e.pointerType !== "touch") return;
+      e.preventDefault();
+      runOfShowAnnotationInProgressRef.current = [
+        runOfShowClientToContentCoords(e.clientX, e.clientY, main),
+      ];
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      scheduleFlush();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!runOfShowAnnotationInProgressRef.current) return;
+      if (e.cancelable) e.preventDefault();
+      runOfShowAnnotationInProgressRef.current.push(
+        runOfShowClientToContentCoords(e.clientX, e.clientY, main),
+      );
+      scheduleFlush();
+    };
+
+    const finishStroke = (e: PointerEvent) => {
+      const stroke = runOfShowAnnotationInProgressRef.current;
+      runOfShowAnnotationInProgressRef.current = null;
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      if (stroke && stroke.length > 0) {
+        setRunOfShowAnnotationStrokes((prev) => [...prev, { points: stroke }]);
+      }
+      scheduleFlush();
+    };
+
+    canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+    canvas.addEventListener("pointermove", onPointerMove, { passive: false });
+    canvas.addEventListener("pointerup", finishStroke);
+    canvas.addEventListener("pointercancel", finishStroke);
+
+    return () => {
+      if (runOfShowAnnotationPointerRafRef.current != null) {
+        window.cancelAnimationFrame(runOfShowAnnotationPointerRafRef.current);
+        runOfShowAnnotationPointerRafRef.current = null;
+      }
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", finishStroke);
+      canvas.removeEventListener("pointercancel", finishStroke);
+    };
+  }, [runOfShowOverlayActive, runOfShowAnnotateMode]);
+
+  const toggleRunOfShowFullscreen = useCallback(async () => {
+    if (typeof document === "undefined") return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      // Unsupported or denied — ignore.
+    }
+  }, []);
 
   const copyLiveEventText = async () => {
     try {
@@ -9156,7 +10007,31 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <div ref={timelineStreamRef} className="min-w-0 space-y-5 sm:space-y-4 md:space-y-3">
+            {mergedTimelineItems.length > 0 && receptionTimelineClockOrderConflict ? (
+              <div className="no-print rounded-xl border border-stone-300 bg-stone-50/90 px-4 py-3 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-900">
+                    Timeline order doesn&apos;t match entered times.
+                  </p>
+                  <p className="mt-1 text-xs leading-snug text-stone-600">
+                    Review timing or re-sort chronologically.
+                  </p>
+                </div>
+                <PrimaryButton
+                  type="button"
+                  disabled={!canEditTimeline}
+                  onClick={sortReceptionTimelineByEnteredTime}
+                  className="mt-3 w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:mt-0 sm:w-auto sm:shrink-0 sm:py-2"
+                >
+                  Sort by Time
+                </PrimaryButton>
+              </div>
+            ) : null}
+
+            <div
+              ref={timelineStreamRef}
+              className="min-w-0 max-h-[min(72dvh,52rem)] space-y-5 overflow-x-hidden overflow-y-auto overscroll-y-contain sm:space-y-4 md:space-y-3"
+            >
             {mergedTimelineItems.length === 0 ? (
               showTimelinePresetOnboarding ? null : (
                 <SectionEmptyState
@@ -9211,7 +10086,10 @@ export default function Home() {
                   onDragOver={(event) => {
                     if (!canEditTimeline || !draggingTimelineId) return;
                     event.preventDefault();
-                    if (draggingTimelineId !== item.id) setDropTargetTimelineId(item.id);
+                    if (draggingTimelineId !== item.id) {
+                      dropTargetTimelineIdRef.current = item.id;
+                      setDropTargetTimelineId(item.id);
+                    }
                   }}
                   onDrop={(event) => {
                     event.preventDefault();
@@ -9219,30 +10097,14 @@ export default function Home() {
                     reorderTimelineItemToTarget(draggingTimelineId, item.id);
                     setDraggingTimelineId(null);
                     setDropTargetTimelineId(null);
+                    dropTargetTimelineIdRef.current = null;
+                    touchDragTimelineSourceRef.current = null;
                   }}
                   onDragEnd={() => {
                     setDraggingTimelineId(null);
                     setDropTargetTimelineId(null);
-                  }}
-                  onTouchMove={(event) => {
-                    if (!canEditTimeline || !draggingTimelineId) return;
-                    event.preventDefault();
-                    const touch = event.touches[0];
-                    if (!touch) return;
-                    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
-                    const card = targetElement?.closest("[data-timeline-id]") as HTMLElement | null;
-                    const targetId = card?.dataset.timelineId;
-                    if (targetId && targetId !== draggingTimelineId) setDropTargetTimelineId(targetId);
-                  }}
-                  onTouchEnd={() => {
-                    if (!canEditTimeline || !draggingTimelineId || !dropTargetTimelineId) {
-                      setDraggingTimelineId(null);
-                      setDropTargetTimelineId(null);
-                      return;
-                    }
-                    reorderTimelineItemToTarget(draggingTimelineId, dropTargetTimelineId);
-                    setDraggingTimelineId(null);
-                    setDropTargetTimelineId(null);
+                    dropTargetTimelineIdRef.current = null;
+                    touchDragTimelineSourceRef.current = null;
                   }}
                   data-timeline-id={item.id}
                 >
@@ -9588,16 +10450,19 @@ export default function Home() {
                       draggable={canEditTimeline}
                       onDragStart={(event) => {
                         if (!canEditTimeline) return;
+                        touchDragTimelineSourceRef.current = null;
                         event.dataTransfer.effectAllowed = "move";
                         setDraggingTimelineId(item.id);
                       }}
                       onDragEnd={() => {
                         setDraggingTimelineId(null);
                         setDropTargetTimelineId(null);
+                        dropTargetTimelineIdRef.current = null;
+                        touchDragTimelineSourceRef.current = null;
                       }}
-                      onTouchStart={(event) => {
+                      onTouchStart={() => {
                         if (!canEditTimeline) return;
-                        event.preventDefault();
+                        touchDragTimelineSourceRef.current = item.id;
                         setDraggingTimelineId(item.id);
                       }}
                       className="inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem]"
@@ -10229,7 +11094,10 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <div ref={ceremonyTimelineStreamRef} className="min-w-0 space-y-5 sm:space-y-4 md:space-y-3">
+            <div
+              ref={ceremonyTimelineStreamRef}
+              className="min-w-0 max-h-[min(72dvh,52rem)] space-y-5 overflow-x-hidden overflow-y-auto overscroll-y-contain sm:space-y-4 md:space-y-3"
+            >
               {ceremonyTimelineItems.length === 0 ? (
                 <SectionEmptyState
                   title="No ceremony moments yet"
@@ -10262,6 +11130,7 @@ export default function Home() {
                         if (!canEditTimeline || !draggingCeremonyTimelineId) return;
                         event.preventDefault();
                         if (draggingCeremonyTimelineId !== item.id) {
+                          dropTargetCeremonyTimelineIdRef.current = item.id;
                           setDropTargetCeremonyTimelineId(item.id);
                         }
                       }}
@@ -10271,37 +11140,14 @@ export default function Home() {
                         reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
                         setDraggingCeremonyTimelineId(null);
                         setDropTargetCeremonyTimelineId(null);
+                        dropTargetCeremonyTimelineIdRef.current = null;
+                        touchDragCeremonyTimelineSourceRef.current = null;
                       }}
                       onDragEnd={() => {
                         setDraggingCeremonyTimelineId(null);
                         setDropTargetCeremonyTimelineId(null);
-                      }}
-                      onTouchMove={(event) => {
-                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
-                        event.preventDefault();
-                        const touch = event.touches[0];
-                        if (!touch) return;
-                        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
-                        const card = targetElement?.closest(
-                          "[data-ceremony-timeline-id]",
-                        ) as HTMLElement | null;
-                        const targetId = card?.dataset.ceremonyTimelineId;
-                        if (targetId && targetId !== draggingCeremonyTimelineId) {
-                          setDropTargetCeremonyTimelineId(targetId);
-                        }
-                      }}
-                      onTouchEnd={() => {
-                        if (!canEditTimeline || !draggingCeremonyTimelineId || !dropTargetCeremonyTimelineId) {
-                          setDraggingCeremonyTimelineId(null);
-                          setDropTargetCeremonyTimelineId(null);
-                          return;
-                        }
-                        reorderCeremonyTimelineItemToTarget(
-                          draggingCeremonyTimelineId,
-                          dropTargetCeremonyTimelineId,
-                        );
-                        setDraggingCeremonyTimelineId(null);
-                        setDropTargetCeremonyTimelineId(null);
+                        dropTargetCeremonyTimelineIdRef.current = null;
+                        touchDragCeremonyTimelineSourceRef.current = null;
                       }}
                     >
                       {isDropTarget ? (
@@ -10485,16 +11331,19 @@ export default function Home() {
                           draggable={canEditTimeline}
                           onDragStart={(event) => {
                             if (!canEditTimeline) return;
+                            touchDragCeremonyTimelineSourceRef.current = null;
                             event.dataTransfer.effectAllowed = "move";
                             setDraggingCeremonyTimelineId(item.id);
                           }}
                           onDragEnd={() => {
                             setDraggingCeremonyTimelineId(null);
                             setDropTargetCeremonyTimelineId(null);
+                            dropTargetCeremonyTimelineIdRef.current = null;
+                            touchDragCeremonyTimelineSourceRef.current = null;
                           }}
-                          onTouchStart={(event) => {
+                          onTouchStart={() => {
                             if (!canEditTimeline) return;
-                            event.preventDefault();
+                            touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
                           className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
@@ -10792,23 +11641,36 @@ export default function Home() {
         {authStage === "app" && appMode === "event" && activeScreen === "Event Prep" && (
           <section className="mt-6 min-w-0 space-y-4 overflow-x-hidden print-doc sm:space-y-3">
             <EventHomeNav trail={["Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
-            <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3.5">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-800">
-                  Export packet
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:mt-1 sm:text-[11px] sm:leading-snug">
-                  Uses your browser print dialog—pick{" "}
-                  <span className="font-semibold text-stone-900">Save as PDF</span> when offered.
-                </p>
+            <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:px-5 sm:py-3.5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-800">
+                    Export packet
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:mt-1 sm:text-[11px] sm:leading-snug">
+                    Uses your browser print dialog—pick{" "}
+                    <span className="font-semibold text-stone-900">Save as PDF</span> when offered.
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-stretch sm:gap-2">
+                  {canAccessRunOfShow ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setRunOfShowOpen(true)}
+                      className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:border-stone-400 hover:bg-stone-50 sm:min-h-11 sm:min-w-[11rem]"
+                    >
+                      Enter Run Of Show
+                    </PrimaryButton>
+                  ) : null}
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-11 w-full border border-black bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:min-w-[12.5rem] sm:py-2.5"
+                  >
+                    Print / Save PDF
+                  </PrimaryButton>
+                </div>
               </div>
-              <PrimaryButton
-                type="button"
-                onClick={() => window.print()}
-                className="mt-4 min-h-12 w-full border border-black bg-[#00D4FF] px-5 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:mt-0 sm:min-h-11 sm:w-auto sm:min-w-[12.5rem] sm:py-2.5"
-              >
-                Print / Save PDF
-              </PrimaryButton>
             </div>
             <PremiumCard className="no-print border border-stone-200 bg-white py-4 shadow-none sm:py-3">
               <details className="group rounded-xl">
@@ -11146,8 +12008,8 @@ export default function Home() {
                               </td>
                             </tr>
                           ) : (
-                            ceremonyTimelineRows.map((row, index) => (
-                              <tr key={`live-ceremony-row-${index}-${row.moment}`}>
+                            ceremonyTimelineRows.map((row) => (
+                              <tr key={`live-ceremony-row-${row.id}`}>
                                 <td>{row.order}</td>
                                 <td>{row.moment}</td>
                                 <td>{row.song}</td>
@@ -12820,6 +13682,609 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {authStage === "app" &&
+        appMode === "event" &&
+        activeScreen === "Event Prep" &&
+        canAccessRunOfShow &&
+        runOfShowOpen && (
+          <div
+            className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
+            role="dialog"
+            aria-label="Run of show"
+          >
+            <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
+                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
+                  <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
+                    {runOfShowHeadline}
+                  </h2>
+                  <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
+                    {runOfShowSubline}
+                  </p>
+                  {runOfShowUpNextMeta.banner === "upNext" ? (
+                    <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
+                      Up Next:{" "}
+                      <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
+                    </p>
+                  ) : runOfShowUpNextMeta.banner === "complete" ? (
+                    <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
+                      Run Of Show complete
+                    </p>
+                  ) : null}
+                </div>
+                <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
+                  {/*
+                    White-label: this block is the Run Of Show brand slot — replace `runOfShowHeaderBrand`
+                    (or source from tenant config) so logo, companyName, and brandAccentColor stay swappable.
+                  */}
+                  <div
+                    className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
+                    style={{
+                      borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={runOfShowHeaderBrand.logoSrc}
+                      alt=""
+                      className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
+                    />
+                    <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
+                      {runOfShowHeaderBrand.companyName}
+                    </p>
+                    <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
+                      {runOfShowHeaderBrand.companyName}
+                    </p>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setRunOfShowAnnotateMode((v) => !v)}
+                      className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${
+                        runOfShowAnnotateMode
+                          ? "border-stone-800 bg-stone-900 text-white shadow-sm"
+                          : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                      }`}
+                      aria-pressed={runOfShowAnnotateMode}
+                    >
+                      {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
+                    </button>
+                    {runOfShowAnnotateMode ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={clearRunOfShowAnnotations}
+                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={undoLastRunOfShowAnnotation}
+                          disabled={runOfShowAnnotationStrokes.length === 0}
+                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Undo
+                        </button>
+                      </>
+                    ) : null}
+                    {typeof document !== "undefined" && document.fullscreenEnabled ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => void toggleRunOfShowFullscreen()}
+                        className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                      >
+                        {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                      </PrimaryButton>
+                    ) : null}
+                    <PrimaryButton
+                      type="button"
+                      onClick={closeRunOfShow}
+                      className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                    >
+                      Exit Run Of Show
+                    </PrimaryButton>
+                    <button
+                      type="button"
+                      onClick={resetRunOfShowDone}
+                      className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
+                    >
+                      Reset Run Of Show
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <main
+              ref={runOfShowScrollRef}
+              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
+            >
+              <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
+                {sectionCeremonyEnabled ? (
+                  <section className="mb-14 sm:mb-16">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Ceremony
+                    </h3>
+                    <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
+                      <p>
+                        <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
+                        {ceremonyStartTime || "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Guest arrival</span>{" "}
+                        {ceremonyGuestArrivalTime || "—"}
+                      </p>
+                      <p className="sm:col-span-2">
+                        <span className="font-semibold text-stone-900">Location</span>{" "}
+                        {eventSettings.ceremonyLocation?.trim() ||
+                          eventSettings.venue?.trim() ||
+                          weddingDetails.venue?.trim() ||
+                          "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Officiant</span>{" "}
+                        {officiantName?.trim() || "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Microphones</span>{" "}
+                        {microphoneNeeds?.trim() || "—"}
+                      </p>
+                      {ceremonyNotes?.trim() ? (
+                        <p className="sm:col-span-2">
+                          <span className="font-semibold text-stone-900">Ceremony notes</span> {ceremonyNotes}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                      {ceremonyTimelineRows.length === 0 ? (
+                        <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
+                      ) : runOfShowCeremonyAllMomentsDone &&
+                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                        <button
+                          type="button"
+                          onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
+                          className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                          aria-expanded="false"
+                        >
+                          <span
+                            className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                            aria-hidden
+                          >
+                            ▸
+                          </span>
+                          <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                            ✓
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                              Summary · list hidden
+                            </p>
+                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                              Ceremony <span className="font-medium text-stone-600">complete</span>
+                              <span className="font-normal text-stone-400"> · </span>
+                              <span className="font-medium text-stone-600">
+                                {ceremonyTimelineRows.length}{" "}
+                                {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
+                              </span>
+                            </p>
+                            <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                              Tap to show the full ceremony moment list
+                            </p>
+                          </div>
+                        </button>
+                      ) : (
+                        <>
+                          {runOfShowCeremonyAllMomentsDone &&
+                          runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Full list visible
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                  Ceremony moments · all marked done
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
+                                }
+                                className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                              >
+                                Collapse list
+                              </button>
+                            </div>
+                          ) : null}
+                          {ceremonyTimelineRows.map((row) => {
+                          const doneKey = `c:${row.id}`;
+                          const done = runOfShowDoneKeys.has(doneKey);
+                          const isUpNext =
+                            runOfShowUpNextMeta.banner === "upNext" &&
+                            runOfShowUpNextMeta.upNextKey === doneKey;
+                          const rowSurface = done
+                            ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                            : isUpNext
+                              ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                              : "py-8 sm:py-10";
+                          return (
+                            <article
+                              key={`ros-ceremony-${row.id}`}
+                              {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                              className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                            >
+                              <div className="shrink-0 pt-0.5 sm:pt-1">
+                                <button
+                                  type="button"
+                                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${
+                                    done
+                                      ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                      : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                  }`}
+                                  aria-pressed={done}
+                                  aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
+                                  onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                >
+                                  {done ? (
+                                    <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
+                                      ✓
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                      aria-hidden
+                                    />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                {isUpNext && !done ? (
+                                  <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                    Up next
+                                  </p>
+                                ) : null}
+                                <p
+                                  className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${
+                                    done ? "text-stone-500" : "text-stone-900"
+                                  }`}
+                                >
+                                  {row.order.trim() ? row.order : "—"}
+                                </p>
+                                <h4
+                                  className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${
+                                    done
+                                      ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                      : "text-stone-950"
+                                  }`}
+                                >
+                                  {row.moment}
+                                </h4>
+                                {row.song ? (
+                                  <p
+                                    className={`mt-5 text-lg leading-snug sm:text-xl ${
+                                      done ? "text-stone-500" : "text-stone-800"
+                                    }`}
+                                  >
+                                    {row.song}
+                                  </p>
+                                ) : null}
+                                {row.notes ? (
+                                  <p
+                                    className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${
+                                      done ? "text-stone-500" : "text-stone-600"
+                                    }`}
+                                  >
+                                    {row.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                        </>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {sectionReceptionTimelineEnabled ? (
+                  <section className="mb-14 sm:mb-16">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      {eventPrepReceptionHeading}
+                    </h3>
+                    <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                      {mergedTimelineItems.length === 0 ? (
+                        <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
+                      ) : (
+                        runOfShowReceptionPhaseGroups.map((phase) => {
+                          const phaseCount = phase.items.length;
+                          const phaseAllDone =
+                            phaseCount > 0 &&
+                            phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
+                          const phaseCollapsed =
+                            phaseAllDone &&
+                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
+                          return (
+                            <div key={phase.id} className="contents">
+                              {phaseCollapsed ? (
+                                <button
+                                  type="button"
+                                  onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
+                                  className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                                  aria-expanded="false"
+                                >
+                                  <span
+                                    className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                                    aria-hidden
+                                  >
+                                    ▸
+                                  </span>
+                                  <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                                    ✓
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                      Summary · list hidden
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                                      {phase.category}{" "}
+                                      <span className="font-medium text-stone-600">complete</span>
+                                      <span className="font-normal text-stone-400"> · </span>
+                                      <span className="font-medium text-stone-600">
+                                        {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
+                                      </span>
+                                    </p>
+                                    <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                                      Tap to show every moment in this block
+                                    </p>
+                                  </div>
+                                </button>
+                              ) : (
+                                <>
+                                  {phaseAllDone &&
+                                  runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
+                                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                          Full list visible
+                                        </p>
+                                        <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                          {phase.category} moments · all marked done
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => collapseRunOfShowCompletedSection(phase.id)}
+                                        className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                      >
+                                        Collapse list
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                  {phase.items.map((item) => {
+                                  const doneKey = `r:${item.id}`;
+                                  const done = runOfShowDoneKeys.has(doneKey);
+                                  const isUpNext =
+                                    runOfShowUpNextMeta.banner === "upNext" &&
+                                    runOfShowUpNextMeta.upNextKey === doneKey;
+                                  const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+                                    .filter(Boolean)
+                                    .join(" - ");
+                                  const fadeSuffix = item.fadeOutEarly
+                                    ? item.fadeOutTimestamp?.trim()
+                                      ? ` (Fade ${item.fadeOutTimestamp.trim()})`
+                                      : " (Fade early)"
+                                    : "";
+                                  const songCell = `${songLabel}${fadeSuffix}`.trim();
+                                  const notesLabel = [
+                                    item.notes?.trim() || "",
+                                    item.needsDjMcAttention ? "MC/DJ attention" : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ");
+                                  const rowSurface = done
+                                    ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                                    : isUpNext
+                                      ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                                      : "py-8 sm:py-10";
+                                  return (
+                                    <article
+                                      key={`ros-recv-${item.id}`}
+                                      {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                      className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                    >
+                                      <div className="shrink-0 pt-1 sm:pt-1.5">
+                                        <button
+                                          type="button"
+                                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${
+                                            done
+                                              ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                              : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                          }`}
+                                          aria-pressed={done}
+                                          aria-label={
+                                            done ? "Mark moment as not done" : "Mark moment as done"
+                                          }
+                                          onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                        >
+                                          {done ? (
+                                            <span
+                                              className="text-xl font-semibold leading-none text-stone-600"
+                                              aria-hidden
+                                            >
+                                              ✓
+                                            </span>
+                                          ) : (
+                                            <span
+                                              className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                              aria-hidden
+                                            />
+                                          )}
+                                        </button>
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        {isUpNext && !done ? (
+                                          <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                            Up next
+                                          </p>
+                                        ) : null}
+                                        <p
+                                          className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${
+                                            done ? "text-stone-500" : "text-stone-900"
+                                          }`}
+                                        >
+                                          {item.time?.trim() ? item.time.trim() : "—"}
+                                        </p>
+                                        <h4
+                                          className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${
+                                            done
+                                              ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                              : "text-stone-950"
+                                          }`}
+                                        >
+                                          {item.title}
+                                        </h4>
+                                        <p
+                                          className={`mt-2 text-xs font-semibold uppercase tracking-wide ${
+                                            done ? "text-stone-400" : "text-stone-500"
+                                          }`}
+                                        >
+                                          {item.category}
+                                        </p>
+                                        {songCell ? (
+                                          <p
+                                            className={`mt-6 text-lg leading-snug sm:text-xl ${
+                                              done ? "text-stone-500" : "text-stone-800"
+                                            }`}
+                                          >
+                                            {songCell}
+                                          </p>
+                                        ) : null}
+                                        {notesLabel ? (
+                                          <p
+                                            className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${
+                                              done ? "text-stone-500" : "text-stone-600"
+                                            }`}
+                                          >
+                                            {notesLabel}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
+                  <section className="mb-8 border-t border-stone-200 pt-12">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Music notes
+                    </h3>
+                    <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
+                      {layoutProfileForActiveEvent === "School Dance" ? (
+                        <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
+                      ) : null}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Overall vibe</p>
+                        <p className="mt-2">{generalDjNotes?.trim() ? generalDjNotes : "—"}</p>
+                      </div>
+                      {(musicVibeDetail.genres ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Genres / eras · </span>
+                          {musicVibeDetail.genres}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.energy ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Energy · </span>
+                          {musicVibeDetail.energy}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Crowd · </span>
+                          {musicVibeDetail.crowdNotes}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">
+                            {layoutProfileForActiveEvent === "School Dance"
+                              ? "Clean selections · "
+                              : "Clean / content · "}
+                          </span>
+                          {musicVibeDetail.cleanMusicPrefs}
+                        </p>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
+                {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
+                  <p className="py-12 text-center text-base text-stone-600">
+                    No ceremony or reception timeline is enabled for this event.
+                  </p>
+                ) : null}
+              </div>
+              {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
+              runOfShowAnnotationCanvasSize.w > 0 &&
+              runOfShowAnnotationCanvasSize.h > 0 ? (
+                <canvas
+                  ref={runOfShowAnnotationCanvasRef}
+                  className={`absolute left-0 top-0 z-[6] ${
+                    runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
+                  }`}
+                  style={{
+                    width: runOfShowAnnotationCanvasSize.w,
+                    height: runOfShowAnnotationCanvasSize.h,
+                  }}
+                  aria-hidden={!runOfShowAnnotateMode}
+                />
+              ) : null}
+            </main>
+
+            {runOfShowOverlayActive &&
+            runOfShowUpNextMeta.banner === "upNext" &&
+            runOfShowUpNextCueDetail ? (
+              <button
+                type="button"
+                onClick={scrollRunOfShowToUpNext}
+                tabIndex={runOfShowUpNextRowInView ? -1 : 0}
+                aria-hidden={runOfShowUpNextRowInView}
+                aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
+                className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${
+                  runOfShowUpNextRowInView
+                    ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
+                    : "translate-y-0 opacity-100"
+                }`}
+                style={{
+                  bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
+                  right: "max(1rem, env(safe-area-inset-right, 0px))",
+                }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
+                  {runOfShowUpNextCueDetail.title}
+                </p>
+                {runOfShowUpNextCueDetail.subline ? (
+                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
+                    {runOfShowUpNextCueDetail.subline}
+                  </p>
+                ) : null}
+              </button>
+            ) : null}
+          </div>
+        )}
 
       {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
         <div

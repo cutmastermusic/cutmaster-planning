@@ -170,6 +170,24 @@ export function sortTimelineItemsChronologically(items: TimelineItem[]): Timelin
 }
 
 /**
+ * True when a row with a later parseable clock time appears above a row with an earlier time.
+ * Blank or unparseable times are skipped (never treated as anchors for conflict).
+ */
+export function receptionTimelineHasClockOrderConflict(items: TimelineItem[]): boolean {
+  const minutesList = items.map((item) => parseFlexibleTimeToMinutes(item.time));
+  for (let i = 0; i < items.length; i++) {
+    const mi = minutesList[i];
+    if (mi === null) continue;
+    for (let j = i + 1; j < items.length; j++) {
+      const mj = minutesList[j];
+      if (mj === null) continue;
+      if (mi > mj) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Merges legacy `formalities` into `timelineItems` once: drops timeline rows whose titles match
  * migrated formality moment names, appends converted rows, sorts by time.
  */
