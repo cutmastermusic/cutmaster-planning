@@ -24,7 +24,10 @@ import {
   TextInput,
   lightUiCyanPrimaryButtonClass,
   lightUiDestructiveButtonClass,
+  lightUiFormLabelClass,
+  lightUiInputClass,
   lightUiSecondaryButtonClass,
+  lightUiSelectClass,
 } from "@/components/planning-ui";
 import type { PersistFeedback } from "@/components/planning-ui";
 import {
@@ -8000,10 +8003,10 @@ export default function Home() {
               </PremiumCard>
             ) : (
               <>
-                <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
+                <PremiumCard className="py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0 flex-1">
-                      <label htmlFor="all-events-search" className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                      <label htmlFor="all-events-search" className={lightUiFormLabelClass}>
                         Search
                       </label>
                       <input
@@ -8012,7 +8015,7 @@ export default function Home() {
                         value={allEventsSearch}
                         onChange={(e) => setAllEventsSearch(e.target.value)}
                         placeholder="Name, venue, event type, hosts…"
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-[#00D4FF]/55 focus:outline-none"
+                        className={lightUiInputClass}
                       />
                     </div>
                     <PrimaryButton
@@ -8024,14 +8027,14 @@ export default function Home() {
                         setAllEventsTimingFilter("all");
                         setAllEventsSort("date-asc");
                       }}
-                      className="shrink-0 rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/10"
+                      className={`shrink-0 ${lightUiSecondaryButtonClass} px-4 py-2.5 text-[11px]`}
                     >
                       Reset filters
                     </PrimaryButton>
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div>
-                      <label htmlFor="all-events-type-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                      <label htmlFor="all-events-type-filter" className={lightUiFormLabelClass}>
                         Event type
                       </label>
                       <select
@@ -8040,20 +8043,20 @@ export default function Home() {
                         onChange={(e) =>
                           setAllEventsProfileFilter(e.target.value as EventLayoutProfile | "all")
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
+                        className={lightUiSelectClass}
                       >
-                        <option value="all" className="bg-[#141419]">
+                        <option value="all" className="bg-white text-stone-900">
                           All types
                         </option>
                         {EVENT_TYPES.map((t) => (
-                          <option key={`all-events-type-${t}`} value={t} className="bg-[#141419]">
+                          <option key={`all-events-type-${t}`} value={t} className="bg-white text-stone-900">
                             {t}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="all-events-status-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                      <label htmlFor="all-events-status-filter" className={lightUiFormLabelClass}>
                         Status
                       </label>
                       <select
@@ -8064,27 +8067,27 @@ export default function Home() {
                             e.target.value as typeof allEventsLifecycleFilter,
                           )
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
+                        className={lightUiSelectClass}
                       >
-                        <option value="open" className="bg-[#141419]">
+                        <option value="open" className="bg-white text-stone-900">
                           Open (hide archived)
                         </option>
-                        <option value="active" className="bg-[#141419]">
+                        <option value="active" className="bg-white text-stone-900">
                           Active
                         </option>
-                        <option value="completed" className="bg-[#141419]">
+                        <option value="completed" className="bg-white text-stone-900">
                           Completed
                         </option>
-                        <option value="archived" className="bg-[#141419]">
+                        <option value="archived" className="bg-white text-stone-900">
                           Archived
                         </option>
-                        <option value="all" className="bg-[#141419]">
+                        <option value="all" className="bg-white text-stone-900">
                           All statuses
                         </option>
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="all-events-timing-filter" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                      <label htmlFor="all-events-timing-filter" className={lightUiFormLabelClass}>
                         Timing
                       </label>
                       <select
@@ -8093,47 +8096,47 @@ export default function Home() {
                         onChange={(e) =>
                           setAllEventsTimingFilter(e.target.value as typeof allEventsTimingFilter)
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
+                        className={lightUiSelectClass}
                       >
-                        <option value="all" className="bg-[#141419]">
+                        <option value="all" className="bg-white text-stone-900">
                           All dates
                         </option>
-                        <option value="upcoming" className="bg-[#141419]">
+                        <option value="upcoming" className="bg-white text-stone-900">
                           Upcoming
                         </option>
-                        <option value="past" className="bg-[#141419]">
+                        <option value="past" className="bg-white text-stone-900">
                           Past
                         </option>
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="all-events-sort" className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                      <label htmlFor="all-events-sort" className={lightUiFormLabelClass}>
                         Sort
                       </label>
                       <select
                         id="all-events-sort"
                         value={allEventsSort}
                         onChange={(e) => setAllEventsSort(e.target.value as typeof allEventsSort)}
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
+                        className={lightUiSelectClass}
                       >
-                        <option value="date-asc" className="bg-[#141419]">
+                        <option value="date-asc" className="bg-white text-stone-900">
                           Event date (soonest first)
                         </option>
-                        <option value="date-desc" className="bg-[#141419]">
+                        <option value="date-desc" className="bg-white text-stone-900">
                           Event date (latest first)
                         </option>
-                        <option value="recently-updated" className="bg-[#141419]">
+                        <option value="recently-updated" className="bg-white text-stone-900">
                           Recently updated
                         </option>
-                        <option value="alpha" className="bg-[#141419]">
+                        <option value="alpha" className="bg-white text-stone-900">
                           Alphabetical
                         </option>
                       </select>
                     </div>
                   </div>
-                  <p className="mt-3 text-[11px] text-zinc-500">
-                    Showing <span className="font-medium text-zinc-300">{allEventsFilteredAndSorted.length}</span> of{" "}
-                    <span className="font-medium text-zinc-300">{visibleEvents.length}</span> events in view.
+                  <p className="mt-3 text-[11px] leading-relaxed text-stone-600">
+                    Showing <span className="font-semibold text-stone-900">{allEventsFilteredAndSorted.length}</span> of{" "}
+                    <span className="font-semibold text-stone-900">{visibleEvents.length}</span> events in view.
                     Archived events stay hidden until you search or choose Archived / All statuses.
                   </p>
                 </PremiumCard>
@@ -8155,7 +8158,7 @@ export default function Home() {
                           setAllEventsTimingFilter("all");
                           setAllEventsSort("date-asc");
                         }}
-                        className="mt-5 rounded-xl border border-white/12 bg-white/10 px-4 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                        className={`mt-5 ${lightUiSecondaryButtonClass} px-5`}
                       >
                         Reset filters
                       </PrimaryButton>

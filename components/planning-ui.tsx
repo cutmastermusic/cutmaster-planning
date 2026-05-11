@@ -156,6 +156,20 @@ export const lightUiCyanPrimaryButtonClass =
 export const lightUiDestructiveButtonClass =
   "rounded-xl border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-950 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-rose-100/90 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/35 focus-visible:ring-offset-2";
 
+/** Micro-label for filters / admin fields on white cards (pairs with inputs below). */
+export const lightUiFormLabelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600";
+
+/** Shared field chrome for inputs and selects on light surfaces (TextInput, All Events filters). */
+export const lightUiTextControlClass =
+  "w-full min-h-11 touch-manipulation rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+/** Text/search input on light workspace cards; use below {@link lightUiFormLabelClass}. */
+export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:text-stone-500`;
+
+/** Native `<select>` on light workspace cards; use below {@link lightUiFormLabelClass}. */
+export const lightUiSelectClass = `mt-1.5 ${lightUiTextControlClass}`;
+
 type EventHomeNavAction = {
   label: string;
   onClick: () => void;
@@ -308,7 +322,7 @@ export function TextInput({
 }: TextInputProps) {
   return (
     <div>
-      <label htmlFor={id} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+      <label htmlFor={id} className={lightUiFormLabelClass}>
         {label}
       </label>
       <input
@@ -317,7 +331,7 @@ export function TextInput({
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 w-full touch-manipulation rounded-lg border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 placeholder:text-stone-500 transition-colors duration-150 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00D4FF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className={lightUiInputClass}
       />
     </div>
   );
@@ -334,7 +348,7 @@ export function TextArea({
 }: TextAreaProps) {
   return (
     <div>
-      <label htmlFor={id} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+      <label htmlFor={id} className={lightUiFormLabelClass}>
         {label}
       </label>
       <textarea
@@ -344,7 +358,7 @@ export function TextArea({
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="mt-1.5 w-full touch-manipulation rounded-lg border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 placeholder:text-stone-500 transition-colors duration-150 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00D4FF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500`}
       />
     </div>
   );
