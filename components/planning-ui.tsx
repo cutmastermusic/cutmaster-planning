@@ -170,6 +170,13 @@ export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:
 /** Native `<select>` on light workspace cards; use below {@link lightUiFormLabelClass}. */
 export const lightUiSelectClass = `mt-1.5 ${lightUiTextControlClass}`;
 
+/**
+ * “Jump to workspace settings” from a dark dashboard card (e.g. Admin quick actions).
+ * Opaque charcoal surface + light text — avoids dark-on-dark from translucent cyan over zinc-950.
+ */
+export const darkUiWorkspaceJumpButtonClass =
+  "rounded-xl border border-[#9a7c3d]/55 bg-zinc-900 px-3 py-2.5 text-[11px] font-semibold leading-snug text-zinc-100 shadow-sm shadow-black/25 transition-[transform,background-color,border-color,box-shadow] hover:border-[#b8924a]/70 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8924a]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.99]";
+
 type EventHomeNavAction = {
   label: string;
   onClick: () => void;

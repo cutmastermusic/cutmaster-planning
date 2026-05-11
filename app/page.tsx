@@ -22,6 +22,7 @@ import {
   SongCard,
   TextArea,
   TextInput,
+  darkUiWorkspaceJumpButtonClass,
   lightUiCyanPrimaryButtonClass,
   lightUiDestructiveButtonClass,
   lightUiFormLabelClass,
@@ -8911,11 +8912,11 @@ export default function Home() {
                         setActiveScreen("Settings");
                         setActiveGlobalSettingsSection(action.section);
                       }}
-                      className={`rounded-xl border px-2 py-2 text-[11px] font-medium leading-snug text-stone-900 shadow-sm transition hover:-translate-y-0.5 ${
+                      className={
                         action.kind === "workspace"
-                          ? "border-[#b8924a] bg-[#00D4FF]/22 hover:bg-[#00D4FF]/28"
-                          : "border-stone-300 bg-white hover:border-stone-400 hover:bg-stone-50"
-                      }`}
+                          ? darkUiWorkspaceJumpButtonClass
+                          : `${lightUiSecondaryButtonClass} text-[11px] hover:-translate-y-0.5 active:scale-[0.99]`
+                      }
                     >
                       {action.label}
                     </PrimaryButton>
