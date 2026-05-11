@@ -4,14 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import {
   AppHeader,
   BottomNav,
+  EventHomeNav,
   InsightStack,
+  PersistEcho,
   PremiumCard,
   PrimaryButton,
+  SectionEmptyState,
   SectionTitle,
   SongCard,
   TextArea,
   TextInput,
 } from "@/components/planning-ui";
+import type { PersistFeedback } from "@/components/planning-ui";
 import {
   formatPlanningQuestionsPlainTextLines,
   getDefaultPlanningQuestionSets,
@@ -26,7 +30,8 @@ import {
   initialCeremonyStartTime,
   initialDoNotPlaySongs,
   defaultAppSettings,
-  initialFormalities,
+  getDefaultTimelinePresetSets,
+  seedMergedTimelineItems,
   initialGeneralDjNotes,
   initialGuestRequests,
   initialMcAnnouncements,
@@ -36,7 +41,6 @@ import {
   initialPlannerNotes,
   initialRecessionalSong,
   initialTemplates,
-  initialTimelineItems,
   initialTeamMembers,
   initialVendors,
   initialUnityCeremonySong,
@@ -57,7 +61,6 @@ import type {
   EventLifecycleStatus,
   EventSettings,
   EventRecord,
-  FormalityItem,
   GuestRequestEntry,
   GuestRequestStatus,
   ChecklistStatus,
@@ -73,6 +76,7 @@ import type {
   TeamMember,
   UserRole,
   Vendor,
+  VendorAffiliation,
   VendorType,
   WeddingDetails,
   NotificationItem,
@@ -81,11 +85,28 @@ import type {
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
 import {
+  VENDOR_TYPES_ORDERED,
+  VENDOR_UI_SECTIONS,
+  filterVendorsByTypes,
+  formatVendorContactLines,
+  isCutmasterEventTeam,
+  normalizeVendorsArray,
+  smsHref,
+  sortVendorsForEventDocument,
+  vendorTypeLabel,
+} from "@/utils/vendors";
+import {
   approximatePlanningProgressPercent,
   buildPlanningInsights,
   cloneJson,
   eventCoverFallbackClasses,
+  insertCeremonyTimelineItemChronologically,
+  insertReceptionTimelineItemChronologically,
+  migrateFormalitiesIntoTimelineItems,
+  normalizeEventRecordAfterFormalitiesMerge,
   readImageFileAsDataUrl,
+  mainTimelineItemFromPreset,
+  ceremonyTimelineItemFromPreset,
 } from "@/utils/planning";
 import {
   computePlanningQuestionGroupCompletion,
@@ -229,32 +250,18 @@ type BackupPayload = {
 };
 
 const MUSIC_HUB_BUCKET_SHELL: Record<PlaylistBucketId, string> = {
-  cocktailHour:
-    "border-amber-400/25 bg-[radial-gradient(circle_at_0%_0%,rgba(251,191,36,0.09),transparent_50%)]",
-  dinner:
-    "border-rose-400/20 bg-[radial-gradient(circle_at_100%_0%,rgba(251,113,133,0.07),transparent_48%)]",
-  openDancing:
-    "border-violet-400/25 bg-[radial-gradient(circle_at_0%_100%,rgba(167,139,250,0.08),transparent_50%)]",
-  afterparty:
-    "border-fuchsia-400/20 bg-[radial-gradient(circle_at_100%_100%,rgba(232,121,249,0.07),transparent_48%)]",
-  custom:
-    "border-emerald-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(52,211,153,0.07),transparent_45%)]",
+  cocktailHour: "border border-stone-200 border-t-2 border-t-black bg-white shadow-none",
+  dinner: "border border-stone-200 border-t-2 border-t-stone-600 bg-white shadow-none",
+  openDancing: "border border-stone-200 border-t-[3px] border-t-[#7E52A0] bg-white shadow-none",
+  afterparty: "border border-stone-200 border-t-2 border-t-stone-800 bg-white shadow-none",
+  custom: "border border-stone-200 border-t-2 border-t-emerald-700 bg-white shadow-none",
 };
 
-const VENDOR_TYPES: VendorType[] = [
-  "Planner",
-  "Photographer",
-  "Videographer",
-  "Venue",
-  "Caterer",
-  "Florist",
-  "Hair/Makeup",
-  "Photo Booth",
-  "Officiant",
-  "Band",
-  "Content Creator",
-  "Other",
-];
+/** Event Packet Options: on = solid cyan + dark text; off = white + readable gray + border */
+const EVENT_PACKET_SECTION_TOGGLE_ON =
+  "w-full border border-stone-900/20 bg-[#00D4FF] text-stone-950 shadow-none hover:brightness-[1.02]";
+const EVENT_PACKET_SECTION_TOGGLE_OFF =
+  "w-full border border-stone-300 bg-white text-stone-700 shadow-none hover:border-stone-400 hover:bg-stone-50 hover:text-stone-900";
 
 type EventLayoutProfile =
   | "Wedding"
@@ -299,66 +306,12 @@ const GLOBAL_SETTINGS_SECTIONS = [
   "Event Types",
   "Planning Questions",
   "Timeline Presets",
-  "Live Event Mode",
+  "Event Document",
   "Team Management",
   "Branding / App",
 ] as const;
 
 type GlobalSettingsSection = (typeof GLOBAL_SETTINGS_SECTIONS)[number];
-
-const getDefaultTimelinePresetSets = (): Record<EventLayoutProfile, TimelinePresetItem[]> => ({
-  Wedding: [
-    { id: "w-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
-    { id: "w-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
-    { id: "w-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
-    { id: "w-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
-    { id: "w-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
-    { id: "w-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
-  ],
-  "Gender-Neutral Wedding": [
-    { id: "gnw-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
-    { id: "gnw-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
-    { id: "gnw-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
-    { id: "gnw-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
-    { id: "gnw-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
-    { id: "gnw-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
-  ],
-  Corporate: [
-    { id: "co-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Background Set", notesPlaceholder: "Low-volume welcome music.", defaultIncluded: true },
-    { id: "co-main-2", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Run of Show: Welcome Remarks", songPlaceholder: "Walk-up Stinger", notesPlaceholder: "MC/presenter intro.", defaultIncluded: true },
-    { id: "co-main-3", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Program Segment", songPlaceholder: "Segment Bed", notesPlaceholder: "Cue transitions cleanly.", defaultIncluded: true },
-  ],
-  "Holiday Party": [
-    { id: "hp-main-1", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Doors Open", songPlaceholder: "Holiday Welcome Set", notesPlaceholder: "Seasonal background music.", defaultIncluded: true },
-    { id: "hp-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Housekeeping + acknowledgements.", defaultIncluded: true },
-    { id: "hp-main-3", timelineType: "main", timeOrOrder: "8:30 PM", momentName: "Dance Floor Opens", songPlaceholder: "Party Set", notesPlaceholder: "Transition to dance energy.", defaultIncluded: true },
-  ],
-  "Graduation Celebration": [
-    { id: "gc-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Set", notesPlaceholder: "Family/friends arrival.", defaultIncluded: true },
-    { id: "gc-main-2", timelineType: "main", timeOrOrder: "6:45 PM", momentName: "Family / Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Graduate recognition cues.", defaultIncluded: true },
-    { id: "gc-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy lift for celebration.", defaultIncluded: true },
-  ],
-  "Birthday Party": [
-    { id: "bd-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Warm-up while guests arrive.", defaultIncluded: true },
-    { id: "bd-main-2", timelineType: "main", timeOrOrder: "7:15 PM", momentName: "Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Cake / toast / dedication cues.", defaultIncluded: true },
-    { id: "bd-main-3", timelineType: "main", timeOrOrder: "7:45 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Main dance-floor arc.", defaultIncluded: true },
-  ],
-  "Private Party": [
-    { id: "pp-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Low-key opening.", defaultIncluded: true },
-    { id: "pp-main-2", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Main Event Timeline", songPlaceholder: "Core Set", notesPlaceholder: "Flexible flow by host cues.", defaultIncluded: true },
-    { id: "pp-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Raise energy.", defaultIncluded: true },
-  ],
-  "Bar/Club Event": [
-    { id: "bc-main-1", timelineType: "main", timeOrOrder: "9:00 PM", momentName: "Set Time 1", songPlaceholder: "Opening Set", notesPlaceholder: "Start room-building set.", defaultIncluded: true },
-    { id: "bc-main-2", timelineType: "main", timeOrOrder: "10:30 PM", momentName: "Set Time 2", songPlaceholder: "Peak Set", notesPlaceholder: "Main floor energy.", defaultIncluded: true },
-    { id: "bc-main-3", timelineType: "main", timeOrOrder: "12:00 AM", momentName: "Set Time 3", songPlaceholder: "Late Set", notesPlaceholder: "Maintain momentum.", defaultIncluded: true },
-  ],
-  "School Dance": [
-    { id: "sd-main-1", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Doors Open", songPlaceholder: "Clean Opening Set", notesPlaceholder: "Set expectations and tone.", defaultIncluded: true },
-    { id: "sd-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Admin/chaperone lines.", defaultIncluded: true },
-    { id: "sd-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Dance Set", songPlaceholder: "Clean Dance Set", notesPlaceholder: "School-appropriate energy ramp.", defaultIncluded: true },
-  ],
-});
 
 const QUESTION_ANSWER_TYPES: {
   value: PlanningQuestionAnswerType;
@@ -384,7 +337,7 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionVendorContactsEnabled: true,
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
-      sectionFormalitiesEnabled: true,
+      sectionFormalitiesEnabled: false,
       sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
@@ -511,7 +464,7 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
     sectionVendorContactsEnabled: true,
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
-    sectionFormalitiesEnabled: true,
+    sectionFormalitiesEnabled: false,
     sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
   };
@@ -535,9 +488,9 @@ const inferLayoutProfileFromEventType = (eventType: string): EventLayoutProfile 
 
 const LAYOUT_PROFILE_DESCRIPTIONS: Record<EventLayoutProfile, string> = {
   Wedding:
-    "Full planning suite with ceremony, reception, formalities, music, vendors, and Event Prep export",
+    "Full planning suite with ceremony, reception timeline, music, vendors, and Event Document export",
   "Gender-Neutral Wedding":
-    "Inclusive wedding profile with ceremony, reception, formalities, and full music planning",
+    "Inclusive wedding profile with ceremony, reception timeline, and full music planning",
   Corporate: "Run-of-show, playlists, announcements, vendors, and optional scripts",
   "Holiday Party": "Run-of-show, announcements, guest requests, and festive music planning",
   "Graduation Celebration": "Timeline, announcements, requests, and clean-event music controls",
@@ -646,6 +599,9 @@ function migrateLegacyScreenId(raw: unknown): Screen {
   ) {
     return "Event Prep";
   }
+  if (raw === "Formal Dances" || raw === "Reception Formalities") {
+    return "Reception Timeline";
+  }
   if (raw === "Music") {
     return "Music Hub";
   }
@@ -665,7 +621,6 @@ const LAYOUT_SECTION_PREVIEW: {
   { key: "sectionVendorContactsEnabled", label: "Vendor contacts" },
   { key: "sectionMusicNotesEnabled", label: "Music notes" },
   { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
-  { key: "sectionFormalitiesEnabled", label: "Formalities" },
   { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
   { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
 ];
@@ -692,7 +647,7 @@ const getEnabledSectionLabels = (
 };
 
 const EVENT_TYPE_USE_CASE: Record<EventLayoutProfile, string> = {
-  Wedding: "Full wedding-day planning with ceremony cues, formalities, and vendor coordination.",
+  Wedding: "Full wedding-day planning with ceremony cues, reception timeline, and vendor coordination.",
   "Gender-Neutral Wedding":
     "Inclusive wedding planning with partner/couple language and full ceremony + reception support.",
   Corporate:
@@ -717,18 +672,48 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
   const layoutDefaults = getLayoutProfileDefaults(profile);
   if (layoutDefaults.sectionCeremonyEnabled) labels.push("Ceremony Timeline");
   if (layoutDefaults.sectionReceptionTimelineEnabled) {
-    labels.push(profile === "Corporate" ? "Run of Show" : "Timeline");
+    labels.push(
+      profile === "Corporate"
+        ? "Run of Show"
+        : profile === "School Dance" ||
+            profile === "Private Party" ||
+            profile === "Graduation Celebration" ||
+            profile === "Birthday Party" ||
+            profile === "Bar/Club Event" ||
+            profile === "Holiday Party"
+          ? "Timeline"
+          : "Reception Timeline",
+    );
   }
-  if (layoutDefaults.sectionFormalitiesEnabled) labels.push("Formal Dances / Special Moments");
-  if (visibility.liveEventShowMcScript) {
-    labels.push(profile === "Corporate" ? "Announcements / Script Notes" : "Announcements / MC Script");
+  if (
+    visibility.liveEventShowPlanningQuestions &&
+    layoutDefaults.sectionPlanningQuestionsEnabled
+  ) {
+    labels.push("Planning Notes / Key Answers");
   }
-  if (visibility.liveEventShowVendorContacts) labels.push("Vendors");
-  if (visibility.liveEventShowPlaylists) labels.push("Playlists");
-  if (visibility.liveEventShowGuestRequests) labels.push("Guest Requests");
-  if (visibility.liveEventShowDoNotPlay) labels.push("Do Not Play");
-  if (visibility.liveEventShowMusicNotes) {
+  if (visibility.liveEventShowMusicNotes && layoutDefaults.sectionMusicNotesEnabled) {
     labels.push(profile === "School Dance" ? "Clean Music Notes" : "Music Notes");
+  }
+  if (visibility.liveEventShowDoNotPlay && layoutDefaults.sectionDoNotPlayEnabled) {
+    labels.push("Do Not Play");
+  }
+  if (visibility.liveEventShowPlaylists && layoutDefaults.sectionPlaylistsEnabled) {
+    labels.push("Playlists");
+  }
+  if (visibility.liveEventShowVendorContacts && layoutDefaults.sectionVendorContactsEnabled) {
+    labels.push("Vendors / Contacts");
+  }
+  if (visibility.liveEventShowMcScript && layoutDefaults.sectionMcScriptEnabled) {
+    labels.push(
+      profile === "Corporate" || profile === "Holiday Party"
+        ? "Announcements / Script Notes"
+        : profile === "School Dance" || profile === "Graduation Celebration"
+          ? "Announcements"
+          : "MC Script / Announcements",
+    );
+  }
+  if (visibility.liveEventShowGuestRequests && layoutDefaults.sectionGuestRequestsEnabled) {
+    labels.push("Guest Requests");
   }
   return labels;
 };
@@ -820,7 +805,6 @@ function resolveLayoutProfileForDisplay(
 type EventNavSectionFlags = {
   sectionCeremonyEnabled: boolean;
   sectionReceptionTimelineEnabled: boolean;
-  sectionFormalitiesEnabled: boolean;
   sectionPlaylistsEnabled: boolean;
   sectionMustPlayEnabled: boolean;
   sectionDoNotPlayEnabled: boolean;
@@ -837,7 +821,6 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   const includeExportScreens =
     s.sectionReceptionTimelineEnabled ||
     s.sectionCeremonyEnabled ||
-    s.sectionFormalitiesEnabled ||
     s.sectionMustPlayEnabled ||
     s.sectionPlaylistsEnabled ||
     s.sectionDoNotPlayEnabled ||
@@ -853,9 +836,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     ...(s.sectionMustPlayEnabled || s.sectionDoNotPlayEnabled || s.sectionPlaylistsEnabled
       ? (["Music Hub", "Music Import"] as Screen[])
       : []),
-    ...(s.sectionReceptionTimelineEnabled || s.sectionFormalitiesEnabled
-      ? (["Timeline"] as Screen[])
-      : []),
+    ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
     ...(s.sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
     ...(s.sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
@@ -873,7 +854,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   if (role === "Planner") {
     return base;
   }
-  const receptionHubEligible = s.sectionReceptionTimelineEnabled || s.sectionFormalitiesEnabled;
+  const receptionHubEligible = s.sectionReceptionTimelineEnabled;
   const coupleAllowedScreens: Screen[] = [
     "Dashboard",
     "Reception Hub",
@@ -926,7 +907,6 @@ function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
   return {
     sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
     sectionReceptionTimelineEnabled: evt.settings?.sectionReceptionTimelineEnabled ?? true,
-    sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
     sectionPlaylistsEnabled: evt.settings?.sectionPlaylistsEnabled ?? true,
     sectionMustPlayEnabled: evt.settings?.sectionMustPlayEnabled ?? true,
     sectionDoNotPlayEnabled: evt.settings?.sectionDoNotPlayEnabled ?? true,
@@ -937,6 +917,172 @@ function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
     sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
     sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
   };
+}
+
+function VendorEventCard({
+  vendor,
+  variant,
+  onEdit,
+  onDelete,
+  onCopy,
+}: {
+  vendor: Vendor;
+  variant: "cutmaster" | "partner";
+  onEdit: (vendor: Vendor) => void;
+  onDelete: (vendorId: string) => void;
+  onCopy: (vendor: Vendor) => void;
+}) {
+  const displayName = vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
+  const companyLine =
+    vendor.contactName.trim() && vendor.companyName.trim() ? vendor.companyName.trim() : null;
+  const roleLabel = vendorTypeLabel(vendor.vendorType);
+  const wrapCls =
+    variant === "cutmaster"
+      ? "border border-stone-200 border-l-[3px] border-l-[#7E52A0] bg-white shadow-none"
+      : "border border-stone-200 bg-white shadow-none";
+  const igUrl = vendor.instagram.trim()
+    ? vendor.instagram.startsWith("http")
+      ? vendor.instagram
+      : `https://instagram.com/${vendor.instagram.replace(/^@/, "")}`
+    : "";
+  const webUrl = vendor.website.trim()
+    ? vendor.website.startsWith("http")
+      ? vendor.website
+      : `https://${vendor.website}`
+    : "";
+  const smsLink = vendor.phone.trim() ? smsHref(vendor.phone) : "";
+
+  return (
+    <article
+      className={`flex flex-col rounded-2xl border p-4 sm:p-5 ${wrapCls}`}
+      data-vendor-id={vendor.id}
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+            {roleLabel}
+          </p>
+          <p className="mt-1 text-base font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere] sm:truncate">
+            {displayName}
+          </p>
+          {companyLine ? (
+            <p className="mt-0.5 text-sm leading-snug text-stone-700 [overflow-wrap:anywhere] sm:truncate sm:text-stone-600">
+              {companyLine}
+            </p>
+          ) : null}
+          {variant === "cutmaster" ? (
+            <span className="mt-2 inline-flex rounded-full border border-stone-300 bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-900">
+              Cutmaster
+            </span>
+          ) : null}
+        </div>
+        <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:flex-col sm:gap-1">
+          <PrimaryButton
+            type="button"
+            onClick={() => onEdit(vendor)}
+            className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:flex-none sm:px-2.5 sm:py-1.5 sm:text-[11px] sm:font-medium"
+          >
+            Edit
+          </PrimaryButton>
+          <PrimaryButton
+            type="button"
+            onClick={() => onDelete(vendor.id)}
+            className="min-h-12 flex-1 rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:flex-none sm:px-2.5 sm:py-1.5 sm:text-[11px]"
+          >
+            Delete
+          </PrimaryButton>
+        </div>
+      </div>
+
+      <dl className="mt-4 space-y-2 text-sm text-stone-700 sm:mt-3 sm:space-y-1.5 sm:text-xs sm:text-stone-600">
+        {vendor.phone.trim() ? (
+          <div className="flex gap-2">
+            <dt className="w-14 shrink-0 text-stone-500">Phone</dt>
+            <dd className="min-w-0 text-stone-900">{vendor.phone.trim()}</dd>
+          </div>
+        ) : null}
+        {vendor.email.trim() ? (
+          <div className="flex gap-2">
+            <dt className="w-14 shrink-0 text-stone-500">Email</dt>
+            <dd className="min-w-0 break-all text-stone-900">{vendor.email.trim()}</dd>
+          </div>
+        ) : null}
+        {webUrl ? (
+          <div className="flex gap-2">
+            <dt className="w-14 shrink-0 text-stone-500">Web</dt>
+            <dd className="min-w-0 truncate text-[#0c7a96]">{vendor.website.trim()}</dd>
+          </div>
+        ) : null}
+        {vendor.instagram.trim() ? (
+          <div className="flex gap-2">
+            <dt className="w-14 shrink-0 text-stone-500">Social</dt>
+            <dd className="min-w-0 truncate text-stone-700">{vendor.instagram.trim()}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {vendor.notes.trim() ? (
+        <p className="mt-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm leading-relaxed text-stone-800 sm:mt-2 sm:bg-white sm:px-2.5 sm:py-2 sm:text-[11px] sm:leading-snug sm:text-stone-700">
+          {vendor.notes.trim()}
+        </p>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2 sm:mt-4">
+        {vendor.phone.trim() ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => window.open(`tel:${vendor.phone.trim()}`, "_blank")}
+            className="min-h-12 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-9 sm:py-2 sm:text-[11px] sm:font-medium sm:text-stone-800 sm:shadow-sm sm:flex-none"
+          >
+            Call
+          </PrimaryButton>
+        ) : null}
+        {smsLink ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => window.open(smsLink, "_blank")}
+            className="min-h-12 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-9 sm:py-2 sm:text-[11px] sm:font-medium sm:text-stone-800 sm:shadow-sm sm:flex-none"
+          >
+            Text
+          </PrimaryButton>
+        ) : null}
+        {vendor.email.trim() ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => window.open(`mailto:${vendor.email.trim()}`, "_blank")}
+            className="min-h-12 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-9 sm:py-2 sm:text-[11px] sm:font-medium sm:text-stone-800 sm:shadow-sm sm:flex-none"
+          >
+            Email
+          </PrimaryButton>
+        ) : null}
+        <PrimaryButton
+          type="button"
+          onClick={() => onCopy(vendor)}
+          className="min-h-12 flex-1 rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-[0.97] sm:min-h-9 sm:py-2 sm:text-[11px] sm:flex-none"
+        >
+          Copy
+        </PrimaryButton>
+        {webUrl ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => window.open(webUrl, "_blank")}
+            className="min-h-12 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-9 sm:py-2 sm:text-[11px] sm:font-medium sm:text-stone-800 sm:shadow-sm sm:flex-none"
+          >
+            Website
+          </PrimaryButton>
+        ) : null}
+        {igUrl ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => window.open(igUrl, "_blank")}
+            className="min-h-12 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-9 sm:py-2 sm:text-[11px] sm:font-medium sm:text-stone-800 sm:shadow-sm sm:flex-none"
+          >
+            Instagram
+          </PrimaryButton>
+        ) : null}
+      </div>
+    </article>
+  );
 }
 
 const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
@@ -953,8 +1099,10 @@ export default function Home() {
     setActiveScreen,
     hasHydrated,
     setHasHydrated,
-    savedLocally,
-    setSavedLocally,
+    persistPhase,
+    setPersistPhase,
+    persistBaseline,
+    setPersistBaseline,
     authStage,
     setAuthStage,
     currentRole,
@@ -962,6 +1110,8 @@ export default function Home() {
     inviteAccessPreview,
     setInviteAccessPreview,
   } = usePlanningApp();
+  const persistUiSuppressBootCountRef = useRef(0);
+  const persistPhaseHideTimeoutRef = useRef<number | null>(null);
   const [mustPlaySongs, setMustPlaySongs] = useState<SongEntry[]>(initialMustPlaySongs);
   const [doNotPlaySongs, setDoNotPlaySongs] = useState<SongEntry[]>(initialDoNotPlaySongs);
   const [newSongTitle, setNewSongTitle] = useState("");
@@ -985,16 +1135,18 @@ export default function Home() {
   const [guestFormArtist, setGuestFormArtist] = useState("");
   const [guestFormDedication, setGuestFormDedication] = useState("");
   const [guestSubmitBanner, setGuestSubmitBanner] = useState("");
-  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>(initialTimelineItems);
+  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>(seedMergedTimelineItems);
   const [ceremonyTimelineItems, setCeremonyTimelineItems] = useState<CeremonyTimelineItem[]>(
     initialCeremonyTimelineItems,
   );
-  const [formalities, setFormalities] = useState<FormalityItem[]>(initialFormalities);
   const [timelineTitle, setTimelineTitle] = useState("");
   const [timelineTime, setTimelineTime] = useState("");
   const [timelineCategory, setTimelineCategory] =
     useState<TimelineCategory>("Ceremony");
   const [timelineNotes, setTimelineNotes] = useState("");
+  const [timelineSongTitle, setTimelineSongTitle] = useState("");
+  const [timelineArtist, setTimelineArtist] = useState("");
+  const [timelineComposerError, setTimelineComposerError] = useState<string | null>(null);
   const [timelineNeedsAttention, setTimelineNeedsAttention] = useState(false);
   const [editingTimelineId, setEditingTimelineId] = useState<string | null>(null);
   const [draggingTimelineId, setDraggingTimelineId] = useState<string | null>(null);
@@ -1079,7 +1231,7 @@ export default function Home() {
     sectionVendorContactsEnabled: true,
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
-    sectionFormalitiesEnabled: true,
+    sectionFormalitiesEnabled: false,
     sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
     planningQuestionAnswers: {},
@@ -1099,11 +1251,16 @@ export default function Home() {
   } | null>(null);
   const [activeGlobalSettingsSection, setActiveGlobalSettingsSection] =
     useState<GlobalSettingsSection>("Event Types");
+  /** Timeline Presets (Global Settings): expanded card keys; omitted/false = collapsed. */
+  const [timelinePresetExpandedByProfile, setTimelinePresetExpandedByProfile] = useState<
+    Partial<Record<EventLayoutProfile, boolean>>
+  >({});
+  const timelinePresetDragRef = useRef<{ profile: EventLayoutProfile; index: number } | null>(null);
 
   // `weddingDetails` is derived from the active event (see event management state below).
 
   const [plannerNotes, setPlannerNotes] = useState<string[]>(initialPlannerNotes);
-  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
+  const [vendors, setVendors] = useState<Vendor[]>(() => normalizeVendorsArray(initialVendors));
 
   const [appMode, setAppMode] = useState<AppMode>("events");
   const [activeEventId, setActiveEventId] = useState<string>("evt-1");
@@ -1112,7 +1269,7 @@ export default function Home() {
     buildSeedEvents({
       timelineItems,
       ceremonyTimelineItems,
-      formalities,
+      formalities: [],
       mustPlaySongs,
       doNotPlaySongs,
       ceremonyStartTime,
@@ -1205,6 +1362,8 @@ export default function Home() {
   const [vendorInstagramDraft, setVendorInstagramDraft] = useState("");
   const [vendorArrivalDraft, setVendorArrivalDraft] = useState("");
   const [vendorCoordinationDraft, setVendorCoordinationDraft] = useState("");
+  const [vendorAffiliationDraft, setVendorAffiliationDraft] =
+    useState<VendorAffiliation>("event_partner");
   /** Ceremony timeline: collapsed summary vs expanded inline edit */
   const [ceremonyTimelineExpandedId, setCeremonyTimelineExpandedId] = useState<string | null>(null);
   /** Compact composer for new ceremony moments */
@@ -1233,7 +1392,7 @@ export default function Home() {
               },
               timelineItems,
               ceremonyTimelineItems,
-              formalities,
+              formalities: [],
               mustPlaySongs,
               doNotPlaySongs,
               ceremonyStartTime,
@@ -1265,7 +1424,6 @@ export default function Home() {
     ceremonyStartTime,
     ceremonyTimelineItems,
     eventSettings,
-    formalities,
     generalDjNotes,
     guestRequests,
     mcAnnouncements,
@@ -1284,11 +1442,11 @@ export default function Home() {
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
-    setTimelineItems(cloneJson(evt.timelineItems));
-    setCeremonyTimelineItems(cloneJson(evt.ceremonyTimelineItems ?? []));
-    setFormalities(cloneJson(evt.formalities));
-    setMustPlaySongs(cloneJson(evt.mustPlaySongs));
-    setDoNotPlaySongs(cloneJson(evt.doNotPlaySongs));
+    const normalized = normalizeEventRecordAfterFormalitiesMerge(evt);
+    setTimelineItems(cloneJson(normalized.timelineItems));
+    setCeremonyTimelineItems(cloneJson(normalized.ceremonyTimelineItems ?? []));
+    setMustPlaySongs(cloneJson(normalized.mustPlaySongs));
+    setDoNotPlaySongs(cloneJson(normalized.doNotPlaySongs));
     setCeremonyStartTime(evt.ceremonyStartTime);
     setCeremonyGuestArrivalTime(evt.ceremonyGuestArrivalTime ?? "");
     setOfficiantName(evt.officiantName);
@@ -1299,7 +1457,7 @@ export default function Home() {
     setUnityCeremonySong(cloneJson(evt.unityCeremonySong));
     setRecessionalSong(cloneJson(evt.recessionalSong));
     setPlannerNotes(cloneJson(evt.plannerNotes));
-    setVendors(cloneJson(evt.vendors ?? []));
+    setVendors(cloneJson(normalized.vendors ?? []));
     setGuestRequests(cloneJson(evt.guestRequests));
     setGeneralDjNotes(evt.generalDjNotes);
     setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
@@ -1355,7 +1513,7 @@ export default function Home() {
         sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
         sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
         sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
-        sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+        sectionFormalitiesEnabled: false,
         sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
@@ -1440,6 +1598,7 @@ export default function Home() {
   const activityTypeIcon = (type: ActivityType | "system") => {
     if (type === "event_created") return "✨";
     if (type === "timeline_updated") return "🕒";
+    if (type === "timeline_item_added") return "➕";
     if (type === "song_added") return "🎵";
     if (type === "guest_request_submitted") return "📩";
     if (type === "guest_request_reviewed") return "✅";
@@ -1461,8 +1620,12 @@ export default function Home() {
     template: TimelineTemplate | undefined,
     ids: { eventId: string; collaboratorId: string },
   ): EventRecord => {
-    const templateTimeline = template ? cloneJson(template.timelineItems) : cloneJson(timelineItems);
-    const templateFormalities = template ? cloneJson(template.formalities) : cloneJson(formalities);
+    const templateTimeline = template
+      ? migrateFormalitiesIntoTimelineItems(
+          cloneJson(template.timelineItems),
+          cloneJson(template.formalities ?? []),
+        )
+      : cloneJson(timelineItems);
     const templateSuggestions = template ? cloneJson(template.planningSuggestions) : cloneJson(plannerNotes);
     return {
       id: ids.eventId,
@@ -1479,7 +1642,7 @@ export default function Home() {
       ],
       timelineItems: templateTimeline,
       ceremonyTimelineItems: cloneJson(ceremonyTimelineItems),
-      formalities: templateFormalities,
+      formalities: [],
       mustPlaySongs: cloneJson(mustPlaySongs),
       doNotPlaySongs: cloneJson(doNotPlaySongs),
       ceremonyStartTime,
@@ -1536,7 +1699,7 @@ export default function Home() {
         sectionVendorContactsEnabled: true,
         sectionMusicNotesEnabled: true,
         sectionGuestRequestsEnabled: true,
-        sectionFormalitiesEnabled: true,
+        sectionFormalitiesEnabled: false,
         sectionPlanningChecklistEnabled: true,
         sectionPlanningQuestionsEnabled: true,
         planningQuestionAnswers: {},
@@ -1687,27 +1850,17 @@ export default function Home() {
       const enabledPresets = timelinePresetDefaults.filter((item) => item.defaultIncluded);
       newEvent.ceremonyTimelineItems = enabledPresets
         .filter((item) => item.timelineType === "ceremony")
-        .map((item) => ({
-          id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          timeOrOrder: item.timeOrOrder,
-          moment: item.momentName,
-          songTitle: item.songPlaceholder,
-          artist: "",
-          notes: item.notesPlaceholder,
-          needsDjMcAttention: false,
-        }));
+        .map((item) =>
+          ceremonyTimelineItemFromPreset(
+            item,
+            `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ),
+        );
       newEvent.timelineItems = enabledPresets
         .filter((item) => item.timelineType === "main")
-        .map((item) => ({
-          id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          title: item.momentName,
-          time: item.timeOrOrder,
-          category: "Reception",
-          notes: item.songPlaceholder
-            ? `${item.notesPlaceholder}${item.notesPlaceholder ? " " : ""}Song: ${item.songPlaceholder}`.trim()
-            : item.notesPlaceholder,
-          needsDjMcAttention: false,
-        }));
+        .map((item) =>
+          mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+        );
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
       loadEventPlanningIntoWorkingState(newEvent);
@@ -1764,7 +1917,7 @@ export default function Home() {
         name,
         kind: "custom",
         timelineItems: cloneJson(timelineItems),
-        formalities: cloneJson(formalities),
+        formalities: [],
         planningSuggestions: cloneJson(plannerNotes),
       };
       setTemplates((prev) => [...prev, newTemplate]);
@@ -1781,7 +1934,7 @@ export default function Home() {
               ...tpl,
               name,
               timelineItems: cloneJson(timelineItems),
-              formalities: cloneJson(formalities),
+              formalities: [],
               planningSuggestions: cloneJson(plannerNotes),
             }
           : tpl,
@@ -1944,27 +2097,17 @@ export default function Home() {
     const enabledPresets = presets.filter((item) => item.defaultIncluded);
     const ceremonyItems: CeremonyTimelineItem[] = enabledPresets
       .filter((item) => item.timelineType === "ceremony")
-      .map((item) => ({
-        id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        timeOrOrder: item.timeOrOrder,
-        moment: item.momentName,
-        songTitle: item.songPlaceholder,
-        artist: "",
-        notes: item.notesPlaceholder,
-        needsDjMcAttention: false,
-      }));
+      .map((item) =>
+        ceremonyTimelineItemFromPreset(
+          item,
+          `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        ),
+      );
     const mainItems: TimelineItem[] = enabledPresets
       .filter((item) => item.timelineType === "main")
-      .map((item) => ({
-        id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        title: item.momentName,
-        time: item.timeOrOrder,
-        category: "Reception",
-        notes: item.songPlaceholder
-          ? `${item.notesPlaceholder}${item.notesPlaceholder ? " " : ""}Song: ${item.songPlaceholder}`.trim()
-          : item.notesPlaceholder,
-        needsDjMcAttention: false,
-      }));
+      .map((item) =>
+        mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+      );
     return { ceremonyItems, mainItems };
   }, []);
 
@@ -2005,7 +2148,7 @@ export default function Home() {
         id: `tp_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         timelineType: "main",
         timeOrOrder: "",
-        momentName: "New preset moment",
+        momentName: "New timeline moment",
         songPlaceholder: "",
         notesPlaceholder: "",
         defaultIncluded: true,
@@ -2023,6 +2166,42 @@ export default function Home() {
       },
     }));
   };
+
+  const duplicateTimelinePresetMoment = useCallback(
+    (profile: EventLayoutProfile, index: number) => {
+      updateTimelinePresetSet(profile, (items) => {
+        const row = items[index];
+        if (!row) return items;
+        const copy: TimelinePresetItem = {
+          ...cloneJson(row),
+          id: `tp_dup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          momentName: row.momentName.trim() ? `${row.momentName.trim()} (copy)` : "Moment (copy)",
+        };
+        const next = [...items];
+        next.splice(index + 1, 0, copy);
+        return next;
+      });
+    },
+    [updateTimelinePresetSet],
+  );
+
+  const reorderTimelinePresetRows = useCallback(
+    (profile: EventLayoutProfile, fromIndex: number, dropIndex: number) => {
+      if (fromIndex === dropIndex) return;
+      updateTimelinePresetSet(profile, (items) => {
+        if (fromIndex < 0 || fromIndex >= items.length || dropIndex < 0 || dropIndex >= items.length) {
+          return items;
+        }
+        const next = [...items];
+        const [row] = next.splice(fromIndex, 1);
+        let insertAt = dropIndex;
+        if (fromIndex < dropIndex) insertAt = dropIndex - 1;
+        next.splice(insertAt, 0, row);
+        return next;
+      });
+    },
+    [updateTimelinePresetSet],
+  );
 
   const dashboardEyebrowText = useMemo(() => {
     const role = currentRole ?? rolePreview;
@@ -2061,8 +2240,6 @@ export default function Home() {
   const canManageEvents = effectiveRole === "Admin";
   const canEditEventCover = effectiveRole !== "DJ";
   const canEditEventLifecycle = effectiveRole === "Admin" || effectiveRole === "Planner";
-  const canAddFormality = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Planner";
-
   const applyEventCoverPhoto = useCallback(
     (dataUrl: string | undefined) => {
       setEventSettings((prev) => ({ ...prev, coverPhotoDataUrl: dataUrl }));
@@ -2143,12 +2320,10 @@ export default function Home() {
   const sectionVendorContactsEnabled = eventSettings.sectionVendorContactsEnabled;
   const sectionMusicNotesEnabled = eventSettings.sectionMusicNotesEnabled;
   const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
-  const sectionFormalitiesEnabled = eventSettings.sectionFormalitiesEnabled;
   const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
-  /** Used for Reception Hub + distinct reception timeline / formalities routes (couple-friendly). */
-  const receptionHubEligibleNav =
-    sectionReceptionTimelineEnabled || sectionFormalitiesEnabled;
+  /** Reception Hub entry when the reception/main timeline is enabled (couple-friendly). */
+  const receptionHubEligibleNav = sectionReceptionTimelineEnabled;
   const showDesktopSidebar =
     authStage === "app" &&
     (effectiveRole === "Admin" || effectiveRole === "DJ");
@@ -2161,16 +2336,15 @@ export default function Home() {
       recessionalSong.title.trim(),
   );
   const hasKeyFormalDanceSongs = Boolean(
-    formalities.find((f) => /first dance/i.test(f.momentName) && f.songTitle.trim()) &&
-      formalities.find((f) => /father\/daughter/i.test(f.momentName) && f.songTitle.trim()) &&
-      formalities.find((f) => /mother\/son/i.test(f.momentName) && f.songTitle.trim()),
+    timelineItems.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
+      timelineItems.some(
+        (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+      ) &&
+      timelineItems.some(
+        (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+      ),
   );
-  const combinedTimelineTitles = [
-    ...timelineItems.map((item) => item.title.toLowerCase()),
-    ...formalities
-      .filter((item) => item.includeInTimeline)
-      .map((item) => item.momentName.toLowerCase()),
-  ];
+  const combinedTimelineTitles = timelineItems.map((item) => item.title.toLowerCase());
   const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every(
     (needle) => combinedTimelineTitles.some((title) => title.includes(needle)),
   );
@@ -2201,8 +2375,8 @@ export default function Home() {
       },
       {
         id: "add-formal-dance-songs",
-        title: "Add Formal Dance Songs",
-        description: "Set first dance and parent dance songs.",
+        title: "Add Key Formal Dances (Timeline)",
+        description: "Set first dance and parent dance songs on your reception timeline.",
         linkedSection: (receptionHubEligibleNav ? "Reception Timeline" : "Timeline") as Screen,
         autoStatus: hasKeyFormalDanceSongs ? "Complete" : "Not Started",
       },
@@ -2224,8 +2398,7 @@ export default function Home() {
         id: "review-timeline",
         title: "Review Timeline",
         description: "Confirm key reception flow and transitions.",
-        linkedSection: (receptionHubEligibleNav &&
-        (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+        linkedSection: (receptionHubEligibleNav && sectionReceptionTimelineEnabled
           ? "Reception Timeline"
           : "Timeline") as Screen,
         autoStatus: hasKeyTimelineMoments ? "Complete" : "Not Started",
@@ -2257,7 +2430,6 @@ export default function Home() {
       guestRequests,
       noPendingGuestRequests,
       receptionHubEligibleNav,
-      sectionFormalitiesEnabled,
       sectionReceptionTimelineEnabled,
     ],
   );
@@ -2275,6 +2447,13 @@ export default function Home() {
   );
   const isCoupleView = effectiveRole === "Couple";
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
+  /** Same resolution as {@link AppHeader} — Cutmaster default is `/cmm-logo-white.png` (light artwork). */
+  const resolvedDocLogoSrc = useMemo(() => {
+    const raw = appSettings.logoUrl?.trim() ?? "";
+    if (!raw) return "/cmm-logo-white.png";
+    if (raw.startsWith("/") || raw.startsWith("http") || raw.startsWith("data:")) return raw;
+    return "/cmm-logo-white.png";
+  }, [appSettings.logoUrl]);
   const coupleDisplayName = eventSettings.coupleNames || weddingDetails.couple;
   const eventDateDisplay = eventSettings.weddingDate || weddingDetails.date || "TBD";
   const eventVenueDisplay = eventSettings.venue || weddingDetails.venue || "TBD";
@@ -2382,7 +2561,7 @@ export default function Home() {
           const timelineScreen: Screen =
             isCoupleView &&
             receptionHubEligibleNav &&
-            (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+            sectionReceptionTimelineEnabled
               ? "Reception Timeline"
               : "Timeline";
           setActiveScreen(timelineScreen);
@@ -2390,6 +2569,9 @@ export default function Home() {
           setTimelineTime("");
           setTimelineCategory("Ceremony");
           setTimelineNotes("");
+          setTimelineSongTitle("");
+          setTimelineArtist("");
+          setTimelineComposerError(null);
           setTimelineNeedsAttention(false);
           setEditingTimelineId(null);
           setTimelineComposerOpen(true);
@@ -2399,36 +2581,6 @@ export default function Home() {
         },
         priority:
           activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 39,
-      },
-      {
-        id: "add-formality",
-        label: "Add Formality",
-        visible: appMode === "event" && canAddFormality && sectionFormalitiesEnabled,
-        onClick: () => {
-          const timelineScreen: Screen =
-            isCoupleView && receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
-          setActiveScreen(timelineScreen);
-          const newItem: FormalityItem = {
-            id: `formality-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            momentName: "New special moment",
-            time: "",
-            songTitle: "",
-            artist: "",
-            notes: "",
-            fadeOutEarly: false,
-            fadeOutTimestamp: "",
-            includeInTimeline: true,
-            needsDjMcAttention: false,
-          };
-          setFormalities((prev) => [...prev, newItem]);
-          logActivity("formality_updated", "Added formality");
-          pushNotification("Timeline updated", "timeline_updated");
-          window.setTimeout(() => {
-            timelineStreamRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 0);
-        },
-        priority:
-          activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 38,
       },
       {
         id: "add-guest-request",
@@ -2483,11 +2635,9 @@ export default function Home() {
   }, [
     activeScreen,
     appMode,
-    canAddFormality,
     canEditTimeline,
     isCoupleView,
     receptionHubEligibleNav,
-    sectionFormalitiesEnabled,
     sectionReceptionTimelineEnabled,
     canInviteCollaborators,
     canManageEvents,
@@ -2497,7 +2647,6 @@ export default function Home() {
     logActivity,
     pushNotification,
     setActiveScreen,
-    setFormalities,
     timelineComposerRef,
     timelineStreamRef,
   ]);
@@ -2658,7 +2807,7 @@ export default function Home() {
           !evt.settings?.venue?.trim(),
           !evt.settings?.weddingDate?.trim(),
           evt.mustPlaySongs.length === 0,
-          evt.timelineItems.length === 0 && !evt.formalities.some((f) => f.includeInTimeline),
+          evt.timelineItems.length === 0,
         ].filter(Boolean).length;
         return { evt, pendingGuestRequests, incompleteChecklistCount };
       })
@@ -2928,6 +3077,7 @@ export default function Home() {
     setVendorInstagramDraft("");
     setVendorArrivalDraft("");
     setVendorCoordinationDraft("");
+    setVendorAffiliationDraft("event_partner");
   };
 
   const openAddVendorModal = () => {
@@ -2948,6 +3098,7 @@ export default function Home() {
     setVendorInstagramDraft(vendor.instagram);
     setVendorArrivalDraft(vendor.arrivalTime);
     setVendorCoordinationDraft(vendor.specialCoordinationNotes);
+    setVendorAffiliationDraft(vendor.affiliation ?? "event_partner");
     setVendorStatus(null);
     setVendorModalOpen(true);
   };
@@ -2993,6 +3144,7 @@ export default function Home() {
       instagram: vendorInstagramDraft.trim(),
       arrivalTime: vendorArrivalDraft.trim(),
       specialCoordinationNotes: vendorCoordinationDraft.trim(),
+      affiliation: vendorAffiliationDraft,
     };
     if (!vendorEditingId) {
       const nextVendors = [payload, ...vendors];
@@ -3021,6 +3173,19 @@ export default function Home() {
     logActivity("vendor_updated", `Removed vendor: ${target?.companyName || "Vendor"}`);
   };
 
+  const copyVendorContactInfo = useCallback(async (vendor: Vendor) => {
+    const text = formatVendorContactLines(vendor).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setVendorStatus({
+        kind: "success",
+        message: `Copied contact info for ${vendor.companyName || vendor.contactName || "contact"}.`,
+      });
+    } catch {
+      setVendorStatus({ kind: "error", message: "Could not copy contact info." });
+    }
+  }, []);
+
   const workspaceNavItems: Screen[] = useMemo(() => {
     if (effectiveRole === "Admin") {
       return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
@@ -3038,7 +3203,6 @@ export default function Home() {
     return buildEventNavItemsForRole(effectiveRole, {
       sectionCeremonyEnabled,
       sectionReceptionTimelineEnabled,
-      sectionFormalitiesEnabled,
       sectionPlaylistsEnabled,
       sectionMustPlayEnabled,
       sectionDoNotPlayEnabled,
@@ -3053,7 +3217,6 @@ export default function Home() {
     effectiveRole,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
-    sectionFormalitiesEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
     sectionMcScriptEnabled,
@@ -3067,13 +3230,9 @@ export default function Home() {
 
   const coupleTimelineEntryScreen = useMemo((): Screen | null => {
     if (receptionHubEligibleNav) return "Reception Hub";
-    if (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) return "Timeline";
+    if (sectionReceptionTimelineEnabled) return "Timeline";
     return null;
-  }, [
-    receptionHubEligibleNav,
-    sectionFormalitiesEnabled,
-    sectionReceptionTimelineEnabled,
-  ]);
+  }, [receptionHubEligibleNav, sectionReceptionTimelineEnabled]);
 
   const coupleGuidedNextScreen = useMemo((): Screen => {
     const answers = eventSettings.planningQuestionAnswers ?? {};
@@ -3094,10 +3253,7 @@ export default function Home() {
     if (!hasEventDetailsComplete) return "Event Settings";
     if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return "Ceremony";
 
-    if (sectionReceptionTimelineEnabled && !hasKeyTimelineMoments) {
-      return receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
-    }
-    if (sectionFormalitiesEnabled && !hasKeyFormalDanceSongs) {
+    if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
       return receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
     }
 
@@ -3132,7 +3288,6 @@ export default function Home() {
     receptionHubEligibleNav,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
-    sectionFormalitiesEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
     sectionPlanningChecklistEnabled,
@@ -3186,14 +3341,10 @@ export default function Home() {
 
     if (coupleTimelineEntryScreen) {
       let completion = 100;
-      if (receptionHubEligibleNav && sectionReceptionTimelineEnabled && sectionFormalitiesEnabled) {
+      if (sectionReceptionTimelineEnabled) {
         completion = Math.round(
           (hasKeyTimelineMoments ? 50 : 0) + (hasKeyFormalDanceSongs ? 50 : 0),
         );
-      } else if (sectionReceptionTimelineEnabled) {
-        completion = hasKeyTimelineMoments ? 100 : 42;
-      } else if (sectionFormalitiesEnabled) {
-        completion = hasKeyFormalDanceSongs ? 100 : 42;
       }
       const needsWork = completion < 100;
       cards.push({
@@ -3201,7 +3352,7 @@ export default function Home() {
         kicker: "Main event",
         title: receptionHubEligibleNav ? "Reception & main event" : "Reception / main event",
         description: receptionHubEligibleNav
-          ? "Timeline and formalities in one guided workspace."
+          ? "One timeline for flow, formal moments, and cues — what's next on the night."
           : "Shape the arc of your celebration.",
         screen: coupleTimelineEntryScreen,
         completion,
@@ -3338,7 +3489,6 @@ export default function Home() {
     receptionHubEligibleNav,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
-    sectionFormalitiesEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
     sectionPlanningQuestionsEnabled,
@@ -3365,7 +3515,7 @@ export default function Home() {
   const primaryTimelineScreenForHome = useMemo((): Screen => {
     if (
       receptionHubEligibleNav &&
-      (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled)
+      sectionReceptionTimelineEnabled
     ) {
       return "Reception Timeline";
     }
@@ -3373,7 +3523,6 @@ export default function Home() {
   }, [
     receptionHubEligibleNav,
     sectionReceptionTimelineEnabled,
-    sectionFormalitiesEnabled,
   ]);
 
   const enabledSectionToggleCount = useMemo(
@@ -3381,7 +3530,6 @@ export default function Home() {
       [
         sectionCeremonyEnabled,
         sectionReceptionTimelineEnabled,
-        sectionFormalitiesEnabled,
         sectionPlaylistsEnabled,
         sectionMustPlayEnabled,
         sectionDoNotPlayEnabled,
@@ -3395,7 +3543,6 @@ export default function Home() {
     [
       sectionCeremonyEnabled,
       sectionDoNotPlayEnabled,
-      sectionFormalitiesEnabled,
       sectionGuestRequestsEnabled,
       sectionMcScriptEnabled,
       sectionMusicNotesEnabled,
@@ -3432,7 +3579,7 @@ export default function Home() {
 
     if (effectiveRole === "DJ") {
       return filterScreens([
-        { kind: "screen", screen: "Event Prep", label: "Live event mode & doc" },
+        { kind: "screen", screen: "Event Prep", label: "Event Document" },
         { kind: "screen", screen: "Music Hub", label: "Music hub · must / DNP" },
         { kind: "screen", screen: tl, label: "Timeline" },
         { kind: "screen", screen: "Ceremony", label: "Ceremony cues" },
@@ -3442,7 +3589,7 @@ export default function Home() {
     if (effectiveRole === "Admin") {
       return filterScreens([
         { kind: "screen", screen: "Event Settings", label: "Event settings · sections" },
-        { kind: "screen", screen: "Event Prep", label: "Event prep & live mode" },
+        { kind: "screen", screen: "Event Prep", label: "Event Document" },
         { kind: "screen", screen: tl, label: "Timeline" },
         { kind: "screen", screen: "Music Hub", label: "Music hub" },
         { kind: "workspace", label: "Timeline presets", section: "Timeline Presets" },
@@ -3660,7 +3807,7 @@ export default function Home() {
     if (appMode !== "event") return workspaceNavItems;
     const extras: Screen[] = [];
     if (receptionHubEligibleNav) {
-      if (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) {
+      if (sectionReceptionTimelineEnabled) {
         extras.push("Reception Timeline");
       }
     }
@@ -3671,7 +3818,6 @@ export default function Home() {
     eventNavItems,
     receptionHubEligibleNav,
     sectionReceptionTimelineEnabled,
-    sectionFormalitiesEnabled,
   ]);
 
   const switchPerspectiveRole = useCallback(
@@ -3683,7 +3829,6 @@ export default function Home() {
       const flags: EventNavSectionFlags = {
         sectionCeremonyEnabled,
         sectionReceptionTimelineEnabled,
-        sectionFormalitiesEnabled,
         sectionPlaylistsEnabled,
         sectionMustPlayEnabled,
         sectionDoNotPlayEnabled,
@@ -3731,7 +3876,6 @@ export default function Home() {
       commitActiveEventPlanningToEventsState,
       sectionCeremonyEnabled,
       sectionReceptionTimelineEnabled,
-      sectionFormalitiesEnabled,
       sectionPlaylistsEnabled,
       sectionMustPlayEnabled,
       sectionDoNotPlayEnabled,
@@ -3755,7 +3899,7 @@ export default function Home() {
     if (screen === "Settings") return "Global Settings";
     if (screen === "Reception Hub") return "Reception & timeline";
     if (screen === "Reception Timeline") return "Reception timeline";
-    if (screen === "Reception Formalities") return "Special moments";
+    if (screen === "Event Prep") return "Event Document";
     return screen;
   };
 
@@ -3782,25 +3926,12 @@ export default function Home() {
       ) ?? null
     );
   }, [activeEventId, eventSettings.plannerEmail, eventSettings.plannerName, teamMembers]);
-  const vendorsByType = useMemo(
-    () =>
-      VENDOR_TYPES.reduce<Record<VendorType, Vendor[]>>((acc, type) => {
-        acc[type] = vendors.filter((vendor) => vendor.vendorType === type);
-        return acc;
-      }, {
-        Planner: [],
-        Photographer: [],
-        Videographer: [],
-        Venue: [],
-        Caterer: [],
-        Florist: [],
-        "Hair/Makeup": [],
-        "Photo Booth": [],
-        Officiant: [],
-        Band: [],
-        "Content Creator": [],
-        Other: [],
-      }),
+  const cutmasterTeamVendors = useMemo(
+    () => vendors.filter((v) => isCutmasterEventTeam(v)),
+    [vendors],
+  );
+  const partnerVendors = useMemo(
+    () => vendors.filter((v) => !isCutmasterEventTeam(v)),
     [vendors],
   );
 
@@ -3895,7 +4026,7 @@ export default function Home() {
           sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
           sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
           sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
-          sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+          sectionFormalitiesEnabled: false,
           sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
           sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
           planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
@@ -3905,9 +4036,23 @@ export default function Home() {
           eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
         },
       }));
-      setEvents(loadedEvents);
-      setAppMode(loadedEvents.length > 0 ? "event" : "events");
-      if (Array.isArray(parsed.templates)) setTemplates(parsed.templates);
+      const migratedEvents = loadedEvents.map((evt) =>
+        normalizeEventRecordAfterFormalitiesMerge(evt as EventRecord),
+      );
+      setEvents(migratedEvents);
+      setAppMode(migratedEvents.length > 0 ? "event" : "events");
+      if (Array.isArray(parsed.templates)) {
+        setTemplates(
+          parsed.templates.map((tpl) => ({
+            ...tpl,
+            timelineItems: migrateFormalitiesIntoTimelineItems(
+              tpl.timelineItems ?? [],
+              tpl.formalities ?? [],
+            ),
+            formalities: [],
+          })),
+        );
+      }
       if (Array.isArray(parsed.teamMembers)) setTeamMembers(parsed.teamMembers);
       if (Array.isArray(parsed.activities)) setActivities(parsed.activities);
       if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
@@ -3930,106 +4075,34 @@ export default function Home() {
       if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
 
       const nextActiveId =
-        parsed.activeEventId || (loadedEvents[0] ? loadedEvents[0].id : "");
+        parsed.activeEventId || (migratedEvents[0] ? migratedEvents[0].id : "");
       if (nextActiveId) setActiveEventId(nextActiveId);
 
       const active = nextActiveId
-        ? loadedEvents.find((e) => e.id === nextActiveId) ?? loadedEvents[0]
+        ? migratedEvents.find((e) => e.id === nextActiveId) ?? migratedEvents[0]
         : undefined;
 
       if (active) {
-        setTimelineItems(active.timelineItems);
-        setCeremonyTimelineItems(active.ceremonyTimelineItems ?? []);
-        setFormalities(active.formalities);
-        setMustPlaySongs(active.mustPlaySongs);
-        setDoNotPlaySongs(active.doNotPlaySongs);
-        setCeremonyStartTime(active.ceremonyStartTime);
-        setCeremonyGuestArrivalTime(active.ceremonyGuestArrivalTime ?? "");
-        setOfficiantName(active.officiantName);
-        setCeremonyNotes(active.ceremonyNotes);
-        setMicrophoneNeeds(active.microphoneNeeds);
-        setWeddingPartyProcessional(active.weddingPartyProcessional);
-        setBrideGroomProcessional(active.brideGroomProcessional);
-        setUnityCeremonySong(active.unityCeremonySong);
-        setRecessionalSong(active.recessionalSong);
-        setPlannerNotes(active.plannerNotes);
-        setVendors(active.vendors ?? []);
-        setGuestRequests(active.guestRequests);
-        setGeneralDjNotes(active.generalDjNotes);
-        setPlaylistVibeOverrides(cloneJson(active.playlistVibeOverrides ?? {}));
-        setMusicVibeDetail(cloneJson(active.musicVibeDetail ?? {}));
-        setMcAnnouncements(active.mcAnnouncements);
-        setEventSettings({
-          eventLayoutProfile: migrateLegacyLayoutProfile(
-            active.settings?.eventLayoutProfile,
-            active.settings?.eventType ?? "",
-          ),
-          eventName: active.settings?.eventName ?? active.meta.couple ?? "",
-          coupleNames: active.settings?.coupleNames ?? active.meta.couple ?? "",
-          eventType: migrateLegacyLayoutProfile(
-            active.settings?.eventLayoutProfile ?? active.settings?.eventType,
-            active.settings?.eventType ?? "",
-          ),
-          weddingDate: active.settings?.weddingDate ?? active.meta.date ?? "",
-          venue: active.settings?.venue ?? active.meta.venue ?? "",
-          ceremonyLocation: active.settings?.ceremonyLocation ?? "",
-          receptionLocation: active.settings?.receptionLocation ?? "",
-          eventStartTime: active.settings?.eventStartTime ?? "",
-          eventEndTime: active.settings?.eventEndTime ?? "",
-          assignedDj: active.settings?.assignedDj ?? "",
-          plannerName: active.settings?.plannerName ?? "",
-          plannerEmail: active.settings?.plannerEmail ?? "",
-          packageName: active.settings?.packageName ?? "",
-          internalNotes: active.settings?.internalNotes ?? "",
-          clientFacingNotes: active.settings?.clientFacingNotes ?? "",
-          prepSheetFooterOverride: active.settings?.prepSheetFooterOverride ?? "",
-          guestRequestMessageOverride: active.settings?.guestRequestMessageOverride ?? "",
-          coupleWelcomeMessageOverride: active.settings?.coupleWelcomeMessageOverride ?? "",
-          liveEventShowMusicNotes: active.settings?.liveEventShowMusicNotes ?? true,
-          liveEventShowDoNotPlay: active.settings?.liveEventShowDoNotPlay ?? true,
-          liveEventShowVendorContacts: active.settings?.liveEventShowVendorContacts ?? true,
-          liveEventShowMcScript: active.settings?.liveEventShowMcScript ?? true,
-          liveEventShowPlaylists: active.settings?.liveEventShowPlaylists ?? true,
-          liveEventShowPlanningQuestions: active.settings?.liveEventShowPlanningQuestions ?? true,
-          liveEventShowGuestRequests:
-            typeof active.settings?.liveEventShowGuestRequests === "boolean"
-              ? active.settings.liveEventShowGuestRequests
-              : getLiveEventDocumentDefaults(
-                  (active.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
-                ).liveEventShowGuestRequests,
-          liveEventCompactMode: active.settings?.liveEventCompactMode ?? false,
-          liveEventLargePrintMode: active.settings?.liveEventLargePrintMode ?? false,
-          sectionCeremonyEnabled: active.settings?.sectionCeremonyEnabled ?? true,
-          sectionReceptionTimelineEnabled: active.settings?.sectionReceptionTimelineEnabled ?? true,
-          sectionPlaylistsEnabled: active.settings?.sectionPlaylistsEnabled ?? true,
-          sectionMustPlayEnabled: active.settings?.sectionMustPlayEnabled ?? true,
-          sectionDoNotPlayEnabled: active.settings?.sectionDoNotPlayEnabled ?? true,
-          sectionMcScriptEnabled: active.settings?.sectionMcScriptEnabled ?? true,
-          sectionVendorContactsEnabled: active.settings?.sectionVendorContactsEnabled ?? true,
-          sectionMusicNotesEnabled: active.settings?.sectionMusicNotesEnabled ?? true,
-          sectionGuestRequestsEnabled: active.settings?.sectionGuestRequestsEnabled ?? true,
-          sectionFormalitiesEnabled: active.settings?.sectionFormalitiesEnabled ?? true,
-          sectionPlanningChecklistEnabled: active.settings?.sectionPlanningChecklistEnabled ?? true,
-          sectionPlanningQuestionsEnabled: active.settings?.sectionPlanningQuestionsEnabled ?? true,
-          planningQuestionAnswers: active.settings?.planningQuestionAnswers ?? {},
-          checklistDueDates: active.settings?.checklistDueDates ?? {},
-          checklistManualStatuses: active.settings?.checklistManualStatuses ?? {},
-          coverPhotoDataUrl: active.settings?.coverPhotoDataUrl,
-          eventLifecycleStatus: active.settings?.eventLifecycleStatus ?? "active",
-        });
-      } else {
-        // If there is no saved event yet, keep the seeded working state.
+        loadEventPlanningIntoWorkingState(active);
       }
 
-      setSavedLocally(false);
+      if (persistPhaseHideTimeoutRef.current) {
+        window.clearTimeout(persistPhaseHideTimeoutRef.current);
+        persistPhaseHideTimeoutRef.current = null;
+      }
+      setPersistPhase("idle");
+      setPersistBaseline(false);
+      persistUiSuppressBootCountRef.current = 1;
       window.setTimeout(() => setHasHydrated(true), 0);
     } catch {
+      persistUiSuppressBootCountRef.current = 1;
       window.setTimeout(() => setHasHydrated(true), 0);
     }
   }, [
     setAppSettings,
     setHasHydrated,
-    setSavedLocally,
+    setPersistPhase,
+    setPersistBaseline,
     setActiveScreen,
     setAuthStage,
     setCurrentRole,
@@ -4047,7 +4120,7 @@ export default function Home() {
             ...e,
             timelineItems,
             ceremonyTimelineItems,
-            formalities,
+            formalities: [],
             mustPlaySongs,
             doNotPlaySongs,
             ceremonyStartTime,
@@ -4089,13 +4162,36 @@ export default function Home() {
       },
     };
 
+    const showPersistUi = persistUiSuppressBootCountRef.current <= 0;
+    if (showPersistUi) {
+      setPersistPhase("pending");
+    }
+
     const t = window.setTimeout(() => {
       try {
         window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(payload));
-        setSavedLocally(true);
-        window.setTimeout(() => setSavedLocally(false), 1400);
+        window.localStorage.setItem(
+          GLOBAL_SETTINGS_STORAGE_KEY,
+          JSON.stringify(appSettings),
+        );
+        setPersistBaseline(true);
+        if (persistUiSuppressBootCountRef.current > 0) {
+          persistUiSuppressBootCountRef.current -= 1;
+        } else {
+          setPersistPhase("saved");
+          if (persistPhaseHideTimeoutRef.current) {
+            window.clearTimeout(persistPhaseHideTimeoutRef.current);
+          }
+          persistPhaseHideTimeoutRef.current = window.setTimeout(() => {
+            setPersistPhase("idle");
+            persistPhaseHideTimeoutRef.current = null;
+          }, 2400);
+        }
       } catch {
-        // Ignore localStorage quota / private mode issues for prototype safety.
+        if (persistUiSuppressBootCountRef.current > 0) {
+          persistUiSuppressBootCountRef.current -= 1;
+        }
+        setPersistPhase("idle");
       }
     }, 450);
 
@@ -4117,7 +4213,6 @@ export default function Home() {
     inviteAccessPreview,
     timelineItems,
     ceremonyTimelineItems,
-    formalities,
     mustPlaySongs,
     doNotPlaySongs,
     ceremonyStartTime,
@@ -4137,26 +4232,10 @@ export default function Home() {
     musicVibeDetail,
     mcAnnouncements,
     eventSettings,
-    setSavedLocally,
+    appSettings,
+    setPersistPhase,
+    setPersistBaseline,
   ]);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    if (typeof window === "undefined") return;
-
-    const t = window.setTimeout(() => {
-      try {
-        window.localStorage.setItem(
-          GLOBAL_SETTINGS_STORAGE_KEY,
-          JSON.stringify(appSettings),
-        );
-      } catch {
-        // ignore local storage failures in prototype mode
-      }
-    }, 250);
-
-    return () => window.clearTimeout(t);
-  }, [appSettings, hasHydrated]);
 
   useEffect(() => {
     if (appMode !== "events") return;
@@ -4321,7 +4400,7 @@ export default function Home() {
               ...e,
               timelineItems,
               ceremonyTimelineItems,
-              formalities,
+              formalities: [],
               mustPlaySongs,
               doNotPlaySongs,
               ceremonyStartTime,
@@ -4348,7 +4427,6 @@ export default function Home() {
       activeEventId,
       timelineItems,
       ceremonyTimelineItems,
-      formalities,
       mustPlaySongs,
       doNotPlaySongs,
       ceremonyStartTime,
@@ -4498,7 +4576,7 @@ export default function Home() {
         sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
         sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
         sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
-        sectionFormalitiesEnabled: evt.settings?.sectionFormalitiesEnabled ?? true,
+        sectionFormalitiesEnabled: false,
         sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
@@ -4508,19 +4586,34 @@ export default function Home() {
         eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
       },
     }));
-    if (normalizedEvents.length === 0) {
+    const mergedBackupEvents = normalizedEvents.map((evt) =>
+      normalizeEventRecordAfterFormalitiesMerge(evt as EventRecord),
+    );
+    if (mergedBackupEvents.length === 0) {
       setBackupStatus({ kind: "error", message: "Backup has no events to restore." });
       return;
     }
-    const nextActiveId = normalizedEvents.some((evt) => evt.id === payload.activeEventId)
+    const nextActiveId = mergedBackupEvents.some((evt) => evt.id === payload.activeEventId)
       ? payload.activeEventId
-      : normalizedEvents[0].id;
-    const nextActiveEvent = normalizedEvents.find((evt) => evt.id === nextActiveId) ?? normalizedEvents[0];
+      : mergedBackupEvents[0].id;
+    const nextActiveEvent =
+      mergedBackupEvents.find((evt) => evt.id === nextActiveId) ?? mergedBackupEvents[0];
 
-    setEvents(normalizedEvents);
+    setEvents(mergedBackupEvents);
     setActiveEventId(nextActiveId);
     loadEventPlanningIntoWorkingState(nextActiveEvent);
-    setTemplates(Array.isArray(payload.templates) ? payload.templates : []);
+    setTemplates(
+      Array.isArray(payload.templates)
+        ? payload.templates.map((tpl) => ({
+            ...tpl,
+            timelineItems: migrateFormalitiesIntoTimelineItems(
+              tpl.timelineItems ?? [],
+              tpl.formalities ?? [],
+            ),
+            formalities: [],
+          }))
+        : [],
+    );
     setTeamMembers(Array.isArray(payload.teamMembers) ? payload.teamMembers : []);
     setActivities(Array.isArray(payload.activities) ? payload.activities : []);
     setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
@@ -4694,10 +4787,10 @@ export default function Home() {
   };
 
   const roleBadgeClass = (role: UserRole) => {
-    if (role === "Admin") return "bg-[#c9a35c]/25 text-[#f5e6c8]";
-    if (role === "DJ") return "bg-violet-500/20 text-violet-200";
-    if (role === "Planner") return "bg-sky-500/20 text-sky-200";
-    return "bg-emerald-500/20 text-emerald-200";
+    if (role === "Admin") return "border border-stone-400 bg-stone-100 font-semibold text-stone-950";
+    if (role === "DJ") return "border border-violet-400 bg-violet-50 font-semibold text-violet-950";
+    if (role === "Planner") return "border border-sky-400 bg-sky-50 font-semibold text-sky-950";
+    return "border border-emerald-400 bg-emerald-50 font-semibold text-emerald-950";
   };
 
   const handleInviteCollaborator = () => {
@@ -4786,7 +4879,7 @@ export default function Home() {
   };
 
   const guestRequestStatusBadgeClass = (status: GuestRequestStatus) => {
-    if (status === "Pending") return "bg-amber-400/15 text-amber-100";
+    if (status === "Pending") return "bg-[#7E52A0]/18 text-violet-100";
     if (status === "Approved") return "bg-emerald-500/20 text-emerald-100";
     return "bg-[#6f5353]/45 text-[#f2dede]";
   };
@@ -4796,6 +4889,9 @@ export default function Home() {
     setTimelineTime("");
     setTimelineCategory("Ceremony");
     setTimelineNotes("");
+    setTimelineSongTitle("");
+    setTimelineArtist("");
+    setTimelineComposerError(null);
     setTimelineNeedsAttention(false);
     setEditingTimelineId(null);
   };
@@ -4816,7 +4912,14 @@ export default function Home() {
   const addOrUpdateTimelineItem = () => {
     const cleanTitle = timelineTitle.trim();
     const cleanTime = timelineTime.trim();
-    if (!cleanTitle || !cleanTime) return;
+    const cleanSong = timelineSongTitle.trim();
+    const cleanArtist = timelineArtist.trim();
+
+    if (!cleanTitle) {
+      setTimelineComposerError("Moment name is required.");
+      return;
+    }
+    setTimelineComposerError(null);
 
     if (editingTimelineId) {
       setTimelineItems((prev) =>
@@ -4828,6 +4931,8 @@ export default function Home() {
                 time: cleanTime,
                 category: timelineCategory,
                 notes: timelineNotes.trim(),
+                songTitle: cleanSong,
+                artist: cleanArtist,
                 needsDjMcAttention: timelineNeedsAttention,
               }
             : item,
@@ -4836,6 +4941,7 @@ export default function Home() {
       logActivity("timeline_updated", `Updated timeline item: ${cleanTitle}`);
       pushNotification("Timeline updated", "timeline_updated");
       resetTimelineForm();
+      setTimelineComposerOpen(false);
       return;
     }
 
@@ -4845,12 +4951,14 @@ export default function Home() {
       time: cleanTime,
       category: timelineCategory,
       notes: timelineNotes.trim(),
+      songTitle: cleanSong || undefined,
+      artist: cleanArtist || undefined,
       needsDjMcAttention: timelineNeedsAttention,
     };
 
-    setTimelineItems((prev) => [...prev, newItem]);
-    logActivity("timeline_updated", `Added timeline item: ${cleanTitle}`);
-    pushNotification("Timeline updated", "timeline_updated");
+    setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, newItem));
+    logActivity("timeline_item_added", `Added timeline moment: ${cleanTitle}`);
+    pushNotification("Timeline moment added", "timeline_item_added");
     resetTimelineForm();
     setTimelineComposerOpen(false);
   };
@@ -4900,76 +5008,34 @@ export default function Home() {
       ...item,
       id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: `${item.title} (Copy)`,
+      songTitle: item.songTitle,
+      artist: item.artist,
+      fadeOutEarly: item.fadeOutEarly,
+      fadeOutTimestamp: item.fadeOutTimestamp,
     };
-    setTimelineItems((prev) => [...prev, duplicate]);
+    setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, duplicate));
     logActivity("timeline_updated", `Duplicated timeline item: ${item.title}`);
     pushNotification("Timeline updated", "timeline_updated");
   };
 
-  const duplicateFormality = (item: FormalityItem) => {
-    const duplicate: FormalityItem = {
-      ...item,
-      id: `formality-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      momentName: `${item.momentName} (Copy)`,
-    };
-    setFormalities((prev) => [...prev, duplicate]);
-    logActivity("formality_updated", `Duplicated formality: ${item.momentName}`);
-    pushNotification("Timeline updated", "timeline_updated");
-  };
-
-  const deleteFormality = (formalityId: string) => {
-    setFormalities((prev) => prev.filter((f) => f.id !== formalityId));
-    logActivity("formality_updated", "Removed formality");
-    pushNotification("Timeline updated", "timeline_updated");
-  };
-
-  const moveFormalityAmongIncluded = (formalityId: string, direction: "up" | "down") => {
-    setFormalities((prev) => {
-      const includedOrder = prev.filter((f) => f.includeInTimeline);
-      const idxInIncluded = includedOrder.findIndex((f) => f.id === formalityId);
-      if (idxInIncluded === -1) return prev;
-      const swapIdxInIncluded = direction === "up" ? idxInIncluded - 1 : idxInIncluded + 1;
-      if (swapIdxInIncluded < 0 || swapIdxInIncluded >= includedOrder.length) return prev;
-      const idA = formalityId;
-      const idB = includedOrder[swapIdxInIncluded].id;
-      const fullIdxA = prev.findIndex((f) => f.id === idA);
-      const fullIdxB = prev.findIndex((f) => f.id === idB);
-      if (fullIdxA === -1 || fullIdxB === -1) return prev;
-      const next = [...prev];
-      [next[fullIdxA], next[fullIdxB]] = [next[fullIdxB], next[fullIdxA]];
-      return next;
-    });
-    logActivity("timeline_updated", "Reordered formalities");
-    pushNotification("Timeline updated", "timeline_updated");
-  };
-
   const addReceptionPreset = (preset: TimelinePresetItem) => {
-    const newItem: TimelineItem = {
-      id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      title: preset.momentName,
-      time: preset.timeOrOrder,
-      category: "Reception",
-      notes: preset.songPlaceholder
-        ? `${preset.notesPlaceholder}${preset.notesPlaceholder ? " " : ""}Song: ${preset.songPlaceholder}`.trim()
-        : preset.notesPlaceholder,
-      needsDjMcAttention: false,
-    };
-    setTimelineItems((prev) => [...prev, newItem]);
+    const newItem = mainTimelineItemFromPreset(
+      preset,
+      `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    );
+    setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, newItem));
     logActivity("timeline_updated", `Added preset: ${preset.momentName}`);
     pushNotification("Timeline updated", "timeline_updated");
   };
 
   const addCeremonyPreset = (preset: TimelinePresetItem) => {
-    const newItem: CeremonyTimelineItem = {
-      id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timeOrOrder: preset.timeOrOrder,
-      moment: preset.momentName,
-      songTitle: preset.songPlaceholder,
-      artist: "",
-      notes: preset.notesPlaceholder,
-      needsDjMcAttention: false,
-    };
-    setCeremonyTimelineItems((prev) => [...prev, newItem]);
+    const newItem = ceremonyTimelineItemFromPreset(
+      preset,
+      `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    );
+    setCeremonyTimelineItems((prev) =>
+      insertCeremonyTimelineItemChronologically(prev, newItem),
+    );
     logActivity("ceremony_updated", `Added ceremony preset: ${preset.momentName}`);
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
@@ -4990,6 +5056,21 @@ export default function Home() {
         : "Appended current event-type timeline presets",
     );
     pushNotification("Timeline presets applied", "timeline_updated");
+  };
+
+  /** Full suggested flow for setup — replaces ceremony + main when user confirms edge cases. */
+  const handleApplySuggestedTimelineSetup = () => {
+    if (!canEditTimeline) return;
+    if ((mainTimelinePresetsForActiveEvent ?? []).length === 0) return;
+    if (ceremonyTimelineItems.length > 0 && mergedTimelineItems.length === 0) {
+      const ok = window.confirm(
+        "Loading the full suggested timeline will replace your current ceremony moments. Continue?",
+      );
+      if (!ok) return;
+    }
+    applyPresetItemsToTimelineState(timelinePresetsForActiveEvent, true);
+    logActivity("timeline_updated", "Loaded suggested timeline from presets (setup)");
+    pushNotification("Suggested timeline loaded", "timeline_updated");
   };
 
   const resetCeremonyTimelineDraft = () => {
@@ -5025,18 +5106,18 @@ export default function Home() {
   const saveCeremonyTimelineComposerItem = () => {
     const cleanMoment = ceremonyTimelineDraftMoment.trim();
     if (!cleanMoment) return;
-    setCeremonyTimelineItems((prev) => [
-      ...prev,
-      {
-        id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
-        moment: cleanMoment,
-        songTitle: ceremonyTimelineDraftSongTitle.trim(),
-        artist: ceremonyTimelineDraftArtist.trim(),
-        notes: ceremonyTimelineDraftNotes.trim(),
-        needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
-      },
-    ]);
+    const newCeremonyItem: CeremonyTimelineItem = {
+      id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timeOrOrder: ceremonyTimelineDraftTimeOrOrder.trim(),
+      moment: cleanMoment,
+      songTitle: ceremonyTimelineDraftSongTitle.trim(),
+      artist: ceremonyTimelineDraftArtist.trim(),
+      notes: ceremonyTimelineDraftNotes.trim(),
+      needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
+    };
+    setCeremonyTimelineItems((prev) =>
+      insertCeremonyTimelineItemChronologically(prev, newCeremonyItem),
+    );
     logActivity("ceremony_updated", `Added ceremony moment: ${cleanMoment}`);
     pushNotification("Ceremony timeline updated", "ceremony_updated");
     resetCeremonyTimelineDraft();
@@ -5058,7 +5139,9 @@ export default function Home() {
       id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       moment: `${item.moment} (Copy)`,
     };
-    setCeremonyTimelineItems((prev) => [...prev, duplicate]);
+    setCeremonyTimelineItems((prev) =>
+      insertCeremonyTimelineItemChronologically(prev, duplicate),
+    );
     logActivity("ceremony_updated", `Duplicated ceremony moment: ${item.moment}`);
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
@@ -5093,24 +5176,6 @@ export default function Home() {
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
 
-  const updateFormality = (
-    formalityId: string,
-    updates: Partial<FormalityItem>,
-  ) => {
-    const name =
-      formalities.find((item) => item.id === formalityId)?.momentName || "Formality";
-    if (
-      updates.songTitle !== undefined ||
-      updates.time !== undefined ||
-      updates.includeInTimeline !== undefined
-    ) {
-      logActivity("formality_updated", `Updated ${name}`);
-    }
-    setFormalities((prev) =>
-      prev.map((item) => (item.id === formalityId ? { ...item, ...updates } : item)),
-    );
-  };
-
   const updateCollaboratorsForActiveEvent = (
     updater: (current: Collaborator[]) => Collaborator[],
   ) => {
@@ -5124,53 +5189,36 @@ export default function Home() {
     );
   };
 
-  const includedFormalityNames = useMemo(
+  const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
     () =>
-      new Set(
-        (sectionFormalitiesEnabled ? formalities : [])
-          .filter((item) => item.includeInTimeline)
-          .map((item) => item.momentName.trim().toLowerCase()),
-      ),
-    [formalities, sectionFormalitiesEnabled],
+      timelineItems.map((item) => ({
+        id: item.id,
+        source: "timeline" as const,
+        time: item.time,
+        title: item.title,
+        category: item.category,
+        notes: item.notes,
+        needsDjMcAttention: item.needsDjMcAttention,
+        songTitle: item.songTitle?.trim() || "",
+        artist: item.artist?.trim() || "",
+        fadeOutEarly: item.fadeOutEarly,
+        fadeOutTimestamp: item.fadeOutTimestamp,
+      })),
+    [timelineItems],
   );
 
-  const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
-    () => [
-      ...timelineItems
-        .filter((item) => !includedFormalityNames.has(item.title.trim().toLowerCase()))
-        .map((item) => ({
-          id: item.id,
-          source: "timeline" as const,
-          time: item.time,
-          title: item.title,
-          category: item.category,
-          notes: item.notes,
-          needsDjMcAttention: item.needsDjMcAttention,
-        })),
-      ...(sectionFormalitiesEnabled ? formalities : [])
-        .filter((item) => item.includeInTimeline)
-        .map((item) => ({
-          id: item.id,
-          source: "formality" as const,
-          time: item.time,
-          title: item.momentName,
-          category: "Formality" as const,
-          notes: item.notes,
-          needsDjMcAttention: item.needsDjMcAttention,
-        })),
-    ],
-    [formalities, includedFormalityNames, sectionFormalitiesEnabled, timelineItems],
-  );
+  const showTimelinePresetOnboarding =
+    mergedTimelineItems.length === 0 && ceremonyTimelineItems.length === 0;
+  const hasAnyTimelinePresetTools =
+    mergedTimelineItems.length > 0 || ceremonyTimelineItems.length > 0;
 
   const ceremonyTimelineRows = useMemo(() => {
     return ceremonyTimelineItems.map((item) => ({
-      order: item.timeOrOrder || "TBD",
+      order: item.timeOrOrder?.trim() ?? "",
       moment: item.moment || "Untitled Moment",
-      song: item.songTitle
-        ? `${item.songTitle}${item.artist ? ` - ${item.artist}` : ""}`
-        : "-",
+      song: [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" - ") ?? "",
       notes: [
-        item.notes || "",
+        item.notes?.trim() || "",
         item.needsDjMcAttention ? "MC/DJ Attention" : "",
       ]
         .filter(Boolean)
@@ -5193,7 +5241,6 @@ export default function Home() {
     () =>
       buildPlanningInsights(
         mergedTimelineItems,
-        formalities,
         mustPlaySongs,
         doNotPlaySongs,
         weddingPartyProcessional,
@@ -5203,7 +5250,6 @@ export default function Home() {
       ),
     [
       mergedTimelineItems,
-      formalities,
       mustPlaySongs,
       doNotPlaySongs,
       weddingPartyProcessional,
@@ -5231,6 +5277,257 @@ export default function Home() {
     }
     return planningInsights;
   }, [effectiveRole, planningInsights]);
+
+  type EventReadinessTier = "attention" | "recommended" | "optional";
+
+  type EventReadinessItem = {
+    id: string;
+    tier: EventReadinessTier;
+    title: string;
+    hint: string;
+    actionLabel: string;
+    targetScreen: Screen;
+  };
+
+  const eventReadinessGuide = useMemo((): EventReadinessItem[] => {
+    const rows: EventReadinessItem[] = [];
+    const tlScreen = primaryTimelineScreenForHome;
+
+    if (!hasEventDetailsComplete) {
+      rows.push({
+        id: "rd-event-basics",
+        tier: "attention",
+        title: "Core event details unfinished",
+        hint: "Add your event name, how you’d like to be introduced, date, and venue so everything downstream stays aligned.",
+        actionLabel: "Complete details",
+        targetScreen: "Event Settings",
+      });
+    }
+
+    if (hasEventDetailsComplete) {
+      const plannerMissing = !eventSettings.plannerName?.trim();
+      const djMissing = !eventSettings.assignedDj?.trim();
+      if (plannerMissing || djMissing) {
+        rows.push({
+          id: "rd-team-routing",
+          tier: "attention",
+          title: plannerMissing && djMissing ? "Planner & DJ not linked yet" : plannerMissing ? "Planner contact open" : "DJ assignment open",
+          hint:
+            plannerMissing && djMissing
+              ? "Assign your planner and DJ in Event Settings—routing gets clearer for vendors and exports."
+              : plannerMissing
+                ? "Add who is coordinating day-of details so vendors know where to send updates."
+                : "Assign your DJ so music notes and timelines attach to the right person.",
+          actionLabel: "Event Settings",
+          targetScreen: "Event Settings",
+        });
+      }
+    }
+
+    if (sectionReceptionTimelineEnabled && mergedTimelineItems.length === 0) {
+      rows.push({
+        id: "rd-reception-timeline-empty",
+        tier: "attention",
+        title: "Reception timeline not started",
+        hint: "Even a short top-to-bottom flow helps you see the night clearly—presets are fine to start.",
+        actionLabel: "Build timeline",
+        targetScreen: tlScreen,
+      });
+    }
+
+    if (sectionCeremonyEnabled && ceremonyTimelineItems.length === 0) {
+      rows.push({
+        id: "rd-ceremony-empty",
+        tier: "attention",
+        title: "Ceremony timeline still empty",
+        hint: "Add procession through recessional beats when you’re ready—small steps still reduce day-of noise.",
+        actionLabel: "Ceremony",
+        targetScreen: "Ceremony",
+      });
+    }
+
+    if (sectionCeremonyEnabled && ceremonyTimelineItems.length > 0 && !hasKeyCeremonySongs) {
+      rows.push({
+        id: "rd-ceremony-music",
+        tier: "attention",
+        title: "Ceremony music cues incomplete",
+        hint: "Processional and recessional selections keep aisle timing calm for everyone involved.",
+        actionLabel: "Set ceremony audio",
+        targetScreen: "Ceremony",
+      });
+    }
+
+    if (sectionPlanningQuestionsEnabled && coupleAttentionSummary.unansweredPlanningQuestionCount > 0) {
+      rows.push({
+        id: "rd-planning-prompts",
+        tier: "attention",
+        title: `${coupleAttentionSummary.unansweredPlanningQuestionCount} planning prompt${coupleAttentionSummary.unansweredPlanningQuestionCount === 1 ? "" : "s"} open`,
+        hint: "Answers feed your Event Document and vendor brief—short responses are enough.",
+        actionLabel: "Planning Questions",
+        targetScreen: "Planning Questions",
+      });
+    }
+
+    if (sectionGuestRequestsEnabled && coupleAttentionSummary.pendingGuestCount > 0) {
+      rows.push({
+        id: "rd-guest-queue",
+        tier: "attention",
+        title: `${coupleAttentionSummary.pendingGuestCount} guest song request${coupleAttentionSummary.pendingGuestCount === 1 ? "" : "s"} waiting`,
+        hint: "Approve or decline when it fits your pace—the DJ sees the final list, not the inbox.",
+        actionLabel: "Guest Requests",
+        targetScreen: "Guest Requests",
+      });
+    }
+
+    if (
+      sectionReceptionTimelineEnabled &&
+      mergedTimelineItems.length > 0 &&
+      !hasKeyTimelineMoments
+    ) {
+      rows.push({
+        id: "rd-reception-flow-beats",
+        tier: "recommended",
+        title: "Reception flow could use anchor moments",
+        hint: "Consider marking cocktail, dinner, toasts, dancing, and a closing beat—gaps show up earlier when it’s calm.",
+        actionLabel: "Review timeline",
+        targetScreen: tlScreen,
+      });
+    }
+
+    if (sectionReceptionTimelineEnabled && mergedTimelineItems.length > 0 && !hasKeyFormalDanceSongs) {
+      rows.push({
+        id: "rd-formal-dances",
+        tier: "recommended",
+        title: "Formal dances still open",
+        hint: "First dance and parent dances carry a lot of emotion—set songs when it feels right.",
+        actionLabel: "Timeline",
+        targetScreen: tlScreen,
+      });
+    }
+
+    const lastDanceRow = mergedTimelineItems.find((item) => /last\s*dance/i.test(item.title));
+    if (
+      sectionReceptionTimelineEnabled &&
+      mergedTimelineItems.length > 0 &&
+      lastDanceRow &&
+      !(lastDanceRow.songTitle?.trim().length)
+    ) {
+      rows.push({
+        id: "rd-last-dance",
+        tier: "recommended",
+        title: "Last dance song not chosen",
+        hint: "A closing track helps your DJ land the night with intention—not a rush decision.",
+        actionLabel: "Pick closing song",
+        targetScreen: tlScreen,
+      });
+    }
+
+    if (sectionMustPlayEnabled && mustPlaySongs.length === 0) {
+      rows.push({
+        id: "rd-must-play",
+        tier: "recommended",
+        title: "Must-play list is empty",
+        hint: "Even a short list signals what absolutely needs airtime—five songs is a fine start.",
+        actionLabel: "Music Hub",
+        targetScreen: "Music Hub",
+      });
+    }
+
+    if (sectionVendorContactsEnabled && vendors.length === 0) {
+      rows.push({
+        id: "rd-vendors",
+        tier: "recommended",
+        title: "Vendor contacts not captured",
+        hint: "Photo, venue, catering, entertainment—light entries save frantic texting later.",
+        actionLabel: "Vendors",
+        targetScreen: "Vendors",
+      });
+    }
+
+    const liveDocMuted =
+      eventNavItems.includes("Event Prep") &&
+      ((sectionPlanningQuestionsEnabled && !eventSettings.liveEventShowPlanningQuestions) ||
+        (sectionGuestRequestsEnabled && !eventSettings.liveEventShowGuestRequests) ||
+        (sectionMusicNotesEnabled && !eventSettings.liveEventShowMusicNotes) ||
+        (sectionPlaylistsEnabled && !eventSettings.liveEventShowPlaylists) ||
+        (sectionDoNotPlayEnabled && !eventSettings.liveEventShowDoNotPlay));
+
+    if (liveDocMuted) {
+      rows.push({
+        id: "rd-live-doc-sections",
+        tier: "recommended",
+        title: "Event Document not showing every enabled area",
+        hint: "Toggle sections on in Event Document options when you’re ready for vendors to read them.",
+        actionLabel: "Event Document",
+        targetScreen: "Event Prep",
+      });
+    }
+
+    if (sectionDoNotPlayEnabled && doNotPlaySongs.length === 0) {
+      rows.push({
+        id: "rd-do-not-play",
+        tier: "optional",
+        title: "Do-not-play still blank",
+        hint: "Totally optional—a gentle guardrail if certain songs or eras feel off-limits.",
+        actionLabel: "Add guardrails",
+        targetScreen: "Music Hub",
+      });
+    }
+
+    if (sectionMusicNotesEnabled && !hasFinalDjNotes) {
+      rows.push({
+        id: "rd-dj-notes-length",
+        tier: "optional",
+        title: "DJ notes room to grow",
+        hint: "Energy arc, dedications, surprises—add when inspiration strikes; nothing here is urgent.",
+        actionLabel: "Music notes",
+        targetScreen: "Music Hub",
+      });
+    }
+
+    const tierRank = (t: EventReadinessTier) =>
+      t === "attention" ? 0 : t === "recommended" ? 1 : 2;
+
+    const seen = new Set<string>();
+    return rows
+      .filter((row) => {
+        if (seen.has(row.id)) return false;
+        seen.add(row.id);
+        return true;
+      })
+      .sort((a, b) => tierRank(a.tier) - tierRank(b.tier) || a.title.localeCompare(b.title));
+  }, [
+    ceremonyTimelineItems.length,
+    coupleAttentionSummary.pendingGuestCount,
+    coupleAttentionSummary.unansweredPlanningQuestionCount,
+    eventNavItems,
+    eventSettings.assignedDj,
+    eventSettings.liveEventShowDoNotPlay,
+    eventSettings.liveEventShowGuestRequests,
+    eventSettings.liveEventShowMusicNotes,
+    eventSettings.liveEventShowPlanningQuestions,
+    eventSettings.liveEventShowPlaylists,
+    eventSettings.plannerName,
+    hasEventDetailsComplete,
+    hasFinalDjNotes,
+    hasKeyCeremonySongs,
+    hasKeyFormalDanceSongs,
+    hasKeyTimelineMoments,
+    mergedTimelineItems,
+    mustPlaySongs.length,
+    doNotPlaySongs.length,
+    primaryTimelineScreenForHome,
+    sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
+    sectionGuestRequestsEnabled,
+    sectionMusicNotesEnabled,
+    sectionMustPlayEnabled,
+    sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
+    sectionVendorContactsEnabled,
+    vendors.length,
+  ]);
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -5266,7 +5563,7 @@ export default function Home() {
     const customLines = getPlaylistLines("custom");
 
     const lines: string[] = [
-      `${appSettings.appName.toUpperCase()} - EVENT PREP`,
+      `${appSettings.appName.toUpperCase()} - EVENT DOCUMENT`,
       "",
       "EVENT OVERVIEW",
       `Event Name: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
@@ -5294,10 +5591,18 @@ export default function Home() {
     if (sectionCeremonyEnabled) {
       lines.push(
         "CEREMONY TIMELINE",
-        ...ceremonyTimelineItems.map(
-          (item) =>
-            `- ${item.timeOrOrder || "TBD"} | ${item.moment || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
-        ),
+        ...ceremonyTimelineItems.map((item) => {
+          const songBits = [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean);
+          const songLabel = songBits.length ? songBits.join(" - ") : "";
+          const parts = [
+            item.timeOrOrder?.trim(),
+            item.moment?.trim() || "Untitled",
+            songLabel || undefined,
+            item.needsDjMcAttention ? "DJ/MC ATTENTION" : undefined,
+            item.notes?.trim(),
+          ].filter(Boolean);
+          return `- ${parts.join(" | ")}`;
+        }),
         `- General Ceremony Notes: ${ceremonyNotes || "None"}`,
         "",
       );
@@ -5306,46 +5611,57 @@ export default function Home() {
     if (sectionReceptionTimelineEnabled) {
       lines.push(
         receptionPlainHeading,
-        ...mergedTimelineItems.map(
-          (item) =>
-            `- ${item.time || "TBD"} | ${item.title} [${item.category}]${item.needsDjMcAttention ? " (DJ/MC ATTENTION)" : ""}${item.notes ? ` - ${item.notes}` : ""}`,
-        ),
+        ...mergedTimelineItems.map((item) => {
+          const songBits = [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean);
+          const songLabel = songBits.length ? songBits.join(" - ") : "";
+          const fadePart = item.fadeOutEarly
+            ? item.fadeOutTimestamp?.trim()
+              ? `Fade at ${item.fadeOutTimestamp.trim()}`
+              : "Fade early"
+            : undefined;
+          const parts = [
+            item.time?.trim(),
+            `${item.title} [${item.category}]`,
+            songLabel || undefined,
+            fadePart,
+            item.needsDjMcAttention ? "DJ/MC ATTENTION" : undefined,
+            item.notes?.trim(),
+          ].filter(Boolean);
+          return `- ${parts.join(" | ")}`;
+        }),
         "",
       );
     }
 
-    if (sectionFormalitiesEnabled) {
-      lines.push(
-        "FORMAL DANCES / FORMALITIES",
-        ...formalities.map(
-          (item) =>
-            `- ${item.time || "TBD"} | ${item.momentName || "Untitled"} | ${item.songTitle || "Song TBD"}${item.artist ? ` - ${item.artist}` : ""}${item.fadeOutEarly ? ` | Fade at ${item.fadeOutTimestamp || "TBD"}` : ""}${item.includeInTimeline ? " | In Timeline" : ""}${item.needsDjMcAttention ? " | DJ/MC ATTENTION" : ""}${item.notes ? ` | ${item.notes}` : ""}`,
-        ),
-        "",
+    if (showPlanningQs) {
+      const planningLines = formatPlanningQuestionsPlainTextLines(
+        liveEventPlanningQuestions,
+        eventSettings.planningQuestionAnswers,
       );
+      planningLines[0] = "PLANNING NOTES / KEY ANSWERS";
+      lines.push(...planningLines, "");
     }
 
-    if (sectionMustPlayEnabled) {
+    if (showMusicNotes) {
+      lines.push("MUSIC NOTES");
+      if (eventSettings.eventLayoutProfile === "School Dance") {
+        lines.push("(Clean edits / school-appropriate content)");
+      }
+      lines.push(`Overall vibe: ${generalDjNotes || "None"}`);
+      if (musicVibeDetail.genres?.trim()) lines.push(`Genres: ${musicVibeDetail.genres.trim()}`);
+      if (musicVibeDetail.energy?.trim()) lines.push(`Energy: ${musicVibeDetail.energy.trim()}`);
+      if (musicVibeDetail.crowdNotes?.trim()) lines.push(`Crowd: ${musicVibeDetail.crowdNotes.trim()}`);
+      if (musicVibeDetail.cleanMusicPrefs?.trim())
+        lines.push(`Clean / content prefs: ${musicVibeDetail.cleanMusicPrefs.trim()}`);
+      lines.push("");
+    }
+
+    if (showDnp) {
       lines.push(
-        "MUST PLAY SONGS",
-        ...mustPlaySongs.map(
+        "DO NOT PLAY",
+        ...doNotPlaySongs.map(
           (song) =>
-            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
-        ),
-        "",
-      );
-    }
-
-    if (showMc) {
-      lines.push("MC SCRIPTS / ANNOUNCEMENTS", mcAnnouncements || "None", "");
-    }
-
-    if (showVendors) {
-      lines.push(
-        "VENDOR CONTACTS",
-        ...vendors.map(
-          (vendor) =>
-            `- ${vendor.vendorType}: ${vendor.companyName} | ${vendor.contactName || "No Contact"}${vendor.phone ? ` | ${vendor.phone}` : ""}${vendor.email ? ` | ${vendor.email}` : ""}${vendor.arrivalTime ? ` | Arrival ${vendor.arrivalTime}` : ""}`,
+            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY BLOCK)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
         ),
         "",
       );
@@ -5374,6 +5690,30 @@ export default function Home() {
       pushPlaylistBucket(customLines, "CUSTOM PLAYLIST");
     }
 
+    if (showPlaylists && sectionMustPlayEnabled) {
+      lines.push(
+        "MUST PLAY SONGS",
+        ...mustPlaySongs.map(
+          (song) =>
+            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (showVendors) {
+      const sorted = sortVendorsForEventDocument(vendors);
+      lines.push(
+        "EVENT TEAM & VENDOR CONTACTS",
+        ...sorted.flatMap((vendor) => ["", ...formatVendorContactLines(vendor)]),
+        "",
+      );
+    }
+
+    if (showMc) {
+      lines.push("MC SCRIPTS / ANNOUNCEMENTS", mcAnnouncements || "None", "");
+    }
+
     if (showGuestRequestsDoc) {
       lines.push(
         "GUEST REQUESTS",
@@ -5393,42 +5733,6 @@ export default function Home() {
       );
     }
 
-    if (showDnp) {
-      lines.push(
-        "DO NOT PLAY",
-        ...doNotPlaySongs.map(
-          (song) =>
-            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY BLOCK)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
-        ),
-        "",
-      );
-    }
-
-    if (showMusicNotes) {
-      lines.push("MUSIC NOTES");
-      if (eventSettings.eventLayoutProfile === "School Dance") {
-        lines.push("(Clean edits / school-appropriate content)");
-      }
-      lines.push(`Overall vibe: ${generalDjNotes || "None"}`);
-      if (musicVibeDetail.genres?.trim()) lines.push(`Genres: ${musicVibeDetail.genres.trim()}`);
-      if (musicVibeDetail.energy?.trim()) lines.push(`Energy: ${musicVibeDetail.energy.trim()}`);
-      if (musicVibeDetail.crowdNotes?.trim()) lines.push(`Crowd: ${musicVibeDetail.crowdNotes.trim()}`);
-      if (musicVibeDetail.cleanMusicPrefs?.trim())
-        lines.push(`Clean / content prefs: ${musicVibeDetail.cleanMusicPrefs.trim()}`);
-      lines.push("");
-    }
-
-    if (showPlanningQs) {
-      lines.push(
-        "",
-        ...formatPlanningQuestionsPlainTextLines(
-          liveEventPlanningQuestions,
-          eventSettings.planningQuestionAnswers,
-        ),
-        "",
-      );
-    }
-
     lines.push(
       "INTERNAL NOTES",
       eventSettings.internalNotes || "None",
@@ -5436,7 +5740,7 @@ export default function Home() {
       "CLIENT-FACING NOTES",
       eventSettings.clientFacingNotes || "None",
       "",
-      "PREP FOOTER",
+      "DOCUMENT FOOTER",
       effectivePrepSheetFooter || "None",
       "",
     );
@@ -5470,7 +5774,6 @@ export default function Home() {
     eventSettings.planningQuestionAnswers,
     eventSettings.venue,
     eventSettings.weddingDate,
-    formalities,
     generalDjNotes,
     getPlaylistLines,
     guestRequests,
@@ -5485,7 +5788,6 @@ export default function Home() {
     primaryPartyShortLabel,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
-    sectionFormalitiesEnabled,
     sectionGuestRequestsEnabled,
     sectionMcScriptEnabled,
     sectionMusicNotesEnabled,
@@ -5501,6 +5803,11 @@ export default function Home() {
     weddingDetails.venue,
   ]);
 
+  const persistFeedback: PersistFeedback = useMemo(
+    () => ({ phase: persistPhase, hasBaseline: persistBaseline }),
+    [persistPhase, persistBaseline],
+  );
+
   const copyLiveEventText = async () => {
     try {
       await navigator.clipboard.writeText(liveEventText);
@@ -5514,8 +5821,8 @@ export default function Home() {
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(201,163,92,0.12),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,#090909_0%,#101012_55%,#0b0b0c_100%)] text-zinc-100">
-        <main className="mx-auto w-full max-w-md px-4 pb-32 pt-5">
+      <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
+        <main className="mx-auto w-full max-w-md overflow-x-hidden px-4 pb-32 pt-5 sm:px-5">
           <AppHeader
             screenTitle={
               appMode === "events"
@@ -5527,7 +5834,7 @@ export default function Home() {
                   : screenTitle
             }
             weddingDetails={weddingDetails}
-            savedLocally={false}
+            persistFeedback={{ phase: "idle", hasBaseline: false }}
             appSettings={{
               ...appSettings,
               coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
@@ -5537,10 +5844,10 @@ export default function Home() {
           <section className="mt-6 space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
               <PremiumCard key={`skeleton-${index}`} className="animate-pulse">
-                <div className="h-4 w-1/2 rounded bg-white/10" />
-                <div className="mt-3 h-3 w-full rounded bg-white/5" />
-                <div className="mt-2 h-3 w-4/5 rounded bg-white/5" />
-                <div className="mt-4 h-10 w-full rounded-xl bg-white/10" />
+                <div className="h-4 w-1/2 rounded bg-stone-200/80" />
+                <div className="mt-3 h-3 w-full rounded bg-stone-100" />
+                <div className="mt-2 h-3 w-4/5 rounded bg-stone-100" />
+                <div className="mt-4 h-10 w-full rounded-xl bg-stone-200/70" />
               </PremiumCard>
             ))}
           </section>
@@ -5550,10 +5857,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(201,163,92,0.12),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,#090909_0%,#101012_55%,#0b0b0c_100%)] text-zinc-100">
+    <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
       {showDesktopSidebar && (
-        <aside className="no-print fixed left-5 top-5 z-30 hidden h-[calc(100vh-2.5rem)] w-60 overflow-y-auto rounded-3xl border border-white/10 bg-[#111115]/88 p-4 backdrop-blur-md lg:block">
-          <p className="px-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+        <aside className="no-print fixed left-5 top-5 z-30 hidden h-[calc(100vh-2.5rem)] w-60 overflow-y-auto rounded-2xl border border-stone-300 bg-white p-4 shadow-none lg:block">
+          <p className="px-2 text-[11px] uppercase tracking-[0.14em] text-stone-500">
             {appMode === "events" ? "Workspace Mode" : "Event Mode"}
           </p>
           <div className="mt-3 space-y-2">
@@ -5563,8 +5870,8 @@ export default function Home() {
                 onClick={() => setActiveScreen(item)}
                 className={`w-full justify-start rounded-xl border px-3 text-left ${
                   shellNavActiveScreen === item
-                    ? "border-[#c9a35c]/35 bg-[#c9a35c]/20 text-[#f5e6c8]"
-                    : "border-transparent bg-white/5 text-zinc-300 hover:border-white/10 hover:bg-white/10"
+                    ? "border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                    : "border-stone-300 bg-white text-stone-800 hover:border-stone-900 hover:bg-stone-50"
                 }`}
               >
                 {navLabel(item)}
@@ -5574,7 +5881,7 @@ export default function Home() {
         </aside>
       )}
       <main
-        className={`mx-auto w-full px-4 pb-32 pt-5 transition-all lg:pb-10 ${
+        className={`mx-auto w-full max-w-full overflow-x-hidden px-4 pb-36 pt-5 transition-all max-lg:pb-40 sm:px-5 lg:pb-10 ${
           showDesktopSidebar
             ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-6"
             : "max-w-6xl"
@@ -5591,7 +5898,7 @@ export default function Home() {
                 : screenTitle
           }
           weddingDetails={weddingDetails}
-          savedLocally={savedLocally}
+          persistFeedback={persistFeedback}
           appSettings={{
             ...appSettings,
             coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
@@ -5599,27 +5906,12 @@ export default function Home() {
           }}
         />
 
-        {authStage === "app" &&
-          appMode === "event" &&
-          (currentRole ?? rolePreview) === "Couple" &&
-          activeScreen !== "Dashboard" && (
-            <div className="no-print mt-4">
-              <PrimaryButton
-                type="button"
-                onClick={() => setActiveScreen("Dashboard")}
-                className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
-              >
-                ← Back to your event
-              </PrimaryButton>
-            </div>
-          )}
-
         {authStage === "app" && (
-          <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs shadow-none sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <span className="text-zinc-400">
+              <span className="text-stone-600">
                 Viewing as{" "}
-                <span className="font-semibold text-[#f5e6c8]">
+                <span className="font-semibold text-stone-950">
                   {perspectiveRoleLabel(currentRole ?? rolePreview)}
                 </span>
               </span>
@@ -5631,8 +5923,8 @@ export default function Home() {
                     onClick={() => switchPerspectiveRole(role)}
                     className={`rounded-lg px-2.5 py-1 text-[11px] ${
                       (currentRole ?? rolePreview) === role
-                        ? "border border-[#c9a35c]/40 bg-[#c9a35c]/25 text-[#f5e6c8]"
-                        : "border border-transparent bg-white/10 text-zinc-200 hover:bg-white/15"
+                        ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                        : "border border-stone-300 bg-white font-medium text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
                     }`}
                   >
                     {perspectiveRoleLabel(role)}
@@ -5640,32 +5932,46 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full shrink-0 flex-col items-end gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+              {(persistPhase !== "idle" || persistBaseline) && (
+                <p
+                  className="text-right text-[10px] font-medium leading-tight text-stone-500 sm:max-w-[10rem]"
+                  aria-live="polite"
+                >
+                  {persistPhase === "pending"
+                    ? "Saving…"
+                    : persistPhase === "saved"
+                      ? "Saved just now"
+                      : "All changes saved"}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
               <PrimaryButton
                 onClick={() => setActiveScreen("Notification Center")}
-                className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
               >
                 Notifications
                 {unreadBadgeCount > 0 && (
-                  <span className="ml-1 rounded-full bg-[#c9a35c]/30 px-1.5 py-0.5 text-[10px] text-[#f5e6c8]">
+                  <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
                     {unreadBadgeCount}
                   </span>
                 )}
               </PrimaryButton>
               <PrimaryButton
                 onClick={() => setAuthStage("login")}
-                className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
               >
                 Sign out
               </PrimaryButton>
+              </div>
             </div>
           </div>
         )}
 
         {authStage === "login" && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1a1a20] to-[#121218]">
-              <SectionTitle className="text-[#e9d5a8]">Welcome to {appSettings.appName}</SectionTitle>
+            <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950 border-zinc-800">
+              <SectionTitle className="!text-zinc-100">Welcome to {appSettings.appName}</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
                 Prototype login for role-based planning access.
               </p>
@@ -5728,7 +6034,7 @@ export default function Home() {
                         let m = activeScreen;
                         const hubEligible =
                           (targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
-                          (targetEvt.settings?.sectionFormalitiesEnabled ?? true);
+                          (false);
 
                         if (m === "Reception Hub" && role !== "Couple") {
                           m = hubEligible ? "Reception Timeline" : "Timeline";
@@ -5744,7 +6050,7 @@ export default function Home() {
                           if (
                             hubEligible &&
                             ((targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
-                              (targetEvt.settings?.sectionFormalitiesEnabled ?? true))
+                              (false))
                           ) {
                             extras.push("Reception Timeline");
                           }
@@ -5774,7 +6080,7 @@ export default function Home() {
                       setActiveScreen(nextScreen);
                       setAuthStage("app");
                     }}
-                    className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                    className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
                   >
                     Continue as {perspectiveRoleLabel(role)}
                   </PrimaryButton>
@@ -5783,7 +6089,7 @@ export default function Home() {
               {inviteAccessPreview && (
                 <PrimaryButton
                   onClick={() => setAuthStage("invite")}
-                  className="mt-4 w-full rounded-xl bg-[#c9a35c]/20 px-3 py-2.5 text-xs font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                  className="mt-4 w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
                 >
                   Open Magic Invite Link
                 </PrimaryButton>
@@ -5794,8 +6100,8 @@ export default function Home() {
 
         {authStage === "invite" && inviteAccessPreview && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-[#1d1a14] to-[#141419]">
-              <SectionTitle className="text-[#f5e6c8]">
+            <PremiumCard className="border-stone-300 bg-white shadow-none">
+              <SectionTitle className="text-stone-950">
                 {INVITE_PREVIEW_TITLE[inviteLayoutProfile]}
               </SectionTitle>
               <div className="mt-3 space-y-1 text-xs text-zinc-300">
@@ -5829,7 +6135,7 @@ export default function Home() {
                     }
                     setAuthStage("app");
                   }}
-                  className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-xs font-semibold text-white hover:brightness-110"
+                  className="w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black hover:brightness-110"
                 >
                   Start Planning
                 </PrimaryButton>
@@ -5841,13 +6147,13 @@ export default function Home() {
         {authStage === "app" && appMode === "events" && activeScreen === "Settings" && (
           <section className="mt-6 space-y-3">
             {!canManageEvents && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">Global Settings are admin-only.</p>
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs text-zinc-100">Global Settings are admin-only.</p>
               </PremiumCard>
             )}
             <PremiumCard>
               <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-[#e9d5a8]">Global Admin Settings</SectionTitle>
+                <SectionTitle className="text-stone-950">Global Admin Settings</SectionTitle>
                 <PrimaryButton
                   onClick={() => setActiveScreen("All Events")}
                   className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
@@ -5872,7 +6178,7 @@ export default function Home() {
                           onClick={() => setActiveGlobalSettingsSection(section)}
                           className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] ${
                             activeGlobalSettingsSection === section
-                              ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
+                              ? "bg-[#00D4FF]/25 text-zinc-100"
                               : "bg-white/5 text-zinc-300 hover:bg-white/10"
                           }`}
                         >
@@ -5884,7 +6190,7 @@ export default function Home() {
                 </aside>
 
                 <div>
-                  <div className="sticky top-0 z-10 -mx-2 overflow-x-auto border-y border-white/10 bg-[#141419]/95 px-2 py-2 backdrop-blur md:hidden">
+                  <div className="sticky top-0 z-10 -mx-2 overflow-x-auto border-y border-stone-700/80 bg-[#141419] px-2 py-2 md:hidden">
                     <div className="flex gap-2">
                       {GLOBAL_SETTINGS_SECTIONS.map((section) => (
                         <PrimaryButton
@@ -5892,7 +6198,7 @@ export default function Home() {
                           onClick={() => setActiveGlobalSettingsSection(section)}
                           className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] ${
                             activeGlobalSettingsSection === section
-                              ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
+                              ? "bg-[#00D4FF]/25 text-zinc-100"
                               : "bg-white/10 text-zinc-300 hover:bg-white/15"
                           }`}
                         >
@@ -5904,7 +6210,7 @@ export default function Home() {
 
               {activeGlobalSettingsSection === "Event Types" && (
                 <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-[#e9d5a8]">Event Types</SectionTitle>
+                  <SectionTitle className="text-stone-950">Event Types</SectionTitle>
                   <TextInput
                     id="global-event-type"
                     label="Default Event Type"
@@ -5933,7 +6239,7 @@ export default function Home() {
 
               {activeGlobalSettingsSection === "Planning Questions" && (
                 <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-[#e9d5a8]">Planning Question Sets</SectionTitle>
+                  <SectionTitle className="text-stone-950">Planning Question Sets</SectionTitle>
                   <p className="text-xs text-zinc-400">
                     Customize planning questions by Event Type. Existing event answers remain saved even if questions are hidden or removed.
                   </p>
@@ -5947,7 +6253,7 @@ export default function Home() {
                             <PrimaryButton
                               onClick={() => addPlanningQuestionToSet(profile)}
                               disabled={!canManageEvents}
-                              className="rounded-lg bg-[#c9a35c]/20 px-2 py-1.5 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                              className="rounded-lg bg-[#00D4FF]/20 px-2 py-1.5 text-[11px] text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
                             >
                               Add Question
                             </PrimaryButton>
@@ -6063,7 +6369,7 @@ export default function Home() {
                                     )
                                   }
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.required ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.required ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
                                 >
                                   {question.required ? "Required" : "Optional"}
                                 </PrimaryButton>
@@ -6078,9 +6384,9 @@ export default function Home() {
                                     )
                                   }
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.showInLiveEventMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${question.showInLiveEventMode ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
                                 >
-                                  {question.showInLiveEventMode ? "Shown in Event Prep" : "Hidden in Event Prep"}
+                                  {question.showInLiveEventMode ? "Shown in Event Document" : "Hidden in Event Document"}
                                 </PrimaryButton>
                                 <PrimaryButton
                                   onClick={() =>
@@ -6135,187 +6441,353 @@ export default function Home() {
               )}
 
               {activeGlobalSettingsSection === "Timeline Presets" && (
-                <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-[#e9d5a8]">Timeline Presets</SectionTitle>
-                  <p className="text-xs text-zinc-400">
-                    Customize default ceremony and main-event timeline moments by Event Type. New events use these presets.
-                  </p>
-                  {EVENT_TYPES.map((profile) => {
-                    const presets = timelinePresetSetsForSettings[profile] ?? [];
-                    const defaultCount = (getDefaultTimelinePresetSets()[profile] ?? []).length;
-                    return (
-                      <div key={`tpset-${profile}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-zinc-100">{profile}</p>
-                          <div className="flex gap-2">
-                            <PrimaryButton
-                              onClick={() => addTimelinePresetToSet(profile)}
-                              disabled={!canManageEvents}
-                              className="rounded-lg bg-[#c9a35c]/20 px-2 py-1.5 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
-                            >
-                              Add Preset
-                            </PrimaryButton>
-                            <PrimaryButton
-                              onClick={() => resetTimelinePresetSet(profile)}
-                              disabled={!canManageEvents}
-                              className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-white/15 disabled:opacity-50"
-                            >
-                              Reset Defaults
-                            </PrimaryButton>
-                          </div>
-                        </div>
-                        <p className="mt-1 text-[11px] text-zinc-500">
-                          Default set: {defaultCount} moments · Current set: {presets.length}
-                        </p>
-                        <div className="mt-3 space-y-2">
-                          {presets.map((preset, index) => (
-                            <div key={`tp-row-${profile}-${preset.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5">
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div>
-                                  <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">Timeline Type</label>
-                                  <select
-                                    value={preset.timelineType}
-                                    onChange={(event) =>
-                                      updateTimelinePresetSet(profile, (items) =>
-                                        items.map((item) =>
-                                          item.id === preset.id
-                                            ? { ...item, timelineType: event.target.value as "ceremony" | "main" }
-                                            : item,
-                                        ),
-                                      )
-                                    }
-                                    disabled={!canManageEvents}
-                                    className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
-                                  >
-                                    <option value="ceremony" className="bg-[#141419]">Ceremony</option>
-                                    <option value="main" className="bg-[#141419]">Main Event</option>
-                                  </select>
-                                </div>
-                                <TextInput
-                                  id={`tp-time-${profile}-${preset.id}`}
-                                  label="Time / Order Label"
-                                  value={preset.timeOrOrder}
-                                  onChange={(value) =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === preset.id ? { ...item, timeOrOrder: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                                <TextInput
-                                  id={`tp-moment-${profile}-${preset.id}`}
-                                  label="Moment Name"
-                                  value={preset.momentName}
-                                  onChange={(value) =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === preset.id ? { ...item, momentName: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                                <TextInput
-                                  id={`tp-song-${profile}-${preset.id}`}
-                                  label="Song Placeholder"
-                                  value={preset.songPlaceholder}
-                                  onChange={(value) =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === preset.id ? { ...item, songPlaceholder: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                                <TextInput
-                                  id={`tp-notes-${profile}-${preset.id}`}
-                                  label="Notes Placeholder"
-                                  value={preset.notesPlaceholder}
-                                  onChange={(value) =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === preset.id ? { ...item, notesPlaceholder: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <SectionTitle className="text-stone-950">Timeline Presets</SectionTitle>
+                      <p className="max-w-xl text-xs leading-relaxed text-zinc-400">
+                        One modular card per Event Type. Collapsed cards show a compact flow preview; expand to add,
+                        reorder, or refine moments. Defaults apply to new events and “Apply presets” actions.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <PrimaryButton
+                        type="button"
+                        onClick={() =>
+                          setTimelinePresetExpandedByProfile(
+                            EVENT_TYPES.reduce<Partial<Record<EventLayoutProfile, boolean>>>((acc, p) => {
+                              acc[p] = true;
+                              return acc;
+                            }, {}),
+                          )
+                        }
+                        className="rounded-xl border border-white/12 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15"
+                      >
+                        Expand all
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => setTimelinePresetExpandedByProfile({})}
+                        className="rounded-xl border border-white/12 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15"
+                      >
+                        Collapse all
+                      </PrimaryButton>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 sm:space-y-3">
+                    {EVENT_TYPES.map((profile) => {
+                      const presets = timelinePresetSetsForSettings[profile] ?? [];
+                      const defaultCount = (getDefaultTimelinePresetSets()[profile] ?? []).length;
+                      const expanded = timelinePresetExpandedByProfile[profile] === true;
+                      const ceremonyCount = presets.filter((p) => p.timelineType === "ceremony").length;
+                      const mainCount = presets.filter((p) => p.timelineType === "main").length;
+                      const previewLabels = presets.map((p) => p.momentName.trim()).filter(Boolean);
+                      const previewLine =
+                        previewLabels.length === 0
+                          ? "No moments yet — expand to add."
+                          : `${previewLabels.slice(0, 6).join(" → ")}${previewLabels.length > 6 ? " → …" : ""}`;
+
+                      return (
+                        <div
+                          key={`tpset-${profile}`}
+                          className="overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-none"
+                        >
+                          <button
+                            type="button"
+                            className="flex min-h-[3.25rem] w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-white/[0.04] sm:min-h-0 sm:gap-4 sm:px-5 sm:py-3.5"
+                            onClick={() =>
+                              setTimelinePresetExpandedByProfile((prev) => ({
+                                ...prev,
+                                [profile]: !expanded,
+                              }))
+                            }
+                            aria-expanded={expanded}
+                          >
+                            <span className="mt-0.5 shrink-0 font-mono text-zinc-500" aria-hidden>
+                              {expanded ? "▼" : "▶"}
+                            </span>
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="text-sm font-semibold tracking-tight text-zinc-100">{profile}</span>
+                                <span className="rounded-full bg-[#00D4FF]/18 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-100">
+                                  {presets.length} moment{presets.length === 1 ? "" : "s"}
+                                </span>
+                                <span className="text-[11px] text-zinc-500">
+                                  {ceremonyCount} ceremony · {mainCount} main · defaults {defaultCount}
+                                </span>
                               </div>
-                              <div className="mt-2 flex flex-wrap gap-2">
+                              {!expanded && (
+                                <p className="line-clamp-2 text-[13px] leading-snug text-zinc-400">{previewLine}</p>
+                              )}
+                            </div>
+                          </button>
+
+                          {expanded && (
+                            <div className="border-t border-white/10 px-4 pb-4 pt-1 sm:px-5">
+                              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-3">
                                 <PrimaryButton
-                                  onClick={() =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === preset.id ? { ...item, defaultIncluded: !item.defaultIncluded } : item,
-                                      ),
-                                    )
-                                  }
+                                  type="button"
+                                  onClick={() => addTimelinePresetToSet(profile)}
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] ${preset.defaultIncluded ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"} disabled:opacity-50`}
+                                  className="rounded-xl bg-[#00D4FF]/22 px-3 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-[#00D4FF]/32 disabled:opacity-50"
                                 >
-                                  {preset.defaultIncluded ? "Included by Default" : "Excluded by Default"}
+                                  + Add moment
                                 </PrimaryButton>
                                 <PrimaryButton
-                                  onClick={() =>
-                                    updateTimelinePresetSet(profile, (items) => {
-                                      if (index === 0) return items;
-                                      const next = [...items];
-                                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                                      return next;
-                                    })
-                                  }
-                                  disabled={!canManageEvents || index === 0}
-                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
-                                >
-                                  Move Up
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  onClick={() =>
-                                    updateTimelinePresetSet(profile, (items) => {
-                                      if (index >= items.length - 1) return items;
-                                      const next = [...items];
-                                      [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                                      return next;
-                                    })
-                                  }
-                                  disabled={!canManageEvents || index >= presets.length - 1}
-                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
-                                >
-                                  Move Down
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  onClick={() =>
-                                    updateTimelinePresetSet(profile, (items) =>
-                                      items.filter((item) => item.id !== preset.id),
-                                    )
-                                  }
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      typeof window !== "undefined" &&
+                                      !window.confirm(
+                                        `Reset “${profile}” timeline presets to built-in defaults? Custom edits for this event type will be replaced.`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    resetTimelinePresetSet(profile);
+                                  }}
                                   disabled={!canManageEvents}
-                                  className="rounded-lg bg-rose-500/20 px-2 py-1.5 text-[11px] text-rose-100 disabled:opacity-50"
+                                  className="rounded-xl border border-white/14 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15 disabled:opacity-50"
                                 >
-                                  Delete
+                                  Reset to default
                                 </PrimaryButton>
+                                <span className="ml-auto text-[10px] text-zinc-500">
+                                  Drag ⋮⋮ to reorder · duplicate creates a copy below
+                                </span>
+                              </div>
+
+                              <div className="space-y-2.5">
+                                {presets.map((preset, index) => (
+                                  <div
+                                    key={`tp-row-${profile}-${preset.id}`}
+                                    className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-3.5"
+                                    onDragOver={(e) => {
+                                      if (!canManageEvents) return;
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = "move";
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      const src = timelinePresetDragRef.current;
+                                      if (!src || src.profile !== profile) return;
+                                      reorderTimelinePresetRows(profile, src.index, index);
+                                      timelinePresetDragRef.current = null;
+                                    }}
+                                  >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                                      <div
+                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2 py-3 text-zinc-500 sm:py-6 ${
+                                          canManageEvents ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
+                                        }`}
+                                        draggable={canManageEvents}
+                                        title="Drag to reorder"
+                                        onDragStart={(e) => {
+                                          if (!canManageEvents) return;
+                                          timelinePresetDragRef.current = { profile, index };
+                                          e.dataTransfer.effectAllowed = "move";
+                                          e.dataTransfer.setData("text/plain", String(index));
+                                        }}
+                                        onDragEnd={() => {
+                                          timelinePresetDragRef.current = null;
+                                        }}
+                                        role="presentation"
+                                      >
+                                        <span className="select-none text-sm leading-none tracking-tighter text-zinc-500">
+                                          ⋮⋮
+                                        </span>
+                                      </div>
+                                      <div className="min-w-0 flex-1 space-y-2.5">
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:gap-x-3 lg:gap-y-2">
+                                          <div className="lg:col-span-2">
+                                            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                                              Type
+                                            </label>
+                                            <select
+                                              value={preset.timelineType}
+                                              onChange={(event) =>
+                                                updateTimelinePresetSet(profile, (items) =>
+                                                  items.map((item) =>
+                                                    item.id === preset.id
+                                                      ? {
+                                                          ...item,
+                                                          timelineType: event.target.value as "ceremony" | "main",
+                                                        }
+                                                      : item,
+                                                  ),
+                                                )
+                                              }
+                                              disabled={!canManageEvents}
+                                              className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
+                                            >
+                                              <option value="ceremony" className="bg-[#141419]">
+                                                Ceremony
+                                              </option>
+                                              <option value="main" className="bg-[#141419]">
+                                                Main Event
+                                              </option>
+                                            </select>
+                                          </div>
+                                          <div className="lg:col-span-2">
+                                            <TextInput
+                                              id={`tp-time-${profile}-${preset.id}`}
+                                              label="Time / order"
+                                              value={preset.timeOrOrder}
+                                              onChange={(value) =>
+                                                updateTimelinePresetSet(profile, (items) =>
+                                                  items.map((item) =>
+                                                    item.id === preset.id ? { ...item, timeOrOrder: value } : item,
+                                                  ),
+                                                )
+                                              }
+                                              disabled={!canManageEvents}
+                                            />
+                                          </div>
+                                          <div className="lg:col-span-4">
+                                            <TextInput
+                                              id={`tp-moment-${profile}-${preset.id}`}
+                                              label="Moment name"
+                                              value={preset.momentName}
+                                              onChange={(value) =>
+                                                updateTimelinePresetSet(profile, (items) =>
+                                                  items.map((item) =>
+                                                    item.id === preset.id ? { ...item, momentName: value } : item,
+                                                  ),
+                                                )
+                                              }
+                                              disabled={!canManageEvents}
+                                            />
+                                          </div>
+                                          <div className="lg:col-span-4">
+                                            <TextInput
+                                              id={`tp-song-${profile}-${preset.id}`}
+                                              label="Song placeholder"
+                                              value={preset.songPlaceholder}
+                                              onChange={(value) =>
+                                                updateTimelinePresetSet(profile, (items) =>
+                                                  items.map((item) =>
+                                                    item.id === preset.id ? { ...item, songPlaceholder: value } : item,
+                                                  ),
+                                                )
+                                              }
+                                              disabled={!canManageEvents}
+                                            />
+                                          </div>
+                                          <div className="sm:col-span-2 lg:col-span-12">
+                                            <TextInput
+                                              id={`tp-notes-${profile}-${preset.id}`}
+                                              label="Notes placeholder"
+                                              value={preset.notesPlaceholder}
+                                              onChange={(value) =>
+                                                updateTimelinePresetSet(profile, (items) =>
+                                                  items.map((item) =>
+                                                    item.id === preset.id ? { ...item, notesPlaceholder: value } : item,
+                                                  ),
+                                                )
+                                              }
+                                              disabled={!canManageEvents}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-2.5">
+                                          <PrimaryButton
+                                            type="button"
+                                            onClick={() =>
+                                              updateTimelinePresetSet(profile, (items) =>
+                                                items.map((item) =>
+                                                  item.id === preset.id
+                                                    ? { ...item, defaultIncluded: !item.defaultIncluded }
+                                                    : item,
+                                                ),
+                                              )
+                                            }
+                                            disabled={!canManageEvents}
+                                            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
+                                              preset.defaultIncluded
+                                                ? "bg-[#00D4FF]/22 text-zinc-100"
+                                                : "bg-white/10 text-zinc-300"
+                                            } disabled:opacity-50`}
+                                          >
+                                            {preset.defaultIncluded ? "Included by default" : "Excluded by default"}
+                                          </PrimaryButton>
+                                          <PrimaryButton
+                                            type="button"
+                                            onClick={() =>
+                                              updateTimelinePresetSet(profile, (items) => {
+                                                if (index === 0) return items;
+                                                const next = [...items];
+                                                [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                                return next;
+                                              })
+                                            }
+                                            disabled={!canManageEvents || index === 0}
+                                            className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                          >
+                                            Up
+                                          </PrimaryButton>
+                                          <PrimaryButton
+                                            type="button"
+                                            onClick={() =>
+                                              updateTimelinePresetSet(profile, (items) => {
+                                                if (index >= items.length - 1) return items;
+                                                const next = [...items];
+                                                [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                                return next;
+                                              })
+                                            }
+                                            disabled={!canManageEvents || index >= presets.length - 1}
+                                            className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                          >
+                                            Down
+                                          </PrimaryButton>
+                                          <PrimaryButton
+                                            type="button"
+                                            onClick={() => duplicateTimelinePresetMoment(profile, index)}
+                                            disabled={!canManageEvents}
+                                            className="rounded-lg border border-white/12 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+                                          >
+                                            Duplicate
+                                          </PrimaryButton>
+                                          <PrimaryButton
+                                            type="button"
+                                            onClick={() =>
+                                              updateTimelinePresetSet(profile, (items) =>
+                                                items.filter((item) => item.id !== preset.id),
+                                              )
+                                            }
+                                            disabled={!canManageEvents}
+                                            className="rounded-lg bg-rose-500/18 px-2.5 py-1.5 text-[11px] text-rose-100 hover:bg-rose-500/28 disabled:opacity-50"
+                                          >
+                                            Delete
+                                          </PrimaryButton>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                {presets.length === 0 && (
+                                  <p className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-6 text-center text-xs text-zinc-500">
+                                    No moments yet. Use{" "}
+                                    <span className="text-zinc-400">Add moment</span> to create your first preset row.
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          ))}
-                          {presets.length === 0 && (
-                            <p className="text-xs text-zinc-500">No timeline presets configured. Add your first preset moment.</p>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {activeGlobalSettingsSection === "Live Event Mode" && (
+              {activeGlobalSettingsSection === "Event Document" && (
                 <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-[#e9d5a8]">Live Event Mode</SectionTitle>
+                  <SectionTitle className="text-stone-950">Event Document</SectionTitle>
+                  <p className="text-xs text-zinc-500">Defaults for the printable Event Document. Live Event Mode refers to the same export.</p>
                   <TextArea
                     id="global-prep-footer"
-                    label="Default Event Prep Footer"
+                    label="Default Event Document Footer"
                     value={appSettings.prepSheetFooterText}
                     onChange={(value) => setAppSettings((prev) => ({ ...prev, prepSheetFooterText: value }))}
                     rows={3}
@@ -6360,11 +6832,11 @@ export default function Home() {
               {activeGlobalSettingsSection === "Team Management" && (
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <SectionTitle className="text-[#e9d5a8]">Team Management</SectionTitle>
+                    <SectionTitle className="text-stone-950">Team Management</SectionTitle>
                     <PrimaryButton
                       onClick={openAddTeamMemberModal}
                       disabled={!canManageEvents}
-                      className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                      className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
                     >
                       Add Team Member
                     </PrimaryButton>
@@ -6409,7 +6881,7 @@ export default function Home() {
                             <PrimaryButton
                               type="button"
                               onClick={() => removeTeamMemberFromActiveEvent(member)}
-                              className="w-full rounded-lg bg-white/10 px-2 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-white/15"
+                              className="w-full rounded-lg bg-white/10 px-2 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-white/15"
                             >
                               Remove from Event
                             </PrimaryButton>
@@ -6434,7 +6906,7 @@ export default function Home() {
 
               {activeGlobalSettingsSection === "Branding / App" && (
                 <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-[#e9d5a8]">Branding / App Settings</SectionTitle>
+                  <SectionTitle className="text-stone-950">Branding / App Settings</SectionTitle>
                   <TextInput id="global-company-name" label="Company Name" value={appSettings.companyName} onChange={(value) => setAppSettings((prev) => ({ ...prev, companyName: value }))} disabled={!canManageEvents} />
                   <TextInput id="global-app-name" label="App Name" value={appSettings.appName} onChange={(value) => setAppSettings((prev) => ({ ...prev, appName: value }))} disabled={!canManageEvents} />
                   <TextInput id="global-logo-url" label="Logo/Branding Path" value={appSettings.logoUrl} onChange={(value) => setAppSettings((prev) => ({ ...prev, logoUrl: value }))} disabled={!canManageEvents} />
@@ -6444,7 +6916,7 @@ export default function Home() {
                   </div>
                   <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
                   <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
-                  <div className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 p-3 text-xs text-[#f5e6c8]">
+                  <div className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 p-3 text-xs text-zinc-100">
                     Backup recommended while this remains a frontend-only prototype.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -6458,7 +6930,7 @@ export default function Home() {
                     <PrimaryButton
                       onClick={triggerBackupFilePicker}
                       disabled={!canManageEvents}
-                      className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                      className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
                     >
                       Import Backup JSON
                     </PrimaryButton>
@@ -6492,17 +6964,17 @@ export default function Home() {
         {authStage === "app" && appMode === "events" && activeScreen === "Team" && (
           <section className="mt-6 space-y-3">
             {!canManageEvents && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">Team Management is admin-only.</p>
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs text-zinc-100">Team Management is admin-only.</p>
               </PremiumCard>
             )}
             <PremiumCard>
               <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-[#e9d5a8]">Team Management</SectionTitle>
+                <SectionTitle className="text-stone-950">Team Management</SectionTitle>
                 <PrimaryButton
                   onClick={openAddTeamMemberModal}
                   disabled={!canManageEvents}
-                  className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:opacity-50"
+                  className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-xs text-zinc-100 hover:bg-[#00D4FF]/30 disabled:opacity-50"
                 >
                   Add Team Member
                 </PrimaryButton>
@@ -6524,7 +6996,7 @@ export default function Home() {
             </PremiumCard>
 
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Team Members</SectionTitle>
+              <SectionTitle className="text-stone-950">Team Members</SectionTitle>
               <div className="mt-3 space-y-2">
                 {teamMembers.map((member) => (
                   <div key={`team-member-${member.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -6575,7 +7047,7 @@ export default function Home() {
         {authStage === "app" && appMode === "events" && activeScreen === "All Events" && (
           <section className="mt-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <SectionTitle className="text-[#e9d5a8]">Events</SectionTitle>
+              <SectionTitle className="text-stone-950">Events</SectionTitle>
               <div className="flex flex-wrap gap-2">
                 {canManageEvents && (
                   <PrimaryButton
@@ -6617,9 +7089,9 @@ export default function Home() {
             </div>
 
             {visibleEvents.length === 0 ? (
-              <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
+              <PremiumCard className="border-dashed border-[#00D4FF]/40 bg-zinc-950 border-zinc-800">
                 <div className="py-10 text-center">
-                  <p className="text-sm font-semibold text-[#f5e6c8]">
+                  <p className="text-sm font-semibold text-zinc-100">
                     {canManageEvents ? "No events yet" : "No assigned events yet"}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-400">
@@ -6651,7 +7123,7 @@ export default function Home() {
                           setEventModalStatus(null);
                           setEventModalOpen(true);
                         }}
-                        className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                        className="w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
                       >
                         Create Event
                       </PrimaryButton>
@@ -6673,7 +7145,7 @@ export default function Home() {
                         value={allEventsSearch}
                         onChange={(e) => setAllEventsSearch(e.target.value)}
                         placeholder="Name, venue, event type, hosts…"
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-[#00D4FF]/55 focus:outline-none"
                       />
                     </div>
                     <PrimaryButton
@@ -6701,7 +7173,7 @@ export default function Home() {
                         onChange={(e) =>
                           setAllEventsProfileFilter(e.target.value as EventLayoutProfile | "all")
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
                       >
                         <option value="all" className="bg-[#141419]">
                           All types
@@ -6725,7 +7197,7 @@ export default function Home() {
                             e.target.value as typeof allEventsLifecycleFilter,
                           )
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
                       >
                         <option value="open" className="bg-[#141419]">
                           Open (hide archived)
@@ -6754,7 +7226,7 @@ export default function Home() {
                         onChange={(e) =>
                           setAllEventsTimingFilter(e.target.value as typeof allEventsTimingFilter)
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
                       >
                         <option value="all" className="bg-[#141419]">
                           All dates
@@ -6775,7 +7247,7 @@ export default function Home() {
                         id="all-events-sort"
                         value={allEventsSort}
                         onChange={(e) => setAllEventsSort(e.target.value as typeof allEventsSort)}
-                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/55 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/55 focus:outline-none"
                       >
                         <option value="date-asc" className="bg-[#141419]">
                           Event date (soonest first)
@@ -6800,9 +7272,9 @@ export default function Home() {
                 </PremiumCard>
 
                 {allEventsFilteredAndSorted.length === 0 ? (
-                  <PremiumCard className="border-dashed border-[#c9a35c]/35 bg-gradient-to-b from-[#18181d] to-[#111115]">
+                  <PremiumCard className="border-dashed border-[#00D4FF]/35 bg-zinc-950 border-zinc-800">
                     <div className="py-10 text-center">
-                      <p className="text-sm font-semibold text-[#f5e6c8]">No events match</p>
+                      <p className="text-sm font-semibold text-zinc-100">No events match</p>
                       <p className="mt-2 text-xs leading-relaxed text-zinc-400">
                         Try clearing search or widening filters — archived events appear when they match search or when
                         Status is set to Archived or All statuses.
@@ -6855,7 +7327,7 @@ export default function Home() {
                             aria-hidden
                           />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/40 to-black/15" />
+                        <div className="absolute inset-0 bg-black/55" />
                         <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${
@@ -6873,7 +7345,7 @@ export default function Home() {
                                 : "Planning"}
                           </span>
                           {viewerBadge ? (
-                            <span className="rounded-full bg-[#c9a35c]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#c9a35c]/35">
+                            <span className="rounded-full bg-[#00D4FF]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#00D4FF]/35">
                               {viewerBadge}
                             </span>
                           ) : null}
@@ -6885,7 +7357,7 @@ export default function Home() {
                           </p>
                           <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
                           {isActive ? (
-                            <span className="mt-2 inline-flex rounded-full bg-[#c9a35c]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#c9a35c]/40">
+                            <span className="mt-2 inline-flex rounded-full bg-[#00D4FF]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#00D4FF]/40">
                               Selected
                             </span>
                           ) : null}
@@ -6904,7 +7376,7 @@ export default function Home() {
                           </div>
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-500"
+                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
                               style={{ width: `${cardProgress}%` }}
                             />
                           </div>
@@ -6915,7 +7387,7 @@ export default function Home() {
                           onClick={() => {
                             switchToEvent(evt.id);
                           }}
-                          className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                          className="rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
                         >
                           Select
                         </PrimaryButton>
@@ -7007,7 +7479,7 @@ export default function Home() {
                               link,
                             });
                           }}
-                          className="w-full rounded-xl bg-[#c9a35c]/18 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/28"
+                          className="w-full rounded-xl bg-[#00D4FF]/18 px-3 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-[#00D4FF]/28"
                         >
                           {COPY_INVITE_LINK_LABEL[cardProfile]}
                         </PrimaryButton>
@@ -7042,9 +7514,9 @@ export default function Home() {
           <section className="mt-6 space-y-3 cm-section-enter">
             <div className="grid gap-3 xl:grid-cols-[1.8fr_1fr]">
               <div className="space-y-3">
-                <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1a1a20] to-[#131318]">
+                <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950 border-zinc-800">
                   <div className="flex items-center justify-between gap-2">
-                    <SectionTitle className="text-[#e9d5a8]">Command Center</SectionTitle>
+                    <SectionTitle className="!text-zinc-100">Command Center</SectionTitle>
                     <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-zinc-300">
                       {commandCenterEvents.length} events
                     </span>
@@ -7057,7 +7529,7 @@ export default function Home() {
                 </PremiumCard>
 
                 <PremiumCard>
-                  <SectionTitle className="text-[#e9d5a8]">Upcoming Events</SectionTitle>
+                  <SectionTitle className="text-stone-950">Upcoming Events</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {commandCenterUpcomingEvents.map((evt) => {
                       const cmdProfile = resolveLayoutProfileForDisplay(
@@ -7065,26 +7537,26 @@ export default function Home() {
                         appSettings.defaultEventType,
                       );
                       return (
-                      <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 shadow-sm">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold text-zinc-100">{evt.settings.eventName || evt.meta.couple}</p>
-                            <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                            <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
                               {PRIMARY_PARTY_SHORT_LABEL[cmdProfile]}:{" "}
-                              <span className="font-medium text-zinc-300">
+                              <span className="font-semibold text-stone-800">
                                 {evt.settings.coupleNames || evt.meta.couple || "TBD"}
                               </span>
                             </p>
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-stone-600">
                               {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
                             </p>
-                            <p className="mt-1 text-xs text-zinc-500">
+                            <p className="mt-1 text-xs text-stone-600">
                               DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
                             </p>
                           </div>
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                            className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                            className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
                           >
                             View Event
                           </PrimaryButton>
@@ -7092,25 +7564,25 @@ export default function Home() {
                         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                           >
                             View Event
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
-                            className="rounded-lg bg-[#c9a35c]/20 px-2 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                            className="rounded-lg border border-black bg-[#00D4FF] px-2 py-2 text-[11px] font-semibold text-black shadow-none hover:brightness-105"
                           >
-                            Open Event Prep
+                            Open Event Document
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                           >
                             Review Timeline
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                           >
                             Review Guest Requests
                           </PrimaryButton>
@@ -7119,7 +7591,7 @@ export default function Home() {
                       );
                     })}
                     {commandCenterUpcomingEvents.length === 0 && (
-                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                      <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
                         No upcoming events available for this role.
                       </p>
                     )}
@@ -7127,18 +7599,18 @@ export default function Home() {
                 </PremiumCard>
 
                 <PremiumCard>
-                  <SectionTitle className="text-[#e9d5a8]">Events Needing Attention</SectionTitle>
+                  <SectionTitle className="text-stone-950">Events Needing Attention</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {commandCenterAttentionEvents.map(({ evt, pendingGuestRequests, incompleteChecklistCount }) => (
-                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 px-3 py-2.5">
-                        <p className="text-sm font-medium text-zinc-100">{evt.settings.eventName || evt.meta.couple}</p>
-                        <p className="mt-1 text-xs text-zinc-300">
+                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#00D4FF]/45 bg-[#00D4FF]/12 px-3 py-2.5 shadow-sm">
+                        <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
+                        <p className="mt-1 text-xs font-medium text-stone-700">
                           {pendingGuestRequests} pending guest requests · {incompleteChecklistCount} incomplete planning areas
                         </p>
                       </div>
                     ))}
                     {commandCenterAttentionEvents.length === 0 && (
-                      <p className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-100">
+                      <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-950">
                         No urgent attention items across your events.
                       </p>
                     )}
@@ -7147,8 +7619,8 @@ export default function Home() {
               </div>
 
               <div className="space-y-3">
-                <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
-                  <SectionTitle className="text-[#e9d5a8]">Recent Activity</SectionTitle>
+                <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
+                  <SectionTitle className="!text-zinc-100">Recent Activity</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {activities
                       .filter((item) => commandCenterEvents.some((evt) => evt.id === item.eventId))
@@ -7166,8 +7638,8 @@ export default function Home() {
                       ))}
                   </div>
                 </PremiumCard>
-                <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
-                  <SectionTitle className="text-[#e9d5a8]">Notifications</SectionTitle>
+                <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
+                  <SectionTitle className="!text-zinc-100">Notifications</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {notifications
                       .filter((notice) => commandCenterEvents.some((evt) => evt.id === notice.eventId))
@@ -7189,8 +7661,8 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Dashboard" && (
           isCoupleView ? (
-            <section className="mt-6 space-y-8">
-              <PremiumCard className="overflow-hidden border-[#c9a35c]/25 p-0 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
+            <section className="mt-4 space-y-6 sm:mt-6 sm:space-y-8">
+              <PremiumCard className="overflow-hidden border-[#00D4FF]/25 p-0 shadow-none sm:shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
                 <div className="relative aspect-[16/11] min-h-[200px] overflow-hidden sm:aspect-[21/9] sm:min-h-[220px]">
                   {eventSettings.coverPhotoDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -7205,23 +7677,25 @@ export default function Home() {
                       aria-hidden
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#050506]/98 via-[#050506]/65 to-[#050506]/35" />
-                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_90%_0%,rgba(201,163,92,0.15),transparent_55%)]" />
-                  <div className="relative flex h-full flex-col justify-end p-5 sm:p-8">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-400">{primaryPartyShortLabel}</p>
+                  <div className="absolute inset-0 bg-black/50" />
+                  <div className="pointer-events-none absolute inset-0 bg-transparent" aria-hidden />
+                  <div className="relative flex h-full flex-col justify-end p-5 pb-6 sm:p-8">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-300">
+                      {primaryPartyShortLabel}
+                    </p>
                     <h2 className="mt-2 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                       {eventDisplayName}
                     </h2>
-                    <p className="mt-2 text-sm text-zinc-300">{coupleDisplayName}</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-[#f7ecd4] backdrop-blur-sm">
+                      <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white">
                         {layoutProfileForActiveEvent}
                       </span>
-                      <span className="inline-flex flex-col rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-left backdrop-blur-sm">
+                      <span className="inline-flex flex-col rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-left">
                         <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
                         <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
                       </span>
-                      <span className="inline-flex max-w-full rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] text-zinc-200 backdrop-blur-sm">
+                      <span className="inline-flex max-w-full rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] text-zinc-200">
                         {eventVenueDisplay}
                       </span>
                     </div>
@@ -7230,25 +7704,25 @@ export default function Home() {
                         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
+                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
                             style={{ width: `${completionPercent}%` }}
                           />
                         </div>
                       </div>
-                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
+                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4 border-t border-white/10 p-5 sm:p-7">
-                  <p className="text-[11px] text-zinc-500">
+                <div className="space-y-4 border-t border-stone-300 bg-stone-50/60 px-5 py-6 sm:p-7">
+                  <p className="text-[11px] font-medium text-stone-600">
                     Viewing as{" "}
-                    <span className="font-medium text-[#e9d5a8]">
+                    <span className="font-semibold text-stone-900">
                       {perspectiveRoleLabel(currentRole ?? rolePreview)}
                     </span>
                   </p>
                   {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
-                    <p className="text-[11px] text-zinc-500">
-                      <span className="text-zinc-600">Your team</span>
+                    <p className="text-[11px] text-stone-600">
+                      <span className="font-medium text-stone-800">Your team</span>
                       {eventSettings.assignedDj?.trim() ? (
                         <>
                           {" "}
@@ -7268,7 +7742,7 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={() => setActiveScreen("Event Settings")}
-                        className="rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/10"
+                        className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-11 sm:w-auto sm:px-3 sm:py-2 sm:text-[11px]"
                       >
                         Event details & cover photo
                       </PrimaryButton>
@@ -7277,97 +7751,155 @@ export default function Home() {
                 </div>
               </PremiumCard>
 
-              {(coupleAttentionSummary.unansweredPlanningQuestionCount > 0 ||
-                coupleAttentionSummary.pendingGuestCount > 0) && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Still needs love</p>
-                  <ul className="mt-2 space-y-1.5 text-sm text-zinc-300">
-                    {sectionPlanningQuestionsEnabled &&
-                    coupleAttentionSummary.unansweredPlanningQuestionCount > 0 ? (
-                      <li className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span>
-                          {coupleAttentionSummary.unansweredPlanningQuestionCount} planning question
-                          {coupleAttentionSummary.unansweredPlanningQuestionCount === 1 ? "" : "s"} open
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveScreen("Planning Questions")}
-                          className="text-xs font-medium text-[#c9a35c] underline-offset-4 hover:underline"
-                        >
-                          Answer
-                        </button>
-                      </li>
-                    ) : null}
-                    {sectionGuestRequestsEnabled && coupleAttentionSummary.pendingGuestCount > 0 ? (
-                      <li className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span>
-                          {coupleAttentionSummary.pendingGuestCount} guest request
-                          {coupleAttentionSummary.pendingGuestCount === 1 ? "" : "s"} waiting
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveScreen("Guest Requests")}
-                          className="text-xs font-medium text-[#c9a35c] underline-offset-4 hover:underline"
-                        >
-                          Review
-                        </button>
-                      </li>
-                    ) : null}
-                  </ul>
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-none sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
+                      Event readiness
+                    </p>
+                    <p className="mt-1 text-sm leading-snug text-stone-700">
+                      Gentle guidance for what&apos;s next—not alerts or deadlines.
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-[11px] font-medium tabular-nums text-stone-500">{completionPercent}% plan</p>
                 </div>
-              )}
+
+                {eventReadinessGuide.length === 0 ? (
+                  <p className="mt-4 rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-3 text-sm leading-relaxed text-stone-800">
+                    Nothing needs attention right now—you&apos;re steady for this stage.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-5">
+                    {(["attention", "recommended"] as const).map((tier) => {
+                      const bucket = eventReadinessGuide.filter((r) => r.tier === tier);
+                      if (bucket.length === 0) return null;
+                      const tierLabel = tier === "attention" ? "Needs attention" : "Recommended";
+                      return (
+                        <div key={tier}>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            {tierLabel}
+                          </p>
+                          <ul className="mt-2 space-y-2">
+                            {bucket.map((item) => (
+                              <li
+                                key={item.id}
+                                className={
+                                  tier === "attention"
+                                    ? "rounded-xl border border-stone-200 border-l-[3px] border-l-stone-700 bg-stone-50/90 px-3 py-3 sm:px-4"
+                                    : "rounded-xl border border-stone-200 border-l-[3px] border-l-[#00b8d9]/75 bg-white px-3 py-3 sm:px-4"
+                                }
+                              >
+                                <p className="text-sm font-semibold leading-snug text-stone-900">{item.title}</p>
+                                <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.hint}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveScreen(item.targetScreen)}
+                                  className="mt-2.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-xs font-semibold text-stone-900 hover:bg-stone-50 sm:w-auto sm:py-1.5"
+                                >
+                                  {item.actionLabel}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+
+                    {eventReadinessGuide.some((r) => r.tier === "optional") ? (
+                      <details className="rounded-xl border border-stone-200 bg-stone-50/60">
+                        <summary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold text-stone-800 sm:px-4 [&::-webkit-details-marker]:hidden">
+                          <span className="flex items-center justify-between gap-2">
+                            <span>Optional polish</span>
+                            <span className="text-xs font-medium tabular-nums text-stone-500">
+                              {eventReadinessGuide.filter((r) => r.tier === "optional").length}
+                            </span>
+                          </span>
+                        </summary>
+                        <ul className="space-y-2 border-t border-stone-200 px-3 pb-3 pt-2 sm:px-4">
+                          {eventReadinessGuide
+                            .filter((r) => r.tier === "optional")
+                            .map((item) => (
+                              <li
+                                key={item.id}
+                                className="rounded-lg border border-stone-200/90 bg-white px-3 py-2.5 sm:px-3.5"
+                              >
+                                <p className="text-sm font-semibold leading-snug text-stone-900">{item.title}</p>
+                                <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.hint}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveScreen(item.targetScreen)}
+                                  className="mt-2 w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-center text-xs font-semibold text-stone-800 hover:bg-stone-100 sm:w-auto"
+                                >
+                                  {item.actionLabel}
+                                </button>
+                              </li>
+                            ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                )}
+              </div>
 
               <PrimaryButton
                 type="button"
                 onClick={() => setActiveScreen(coupleGuidedNextScreen)}
-                className="w-full min-h-[4.75rem] justify-center rounded-2xl border border-[#c9a35c]/40 bg-gradient-to-br from-[#c9a35c]/22 to-white/5 px-5 py-5 text-center shadow-[0_12px_40px_-18px_rgba(201,163,92,0.55)]"
+                className="min-h-[5rem] w-full justify-center rounded-2xl border-2 border-black bg-[#00D4FF] px-5 py-5 text-center shadow-none sm:min-h-[4.75rem]"
               >
-                <span className="block text-base font-semibold text-[#f5e6c8]">Continue planning</span>
-                <span className="mt-1 block text-xs font-normal text-zinc-400">{coupleGuidedNextHint}</span>
+                <span className="block text-base font-semibold text-black">Continue planning</span>
+                <span className="mt-1 block text-xs font-semibold text-black/80">{coupleGuidedNextHint}</span>
               </PrimaryButton>
 
               <div className="space-y-3 px-0.5">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Your planning areas</p>
-                <p className="text-sm text-zinc-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-800">
+                  Your planning areas
+                </p>
+                <p className="text-sm leading-relaxed text-stone-700">
                   Ceremony, music, reception, planning questions, vendors, and your event document—each in one calm
                   place.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
                 {coupleHomePlanningSections.map((section) => (
                   <button
                     type="button"
                     key={section.id}
                     onClick={() => setActiveScreen(section.screen)}
-                    className="group flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent px-5 py-5 text-left transition hover:border-[#c9a35c]/38 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a35c]/50"
+                    className="group flex min-h-[11rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-6 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{section.kicker}</p>
-                        <h3 className="mt-1 text-lg font-semibold text-[#f5e6c8]">{section.title}</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{section.description}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
+                          {section.kicker}
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                          {section.title}
+                        </h3>
+                        <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-xs sm:leading-relaxed sm:text-stone-600">
+                          {section.description}
+                        </p>
                       </div>
                       {section.pendingBadge ? (
-                        <span className="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-100/95">
+                        <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
                           {section.pendingBadge}
                         </span>
                       ) : null}
                     </div>
                     <div className="mt-5">
-                      <div className="mb-1 flex justify-between text-[11px] text-zinc-500">
+                      <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
                         <span>{section.completionStatusLabel ?? "Progress"}</span>
-                        <span className="tabular-nums text-[#e9d5a8]">{section.completion}%</span>
+                        <span className="tabular-nums font-semibold text-[#5c4a12]">{section.completion}%</span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-500"
+                          className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
                           style={{ width: `${section.completion}%` }}
                         />
                       </div>
                     </div>
-                    <div className="mt-4 flex items-center justify-end border-t border-white/5 pt-4">
-                      <span className="text-xs font-semibold text-[#c9a35c] transition group-hover:text-[#e9d5a8]">
+                    <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-4">
+                      <span className="text-xs font-semibold text-[#7a5e18] transition group-hover:text-[#5c4a12]">
                         {section.ctaLabel} →
                       </span>
                     </div>
@@ -7380,7 +7912,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setActiveScreen("Notes")}
-                    className="text-xs text-zinc-500 underline-offset-4 transition hover:text-zinc-300 hover:underline"
+                    className="text-xs font-medium text-stone-600 underline-offset-4 transition hover:text-stone-900 hover:underline"
                   >
                     Notes & personal reminders
                   </button>
@@ -7390,7 +7922,7 @@ export default function Home() {
           ) : (
           <>
             <section className="mt-6 space-y-3">
-              <PremiumCard className="overflow-hidden border-[#c9a35c]/30 p-0 shadow-[0_20px_70px_-42px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+              <PremiumCard className="overflow-hidden border border-zinc-700 bg-zinc-950 p-0 shadow-none">
                 <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
                   {eventSettings.coverPhotoDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -7405,7 +7937,7 @@ export default function Home() {
                       aria-hidden
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#050506]/97 via-[#050506]/55 to-[#050506]/20]" />
+                  <div className="absolute inset-0 bg-black/45" />
                   <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">{primaryPartyShortLabel}</p>
                     <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
@@ -7413,14 +7945,14 @@ export default function Home() {
                     </h2>
                     <p className="mt-1 text-sm text-zinc-300">{coupleDisplayName}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-[#f5e6c8] backdrop-blur-sm">
+                      <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
                         {layoutProfileForActiveEvent}
                       </span>
-                      <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left backdrop-blur-sm">
+                      <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left">
                         <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
                         <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
                       </span>
-                      <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur-sm">
+                      <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200">
                         {eventVenueDisplay}
                       </span>
                     </div>
@@ -7429,22 +7961,22 @@ export default function Home() {
                         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
                         <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8] transition-[width] duration-700 ease-out"
+                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
                             style={{ width: `${completionPercent}%` }}
                           />
                         </div>
                       </div>
-                      <p className="shrink-0 text-3xl font-semibold tabular-nums text-[#f5e6c8]">{completionPercent}%</p>
+                      <p className="shrink-0 text-3xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4 border-t border-white/10 bg-gradient-to-br from-[#141419]/95 to-[#0e0e12]/98 p-5 sm:p-6">
+                <div className="space-y-4 border-t border-stone-300 bg-stone-50/70 p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#c9a35c]">{dashboardEyebrowText}</p>
-                      <p className="mt-1 text-[11px] text-zinc-500">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b5420]">{dashboardEyebrowText}</p>
+                      <p className="mt-1 text-[11px] font-medium text-stone-600">
                         Viewing as{" "}
-                        <span className="font-medium text-[#e9d5a8]">
+                        <span className="font-semibold text-stone-900">
                           {perspectiveRoleLabel(currentRole ?? rolePreview)}
                         </span>
                       </p>
@@ -7453,18 +7985,18 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={() => setActiveScreen("Event Settings")}
-                        className="rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/10"
+                        className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                       >
                         Cover & details
                       </PrimaryButton>
                     ) : null}
                   </div>
-                  <p className="text-xs text-zinc-400">
-                    Vendors: <span className="text-zinc-200">{vendors.length}</span>
+                  <p className="text-xs font-medium text-stone-600">
+                    Vendors: <span className="font-semibold text-stone-900">{vendors.length}</span>
                   </p>
-                  <div className="rounded-xl border border-[#c9a35c]/25 bg-gradient-to-r from-[#c9a35c]/15 to-transparent px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-wide text-[#d8b874]">{eventCountdownLabel}</p>
-                    <p className="mt-1 text-sm font-medium text-[#f7ecd4]">
+                  <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5c4a12]">{eventCountdownLabel}</p>
+                    <p className="mt-1 text-sm font-semibold text-stone-900">
                       {daysUntilWedding === null
                         ? "Add an event date to start your countdown"
                         : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
@@ -7473,7 +8005,7 @@ export default function Home() {
                 </div>
                 <div className="border-t border-white/10 px-5 pb-5 sm:px-6">
                   <div className="mt-4">
-                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.nextTasks}</SectionTitle>
+                  <SectionTitle className="!text-zinc-100">{staffDashboardSectionTitles.nextTasks}</SectionTitle>
                   <div className="mt-2 space-y-2">
                     {nextChecklistTasks.length > 0 ? (
                       nextChecklistTasks.map((task) => (
@@ -7481,14 +8013,14 @@ export default function Home() {
                           type="button"
                           key={`next-${task.id}`}
                           onClick={() => setActiveScreen(task.linkedSection)}
-                          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-zinc-200 transition hover:border-[#c9a35c]/35 hover:bg-white/10"
+                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50"
                         >
-                          <p className="font-medium text-zinc-100">{task.title}</p>
-                          <p className="mt-1 text-zinc-500">{task.description}</p>
+                          <p className="font-semibold text-stone-900">{task.title}</p>
+                          <p className="mt-1 text-stone-600">{task.description}</p>
                         </button>
                       ))
                     ) : (
-                      <p className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                      <p className="rounded-xl border border-emerald-300/90 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-950">
                         Beautiful work. Your checklist is complete and event-ready.
                       </p>
                     )}
@@ -7509,10 +8041,10 @@ export default function Home() {
                         setActiveScreen("Settings");
                         setActiveGlobalSettingsSection(action.section);
                       }}
-                      className={`rounded-xl border px-2 py-2 text-[11px] leading-snug text-zinc-200 transition hover:-translate-y-0.5 hover:bg-white/15 ${
+                      className={`rounded-xl border px-2 py-2 text-[11px] font-medium leading-snug text-stone-900 shadow-sm transition hover:-translate-y-0.5 ${
                         action.kind === "workspace"
-                          ? "border-[#c9a35c]/35 bg-[#c9a35c]/12 hover:border-[#c9a35c]/50"
-                          : "border-white/10 bg-white/10 hover:border-[#c9a35c]/35"
+                          ? "border-[#b8924a] bg-[#00D4FF]/22 hover:bg-[#00D4FF]/28"
+                          : "border-stone-300 bg-white hover:border-stone-400 hover:bg-stone-50"
                       }`}
                     >
                       {action.label}
@@ -7525,78 +8057,78 @@ export default function Home() {
                 {roleDashboardMetricCards.map((card) => (
                   <PremiumCard key={card.label}>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm text-zinc-300">{card.label}</p>
-                      <span className="text-sm font-semibold tabular-nums text-[#e9d5a8]">{card.value}</span>
+                      <p className="text-sm font-medium text-stone-700">{card.label}</p>
+                      <span className="text-sm font-semibold tabular-nums text-[#5c4a12]">{card.value}</span>
                     </div>
-                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/90">
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] to-[#e9d5a8]"
+                        className="h-full rounded-full bg-[#00D4FF]"
                         style={{
                           width: /\d+%$/.test(String(card.value)) ? String(card.value) : "100%",
                           opacity: /\d+%$/.test(String(card.value)) ? 1 : 0.35,
                         }}
                       />
                     </div>
-                    <p className="mt-3 text-xs text-zinc-400">{card.detail}</p>
+                    <p className="mt-3 text-xs font-medium text-stone-600">{card.detail}</p>
                   </PremiumCard>
                 ))}
               </div>
             </section>
 
             <section className="mt-6 space-y-3">
-              <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
+              <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
                 <div className="flex items-center justify-between">
-                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.milestones}</SectionTitle>
-                  <span className="rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-xs font-semibold text-[#f5e6c8]">
+                  <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
+                  <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/22 px-2.5 py-1 text-xs font-semibold text-stone-950">
                     {completionPercent}%
                   </span>
                 </div>
                 <div className="mt-3 space-y-2">
                   {upcomingMilestones.length > 0 ? (
                     upcomingMilestones.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
+                      <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-200">{item.title}</span>
-                          <span className="text-zinc-400">{item.dueDate}</span>
+                          <span className="font-medium text-stone-900">{item.title}</span>
+                          <span className="text-stone-600">{item.dueDate}</span>
                         </div>
-                        <p className="mt-1 text-zinc-500">{item.description}</p>
+                        <p className="mt-1 text-stone-600">{item.description}</p>
                       </div>
                     ))
                   ) : (
                     planningChecklist.slice(0, 3).map((item) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs">
-                        <span className="text-zinc-300">{item.title}</span>
-                        <span className="text-zinc-500">{item.dueDate || "Set date"}</span>
+                      <div key={item.id} className="flex items-center justify-between rounded-xl border border-stone-100 bg-white px-3 py-2 text-xs shadow-sm">
+                        <span className="font-medium text-stone-800">{item.title}</span>
+                        <span className="text-stone-600">{item.dueDate || "Set date"}</span>
                       </div>
                     ))
                   )}
                 </div>
               </PremiumCard>
 
-              <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
+              <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
                 <div className="flex items-center justify-between">
-                  <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.updates}</SectionTitle>
+                  <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.updates}</SectionTitle>
                   <PrimaryButton
                     onClick={() => setActiveScreen("Notification Center")}
-                    className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                    className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                   >
                     View All
                   </PrimaryButton>
                 </div>
                 <div className="mt-3 space-y-2">
                   {recentActivityForActiveEvent.map((item) => (
-                    <div key={`recent-${item.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
-                      <p className="text-zinc-100">
+                    <div key={`recent-${item.id}`} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-xs">
+                      <p className="font-medium text-stone-900">
                         <span className="mr-1">{activityTypeIcon(item.type)}</span>
                         {item.summary}
                       </p>
-                      <p className="mt-1 text-zinc-500">
+                      <p className="mt-1 text-stone-600">
                         {item.userRole} · {item.eventName} · {formatRelativeTime(item.timestamp)}
                       </p>
                     </div>
                   ))}
                   {recentActivityForActiveEvent.length === 0 && (
-                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                    <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
                       Activity will appear here as planning updates happen.
                     </p>
                   )}
@@ -7605,10 +8137,10 @@ export default function Home() {
 
               <PremiumCard>
                 <div className="flex items-center justify-between">
-                  <SectionTitle className="text-[#e9d5a8]">Recent Activity</SectionTitle>
+                  <SectionTitle className="text-stone-950">Recent Activity</SectionTitle>
                   <PrimaryButton
                     onClick={() => setActiveScreen("Notification Center")}
-                    className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
+                    className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                   >
                     View All
                   </PrimaryButton>
@@ -7618,18 +8150,18 @@ export default function Home() {
                     .filter((item) => item.eventId === activeEventId)
                     .slice(0, 4)
                     .map((item) => (
-                      <div key={`recent-${item.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
-                        <p className="text-zinc-100">
+                      <div key={`recent-${item.id}`} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-xs">
+                        <p className="font-medium text-stone-900">
                           <span className="mr-1">{activityTypeIcon(item.type)}</span>
                           {item.summary}
                         </p>
-                        <p className="mt-1 text-zinc-500">
+                        <p className="mt-1 text-stone-600">
                           {item.userRole} · {item.eventName} · {formatRelativeTime(item.timestamp)}
                         </p>
                       </div>
                     ))}
                   {activities.filter((item) => item.eventId === activeEventId).length === 0 && (
-                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                    <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
                       Activity will appear here as planning updates happen.
                     </p>
                   )}
@@ -7639,12 +8171,12 @@ export default function Home() {
             </section>
 
             <section className="mt-6 space-y-3">
-              <SectionTitle className="mb-1 font-medium text-zinc-300">
+              <SectionTitle className="mb-1 font-semibold text-stone-700">
                 {staffDashboardSectionTitles.insightsIntro}
               </SectionTitle>
-              <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-amber-950/20 via-[#17171c] to-[#141419]">
-                <SectionTitle className="text-[#e9d5a8]">{staffDashboardSectionTitles.assistant}</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">{staffDashboardSectionTitles.assistantHint}</p>
+              <PremiumCard className="border-[#00D4FF]/45 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.08)]">
+                <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.assistant}</SectionTitle>
+                <p className="mt-1 text-xs font-medium text-stone-600">{staffDashboardSectionTitles.assistantHint}</p>
                 <div className="mt-3">
                   <InsightStack
                     insights={insightsForEventDashboard}
@@ -7663,7 +8195,7 @@ export default function Home() {
             </section>
 
             <section className="mt-6">
-              <SectionTitle className="mb-3 font-medium text-zinc-300">
+              <SectionTitle className="mb-3 font-medium !text-stone-800">
                 {staffDashboardSectionTitles.allSections}
               </SectionTitle>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -7671,7 +8203,7 @@ export default function Home() {
                     <PrimaryButton
                       key={section}
                       onClick={() => setActiveScreen(section)}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left text-sm text-zinc-100 transition duration-200 hover:-translate-y-0.5 hover:border-[#c9a35c]/45 hover:bg-white/10"
+                      className="rounded-2xl border border-stone-300 bg-white px-4 py-4 text-left text-sm font-semibold text-stone-900 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[#00D4FF]/55 hover:bg-stone-50"
                     >
                       {navLabel(section)}
                     </PrimaryButton>
@@ -7687,40 +8219,25 @@ export default function Home() {
           activeScreen === "Reception Hub" &&
           receptionHubEligibleNav && (
             <section className="mt-6 space-y-3">
-              <div className="no-print">
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setActiveScreen("Dashboard")}
-                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
-                >
-                  ← Back to event
-                </PrimaryButton>
-              </div>
-              <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1f1a14]/80 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Reception & main event</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
+              <EventHomeNav
+                trail={["Reception & timeline"]}
+                onBack={() => setActiveScreen("Dashboard")}
+              />
+              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+                <SectionTitle className="!text-zinc-100">Reception & main event</SectionTitle>
+                <p className="mt-1 text-xs text-zinc-400">
                   Your timeline, special moments, and notes—everything for the heart of your celebration.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {(sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) && (
+                  {sectionReceptionTimelineEnabled && (
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Reception Timeline")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#c9a35c]/35 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#00D4FF]/35 sm:col-span-2"
                     >
-                      <span className="block text-sm font-semibold text-zinc-100">
-                        {sectionReceptionTimelineEnabled && sectionFormalitiesEnabled
-                          ? "Timeline & special moments"
-                          : sectionFormalitiesEnabled
-                            ? "Special moments & timeline"
-                            : "Timeline"}
-                      </span>
+                      <span className="block text-sm font-semibold text-zinc-100">Reception timeline</span>
                       <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
-                        {sectionFormalitiesEnabled && sectionReceptionTimelineEnabled
-                          ? "Flow, dances, and spotlight moments in one workspace"
-                          : sectionFormalitiesEnabled
-                            ? "Dances and spotlight moments—edited alongside your flow"
-                            : "Flow and timing for your event"}
+                        Flow, formal moments, songs, and cues in one workspace
                       </span>
                     </PrimaryButton>
                   )}
@@ -7728,7 +8245,7 @@ export default function Home() {
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Notes")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#c9a35c]/35 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#00D4FF]/35 sm:col-span-2"
                     >
                       <span className="block text-sm font-semibold text-zinc-100">Planning notes</span>
                       <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
@@ -7742,37 +8259,46 @@ export default function Home() {
           )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Music Hub" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
-          <section className="mt-6 space-y-4">
-            {!isCoupleView && (
-              <div className="no-print">
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setActiveScreen("Dashboard")}
-                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
-                >
-                  ← Back to event
-                </PrimaryButton>
-              </div>
-            )}
+          <section className="mt-6 min-w-0 space-y-6 overflow-x-hidden sm:space-y-5 md:space-y-4">
+            <EventHomeNav
+              trail={["Music Hub"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "Add song",
+                onClick: () => {
+                  document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
+                  window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                },
+                disabled: !canManageMusic,
+              }}
+            />
 
-            <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-br from-amber-950/30 via-[#17171f]/90 to-[#121218]">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[#c9a35c]/75">Soundtrack</p>
-              <SectionTitle className="mt-1 text-[#f5e6c8]">Music Hub</SectionTitle>
+            <PremiumCard className="border-[#00D4FF]/35 bg-zinc-950 border-zinc-800">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#00D4FF]/75">Soundtrack</p>
+                  <SectionTitle className="mt-1 !text-zinc-100">Music Hub</SectionTitle>
+                </div>
+                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-1" />
+              </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-400">
                 Keep must-plays, playlists, guest requests, and vibe notes in one calm place—organized by moment, not spreadsheets.
               </p>
             </PremiumCard>
 
             {!canManageMusic && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view music, but editing is limited in this prototype.
                 </p>
               </PremiumCard>
             )}
             {!isCoupleView && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Music Assistant</SectionTitle>
+              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+                <SectionTitle className="!text-zinc-100">Music Assistant</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
                   Playlist balance and formality song cues.
                 </p>
@@ -7785,9 +8311,9 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <PremiumCard className="border-white/10 bg-white/[0.03]">
-              <SectionTitle className="text-[#e9d5a8]">Quick add</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-400">
+            <PremiumCard id="music-hub-quick-add" className="border-stone-200 bg-white shadow-sm">
+              <SectionTitle className="text-stone-950">Quick add</SectionTitle>
+              <p className="mt-1 text-xs text-stone-600">
                 Drop a song onto Must Play or Do Not Play—notes are optional.
               </p>
               <div className="mt-4 space-y-3">
@@ -7819,10 +8345,10 @@ export default function Home() {
                   <PrimaryButton
                     onClick={() => setNewSongListType("mustPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl px-3 py-2 text-xs font-medium ${
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
                       newSongListType === "mustPlay"
-                        ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
-                        : "bg-white/5 text-zinc-400"
+                        ? "border-black bg-[#00D4FF] text-black"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                   >
                     Must Play
@@ -7830,10 +8356,10 @@ export default function Home() {
                   <PrimaryButton
                     onClick={() => setNewSongListType("doNotPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl px-3 py-2 text-xs font-medium ${
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
                       newSongListType === "doNotPlay"
-                        ? "bg-[#6f5353]/40 text-[#f5e6c8]"
-                        : "bg-white/5 text-zinc-400"
+                        ? "border-rose-600 bg-rose-100 text-rose-950"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                   >
                     Do Not Play
@@ -7842,10 +8368,10 @@ export default function Home() {
                 <PrimaryButton
                   onClick={() => setNewSongHighPriority((prev) => !prev)}
                   disabled={!canManageMusic}
-                  className={`w-full rounded-xl px-3 py-2 text-xs font-medium ${
+                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
                     newSongHighPriority
-                      ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                      : "bg-white/5 text-zinc-400"
+                      ? "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
+                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                   }`}
                 >
                   {newSongHighPriority ? "High Priority Enabled" : "Mark as High Priority"}
@@ -7853,30 +8379,44 @@ export default function Home() {
                 <PrimaryButton
                   onClick={addSong}
                   disabled={!canManageMusic}
-                  className="w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                  className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
                 >
                   Add Song
                 </PrimaryButton>
               </div>
             </PremiumCard>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
               {sectionMustPlayEnabled && (
-                <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#c9a35c]/[0.06] to-transparent">
+                <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle className="text-[#e9d5a8]">Must play</SectionTitle>
+                      <SectionTitle className="!text-zinc-100">Must play</SectionTitle>
                       <p className="mt-1 text-xs text-zinc-500">Non‑negotiable songs for your celebration.</p>
                     </div>
-                    <span className="rounded-full bg-[#c9a35c]/15 px-2.5 py-1 text-[11px] text-[#e9d5a8]">
+                    <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-100">
                       {mustPlaySongs.length}
                     </span>
                   </div>
                   <div className="mt-3 space-y-2">
                     {mustPlaySongs.length === 0 ? (
-                      <p className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
-                        Add the songs that have to hit the speakers.
-                      </p>
+                      <SectionEmptyState
+                        wrapWithCard={false}
+                        title="No must-plays yet"
+                        description="Lock in the songs that define your dance floor."
+                        primaryAction={{
+                          label: "Add from quick add",
+                          onClick: () => {
+                            setNewSongListType("mustPlay");
+                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                          },
+                          disabled: !canManageMusic,
+                        }}
+                      />
                     ) : null}
                     {mustPlaySongs.map((song) => (
                       <SongCard
@@ -7893,23 +8433,37 @@ export default function Home() {
               )}
 
               {sectionDoNotPlayEnabled && (
-                <PremiumCard className="border-[#7a5c5c]/35 bg-gradient-to-b from-[#6f5353]/[0.12] to-transparent">
+                <PremiumCard className="border-stone-300 bg-white shadow-none">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle className="text-[#e5d7be]">Do not play</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <SectionTitle className="text-stone-950">Do not play</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">
                         Songs, artists, genres, or vibes to steer away from—notes optional.
                       </p>
                     </div>
-                    <span className="rounded-full bg-[#6f5353]/35 px-2.5 py-1 text-[11px] text-[#e5d7be]">
+                    <span className="rounded-full border border-stone-300 bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-900">
                       {doNotPlaySongs.length}
                     </span>
                   </div>
                   <div className="mt-3 space-y-2">
                     {doNotPlaySongs.length === 0 ? (
-                      <p className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
-                        Clear guardrails help the DJ protect the mood.
-                      </p>
+                      <SectionEmptyState
+                        wrapWithCard={false}
+                        title="Nothing on the block list"
+                        description="A short “do not play” keeps the vibe aligned."
+                        primaryAction={{
+                          label: "Add from quick add",
+                          onClick: () => {
+                            setNewSongListType("doNotPlay");
+                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                          },
+                          disabled: !canManageMusic,
+                        }}
+                      />
                     ) : null}
                     {doNotPlaySongs.map((song) => (
                       <SongCard
@@ -7929,12 +8483,12 @@ export default function Home() {
             {sectionPlaylistsEnabled && (
               <div className="space-y-4">
                 <div className="px-1">
-                  <SectionTitle className="text-[#e9d5a8]">Playlists by moment</SectionTitle>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <SectionTitle className="text-stone-950">Playlists by moment</SectionTitle>
+                  <p className="mt-1 text-xs text-stone-600">
                     Each block is its own pocket—drag to reorder, or nudge with arrows.
                   </p>
                 </div>
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
                   {PLAYLIST_BUCKET_IDS.map((bucketId) => {
                     const lines = getPlaylistLines(bucketId);
                     const usingDefaults = playlistVibeOverrides[bucketId] === undefined;
@@ -7945,10 +8499,10 @@ export default function Home() {
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <SectionTitle className="text-[#f5e6c8]">
+                            <SectionTitle className="text-stone-950">
                               {PLAYLIST_BUCKET_LABELS[bucketId]}
                             </SectionTitle>
-                            <p className="mt-1 text-[11px] text-zinc-500">
+                            <p className="mt-1 text-[11px] text-stone-600">
                               {lines.length} song{lines.length === 1 ? "" : "s"}
                               {usingDefaults ? " · Includes starter ideas + imports" : " · Custom list"}
                             </p>
@@ -7958,7 +8512,7 @@ export default function Home() {
                               type="button"
                               onClick={() => resetPlaylistBucketToDefaults(bucketId)}
                               disabled={!canManageMusic || usingDefaults}
-                              className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15 disabled:opacity-40"
+                              className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-40"
                             >
                               Reset
                             </PrimaryButton>
@@ -7983,7 +8537,7 @@ export default function Home() {
                               setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: "" }));
                             }}
                             disabled={!canManageMusic}
-                            className="rounded-xl bg-[#c9a35c]/20 px-3 py-2.5 text-xs font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                            className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
                           >
                             Add
                           </PrimaryButton>
@@ -7991,8 +8545,11 @@ export default function Home() {
 
                         <ul className="mt-3 space-y-2">
                           {lines.length === 0 ? (
-                            <li className="rounded-xl border border-white/6 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
-                              Drop songs here—think energy and pacing for this chapter of the night.
+                            <li className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-3 text-left">
+                              <p className="text-xs font-semibold text-stone-800">Empty for now</p>
+                              <p className="mt-1 text-[11px] leading-snug text-stone-600">
+                                Add a line above—pair energy with this part of the night.
+                              </p>
                             </li>
                           ) : null}
                           {lines.map((line, index) => {
@@ -8009,19 +8566,19 @@ export default function Home() {
                                   reorderPlaylistLineInBucket(bucketId, playlistDrag.index, index);
                                   setPlaylistDrag(null);
                                 }}
-                                className="flex items-start gap-2 rounded-xl border border-white/8 bg-white/[0.04] px-2 py-2.5 text-xs"
+                                className="flex items-start gap-2 rounded-xl border border-stone-200 bg-white px-2 py-2.5 text-xs shadow-sm"
                               >
                                 <span
-                                  className="mt-0.5 cursor-grab select-none text-zinc-600"
+                                  className="mt-0.5 cursor-grab select-none text-stone-500"
                                   title="Drag to reorder"
                                 >
                                   ⋮⋮
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate font-medium text-zinc-100">
+                                  <p className="truncate font-semibold text-stone-900">
                                     {parsed.song || line || "—"}
                                   </p>
-                                  <p className="truncate text-[11px] text-zinc-500">
+                                  <p className="truncate text-[11px] font-medium text-stone-600">
                                     {parsed.artist ? parsed.artist : "—"}
                                   </p>
                                 </div>
@@ -8032,7 +8589,7 @@ export default function Home() {
                                       reorderPlaylistLineInBucket(bucketId, index, index - 1)
                                     }
                                     disabled={!canManageMusic || index === 0}
-                                    className="rounded-lg bg-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                                   >
                                     Up
                                   </PrimaryButton>
@@ -8042,7 +8599,7 @@ export default function Home() {
                                       reorderPlaylistLineInBucket(bucketId, index, index + 1)
                                     }
                                     disabled={!canManageMusic || index >= lines.length - 1}
-                                    className="rounded-lg bg-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                                   >
                                     Down
                                   </PrimaryButton>
@@ -8050,7 +8607,7 @@ export default function Home() {
                                     type="button"
                                     onClick={() => removePlaylistLineFromBucket(bucketId, index)}
                                     disabled={!canManageMusic}
-                                    className="rounded-lg bg-[#6f5353]/35 px-2 py-1 text-[10px] text-[#f2dede]"
+                                    className="rounded-lg border border-rose-400 bg-white px-2 py-1 text-[10px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                                   >
                                     Remove
                                   </PrimaryButton>
@@ -8067,18 +8624,18 @@ export default function Home() {
             )}
 
             {sectionGuestRequestsEnabled ? (
-              <PremiumCard className="border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent">
+              <PremiumCard className="border-zinc-700 bg-zinc-900">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <SectionTitle className="text-[#e9d5a8]">Guest requests</SectionTitle>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <SectionTitle className="!text-zinc-100">Guest requests</SectionTitle>
+                    <p className="mt-1 text-xs text-zinc-400">
                       What guests are asking for—approve in one tap on the full screen.
                     </p>
                   </div>
                   <PrimaryButton
                     type="button"
                     onClick={() => setActiveScreen("Guest Requests")}
-                    className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                    className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105"
                   >
                     Open guest requests
                   </PrimaryButton>
@@ -8088,7 +8645,12 @@ export default function Home() {
                     <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-200/90">Approved</p>
                     <div className="mt-2 space-y-2">
                       {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
-                        <p className="text-xs text-zinc-500">No approved songs yet.</p>
+                        <SectionEmptyState
+                          wrapWithCard={false}
+                          cardClassName="border-emerald-500/15 bg-emerald-500/[0.04] py-3"
+                          title="No approvals yet"
+                          description="Approved picks stay ready for the DJ."
+                        />
                       ) : (
                         guestRequests
                           .filter((r) => r.status === "Approved")
@@ -8109,11 +8671,16 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-amber-100/90">Pending</p>
+                  <div className="rounded-xl border border-[#7E52A0]/25 bg-[#7E52A0]/[0.06] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-300">Pending</p>
                     <div className="mt-2 space-y-2">
                       {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
-                        <p className="text-xs text-zinc-500">Inbox is quiet.</p>
+                        <SectionEmptyState
+                          wrapWithCard={false}
+                          cardClassName="border-[#7E52A0]/20 bg-[#7E52A0]/[0.04] py-3"
+                          title="Inbox is clear"
+                          description="New requests appear here when guests submit."
+                        />
                       ) : (
                         guestRequests
                           .filter((r) => r.status === "Pending")
@@ -8142,9 +8709,9 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ) : (
-              <PremiumCard className="border-white/8 bg-white/[0.02]">
-                <SectionTitle className="text-zinc-300">Guest requests</SectionTitle>
-                <p className="mt-2 text-xs text-zinc-500">
+              <PremiumCard className="border-dashed border-stone-300 bg-stone-50">
+                <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
+                <p className="mt-2 text-xs text-stone-600">
                   Guest requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
                   here.
                 </p>
@@ -8152,8 +8719,8 @@ export default function Home() {
             )}
 
             {sectionMusicNotesEnabled && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/12 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Music notes &amp; vibe</SectionTitle>
+              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+                <SectionTitle className="!text-zinc-100">Music notes &amp; vibe</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
                   Give your DJ emotional guardrails—not just logistics.
                 </p>
@@ -8225,8 +8792,9 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Music Import" && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/20 via-[#17171c] to-[#141419]">
-              <SectionTitle className="text-[#e9d5a8]">Spotify Playlist Import (Prototype)</SectionTitle>
+            <EventHomeNav trail={["Music Import"]} onBack={() => setActiveScreen("Dashboard")} />
+            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+              <SectionTitle className="!text-zinc-100">Spotify Playlist Import (Prototype)</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
                 Paste a Spotify playlist link to simulate import and build event-ready song guidance.
               </p>
@@ -8242,17 +8810,17 @@ export default function Home() {
                 <PrimaryButton
                   onClick={handleImportPlaylist}
                   disabled={!canManageMusic || !playlistUrlInput.trim() || musicImportStage === "analyzing" || musicImportStage === "building"}
-                  className="w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 disabled:opacity-50"
+                  className="w-full bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 disabled:opacity-50"
                 >
                   Import Playlist
                 </PrimaryButton>
                 {musicImportStage === "analyzing" && (
-                  <p className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 px-3 py-2 text-xs text-[#f5e6c8]">
+                  <p className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 px-3 py-2 text-xs text-zinc-100">
                     Analyzing playlist vibe...
                   </p>
                 )}
                 {musicImportStage === "building" && (
-                  <p className="rounded-xl border border-[#c9a35c]/25 bg-[#c9a35c]/10 px-3 py-2 text-xs text-[#f5e6c8]">
+                  <p className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 px-3 py-2 text-xs text-zinc-100">
                     Building your event soundtrack...
                   </p>
                 )}
@@ -8260,10 +8828,10 @@ export default function Home() {
             </PremiumCard>
 
             {musicImportStage === "ready" && importedPlaylistSongs.length > 0 && (
-              <PremiumCard className="border-white/15 bg-white/5 backdrop-blur-md">
-                <SectionTitle className="text-[#e9d5a8]">Playlist Preview</SectionTitle>
+              <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
+                <SectionTitle className="!text-zinc-100">Playlist Preview</SectionTitle>
                 <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-[#2a2a32] to-[#15151b] text-[10px] uppercase tracking-wide text-zinc-400">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-zinc-800 text-[10px] uppercase tracking-wide text-zinc-400">
                     Artwork
                   </div>
                   <div>
@@ -8285,7 +8853,7 @@ export default function Home() {
                   <PrimaryButton
                     onClick={handleAddAllImportedToMustPlay}
                     disabled={!canManageMusic}
-                    className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
+                    className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-[11px] text-zinc-100 hover:bg-[#00D4FF]/30"
                   >
                     Add All to Must Play
                   </PrimaryButton>
@@ -8305,634 +8873,752 @@ export default function Home() {
         {authStage === "app" &&
           appMode === "event" &&
           (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
-          (sectionReceptionTimelineEnabled || sectionFormalitiesEnabled) && (
-          <section className={`mt-6 ${isCoupleView ? "space-y-5" : "space-y-3"}`}>
-            {activeScreen === "Reception Timeline" && (
-              <div className="no-print">
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setActiveScreen("Reception Hub")}
-                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
-                >
-                  ← Back to Reception
-                </PrimaryButton>
-              </div>
-            )}
-            {!canEditTimeline && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">
-                  {effectiveRole} role can view timeline, but editing is limited in this prototype.
-                </p>
-              </PremiumCard>
-            )}
-            <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-[#f7ecd4] md:text-xl">
-                  {activeScreen === "Reception Timeline" ? "Reception timeline" : "Event timeline"}
-                </h2>
-                <p className="mt-1 max-w-prose text-xs text-zinc-500 md:text-sm">
-                  Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit.
-                </p>
-              </div>
-              <PrimaryButton
-                type="button"
-                onClick={() => {
+          sectionReceptionTimelineEnabled && (
+          <section
+            className={`mt-6 min-w-0 overflow-x-hidden ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+          >
+            <EventHomeNav
+              trail={
+                activeScreen === "Reception Timeline"
+                  ? ["Reception timeline"]
+                  : ["Event timeline"]
+              }
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "+ Add moment",
+                onClick: () => {
                   resetTimelineForm();
                   setReceptionTimelineExpandedId(null);
                   setTimelineComposerOpen(true);
                   window.setTimeout(() => {
                     timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
                   }, 50);
-                }}
-                disabled={!canEditTimeline}
-                className="shrink-0 rounded-xl border border-[#c9a35c]/45 bg-gradient-to-r from-[#c9a35c]/22 to-[#c9a35c]/10 px-4 py-2.5 text-sm font-semibold text-[#f5e6c8] hover:brightness-110 disabled:opacity-45"
-              >
-                + Add moment
-              </PrimaryButton>
+                },
+                disabled: !canEditTimeline,
+              }}
+            />
+            {!canEditTimeline && (
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
+                  {effectiveRole} role can view timeline, but editing is limited in this prototype.
+                </p>
+              </PremiumCard>
+            )}
+            <div className="no-print flex min-w-0 flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
+                      {activeScreen === "Reception Timeline" ? "Reception timeline" : "Event timeline"}
+                    </h2>
+                    <PersistEcho
+                      persistFeedback={persistFeedback}
+                      variant="light"
+                      className="pt-1 sm:pt-0.5"
+                    />
+                  </div>
+                  <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
+                    {showTimelinePresetOnboarding
+                      ? "Start with a suggested flow or add your own moments—everything stays editable."
+                      : "Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit."}
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                  {hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
+                    <details className="group w-full rounded-xl border border-stone-300 bg-white shadow-sm sm:w-auto sm:min-w-[220px]">
+                      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-900 sm:min-h-0 sm:text-[12px] [&::-webkit-details-marker]:hidden">
+                        <span>Preset tools</span>
+                        <span className="text-[10px] font-medium text-stone-500 transition-transform group-open:rotate-180">
+                          ▼
+                        </span>
+                      </summary>
+                      <div className="space-y-3 border-t border-stone-200 px-3 pb-3 pt-3">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => applyTimelinePresetsForActiveEvent()}
+                          disabled={!canEditTimeline}
+                          className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[11px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                        >
+                          Apply preset again…
+                        </PrimaryButton>
+                        <div>
+                          <label
+                            htmlFor="timeline-preset-quick-add"
+                            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600"
+                          >
+                            Add suggested moment
+                          </label>
+                          <select
+                            id="timeline-preset-quick-add"
+                            defaultValue=""
+                            disabled={!canEditTimeline}
+                            onChange={(event) => {
+                              const id = event.target.value;
+                              if (!id) return;
+                              const preset = mainTimelinePresetsForActiveEvent.find((p) => p.id === id);
+                              if (preset) addReceptionPreset(preset);
+                              event.target.selectedIndex = 0;
+                            }}
+                            className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 disabled:opacity-45"
+                          >
+                            <option value="">Choose a moment…</option>
+                            {mainTimelinePresetsForActiveEvent.map((preset) => (
+                              <option key={`preset-opt-${preset.id}`} value={preset.id}>
+                                {preset.momentName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
-            <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Quick presets</p>
-                  <p className="mt-1 text-xs text-zinc-400">Drop in starter beats—still editable on the timeline.</p>
-                </div>
-                <PrimaryButton
-                  type="button"
-                  onClick={applyTimelinePresetsForActiveEvent}
-                  disabled={!canEditTimeline}
-                  className="rounded-xl bg-[#c9a35c]/18 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
-                >
-                  Apply full presets
-                </PrimaryButton>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {mainTimelinePresetsForActiveEvent.map((preset) => (
+            {showTimelinePresetOnboarding && (
+              <PremiumCard className="no-print border-zinc-800 bg-zinc-950 py-5 shadow-none">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#00D4FF]/85">Get started</p>
+                <h3 className="mt-2 text-lg font-semibold text-zinc-100">Build your run of show</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  Load the suggested {layoutProfileForActiveEvent} timeline (editable), or create your first moment from
+                  scratch.
+                </p>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <PrimaryButton
-                    key={`timeline-preset-${preset.id}`}
                     type="button"
-                    onClick={() => addReceptionPreset(preset)}
-                    disabled={!canEditTimeline}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                    onClick={handleApplySuggestedTimelineSetup}
+                    disabled={
+                      !canEditTimeline ||
+                      !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
+                    }
+                    className="min-h-12 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
                   >
-                    + {preset.momentName}
+                    Apply suggested {layoutProfileForActiveEvent} timeline
                   </PrimaryButton>
-                ))}
-              </div>
-            </PremiumCard>
-
-            {timelineComposerOpen && (
-              <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-b from-[#1a1610]/90 to-[#111115]/95">
-                <div ref={timelineComposerRef}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionTitle className="text-[#e9d5a8]">New moment</SectionTitle>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Lightweight capture—fine-tune anytime inline on the timeline.
-                    </p>
-                  </div>
-                  <button
+                  <PrimaryButton
                     type="button"
                     onClick={() => {
                       resetTimelineForm();
-                      setTimelineComposerOpen(false);
+                      setReceptionTimelineExpandedId(null);
+                      setTimelineComposerOpen(true);
+                      window.setTimeout(() => {
+                        timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }, 50);
                     }}
-                    className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                    disabled={!canEditTimeline}
+                    className="min-h-12 w-full rounded-xl border border-zinc-600 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 shadow-none hover:bg-zinc-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
                   >
-                    Close
-                  </button>
+                    Start from scratch
+                  </PrimaryButton>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <TextInput
-                    id="timeline-time"
-                    label="Time"
-                    value={timelineTime}
-                    onChange={setTimelineTime}
-                    placeholder="e.g. 6:30 PM"
-                    disabled={!canEditTimeline}
-                  />
-                  <TextInput
-                    id="timeline-title"
-                    label="Moment"
-                    value={timelineTitle}
-                    onChange={setTimelineTitle}
-                    placeholder="e.g. Dinner service begins"
-                    disabled={!canEditTimeline}
-                  />
-                </div>
-                <div className="mt-3">
-                  <label
-                    htmlFor="timeline-category"
-                    className="text-[11px] uppercase tracking-wide text-zinc-400"
+                {!canEditTimeline ? (
+                  <p className="mt-4 text-xs text-zinc-500">Editing presets isn&apos;t available for your role.</p>
+                ) : !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded) ? (
+                  <p className="mt-4 text-xs text-zinc-500">
+                    No default moments are enabled for this event type in Global Settings → Timeline Presets.
+                  </p>
+                ) : (
+                  <p className="mt-4 text-xs text-zinc-500">
+                    Tip: after your timeline has moments, preset shortcuts move under{" "}
+                    <span className="font-medium text-zinc-400">Preset tools</span>.
+                  </p>
+                )}
+              </PremiumCard>
+            )}
+
+            {timelineComposerOpen && (
+              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+                <div ref={timelineComposerRef}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <SectionTitle className="!text-zinc-100">New moment</SectionTitle>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Lightweight capture—fine-tune anytime inline on the timeline.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetTimelineForm();
+                        setTimelineComposerOpen(false);
+                      }}
+                      className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <form
+                    className="mt-4 space-y-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      addOrUpdateTimelineItem();
+                    }}
                   >
-                    Category
-                  </label>
-                  <select
-                    id="timeline-category"
-                    value={timelineCategory}
-                    disabled={!canEditTimeline}
-                    onChange={(event) =>
-                      setTimelineCategory(event.target.value as TimelineCategory)
-                    }
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
-                  >
-                    {timelineCategories.map((category) => (
-                      <option key={category} value={category} className="bg-[#141419] text-zinc-100">
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mt-3">
-                  <TextArea
-                    id="timeline-notes"
-                    label="Notes / cues"
-                    value={timelineNotes}
-                    onChange={setTimelineNotes}
-                    placeholder="Production notes, MC guidance, song ideas…"
-                    disabled={!canEditTimeline}
-                  />
-                </div>
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setTimelineNeedsAttention((prev) => !prev)}
-                  disabled={!canEditTimeline}
-                  className={`mt-3 w-full ${
-                    timelineNeedsAttention
-                      ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                      : "bg-white/5 text-zinc-400"
-                  }`}
-                >
-                  {timelineNeedsAttention
-                    ? "DJ/MC attention marked"
-                    : "Flag DJ/MC attention"}
-                </PrimaryButton>
-                <PrimaryButton
-                  type="button"
-                  onClick={addOrUpdateTimelineItem}
-                  disabled={!canEditTimeline}
-                  className="mt-4 w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-                >
-                  Add to timeline
-                </PrimaryButton>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextInput
+                        id="timeline-time"
+                        label="Time / order"
+                        value={timelineTime}
+                        onChange={setTimelineTime}
+                        placeholder="e.g. 6:30 PM (optional)"
+                        disabled={!canEditTimeline}
+                      />
+                      <div className="space-y-0">
+                        <TextInput
+                          id="timeline-title"
+                          label="Moment"
+                          value={timelineTitle}
+                          onChange={(value) => {
+                            setTimelineTitle(value);
+                            setTimelineComposerError(null);
+                          }}
+                          placeholder="Required — e.g. Dinner service begins"
+                          disabled={!canEditTimeline}
+                        />
+                        {timelineComposerError ? (
+                          <p className="mt-1.5 text-xs text-rose-300">{timelineComposerError}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextInput
+                        id="timeline-song-title"
+                        label="Song title"
+                        value={timelineSongTitle}
+                        onChange={setTimelineSongTitle}
+                        placeholder="Optional"
+                        disabled={!canEditTimeline}
+                      />
+                      <TextInput
+                        id="timeline-artist"
+                        label="Artist"
+                        value={timelineArtist}
+                        onChange={setTimelineArtist}
+                        placeholder="Optional"
+                        disabled={!canEditTimeline}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="timeline-category"
+                        className="text-[11px] uppercase tracking-wide text-zinc-400"
+                      >
+                        Category
+                      </label>
+                      <select
+                        id="timeline-category"
+                        value={timelineCategory}
+                        disabled={!canEditTimeline}
+                        onChange={(event) =>
+                          setTimelineCategory(event.target.value as TimelineCategory)
+                        }
+                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                      >
+                        {timelineCategories.map((category) => (
+                          <option key={category} value={category} className="bg-[#141419] text-zinc-100">
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <TextArea
+                      id="timeline-notes"
+                      label="Notes / cues"
+                      value={timelineNotes}
+                      onChange={setTimelineNotes}
+                      placeholder="Production notes, MC guidance…"
+                      disabled={!canEditTimeline}
+                    />
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setTimelineNeedsAttention((prev) => !prev)}
+                      disabled={!canEditTimeline}
+                      className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
+                        timelineNeedsAttention
+                          ? "border-[#00D4FF] bg-[#00D4FF]/15 text-zinc-100"
+                          : "border-white/20 bg-white/[0.06] text-zinc-400 hover:bg-white/10"
+                      }`}
+                    >
+                      {timelineNeedsAttention
+                        ? "DJ/MC attention marked"
+                        : "Flag DJ/MC attention"}
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={!canEditTimeline}
+                      className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                    >
+                      Add to timeline
+                    </PrimaryButton>
+                  </form>
                 </div>
               </PremiumCard>
             )}
 
-            <div ref={timelineStreamRef} className="space-y-3">
+            <div ref={timelineStreamRef} className="min-w-0 space-y-5 sm:space-y-4 md:space-y-3">
             {mergedTimelineItems.length === 0 ? (
-              <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
-                <div className="py-8 text-center">
-                  <p className="text-sm font-semibold text-[#f5e6c8]">Your timeline is empty</p>
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">
-                    Add your first timeline moment to shape an intentional event flow.
-                  </p>
-                </div>
-              </PremiumCard>
+              showTimelinePresetOnboarding ? null : (
+                <SectionEmptyState
+                  title="No reception moments yet"
+                  description="Build your run of show—each row is time, moment, music, then cues."
+                  primaryAction={{
+                    label: "+ Add moment",
+                    onClick: () => {
+                      resetTimelineForm();
+                      setReceptionTimelineExpandedId(null);
+                      setTimelineComposerOpen(true);
+                      window.setTimeout(() => {
+                        timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }, 50);
+                    },
+                    disabled: !canEditTimeline,
+                  }}
+                  secondaryAction={
+                    mainTimelinePresetsForActiveEvent.length > 0 &&
+                    timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
+                      ? {
+                          label: `Apply suggested ${layoutProfileForActiveEvent} timeline`,
+                          onClick: handleApplySuggestedTimelineSetup,
+                          disabled:
+                            !canEditTimeline || !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded),
+                        }
+                      : undefined
+                  }
+                />
+              )
             ) : (
               mergedTimelineItems.map((item, index) => {
-                const isTimelineItem = item.source === "timeline";
-                const formalityRow =
-                  item.source === "formality"
-                    ? formalities.find((f) => f.id === item.id)
-                    : undefined;
+                const timelineRow = timelineItems.find((t) => t.id === item.id);
                 const rowExpanded = receptionTimelineExpandedId === item.id;
                 const songPreview =
-                  item.source === "formality"
-                    ? [
-                        formalities.find((f) => f.id === item.id)?.songTitle?.trim(),
-                        formalities.find((f) => f.id === item.id)?.artist?.trim(),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "Song TBD"
-                    : item.notes?.trim()
-                      ? item.notes.trim().split(/\n/)[0].slice(0, 180)
-                      : "—";
+                  [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" · ") ||
+                  (item.notes?.trim()
+                    ? item.notes.trim().split(/\n/)[0].slice(0, 180)
+                    : "—");
+                const cueKind =
+                  (item.songTitle?.trim() || item.artist?.trim()) ? "Song" : "Cue";
                 const isDragging = draggingTimelineId === item.id;
                 const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                 return (
                 <PremiumCard
                   key={item.id}
-                  className={`rounded-2xl border transition-all duration-200 ${
-                    index % 2 === 0
-                      ? "border-white/10 bg-[#121218]/92"
-                      : "border-white/[0.08] bg-[#141419]/88"
-                  } px-4 py-4 sm:px-5 sm:py-5 ${
-                    isDragging ? "scale-[1.005] border-[#c9a35c]/45 shadow-[0_16px_36px_rgba(201,163,92,0.18)]" : ""
-                  } ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
-                  onDragOver={
-                    isTimelineItem
-                      ? (event) => {
-                          if (!canEditTimeline || !draggingTimelineId) return;
-                          event.preventDefault();
-                          if (draggingTimelineId !== item.id) setDropTargetTimelineId(item.id);
-                        }
-                      : undefined
-                  }
-                  onDrop={
-                    isTimelineItem
-                      ? (event) => {
-                          event.preventDefault();
-                          if (!canEditTimeline || !draggingTimelineId) return;
-                          reorderTimelineItemToTarget(draggingTimelineId, item.id);
-                          setDraggingTimelineId(null);
-                          setDropTargetTimelineId(null);
-                        }
-                      : undefined
-                  }
-                  onDragEnd={
-                    isTimelineItem
-                      ? () => {
-                          setDraggingTimelineId(null);
-                          setDropTargetTimelineId(null);
-                        }
-                      : undefined
-                  }
-                  onTouchMove={
-                    isTimelineItem
-                      ? (event) => {
-                          if (!canEditTimeline || !draggingTimelineId) return;
-                          event.preventDefault();
-                          const touch = event.touches[0];
-                          if (!touch) return;
-                          const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
-                          const card = targetElement?.closest("[data-timeline-id]") as HTMLElement | null;
-                          const targetId = card?.dataset.timelineId;
-                          if (targetId && targetId !== draggingTimelineId) setDropTargetTimelineId(targetId);
-                        }
-                      : undefined
-                  }
-                  onTouchEnd={
-                    isTimelineItem
-                      ? () => {
-                          if (!canEditTimeline || !draggingTimelineId || !dropTargetTimelineId) {
-                            setDraggingTimelineId(null);
-                            setDropTargetTimelineId(null);
-                            return;
-                          }
-                          reorderTimelineItemToTarget(draggingTimelineId, dropTargetTimelineId);
-                          setDraggingTimelineId(null);
-                          setDropTargetTimelineId(null);
-                        }
-                      : undefined
-                  }
-                  data-timeline-id={isTimelineItem ? item.id : undefined}
+                  className={`rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 ${
+                    index % 2 === 1 ? "bg-stone-50" : ""
+                  } ${
+                    isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
+                  } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
+                  onDragOver={(event) => {
+                    if (!canEditTimeline || !draggingTimelineId) return;
+                    event.preventDefault();
+                    if (draggingTimelineId !== item.id) setDropTargetTimelineId(item.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (!canEditTimeline || !draggingTimelineId) return;
+                    reorderTimelineItemToTarget(draggingTimelineId, item.id);
+                    setDraggingTimelineId(null);
+                    setDropTargetTimelineId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingTimelineId(null);
+                    setDropTargetTimelineId(null);
+                  }}
+                  onTouchMove={(event) => {
+                    if (!canEditTimeline || !draggingTimelineId) return;
+                    event.preventDefault();
+                    const touch = event.touches[0];
+                    if (!touch) return;
+                    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const card = targetElement?.closest("[data-timeline-id]") as HTMLElement | null;
+                    const targetId = card?.dataset.timelineId;
+                    if (targetId && targetId !== draggingTimelineId) setDropTargetTimelineId(targetId);
+                  }}
+                  onTouchEnd={() => {
+                    if (!canEditTimeline || !draggingTimelineId || !dropTargetTimelineId) {
+                      setDraggingTimelineId(null);
+                      setDropTargetTimelineId(null);
+                      return;
+                    }
+                    reorderTimelineItemToTarget(draggingTimelineId, dropTargetTimelineId);
+                    setDraggingTimelineId(null);
+                    setDropTargetTimelineId(null);
+                  }}
+                  data-timeline-id={item.id}
                 >
                   {isDropTarget && (
-                    <div className="mb-2 h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-[#c9a35c] to-transparent" />
+                    <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
                   )}
                   {!rowExpanded && (
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex min-w-0 flex-1 gap-3 sm:gap-6">
-                        <div className="w-[4.5rem] shrink-0 pt-0.5 text-right sm:w-24">
-                          <p className="font-mono text-xs font-semibold tabular-nums text-[#e9d5a8] sm:text-sm">
+                    <div className="flex flex-col gap-5 sm:gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
+                            {item.title}
+                          </h3>
+                          <p className="mt-1.5 font-mono text-base font-semibold tabular-nums text-stone-800 sm:text-sm">
                             {item.time?.trim() || "—"}
                           </p>
                         </div>
-                        <div className="relative min-w-0 flex-1 border-l border-[#c9a35c]/22 pl-4 sm:pl-5">
-                          <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#c9a35c]/85 ring-4 ring-[#131318]" />
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                                item.category === "Formality"
-                                  ? "bg-[#c9a35c]/18 text-[#f5e6c8]"
-                                  : "bg-white/10 text-zinc-300"
-                              }`}
-                            >
-                              {item.category}
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:max-w-[55%] sm:justify-end lg:max-w-none">
+                          <span
+                            className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                              item.category === "Formalities"
+                                ? "border-stone-500 bg-stone-200 text-stone-900"
+                                : "border-stone-300 bg-white text-stone-700"
+                            }`}
+                          >
+                            {item.category}
+                          </span>
+                          {item.needsDjMcAttention ? (
+                            <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                              DJ/MC
                             </span>
-                            {item.needsDjMcAttention && item.source === "timeline" ? (
-                              <span className="rounded-full bg-[#c9a35c]/15 px-2 py-0.5 text-[10px] font-medium text-[#f5e6c8]">
-                                DJ/MC
-                              </span>
-                            ) : null}
-                          </div>
-                          <h3 className="mt-2 text-lg font-semibold leading-snug text-zinc-50">{item.title}</h3>
-                          <p className="mt-1.5 text-sm text-[#e9d5a8]/95">
-                            <span className="text-zinc-500">
-                              {item.source === "formality" ? "Song · " : "Cue · "}
-                            </span>
-                            {songPreview}
-                          </p>
-                          {item.notes?.trim() && item.source === "timeline" ? (
-                            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-zinc-500">{item.notes}</p>
                           ) : null}
                         </div>
                       </div>
-                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm [overflow-wrap:anywhere]">
+                        <span className="font-medium text-stone-500">{cueKind} · </span>
+                        {songPreview}
+                      </p>
+                      {item.notes?.trim() ? (
+                        <p className="line-clamp-2 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
+                          {item.notes}
+                        </p>
+                      ) : null}
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
                         <PrimaryButton
                           type="button"
                           onClick={() => setReceptionTimelineExpandedId(item.id)}
                           disabled={!canEditTimeline}
-                          className="rounded-lg bg-[#c9a35c]/18 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
+                          className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4"
                         >
-                          Details
+                          Edit
                         </PrimaryButton>
-                        {isTimelineItem ? (
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                            disabled={!canEditTimeline}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
-                          >
-                            + After
-                          </PrimaryButton>
-                        ) : null}
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                          disabled={!canEditTimeline}
+                          className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none"
+                        >
+                          + After
+                        </PrimaryButton>
+                        <details className="min-h-12 flex-1 sm:min-h-10 sm:max-w-[8.5rem] sm:flex-none">
+                          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-2 text-[12px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white sm:min-h-10 sm:text-[11px]">
+                            More
+                          </summary>
+                          <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                            <div className="grid grid-cols-2 gap-2">
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => moveTimelineItem(item.id, "up")}
+                                disabled={!canEditTimeline}
+                                className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                              >
+                                Up
+                              </PrimaryButton>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => moveTimelineItem(item.id, "down")}
+                                disabled={!canEditTimeline}
+                                className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                              >
+                                Down
+                              </PrimaryButton>
+                            </div>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => {
+                                const row = timelineItems.find((t) => t.id === item.id);
+                                if (row) duplicateTimelineItem(row);
+                              }}
+                              disabled={!canEditTimeline}
+                              className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                            >
+                              Duplicate
+                            </PrimaryButton>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => deleteTimelineItem(item.id)}
+                              disabled={!canEditTimeline}
+                              className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                            >
+                              Delete
+                            </PrimaryButton>
+                          </div>
+                        </details>
                       </div>
                     </div>
                   )}
                   {rowExpanded && (
                     <>
-                      <div className="mb-3 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setReceptionTimelineExpandedId(null)}
-                          className="text-[11px] text-zinc-500 transition hover:text-zinc-300"
-                        >
-                          Collapse view
-                        </button>
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
+                        <p className="text-[13px] font-semibold tracking-tight text-stone-900">Edit moment</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <details className="min-h-10 sm:max-w-[8.5rem]">
+                            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[11px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
+                              More
+                            </summary>
+                            <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                              <div className="grid grid-cols-2 gap-2">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => moveTimelineItem(item.id, "up")}
+                                  disabled={!canEditTimeline}
+                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                >
+                                  Up
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => moveTimelineItem(item.id, "down")}
+                                  disabled={!canEditTimeline}
+                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                >
+                                  Down
+                                </PrimaryButton>
+                              </div>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                  const row = timelineItems.find((t) => t.id === item.id);
+                                  if (row) duplicateTimelineItem(row);
+                                }}
+                                disabled={!canEditTimeline}
+                                className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                              >
+                                Duplicate
+                              </PrimaryButton>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => deleteTimelineItem(item.id)}
+                                disabled={!canEditTimeline}
+                                className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                              >
+                                Delete
+                              </PrimaryButton>
+                            </div>
+                          </details>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => setReceptionTimelineExpandedId(null)}
+                            className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                          >
+                            Done
+                          </PrimaryButton>
+                        </div>
                       </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] ${
-                            item.category === "Formality"
-                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                              : "bg-white/10 text-zinc-300"
-                          }`}
-                        >
-                          {item.category}
-                        </span>
-                      </div>
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <TextInput
-                      id={`timeline-inline-time-${item.id}`}
-                      label="Time"
-                      value={item.time}
-                      onChange={(value) => {
-                        if (item.source === "formality") {
-                          updateFormality(item.id, { time: value });
-                          return;
-                        }
-                        setTimelineItems((prev) =>
-                          prev.map((existing) =>
-                            existing.id === item.id ? { ...existing, time: value } : existing,
-                          ),
-                        );
-                      }}
-                      disabled={!canEditTimeline}
-                    />
-                    <TextInput
-                      id={`timeline-inline-title-${item.id}`}
-                      label="Moment"
-                      value={item.title}
-                      onChange={(value) => {
-                        if (item.source === "formality") {
-                          updateFormality(item.id, { momentName: value });
-                          return;
-                        }
-                        setTimelineItems((prev) =>
-                          prev.map((existing) =>
-                            existing.id === item.id ? { ...existing, title: value } : existing,
-                          ),
-                        );
-                      }}
-                      disabled={!canEditTimeline}
-                    />
-                  </div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <TextInput
-                      id={`timeline-inline-song-${item.id}`}
-                      label="Song"
-                      value={
-                        item.source === "formality"
-                          ? `${
-                              formalities.find((f) => f.id === item.id)?.songTitle || ""
-                            }`
-                          : ""
-                      }
-                      onChange={(value) => {
-                        if (item.source === "formality") {
-                          updateFormality(item.id, { songTitle: value });
-                        }
-                      }}
-                      placeholder={item.source === "formality" ? "Song title" : "Optional — add song in notes"}
-                      disabled={!canEditTimeline || item.source !== "formality"}
-                    />
-                    <TextInput
-                      id={`timeline-inline-song-artist-${item.id}`}
-                      label="Artist"
-                      value={item.source === "formality" ? `${formalities.find((f) => f.id === item.id)?.artist || ""}` : ""}
-                      onChange={(value) => {
-                        if (item.source === "formality") {
-                          updateFormality(item.id, { artist: value });
-                        }
-                      }}
-                      placeholder={item.source === "formality" ? "Artist" : "-"}
-                      disabled={!canEditTimeline || item.source !== "formality"}
-                    />
-                  </div>
-                  <TextArea
-                    id={`timeline-inline-notes-${item.id}`}
-                    label="Notes"
-                    value={item.notes}
-                    onChange={(value) => {
-                      if (item.source === "formality") {
-                        updateFormality(item.id, { notes: value });
-                        return;
-                      }
-                      setTimelineItems((prev) =>
-                        prev.map((existing) =>
-                          existing.id === item.id ? { ...existing, notes: value } : existing,
-                        ),
-                      );
-                    }}
-                    rows={2}
-                    disabled={!canEditTimeline}
-                  />
-                  {item.source === "formality" && formalityRow ? (
-                    <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <PrimaryButton
-                          type="button"
-                          onClick={() =>
-                            updateFormality(formalityRow.id, {
-                              fadeOutEarly: !formalityRow.fadeOutEarly,
-                            })
-                          }
-                          disabled={!canEditTimeline}
-                          className={`w-full ${
-                            formalityRow.fadeOutEarly
-                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                              : "bg-white/5 text-zinc-400"
-                          }`}
-                        >
-                          {formalityRow.fadeOutEarly ? "Fade out early: On" : "Fade out early"}
-                        </PrimaryButton>
+
+                      <div className="space-y-2">
                         <TextInput
-                          id={`timeline-inline-fade-${item.id}`}
-                          label="Fade timestamp"
-                          value={formalityRow.fadeOutTimestamp}
-                          onChange={(value) =>
-                            updateFormality(formalityRow.id, { fadeOutTimestamp: value })
-                          }
-                          placeholder="e.g. 1:20"
+                          id={`timeline-inline-title-${item.id}`}
+                          label="Moment"
+                          value={item.title}
+                          onChange={(value) => {
+                            setTimelineItems((prev) =>
+                              prev.map((existing) =>
+                                existing.id === item.id ? { ...existing, title: value } : existing,
+                              ),
+                            );
+                          }}
                           disabled={!canEditTimeline}
                         />
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <TextInput
+                            id={`timeline-inline-time-${item.id}`}
+                            label="Time"
+                            value={item.time}
+                            onChange={(value) => {
+                              setTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id ? { ...existing, time: value } : existing,
+                                ),
+                              );
+                            }}
+                            disabled={!canEditTimeline}
+                          />
+                          <div>
+                            <label
+                              htmlFor={`timeline-inline-cat-${item.id}`}
+                              className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600"
+                            >
+                              Category
+                            </label>
+                            <select
+                              id={`timeline-inline-cat-${item.id}`}
+                              value={timelineRow?.category ?? item.category}
+                              disabled={!canEditTimeline}
+                              onChange={(event) => {
+                                const next = event.target.value as TimelineCategory;
+                                setTimelineItems((prev) =>
+                                  prev.map((existing) =>
+                                    existing.id === item.id ? { ...existing, category: next } : existing,
+                                  ),
+                                );
+                              }}
+                              className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25"
+                            >
+                              {timelineCategories.map((category) => (
+                                <option key={category} value={category}>
+                                  {category}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <TextInput
+                            id={`timeline-inline-song-${item.id}`}
+                            label="Song"
+                            value={timelineRow?.songTitle ?? ""}
+                            onChange={(value) => {
+                              setTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id ? { ...existing, songTitle: value } : existing,
+                                ),
+                              );
+                            }}
+                            placeholder="Song title"
+                            disabled={!canEditTimeline}
+                          />
+                          <TextInput
+                            id={`timeline-inline-song-artist-${item.id}`}
+                            label="Artist"
+                            value={timelineRow?.artist ?? ""}
+                            onChange={(value) => {
+                              setTimelineItems((prev) =>
+                                prev.map((existing) =>
+                                  existing.id === item.id ? { ...existing, artist: value } : existing,
+                                ),
+                              );
+                            }}
+                            placeholder="Artist"
+                            disabled={!canEditTimeline}
+                          />
+                        </div>
+                        <TextArea
+                          id={`timeline-inline-notes-${item.id}`}
+                          label="Notes"
+                          value={item.notes}
+                          onChange={(value) => {
+                            setTimelineItems((prev) =>
+                              prev.map((existing) =>
+                                existing.id === item.id ? { ...existing, notes: value } : existing,
+                              ),
+                            );
+                          }}
+                          rows={2}
+                          disabled={!canEditTimeline}
+                        />
                         <PrimaryButton
                           type="button"
                           onClick={() =>
-                            updateFormality(formalityRow.id, {
-                              includeInTimeline: !formalityRow.includeInTimeline,
-                            })
+                            setTimelineItems((prev) =>
+                              prev.map((existing) =>
+                                existing.id === item.id
+                                  ? { ...existing, needsDjMcAttention: !existing.needsDjMcAttention }
+                                  : existing,
+                              ),
+                            )
                           }
                           disabled={!canEditTimeline}
-                          className={`w-full ${
-                            formalityRow.includeInTimeline
-                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                              : "bg-white/5 text-zinc-400"
+                          className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
+                            timelineRow?.needsDjMcAttention
+                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                           }`}
                         >
-                          {formalityRow.includeInTimeline
-                            ? "Shown on timeline"
-                            : "Include on timeline"}
+                          {timelineRow?.needsDjMcAttention ? "DJ/MC flagged" : "Flag DJ / MC"}
                         </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() =>
-                            updateFormality(formalityRow.id, {
-                              needsDjMcAttention: !formalityRow.needsDjMcAttention,
-                            })
-                          }
-                          disabled={!canEditTimeline}
-                          className={`w-full ${
-                            formalityRow.needsDjMcAttention
-                              ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                              : "bg-white/5 text-zinc-400"
-                          }`}
-                        >
-                          {formalityRow.needsDjMcAttention
-                            ? "DJ/MC attention: On"
-                            : "DJ/MC attention"}
-                        </PrimaryButton>
+
+                        <details className="rounded-lg border border-stone-200 bg-stone-50">
+                          <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white">
+                            Fade / advanced timing
+                          </summary>
+                          <div className="space-y-2 border-t border-stone-200 bg-white p-3">
+                            <p className="text-[10px] leading-relaxed text-stone-600">
+                              Optional cue — common for introductions and formalities.
+                            </p>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <PrimaryButton
+                                type="button"
+                                onClick={() =>
+                                  setTimelineItems((prev) =>
+                                    prev.map((existing) =>
+                                      existing.id === item.id
+                                        ? { ...existing, fadeOutEarly: !existing.fadeOutEarly }
+                                        : existing,
+                                    ),
+                                  )
+                                }
+                                disabled={!canEditTimeline}
+                                className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none ${
+                                  timelineRow?.fadeOutEarly
+                                    ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                }`}
+                              >
+                                {timelineRow?.fadeOutEarly ? "Fade out early: On" : "Fade out early"}
+                              </PrimaryButton>
+                              <TextInput
+                                id={`timeline-inline-fade-${item.id}`}
+                                label="Fade timestamp"
+                                value={timelineRow?.fadeOutTimestamp ?? ""}
+                                onChange={(value) =>
+                                  setTimelineItems((prev) =>
+                                    prev.map((existing) =>
+                                      existing.id === item.id
+                                        ? { ...existing, fadeOutTimestamp: value }
+                                        : existing,
+                                    ),
+                                  )
+                                }
+                                placeholder="e.g. 1:20"
+                                disabled={!canEditTimeline}
+                              />
+                            </div>
+                          </div>
+                        </details>
                       </div>
-                    </div>
-                  ) : null}
                     </>
                   )}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {item.source === "timeline" ? (
-                      <>
-                        <button
-                          type="button"
-                          draggable={canEditTimeline}
-                          onDragStart={(event) => {
-                            if (!canEditTimeline) return;
-                            event.dataTransfer.effectAllowed = "move";
-                            setDraggingTimelineId(item.id);
-                          }}
-                          onDragEnd={() => {
-                            setDraggingTimelineId(null);
-                            setDropTargetTimelineId(null);
-                          }}
-                          onTouchStart={(event) => {
-                            if (!canEditTimeline) return;
-                            event.preventDefault();
-                            setDraggingTimelineId(item.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
-                          disabled={!canEditTimeline}
-                          aria-label={`Drag handle for ${item.title}`}
-                        >
-                          <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
-                          <span>Reorder</span>
-                        </button>
-                        <PrimaryButton
-                          onClick={() => moveTimelineItem(item.id, "up")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Up
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => moveTimelineItem(item.id, "down")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Down
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => deleteTimelineItem(item.id)}
-                          disabled={!canEditTimeline}
-                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
-                        >
-                          Delete
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() =>
-                            duplicateTimelineItem({
-                              id: item.id,
-                              title: item.title,
-                              time: item.time,
-                              category: item.category as TimelineCategory,
-                              notes: item.notes,
-                              needsDjMcAttention: item.needsDjMcAttention,
-                            })
-                          }
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Duplicate
-                        </PrimaryButton>
-                      </>
-                    ) : (
-                      <>
-                        <PrimaryButton
-                          onClick={() => moveFormalityAmongIncluded(item.id, "up")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Up
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => moveFormalityAmongIncluded(item.id, "down")}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Move Down
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => {
-                            const formality = formalities.find((f) => f.id === item.id);
-                            if (formality) duplicateFormality(formality);
-                          }}
-                          disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                        >
-                          Duplicate
-                        </PrimaryButton>
-                        <PrimaryButton
-                          onClick={() => deleteFormality(item.id)}
-                          disabled={!canEditTimeline}
-                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
-                        >
-                          Delete
-                        </PrimaryButton>
-                      </>
-                    )}
+                  <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
+                    <button
+                      type="button"
+                      draggable={canEditTimeline}
+                      onDragStart={(event) => {
+                        if (!canEditTimeline) return;
+                        event.dataTransfer.effectAllowed = "move";
+                        setDraggingTimelineId(item.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingTimelineId(null);
+                        setDropTargetTimelineId(null);
+                      }}
+                      onTouchStart={(event) => {
+                        if (!canEditTimeline) return;
+                        event.preventDefault();
+                        setDraggingTimelineId(item.id);
+                      }}
+                      className="inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem]"
+                      disabled={!canEditTimeline}
+                      aria-label={`Drag handle for ${item.title}`}
+                    >
+                      <span className="text-[10px] tracking-wide text-stone-500">::</span>
+                      <span>Reorder</span>
+                    </button>
+                    <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600">
+                      {index + 1} / {mergedTimelineItems.length}
+                    </p>
                   </div>
-                  <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
-                    {index + 1} / {mergedTimelineItems.length}
-                  </p>
                 </PremiumCard>
               )})
             )}
             </div>
 
             {!isCoupleView && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Timeline Assistant</SectionTitle>
+              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+                <SectionTitle className="!text-zinc-100">Timeline Assistant</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
                   Reception flow, spacing, and overlap checks.
                 </p>
@@ -8949,8 +9635,8 @@ export default function Home() {
 
         {authStage === "app" && appMode === "events" && activeScreen === "Timeline Templates" && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <SectionTitle className="text-[#e9d5a8]">Timeline Templates</SectionTitle>
+            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+              <SectionTitle className="!text-zinc-100">Timeline Templates</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
                 Apply a preset, save current flow as a custom template, or refine custom templates.
               </p>
@@ -8971,17 +9657,17 @@ export default function Home() {
               <PremiumCard key={template.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <SectionTitle className="text-[#e9d5a8]">{template.name}</SectionTitle>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {template.timelineItems.length} timeline items · {template.formalities.length} formalities
+                    <SectionTitle className="text-stone-950">{template.name}</SectionTitle>
+                    <p className="mt-1 text-xs text-stone-600">
+                      {template.timelineItems.length} timeline items (formal moments included)
                     </p>
-                    <span className="mt-2 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] uppercase tracking-wide text-zinc-300">
+                    <span className="mt-2 inline-flex rounded-full border border-stone-300 bg-stone-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
                       {template.kind === "built_in" ? "Built-in" : "Custom"}
                     </span>
                   </div>
                 </div>
                 {template.planningSuggestions.length > 0 && (
-                  <ul className="mt-3 space-y-1 text-xs text-zinc-400">
+                  <ul className="mt-3 space-y-1 text-xs text-stone-600">
                     {template.planningSuggestions.slice(0, 2).map((tip) => (
                       <li key={`${template.id}-${tip}`}>- {tip}</li>
                     ))}
@@ -8990,13 +9676,17 @@ export default function Home() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <PrimaryButton
                     onClick={() => {
-                      setTimelineItems(cloneJson(template.timelineItems));
-                      setFormalities(cloneJson(template.formalities));
+                      setTimelineItems(
+                        migrateFormalitiesIntoTimelineItems(
+                          cloneJson(template.timelineItems),
+                          cloneJson(template.formalities ?? []),
+                        ),
+                      );
                       setPlannerNotes(cloneJson(template.planningSuggestions));
                       logActivity("template_applied", `Applied template: ${template.name}`);
                       setActiveScreen("Timeline");
                     }}
-                    className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                    className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105"
                   >
                     Apply Template
                   </PrimaryButton>
@@ -9010,13 +9700,13 @@ export default function Home() {
                       };
                       setTemplates((prev) => [...prev, duplicate]);
                     }}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                    className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50"
                   >
                     Duplicate
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => openEditTemplateModal(template)}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                    className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50"
                   >
                     Edit
                   </PrimaryButton>
@@ -9027,7 +9717,7 @@ export default function Home() {
                         if (!ok) return;
                         setTemplates((prev) => prev.filter((tpl) => tpl.id !== template.id));
                       }}
-                      className="rounded-xl bg-[#6f5353]/40 px-3 py-2 text-xs font-semibold text-[#f2dede] hover:bg-[#6f5353]/55"
+                      className="rounded-xl border border-rose-400 bg-white px-3 py-2 text-xs font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                     >
                       Delete
                     </PrimaryButton>
@@ -9040,16 +9730,16 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Collaborators" && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-[#e9d5a8]">Collaborators</SectionTitle>
-                <PrimaryButton
-                  onClick={() => setInviteModalOpen(true)}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
-                >
-                  Invite
-                </PrimaryButton>
-              </div>
+            <EventHomeNav
+              trail={["Collaborators"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "Invite",
+                onClick: () => setInviteModalOpen(true),
+              }}
+            />
+            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+              <SectionTitle className="!text-zinc-100">Collaborators</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
                 Prototype event access and role visibility. Invites are simulated locally.
               </p>
@@ -9073,7 +9763,7 @@ export default function Home() {
                       <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(collab.role)}`}>
                         {collab.role}
                       </span>
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${collab.status === "Accepted" ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200"}`}>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${collab.status === "Accepted" ? "bg-emerald-500/20 text-emerald-200" : "bg-[#7E52A0]/22 text-violet-200"}`}>
                         {collab.status}
                       </span>
                     </div>
@@ -9135,7 +9825,7 @@ export default function Home() {
             ))}
 
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Event Access Cards</SectionTitle>
+              <SectionTitle className="text-stone-950">Event Access Cards</SectionTitle>
               <div className="mt-3 space-y-2 text-xs">
                 <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">Couple: edit planning, submit music, manage guest requests</div>
                 <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">DJ: edit timeline, manage music, view prep sheet</div>
@@ -9148,40 +9838,56 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
           <section className="mt-6 space-y-3">
+            <EventHomeNav
+              trail={["Guest Requests"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={
+                guestRequestView === "admin" && coupleAttentionSummary.pendingGuestCount > 0
+                  ? {
+                      label: "Review queue",
+                      onClick: () =>
+                        document.getElementById("guest-requests-queue-anchor")?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    }
+                  : undefined
+              }
+            />
             {!canManageGuestRequests && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view guest requests, but management actions are limited.
                 </p>
               </PremiumCard>
             )}
             <PremiumCard>
               <div className="flex items-center justify-between gap-2">
-                <SectionTitle className="text-[#e9d5a8]">Guest Requests</SectionTitle>
-                <div className="flex rounded-xl border border-white/10 bg-white/5 p-0.5">
+                <SectionTitle className="text-stone-950">Guest Requests</SectionTitle>
+                <div className="flex rounded-xl border border-stone-300 bg-stone-100 p-0.5">
                   <PrimaryButton
                     onClick={() => setGuestRequestView("admin")}
-                    className={`px-2.5 py-1.5 text-[11px] ${
+                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${
                       guestRequestView === "admin"
-                        ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
-                        : "bg-transparent text-zinc-500"
+                        ? "border border-black bg-[#00D4FF] text-black"
+                        : "bg-transparent text-stone-600 hover:text-stone-900"
                     }`}
                   >
                     Couple / Admin
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => setGuestRequestView("guest")}
-                    className={`px-2.5 py-1.5 text-[11px] ${
+                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${
                       guestRequestView === "guest"
-                        ? "bg-[#c9a35c]/25 text-[#f5e6c8]"
-                        : "bg-transparent text-zinc-500"
+                        ? "border border-black bg-[#00D4FF] text-black"
+                        : "bg-transparent text-stone-600 hover:text-stone-900"
                     }`}
                   >
                     Guest View
                   </PrimaryButton>
                 </div>
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-stone-600">
                 Switch views to test the public request flow versus couple review.
               </p>
             </PremiumCard>
@@ -9189,17 +9895,17 @@ export default function Home() {
             {guestRequestView === "admin" ? (
               <>
                 <PremiumCard>
-                  <SectionTitle className="text-zinc-100">Public Request Link</SectionTitle>
-                  <p className="mt-2 text-xs text-zinc-400">
+                  <SectionTitle className="text-stone-950">Public Request Link</SectionTitle>
+                  <p className="mt-2 text-xs text-stone-600">
                     {effectiveGuestRequestMessage}
                   </p>
-                  <div className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-xs text-[#e9d5a8]">
+                  <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 font-mono text-xs font-medium text-stone-900">
                     cutmasterplanning.com/request/alex-jordan
                   </div>
                 </PremiumCard>
 
-                <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-                  <SectionTitle className="text-[#e9d5a8]">Guest Requests Assistant</SectionTitle>
+                <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+                  <SectionTitle className="!text-zinc-100">Guest Requests Assistant</SectionTitle>
                   <p className="mt-1 text-xs text-zinc-500">
                     Queue health for approvals.
                   </p>
@@ -9211,30 +9917,44 @@ export default function Home() {
                   </div>
                 </PremiumCard>
 
+                <div id="guest-requests-queue-anchor">
                 <PremiumCard>
-                  <SectionTitle className="text-zinc-100">Guest-Submitted Songs</SectionTitle>
+                  <SectionTitle className="text-stone-950">Guest-Submitted Songs</SectionTitle>
+                  {guestRequests.length === 0 ? (
+                    <div className="mt-3">
+                      <SectionEmptyState
+                        wrapWithCard={false}
+                        title="No requests yet"
+                        description="Share the link above—submissions land here for review."
+                        secondaryAction={{
+                          label: "Preview guest view",
+                          onClick: () => setGuestRequestView("guest"),
+                        }}
+                      />
+                    </div>
+                  ) : (
                   <div className="mt-3 space-y-3">
                     {guestRequests.map((request) => (
                       <div
                         key={request.id}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] p-3 shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
+                        className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-medium text-zinc-100">
+                            <p className="text-sm font-semibold text-stone-900">
                               {request.songTitle}
                               {request.artist ? (
-                                <span className="font-normal text-zinc-400">
+                                <span className="font-medium text-stone-600">
                                   {" "}
                                   - {request.artist}
                                 </span>
                               ) : null}
                             </p>
-                            <p className="mt-1 text-[11px] text-zinc-400">
+                            <p className="mt-1 text-[11px] font-medium text-stone-600">
                               Requested by {request.guestName}
                             </p>
                             {request.dedication ? (
-                              <p className="mt-2 text-xs text-zinc-500 italic">
+                              <p className="mt-2 text-xs italic text-stone-700">
                                 &ldquo;{request.dedication}&rdquo;
                               </p>
                             ) : null}
@@ -9249,21 +9969,21 @@ export default function Home() {
                           <PrimaryButton
                             onClick={() => setGuestRequestStatus(request.id, "Approved")}
                             disabled={!canManageGuestRequests || request.status === "Approved"}
-                            className="flex-1 min-w-[6rem] rounded-lg bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex-1 min-w-[6rem] rounded-lg border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             Approve
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => setGuestRequestStatus(request.id, "Rejected")}
                             disabled={!canManageGuestRequests || request.status === "Rejected"}
-                            className="flex-1 min-w-[6rem] rounded-lg bg-[#6f5353]/40 px-3 py-2 text-xs text-[#f2dede] hover:bg-[#6f5353]/55 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex-1 min-w-[6rem] rounded-lg border border-rose-400 bg-white px-3 py-2 text-xs font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             Reject
                           </PrimaryButton>
                           <PrimaryButton
                             onClick={() => setGuestRequestStatus(request.id, "Pending")}
                             disabled={!canManageGuestRequests || request.status === "Pending"}
-                            className="flex-1 min-w-[6rem] rounded-lg bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex-1 min-w-[6rem] rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             Pending
                           </PrimaryButton>
@@ -9276,7 +9996,7 @@ export default function Home() {
                               request.addedToMustPlay ||
                               request.status === "Rejected"
                             }
-                            className="flex-1 min-w-[8rem] rounded-lg border border-[#c9a35c]/30 bg-[#c9a35c]/10 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex-1 min-w-[8rem] rounded-lg border border-[#00D4FF] bg-[#00D4FF]/12 px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-[#00D4FF]/22 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {request.addedToMustPlay ? "On Must Play" : "Add to Must Play"}
                           </PrimaryButton>
@@ -9295,16 +10015,18 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </PremiumCard>
+                </div>
               </>
             ) : (
               <PremiumCard>
-                <SectionTitle className="text-[#e9d5a8]">Request a Song</SectionTitle>
-                <p className="mt-2 text-xs text-zinc-400">
+                <SectionTitle className="text-stone-950">Request a Song</SectionTitle>
+                <p className="mt-2 text-xs text-stone-600">
                   {effectiveGuestRequestMessage}
                 </p>
                 {guestSubmitBanner ? (
-                  <p className="mt-3 rounded-xl bg-[#c9a35c]/15 px-3 py-2 text-xs text-[#f5e6c8]">
+                  <p className="mt-3 rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/12 px-3 py-2 text-xs font-medium text-stone-900">
                     {guestSubmitBanner}
                   </p>
                 ) : null}
@@ -9345,7 +10067,7 @@ export default function Home() {
                   <PrimaryButton
                     onClick={submitGuestRequestForm}
                     disabled={!canManageGuestRequests}
-                    className="w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                    className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
                   >
                     Submit Request
                   </PrimaryButton>
@@ -9356,51 +10078,56 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
-          <section className={`mt-6 ${isCoupleView ? "space-y-5" : "space-y-3"}`}>
+          <section
+            className={`mt-6 min-w-0 overflow-x-hidden ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+          >
+            <EventHomeNav
+              trail={["Ceremony"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "+ Add ceremony moment",
+                onClick: openCeremonyTimelineComposer,
+                disabled: !canEditTimeline,
+              }}
+            />
             {!canEditTimeline && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view ceremony timeline, but editing is limited in this prototype.
                 </p>
               </PremiumCard>
             )}
 
-            <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="no-print">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold tracking-tight text-[#f7ecd4] md:text-xl">
+                <h2 className="text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
                   Ceremony timeline
                 </h2>
-                <p className="mt-1 max-w-prose text-xs text-zinc-500 md:text-sm">
+                <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
                   Read top-to-bottom like the ceremony itself—time, moment, music, then cues. Expand a row to edit.
                 </p>
               </div>
-              <PrimaryButton
-                type="button"
-                onClick={openCeremonyTimelineComposer}
-                disabled={!canEditTimeline}
-                className="shrink-0 rounded-xl border border-[#c9a35c]/45 bg-gradient-to-r from-[#c9a35c]/22 to-[#c9a35c]/10 px-4 py-2.5 text-sm font-semibold text-[#f5e6c8] hover:brightness-110 disabled:opacity-45"
-              >
-                + Add ceremony moment
-              </PrimaryButton>
             </div>
 
-            <PremiumCard className="border-white/10 bg-white/[0.03] py-4">
+            <PremiumCard className="border-stone-200 bg-white px-4 py-5 shadow-sm sm:px-5 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Ceremony presets</p>
-                  <p className="mt-1 text-xs text-zinc-400">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600">
+                    Ceremony presets
+                  </p>
+                  <p className="mt-1 text-xs text-stone-600">
                     Drop in common beats—still editable on the timeline.
                   </p>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 sm:mt-3">
                 {ceremonyPresetsForActiveEvent.map((preset) => (
                   <PrimaryButton
                     key={`ceremony-preset-${preset.id}`}
                     type="button"
                     onClick={() => addCeremonyPreset(preset)}
                     disabled={!canEditTimeline}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                    className="min-h-11 rounded-full border border-stone-300 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:px-3 sm:py-1.5 sm:text-[11px] sm:font-medium"
                   >
                     + {preset.momentName}
                   </PrimaryButton>
@@ -9409,12 +10136,12 @@ export default function Home() {
             </PremiumCard>
 
             {ceremonyTimelineComposerOpen && (
-              <PremiumCard className="border-[#c9a35c]/35 bg-gradient-to-b from-[#1a1610]/90 to-[#111115]/95">
+              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
                 <div ref={ceremonyTimelineComposerRef}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <SectionTitle className="text-[#e9d5a8]">New ceremony moment</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <SectionTitle className="!text-zinc-100">New ceremony moment</SectionTitle>
+                      <p className="mt-1 text-xs text-zinc-400">
                         Lightweight capture—fine-tune anytime inline on the timeline.
                       </p>
                     </div>
@@ -9480,10 +10207,10 @@ export default function Home() {
                     type="button"
                     onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
                     disabled={!canEditTimeline}
-                    className={`mt-3 w-full ${
+                    className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
                       ceremonyTimelineDraftNeedsAttention
-                        ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                        : "bg-white/5 text-zinc-400"
+                        ? "border-[#00D4FF] bg-[#00D4FF]/15 text-zinc-100"
+                        : "border-white/20 bg-white/[0.06] text-zinc-400 hover:bg-white/10"
                     }`}
                   >
                     {ceremonyTimelineDraftNeedsAttention
@@ -9494,7 +10221,7 @@ export default function Home() {
                     type="button"
                     onClick={saveCeremonyTimelineComposerItem}
                     disabled={!canEditTimeline}
-                    className="mt-4 w-full bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                    className="mt-4 w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
                   >
                     Add to ceremony timeline
                   </PrimaryButton>
@@ -9502,16 +10229,17 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <div ref={ceremonyTimelineStreamRef} className="space-y-3">
+            <div ref={ceremonyTimelineStreamRef} className="min-w-0 space-y-5 sm:space-y-4 md:space-y-3">
               {ceremonyTimelineItems.length === 0 ? (
-                <PremiumCard className="border-dashed border-[#c9a35c]/40 bg-gradient-to-b from-[#18181d] to-[#111115]">
-                  <div className="py-8 text-center">
-                    <p className="text-sm font-semibold text-[#f5e6c8]">No ceremony moments yet</p>
-                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">
-                      Add a moment or pick a preset to build an elegant, scannable cue flow.
-                    </p>
-                  </div>
-                </PremiumCard>
+                <SectionEmptyState
+                  title="No ceremony moments yet"
+                  description="Preset chips above are the fastest start—or add your own aisle-to-recessional flow."
+                  primaryAction={{
+                    label: "+ Add ceremony moment",
+                    onClick: openCeremonyTimelineComposer,
+                    disabled: !canEditTimeline,
+                  }}
+                />
               ) : (
                 ceremonyTimelineItems.map((item, index) => {
                   const rowExpanded = ceremonyTimelineExpandedId === item.id;
@@ -9524,15 +10252,11 @@ export default function Home() {
                   return (
                     <PremiumCard
                       key={item.id}
-                      className={`rounded-2xl border transition-all duration-200 ${
-                        index % 2 === 0
-                          ? "border-white/10 bg-[#121218]/92"
-                          : "border-white/[0.08] bg-[#141419]/88"
-                      } px-4 py-4 sm:px-5 sm:py-5 ${
-                        isDragging
-                          ? "scale-[1.005] border-[#c9a35c]/45 shadow-[0_16px_36px_rgba(201,163,92,0.18)]"
-                          : ""
-                      } ${isDropTarget ? "ring-2 ring-[#c9a35c]/35" : ""}`}
+                      className={`rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 ${
+                        index % 2 === 1 ? "bg-stone-50" : ""
+                      } transition-all duration-200 ${
+                        isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
+                      } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
                         if (!canEditTimeline || !draggingCeremonyTimelineId) return;
@@ -9581,48 +10305,48 @@ export default function Home() {
                       }}
                     >
                       {isDropTarget ? (
-                        <div className="mb-2 h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-[#c9a35c] to-transparent" />
+                        <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
                       ) : null}
                       {!rowExpanded && (
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="flex min-w-0 flex-1 gap-3 sm:gap-6">
-                            <div className="w-[4.5rem] shrink-0 pt-0.5 text-right sm:w-24">
-                              <p className="font-mono text-xs font-semibold tabular-nums text-[#e9d5a8] sm:text-sm">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+                          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-6">
+                            <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right">
+                              <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-sm">
                                 {item.timeOrOrder?.trim() || "—"}
                               </p>
                             </div>
-                            <div className="relative min-w-0 flex-1 border-l border-[#c9a35c]/22 pl-4 sm:pl-5">
-                              <span className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full bg-[#c9a35c]/85 ring-4 ring-[#131318]" />
+                            <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-5">
+                              <span className="absolute -left-[7px] top-2 h-3 w-3 rounded-full border-2 border-white bg-stone-700 shadow-sm ring-2 ring-stone-200" />
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-300">
+                                <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
                                   Ceremony
                                 </span>
                                 {item.needsDjMcAttention ? (
-                                  <span className="rounded-full bg-[#c9a35c]/15 px-2 py-0.5 text-[10px] font-medium text-[#f5e6c8]">
+                                  <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
                                     DJ/MC
                                   </span>
                                 ) : null}
                               </div>
-                              <h3 className="mt-2 text-lg font-semibold leading-snug text-zinc-50">
+                              <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
                                 {item.moment}
                               </h3>
-                              <p className="mt-1.5 text-sm text-[#e9d5a8]/95">
-                                <span className="text-zinc-500">Song · </span>
+                              <p className="mt-2 text-[15px] leading-snug text-stone-900 sm:mt-1.5 sm:text-sm sm:leading-normal sm:text-stone-800">
+                                <span className="font-medium text-stone-500">Song · </span>
                                 {songLine || "—"}
                               </p>
                               {item.notes?.trim() ? (
-                                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-zinc-500">
+                                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-stone-600">
                                   {item.notes}
                                 </p>
                               ) : null}
                             </div>
                           </div>
-                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                             <PrimaryButton
                               type="button"
                               onClick={() => setCeremonyTimelineExpandedId(item.id)}
                               disabled={!canEditTimeline}
-                              className="rounded-lg bg-[#c9a35c]/18 px-3 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/28 disabled:opacity-45"
+                              className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                             >
                               Details
                             </PrimaryButton>
@@ -9630,7 +10354,7 @@ export default function Home() {
                               type="button"
                               onClick={() => prepareAddCeremonyMomentAfter(item.id)}
                               disabled={!canEditTimeline}
-                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-200 hover:border-[#c9a35c]/35 hover:bg-white/10 disabled:opacity-45"
+                              className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                             >
                               + After
                             </PrimaryButton>
@@ -9639,11 +10363,11 @@ export default function Home() {
                       )}
                       {rowExpanded && (
                         <>
-                          <div className="mb-3 flex justify-end">
+                          <div className="mb-3 flex justify-end border-b border-stone-200 pb-3">
                             <button
                               type="button"
                               onClick={() => setCeremonyTimelineExpandedId(null)}
-                              className="text-[11px] text-zinc-500 transition hover:text-zinc-300"
+                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline"
                             >
                               Collapse view
                             </button>
@@ -9743,10 +10467,10 @@ export default function Home() {
                               )
                             }
                             disabled={!canEditTimeline}
-                            className={`mt-3 w-full ${
+                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
                               item.needsDjMcAttention
-                                ? "bg-[#c9a35c]/20 text-[#f5e6c8]"
-                                : "bg-white/5 text-zinc-400"
+                                ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                             }`}
                           >
                             {item.needsDjMcAttention
@@ -9755,7 +10479,7 @@ export default function Home() {
                           </PrimaryButton>
                         </>
                       )}
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pt-3">
                         <button
                           type="button"
                           draggable={canEditTimeline}
@@ -9773,18 +10497,18 @@ export default function Home() {
                             event.preventDefault();
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#c9a35c]/55 bg-gradient-to-b from-[#c9a35c]/25 to-[#c9a35c]/10 px-3 py-2 text-[11px] font-semibold text-[#f5e6c8] transition hover:border-[#c9a35c]/70 hover:bg-[#c9a35c]/30 active:scale-[0.98] disabled:opacity-50"
+                          className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                           disabled={!canEditTimeline}
                           aria-label={`Drag handle for ${item.moment}`}
                         >
-                          <span className="text-[10px] tracking-wide text-[#e9d5a8]">::</span>
+                          <span className="text-[10px] tracking-wide text-stone-500">::</span>
                           <span>Reorder</span>
                         </button>
                         <PrimaryButton
                           type="button"
                           onClick={() => moveCeremonyTimelineItem(item.id, "up")}
                           disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                         >
                           Move Up
                         </PrimaryButton>
@@ -9792,7 +10516,7 @@ export default function Home() {
                           type="button"
                           onClick={() => moveCeremonyTimelineItem(item.id, "down")}
                           disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                         >
                           Move Down
                         </PrimaryButton>
@@ -9800,7 +10524,7 @@ export default function Home() {
                           type="button"
                           onClick={() => deleteCeremonyTimelineItem(item.id)}
                           disabled={!canEditTimeline}
-                          className="bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+                          className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                         >
                           Delete
                         </PrimaryButton>
@@ -9808,12 +10532,12 @@ export default function Home() {
                           type="button"
                           onClick={() => duplicateCeremonyTimelineItem(item)}
                           disabled={!canEditTimeline}
-                          className="bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                         >
                           Duplicate
                         </PrimaryButton>
                       </div>
-                      <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600">
                         {index + 1} / {ceremonyTimelineItems.length}
                       </p>
                     </PremiumCard>
@@ -9823,8 +10547,8 @@ export default function Home() {
             </div>
 
             {!isCoupleView && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-                <SectionTitle className="text-[#e9d5a8]">Ceremony Assistant</SectionTitle>
+              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+                <SectionTitle className="!text-zinc-100">Ceremony Assistant</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
                   Processionals and audio readiness.
                 </p>
@@ -9838,7 +10562,7 @@ export default function Home() {
             )}
 
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Ceremony Details</SectionTitle>
+              <SectionTitle className="text-stone-950">Ceremony Details</SectionTitle>
               <div className="mt-4 space-y-3">
                 <TextInput
                   id="ceremony-location"
@@ -9891,43 +10615,18 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" &&
-          appMode === "event" &&
-          (activeScreen === "Formal Dances" || activeScreen === "Reception Formalities") &&
-          sectionFormalitiesEnabled && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/30 bg-gradient-to-b from-[#1d1a14]/90 to-[#141419]">
-              <SectionTitle className="text-[#e9d5a8]">Special moments moved to your timeline</SectionTitle>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                Formal dances and spotlight moments are edited in the Reception Timeline—same song,
-                notes, and DJ cues, without switching screens.
-              </p>
-              <PrimaryButton
-                type="button"
-                onClick={() =>
-                  setActiveScreen(
-                    receptionHubEligibleNav ? "Reception Timeline" : "Timeline",
-                  )
-                }
-                className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] py-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 sm:w-auto"
-              >
-                Open reception timeline
-              </PrimaryButton>
-            </PremiumCard>
-          </section>
-        )}
-
         {authStage === "app" && appMode === "event" && activeScreen === "Notes" && (
           <section className="mt-6 space-y-3">
+            <EventHomeNav trail={["Planning notes"]} onBack={() => setActiveScreen("Dashboard")} />
             {!canEditNotes && (
-              <PremiumCard className="border-[#c9a35c]/20 bg-amber-950/10">
-                <p className="text-xs text-[#f5e6c8]">
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view notes, but editing is limited in this prototype.
                 </p>
               </PremiumCard>
             )}
             <PremiumCard>
-              <SectionTitle className="text-zinc-100">Planner Notes</SectionTitle>
+              <SectionTitle className="text-stone-950">Planner Notes</SectionTitle>
               <div className="mt-3 space-y-3">
                 <TextArea
                   id="planner-notes-editor"
@@ -9951,19 +10650,22 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && sectionVendorContactsEnabled && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/20 bg-gradient-to-b from-amber-950/15 to-transparent">
-              <div className="flex items-center justify-between gap-2">
-                <SectionTitle className="text-[#e9d5a8]">Vendor Collaboration</SectionTitle>
-                <PrimaryButton
-                  onClick={openAddVendorModal}
-                  className="rounded-xl bg-[#c9a35c]/20 px-3 py-2 text-xs text-[#f5e6c8] hover:bg-[#c9a35c]/30"
-                >
-                  Add Vendor
-                </PrimaryButton>
+          <section className="mt-6 min-w-0 space-y-5 overflow-x-hidden sm:space-y-4 md:space-y-3">
+            <EventHomeNav
+              trail={["Vendors / Team"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "Add vendor",
+                onClick: openAddVendorModal,
+              }}
+            />
+            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <SectionTitle className="!text-zinc-100">Your event team</SectionTitle>
+                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
-                Keep contacts, arrival timing, and coordination details aligned across your event team.
+              <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                One calm snapshot of everyone involved—organized by role, fast to reach from your phone, and aligned with your Event Document.
               </p>
               {vendorStatus && (
                 <p
@@ -9978,283 +10680,429 @@ export default function Home() {
               )}
             </PremiumCard>
 
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Vendor Arrival Timeline</SectionTitle>
-              <div className="mt-3 space-y-2">
-                {vendors
-                  .filter((vendor) => vendor.arrivalTime.trim())
-                  .sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime))
-                  .map((vendor) => (
-                    <div key={`arrival-${vendor.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-300">
-                      <span className="text-zinc-100">{vendor.arrivalTime}</span> - {vendor.companyName} ({vendor.vendorType})
+            {vendors.length === 0 ? (
+              <SectionEmptyState
+                title="No contacts yet"
+                description="Add planners, venue, photo + video, catering, and entertainment so day-of calls and texts stay in one place—not buried in threads."
+                primaryAction={{ label: "Add vendor", onClick: openAddVendorModal }}
+                cardClassName="border-dashed border-white/15 bg-white/[0.02]"
+              />
+            ) : (
+              <>
+                {cutmasterTeamVendors.length > 0 ? (
+                  <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+                    <div className="min-w-0">
+                      <SectionTitle className="!text-zinc-100">Cutmaster event team</SectionTitle>
+                      <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                        Internal production and coordination on this event—distinct from external partners below.
+                      </p>
                     </div>
-                  ))}
-                {vendors.filter((vendor) => vendor.arrivalTime.trim()).length === 0 && (
-                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
-                    Add arrival times to build your vendor timeline.
-                  </p>
-                )}
-              </div>
-            </PremiumCard>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {cutmasterTeamVendors.map((vendor) => (
+                        <VendorEventCard
+                          key={vendor.id}
+                          vendor={vendor}
+                          variant="cutmaster"
+                          onEdit={openEditVendorModal}
+                          onDelete={deleteVendor}
+                          onCopy={copyVendorContactInfo}
+                        />
+                      ))}
+                    </div>
+                  </PremiumCard>
+                ) : null}
 
-            <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Coordination Notes</SectionTitle>
-              <div className="mt-3 space-y-2">
-                {vendors
-                  .filter((vendor) => vendor.specialCoordinationNotes.trim())
-                  .map((vendor) => (
-                    <div key={`coord-${vendor.id}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
-                      <p className="text-zinc-100">{vendor.companyName}</p>
-                      <p className="mt-1 text-zinc-400">{vendor.specialCoordinationNotes}</p>
-                    </div>
-                  ))}
-                {vendors.filter((vendor) => vendor.specialCoordinationNotes.trim()).length === 0 && (
-                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
-                    No special coordination notes yet.
+                <PremiumCard>
+                  <SectionTitle className="text-stone-950">Arrival & load-in</SectionTitle>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Quick scan of who is on-site and when—pair with coordination notes for timing-sensitive moments.
                   </p>
-                )}
-              </div>
-            </PremiumCard>
+                  <div className="mt-3 space-y-2">
+                    {vendors
+                      .filter((vendor) => vendor.arrivalTime.trim())
+                      .sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime))
+                      .map((vendor) => (
+                        <div
+                          key={`arrival-${vendor.id}`}
+                          className="rounded-xl border border-white/8 bg-white/5 px-3 py-2.5 text-xs text-zinc-300"
+                        >
+                          <span className="font-medium text-zinc-100">{vendor.arrivalTime}</span>
+                          <span className="text-zinc-500"> · </span>
+                          <span className="text-zinc-200">{vendor.companyName}</span>
+                          <span className="text-zinc-500"> · </span>
+                          <span className="text-zinc-400">{vendorTypeLabel(vendor.vendorType)}</span>
+                        </div>
+                      ))}
+                    {vendors.filter((vendor) => vendor.arrivalTime.trim()).length === 0 ? (
+                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                        Add arrival times on each vendor to build a shareable load-in picture for the day.
+                      </p>
+                    ) : null}
+                  </div>
+                </PremiumCard>
 
-            {VENDOR_TYPES.map((type) => (
-              <PremiumCard key={`vendor-type-${type}`}>
-                <SectionTitle className="text-[#e9d5a8]">{type}</SectionTitle>
-                <div className="mt-3 space-y-2">
-                  {vendorsByType[type].map((vendor) => (
-                    <div key={`vendor-card-${vendor.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-zinc-100">{vendor.companyName}</p>
-                          <p className="mt-1 text-xs text-zinc-400">
-                            {vendor.contactName || "No contact"} {vendor.email ? `· ${vendor.email}` : ""} {vendor.phone ? `· ${vendor.phone}` : ""}
-                          </p>
-                          {vendor.notes && <p className="mt-1 text-xs text-zinc-500">{vendor.notes}</p>}
+                <PremiumCard>
+                  <SectionTitle className="text-stone-950">Coordination notes</SectionTitle>
+                  <div className="mt-3 space-y-2">
+                    {vendors
+                      .filter((vendor) => vendor.specialCoordinationNotes.trim())
+                      .map((vendor) => (
+                        <div
+                          key={`coord-${vendor.id}`}
+                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs"
+                        >
+                          <p className="font-medium text-zinc-100">{vendor.companyName}</p>
+                          <p className="mt-1 leading-relaxed text-zinc-400">{vendor.specialCoordinationNotes}</p>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <PrimaryButton
-                            onClick={() => openEditVendorModal(vendor)}
-                            className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-200 hover:bg-white/15"
-                          >
-                            Edit
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => deleteVendor(vendor.id)}
-                            className="rounded-lg bg-[#6f5353]/40 px-2 py-1.5 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
-                          >
-                            Delete
-                          </PrimaryButton>
-                        </div>
+                      ))}
+                    {vendors.filter((vendor) => vendor.specialCoordinationNotes.trim()).length === 0 ? (
+                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                        Special instructions from vendors appear here—parking, power, staging, or ceremony cues.
+                      </p>
+                    ) : null}
+                  </div>
+                </PremiumCard>
+
+                {VENDOR_UI_SECTIONS.map((section) => {
+                  const inSection = filterVendorsByTypes(partnerVendors, section.types);
+                  if (inSection.length === 0) return null;
+                  return (
+                    <PremiumCard key={`vendor-section-${section.id}`}>
+                      <SectionTitle className="text-stone-950">{section.label}</SectionTitle>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {inSection.map((vendor) => (
+                          <VendorEventCard
+                            key={vendor.id}
+                            vendor={vendor}
+                            variant="partner"
+                            onEdit={openEditVendorModal}
+                            onDelete={deleteVendor}
+                            onCopy={copyVendorContactInfo}
+                          />
+                        ))}
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        {vendor.email && (
-                          <PrimaryButton
-                            onClick={() => window.open(`mailto:${vendor.email}`, "_blank")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                          >
-                            Email
-                          </PrimaryButton>
-                        )}
-                        {vendor.phone && (
-                          <PrimaryButton
-                            onClick={() => window.open(`tel:${vendor.phone}`, "_blank")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                          >
-                            Call
-                          </PrimaryButton>
-                        )}
-                        {(vendor.email || vendor.phone) && (
-                          <PrimaryButton
-                            onClick={async () => {
-                              const text = `${vendor.companyName}\n${vendor.contactName}\n${vendor.email}\n${vendor.phone}`.trim();
-                              try {
-                                await navigator.clipboard.writeText(text);
-                                setVendorStatus({ kind: "success", message: `Copied contact info for ${vendor.companyName}.` });
-                              } catch {
-                                setVendorStatus({ kind: "error", message: "Could not copy contact info." });
-                              }
-                            }}
-                            className="rounded-lg bg-[#c9a35c]/20 px-2 py-2 text-[11px] text-[#f5e6c8] hover:bg-[#c9a35c]/30"
-                          >
-                            Copy Contact
-                          </PrimaryButton>
-                        )}
-                        {vendor.website && (
-                          <PrimaryButton
-                            onClick={() => window.open(vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`, "_blank")}
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                          >
-                            Website
-                          </PrimaryButton>
-                        )}
-                        {vendor.instagram && (
-                          <PrimaryButton
-                            onClick={() =>
-                              window.open(
-                                vendor.instagram.startsWith("http")
-                                  ? vendor.instagram
-                                  : `https://instagram.com/${vendor.instagram.replace(/^@/, "")}`,
-                                "_blank",
-                              )
-                            }
-                            className="rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
-                          >
-                            Instagram
-                          </PrimaryButton>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {vendorsByType[type].length === 0 && (
-                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
-                      No {type.toLowerCase()} vendor added yet.
-                    </p>
-                  )}
-                </div>
-              </PremiumCard>
-            ))}
+                    </PremiumCard>
+                  );
+                })}
+              </>
+            )}
           </section>
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Prep" && (
-          <section className="mt-6 space-y-3 print-doc">
-            <PremiumCard className="no-print">
-              <SectionTitle className="text-[#e9d5a8]">Document Options</SectionTitle>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {sectionMusicNotesEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowMusicNotes: !prev.liveEventShowMusicNotes,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowMusicNotes ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowMusicNotes ? "Hide Music Notes" : "Show Music Notes"}
-                </PrimaryButton>
-                ) : null}
-                {sectionDoNotPlayEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowDoNotPlay: !prev.liveEventShowDoNotPlay,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowDoNotPlay ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowDoNotPlay ? "Hide Do Not Play" : "Show Do Not Play"}
-                </PrimaryButton>
-                ) : null}
-                {sectionVendorContactsEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowVendorContacts: !prev.liveEventShowVendorContacts,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowVendorContacts ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowVendorContacts ? "Hide Vendor Contacts" : "Show Vendor Contacts"}
-                </PrimaryButton>
-                ) : null}
-                {sectionMcScriptEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowMcScript: !prev.liveEventShowMcScript,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowMcScript ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowMcScript ? "Hide MC Script" : "Show MC Script"}
-                </PrimaryButton>
-                ) : null}
-                {sectionPlaylistsEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowPlaylists: !prev.liveEventShowPlaylists,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowPlaylists ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowPlaylists ? "Hide Playlists" : "Show Playlists"}
-                </PrimaryButton>
-                ) : null}
-                {sectionGuestRequestsEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowGuestRequests: !prev.liveEventShowGuestRequests,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowGuestRequests ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowGuestRequests ? "Hide Guest Requests" : "Show Guest Requests"}
-                </PrimaryButton>
-                ) : null}
-                {sectionPlanningQuestionsEnabled ? (
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventShowPlanningQuestions: !prev.liveEventShowPlanningQuestions,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventShowPlanningQuestions ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventShowPlanningQuestions ? "Hide Planning Q&A" : "Show Planning Q&A"}
-                </PrimaryButton>
-                ) : null}
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventCompactMode: !prev.liveEventCompactMode,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventCompactMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventCompactMode ? "Compact Mode: On" : "Compact Mode"}
-                </PrimaryButton>
-                <PrimaryButton
-                  onClick={() =>
-                    setEventSettings((prev) => ({
-                      ...prev,
-                      liveEventLargePrintMode: !prev.liveEventLargePrintMode,
-                    }))
-                  }
-                  className={`w-full ${eventSettings.liveEventLargePrintMode ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
-                >
-                  {eventSettings.liveEventLargePrintMode ? "Large Print: On" : "Large Print Mode"}
-                </PrimaryButton>
+          <section className="mt-6 min-w-0 space-y-4 overflow-x-hidden print-doc sm:space-y-3">
+            <EventHomeNav trail={["Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
+            <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3.5">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-800">
+                  Export packet
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:mt-1 sm:text-[11px] sm:leading-snug">
+                  Uses your browser print dialog—pick{" "}
+                  <span className="font-semibold text-stone-900">Save as PDF</span> when offered.
+                </p>
               </div>
+              <PrimaryButton
+                type="button"
+                onClick={() => window.print()}
+                className="mt-4 min-h-12 w-full border border-black bg-[#00D4FF] px-5 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:mt-0 sm:min-h-11 sm:w-auto sm:min-w-[12.5rem] sm:py-2.5"
+              >
+                Print / Save PDF
+              </PrimaryButton>
+            </div>
+            <PremiumCard className="no-print border border-stone-200 bg-white py-4 shadow-none sm:py-3">
+              <details className="group rounded-xl">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2 text-left sm:min-h-0 sm:py-1 [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0">
+                    <SectionTitle className="text-stone-950">Event Packet Options</SectionTitle>
+                    <p className="mt-1 text-[11px] leading-snug text-stone-600 sm:text-stone-500">
+                      Choose what appears in your packet—updates the preview below and print / PDF export.
+                    </p>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <PersistEcho persistFeedback={persistFeedback} variant="light" />
+                    <span className="text-[10px] text-stone-500 transition group-open:rotate-180 sm:text-zinc-500">
+                      ▼
+                    </span>
+                  </span>
+                </summary>
+                <div className="mt-4 space-y-4 border-t border-stone-200 pt-4">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Core sections</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-600">Timelines follow your Event Settings—toggle extra narrative blocks here.</p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {sectionPlanningQuestionsEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowPlanningQuestions: !prev.liveEventShowPlanningQuestions,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowPlanningQuestions
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowPlanningQuestions ? "Planning Q&A on" : "Planning Q&A off"}
+                        </PrimaryButton>
+                      ) : null}
+                      {sectionGuestRequestsEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowGuestRequests: !prev.liveEventShowGuestRequests,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowGuestRequests
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowGuestRequests ? "Guest requests on" : "Guest requests off"}
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Music sections</p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {sectionMusicNotesEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowMusicNotes: !prev.liveEventShowMusicNotes,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowMusicNotes
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowMusicNotes ? "Music notes on" : "Music notes off"}
+                        </PrimaryButton>
+                      ) : null}
+                      {sectionDoNotPlayEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowDoNotPlay: !prev.liveEventShowDoNotPlay,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowDoNotPlay
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowDoNotPlay ? "Do not play on" : "Do not play off"}
+                        </PrimaryButton>
+                      ) : null}
+                      {sectionPlaylistsEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowPlaylists: !prev.liveEventShowPlaylists,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowPlaylists
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowPlaylists ? "Playlists on" : "Playlists off"}
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                      Vendor / contact sections
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {sectionVendorContactsEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowVendorContacts: !prev.liveEventShowVendorContacts,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowVendorContacts
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowVendorContacts ? "Vendor contacts on" : "Vendor contacts off"}
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Scripts / notes</p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {sectionMcScriptEnabled ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              liveEventShowMcScript: !prev.liveEventShowMcScript,
+                            }))
+                          }
+                          className={
+                            eventSettings.liveEventShowMcScript
+                              ? EVENT_PACKET_SECTION_TOGGLE_ON
+                              : EVENT_PACKET_SECTION_TOGGLE_OFF
+                          }
+                        >
+                          {eventSettings.liveEventShowMcScript ? "MC script on" : "MC script off"}
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Packet layout</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-600">Screen preview and printed pages.</p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <PrimaryButton
+                        type="button"
+                        onClick={() =>
+                          setEventSettings((prev) => ({
+                            ...prev,
+                            liveEventCompactMode: !prev.liveEventCompactMode,
+                          }))
+                        }
+                        className={
+                          eventSettings.liveEventCompactMode
+                            ? EVENT_PACKET_SECTION_TOGGLE_ON
+                            : EVENT_PACKET_SECTION_TOGGLE_OFF
+                        }
+                      >
+                        {eventSettings.liveEventCompactMode ? "Compact layout on" : "Compact layout off"}
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        onClick={() =>
+                          setEventSettings((prev) => ({
+                            ...prev,
+                            liveEventLargePrintMode: !prev.liveEventLargePrintMode,
+                          }))
+                        }
+                        className={
+                          eventSettings.liveEventLargePrintMode
+                            ? EVENT_PACKET_SECTION_TOGGLE_ON
+                            : EVENT_PACKET_SECTION_TOGGLE_OFF
+                        }
+                      >
+                        {eventSettings.liveEventLargePrintMode ? "Large print on" : "Large print off"}
+                      </PrimaryButton>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Export</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-600">
+                      Uses your browser print dialog—choose “Save as PDF” where supported.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => window.print()}
+                        className="min-h-11 w-full bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 sm:min-w-[12rem]"
+                      >
+                        Print / Save PDF
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        onClick={copyLiveEventText}
+                        className="min-h-11 w-full border border-white/14 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-white/10 sm:w-auto"
+                      >
+                        Copy plain text
+                      </PrimaryButton>
+                    </div>
+                    {copyStatus === "copied" ? (
+                      <p className="mt-2 text-[11px] text-emerald-400/95">Copied to clipboard.</p>
+                    ) : null}
+                    {copyStatus === "error" ? (
+                      <p className="mt-2 text-[11px] text-rose-300/95">Copy failed. Try again.</p>
+                    ) : null}
+                  </div>
+                </div>
+              </details>
             </PremiumCard>
+            <div
+              className={`-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 sm:mx-0 sm:max-w-none sm:overflow-visible sm:px-0 print:!m-0 print:!max-w-none print:!overflow-visible print:!p-0`}
+            >
             <div
               className={`doc-sheet ${eventSettings.liveEventCompactMode ? "doc-mode-compact" : ""} ${eventSettings.liveEventLargePrintMode ? "doc-mode-large-print" : ""}`}
             >
-              <div className="no-print mb-3 grid grid-cols-3 gap-2">
-                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-900 text-white hover:bg-zinc-800">Print Event Prep</PrimaryButton>
-                <PrimaryButton onClick={() => window.print()} className="w-full bg-zinc-700 text-white hover:bg-zinc-600">Export / Save as PDF</PrimaryButton>
-                <PrimaryButton onClick={copyLiveEventText} className="w-full bg-zinc-200 text-zinc-900 hover:bg-zinc-300">Copy Plain Text</PrimaryButton>
-              </div>
-              {copyStatus === "copied" && <p className="doc-subtitle no-print">Text copied.</p>}
-              {copyStatus === "error" && <p className="doc-subtitle no-print">Copy failed. Please try again.</p>}
 
-              <p className="doc-title">Event Prep</p>
-              <p className="doc-subtitle">
-                {eventSettings.eventName || weddingDetails.couple || "TBD"} · {primaryPartyShortLabel}:{" "}
-                {eventSettings.coupleNames || weddingDetails.couple || "TBD"} ·{" "}
-                {eventSettings.weddingDate || weddingDetails.date || "TBD"}
+              <div role="banner" className="doc-header print-break-avoid">
+                <div className="doc-header-main">
+                  <div className="doc-header-brand">
+                    <div className="doc-header-logo-wrap">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={resolvedDocLogoSrc}
+                        alt={appSettings.companyName}
+                        width={360}
+                        height={112}
+                        className="doc-header-logo-img"
+                      />
+                    </div>
+                    <p className="doc-header-brand-tagline">Event Production Timeline</p>
+                  </div>
+                  <div className="doc-header-event">
+                    <h1 className="doc-event-title">
+                      {eventSettings.eventName?.trim() || eventDisplayName || "Event"}
+                    </h1>
+                    {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
+                      <p className="doc-header-event-date">
+                        {eventSettings.weddingDate || weddingDetails.date}
+                      </p>
+                    ) : null}
+                    {(eventSettings.venue || weddingDetails.venue)?.trim() ? (
+                      <p className="doc-header-event-venue">{eventSettings.venue || weddingDetails.venue}</p>
+                    ) : null}
+                    {(effectiveEventType ?? "").trim() ? (
+                      <p className="doc-event-type-pill doc-header-event-type">{effectiveEventType}</p>
+                    ) : null}
+                    {!(
+                      (eventSettings.weddingDate || weddingDetails.date)?.trim() ||
+                      (eventSettings.venue || weddingDetails.venue)?.trim()
+                    ) ? (
+                      <p className="doc-header-event-placeholder">Date and venue — add in Event Settings</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <p className="doc-subtitle no-print mb-4 text-[11px] uppercase tracking-[0.14em] text-stone-600">
+                Live Event Mode · printable working packet
               </p>
 
-              <div className="doc-section print-break-avoid">
-                <h3>Event overview</h3>
+              <div className="doc-section doc-section--lead print-break-avoid">
+                <h3>Event Overview</h3>
                 <table className="doc-table">
                   <tbody>
                     <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
@@ -10265,9 +11113,114 @@ export default function Home() {
                 </table>
               </div>
 
+              {sectionCeremonyEnabled && (
+                <>
+                  <p className="doc-subtitle no-print">Print · ceremony follows overview on page 1</p>
+                  <div className="doc-section print-break-avoid">
+                    <h3>Ceremony Timeline</h3>
+                    <table className="doc-table">
+                      <tbody>
+                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
+                        <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
+                      </tbody>
+                    </table>
+                    <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
+                      <table className="doc-table doc-ceremony-timeline mt-2 min-w-[520px] sm:min-w-0">
+                        <thead>
+                          <tr>
+                            <th scope="col">Time / Order</th>
+                            <th scope="col">Moment</th>
+                            <th scope="col">Song</th>
+                            <th scope="col">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ceremonyTimelineRows.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
+                              >
+                                No ceremony moments yet — add them under Ceremony.
+                              </td>
+                            </tr>
+                          ) : (
+                            ceremonyTimelineRows.map((row, index) => (
+                              <tr key={`live-ceremony-row-${index}-${row.moment}`}>
+                                <td>{row.order}</td>
+                                <td>{row.moment}</td>
+                                <td>{row.song}</td>
+                                <td>{row.notes}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+              {sectionReceptionTimelineEnabled && (
+              <>
+              <p className="doc-subtitle no-print">
+                Print · reception / main timeline begins on the next page
+              </p>
+              <div className="doc-section live-reception-page-break print-break-avoid">
+                <h3>{eventPrepReceptionHeading}</h3>
+                <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
+                  <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
+                  <thead>
+                    <tr>
+                      <th scope="col">Time</th>
+                      <th scope="col">Moment</th>
+                      <th scope="col">Song</th>
+                      <th scope="col">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mergedTimelineItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
+                        >
+                          No reception moments yet — add them under Timeline / Reception.
+                        </td>
+                      </tr>
+                    ) : (
+                      mergedTimelineItems.map((item) => {
+                        const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+                          .filter(Boolean)
+                          .join(" - ");
+                        const fadeSuffix = item.fadeOutEarly
+                          ? item.fadeOutTimestamp?.trim()
+                            ? ` (Fade ${item.fadeOutTimestamp.trim()})`
+                            : " (Fade early)"
+                          : "";
+                        const songCell = `${songLabel}${fadeSuffix}`.trim();
+                        const notesLabel = [item.notes?.trim() || "", item.needsDjMcAttention ? "MC/DJ Attention" : ""]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <tr key={`live-timeline-${item.id}`}>
+                            <td>{item.time?.trim() ?? ""}</td>
+                            <td>{item.title}</td>
+                            <td>{songCell}</td>
+                            <td>{notesLabel}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  </table>
+                </div>
+              </div>
+              </>
+              )}
               {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
                 <div className="doc-section print-break-avoid">
-                  <h3>Planning Questions</h3>
+                  <h3>Planning Notes / Key Answers</h3>
                   <table className="doc-table">
                     <tbody>
                       {planningQuestionsForEvent
@@ -10282,135 +11235,62 @@ export default function Home() {
                   </table>
                 </div>
               )}
-
-              {sectionCeremonyEnabled && (
-                <>
-                  <p className="doc-subtitle no-print">Page 1: Event Overview + Ceremony Timeline</p>
-                  <div className="doc-section">
-                    <h3>Ceremony Timeline</h3>
-                    <table className="doc-table">
-                      <tbody>
-                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                        <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
-                      </tbody>
-                    </table>
-                    <table className="doc-table mt-2">
-                      <thead>
-                        <tr>
-                          <th>Time / Order</th>
-                          <th>Moment</th>
-                          <th>Song</th>
-                          <th>Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ceremonyTimelineRows.map((row, index) => (
-                          <tr key={`live-ceremony-row-${index}-${row.moment}`}>
-                            <td>{row.order}</td>
-                            <td>{row.moment}</td>
-                            <td>{row.song}</td>
-                            <td>{row.notes || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-              {sectionReceptionTimelineEnabled && (
-              <>
-              <p className="doc-subtitle no-print">Page 2: {eventPrepReceptionHeading}</p>
-              <div className="doc-section live-reception-page-break print-break-avoid">
-                <h3>{eventPrepReceptionHeading}</h3>
-                <table className="doc-table live-event-timeline-table">
-                  <thead>
-                    <tr>
-                      <th className="text-[15px] font-bold leading-[1.25]">Time</th>
-                      <th className="text-[15px] font-bold leading-[1.25]">Moment</th>
-                      <th className="text-[12.5px] font-medium leading-[1.3]">Song</th>
-                      <th className="text-[11.5px] font-medium leading-[1.35]">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mergedTimelineItems.map((item) => {
-                      const formalitySource =
-                        item.source === "formality"
-                          ? formalities.find((f) => f.id === item.id)
-                          : null;
-                      const songLabel = formalitySource?.songTitle
-                        ? `${formalitySource.songTitle}${formalitySource.artist ? ` - ${formalitySource.artist}` : ""}`
-                        : "";
-                      const songWithFade = songLabel
-                        ? `${songLabel}${formalitySource?.fadeOutEarly ? ` (Fade ${formalitySource.fadeOutTimestamp || "TBD"})` : ""}`
-                        : "-";
-                      const notesLabel = [
-                        item.notes || "",
-                        formalitySource?.notes || "",
-                        item.needsDjMcAttention ? "MC/DJ Attention" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <tr key={`live-timeline-${item.source}-${item.id}`}>
-                          <td className="text-[15px] font-bold leading-[1.25]">{item.time || "TBD"}</td>
-                          <td className="text-[15px] font-bold leading-[1.25]">{item.title}</td>
-                          <td className="text-[12.5px] font-medium leading-[1.3]">{songWithFade}</td>
-                          <td className="text-[11.5px] leading-[1.35]">{notesLabel || "-"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              </>
-              )}
-              {sectionFormalitiesEnabled && (
-                <div className="doc-section print-break-avoid">
-                  <h3>Formal Dances & Formalities</h3>
-                  <table className="doc-table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Moment</th>
-                        <th>Song</th>
-                        <th>Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formalities.map((item) => (
-                        <tr key={`live-formality-${item.id}`}>
-                          <td>{item.time || "TBD"}</td>
-                          <td>{item.momentName || "Untitled"}</td>
-                          <td>
-                            {item.songTitle || "Song TBD"}
-                            {item.artist ? ` - ${item.artist}` : ""}
-                            {item.fadeOutEarly ? ` (Fade ${item.fadeOutTimestamp || "TBD"})` : ""}
-                          </td>
-                          <td>
-                            {[
-                              item.notes || "",
-                              item.needsDjMcAttention ? "MC/DJ Attention" : "",
-                              item.includeInTimeline ? "In timeline" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" · ") || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
+                <div className="doc-section">
+                  <h3>Music Notes</h3>
+                  {layoutProfileForActiveEvent === "School Dance" ? (
+                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
+                      Clean edits and school-appropriate selections.
+                    </p>
+                  ) : null}
+                  <p className="doc-note mb-1 font-medium text-zinc-700 print:text-black">Overall vibe</p>
+                  <p className="mb-3">{generalDjNotes || "None"}</p>
+                  {(musicVibeDetail.genres ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700 print:text-black">Genres / eras: </span>
+                      {musicVibeDetail.genres}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.energy ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700 print:text-black">Energy: </span>
+                      {musicVibeDetail.energy}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
+                      {musicVibeDetail.crowdNotes}
+                    </p>
+                  ) : null}
+                  {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700 print:text-black">
+                        {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
+                      </span>
+                      {musicVibeDetail.cleanMusicPrefs}
+                    </p>
+                  ) : null}
                 </div>
               )}
-              {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
-                <div className="doc-section"><h3>{eventPrepMcHeading}</h3><p>{mcAnnouncements || "None"}</p></div>
-              )}
-              {sectionVendorContactsEnabled && eventSettings.liveEventShowVendorContacts && (
-                <div className="doc-section"><h3>Vendor Contacts</h3><table className="doc-table"><thead><tr><th>Type</th><th>Company</th><th>Contact</th></tr></thead><tbody>{vendors.map((vendor) => <tr key={`live-vendor-${vendor.id}`}><td>{vendor.vendorType}</td><td>{vendor.companyName}</td><td>{vendor.contactName || "No Contact"}{vendor.phone ? ` · ${vendor.phone}` : ""}{vendor.email ? ` · ${vendor.email}` : ""}</td></tr>)}</tbody></table></div>
+              {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
+                <div className="doc-section">
+                  <h3>Do Not Play</h3>
+                  <ul>
+                    {doNotPlaySongs.map((song) => (
+                      <li key={`live-dnp-${song.id}`}>
+                        {song.title}
+                        {song.artist ? ` - ${song.artist}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && (
-                <>
-                  <p className="doc-subtitle no-print">Page 3+: Playlists</p>
+                <div className="doc-playlists-page-start">
+                  <p className="doc-subtitle no-print">
+                    Print · playlists & must-play start after timeline sections on a new page
+                  </p>
                   {PLAYLIST_BUCKET_IDS.map((bucketId) => (
                     <div key={`doc-pl-${bucketId}`} className="doc-section">
                       <h3>{PLAYLIST_BUCKET_LABELS[bucketId]}</h3>
@@ -10475,7 +11355,70 @@ export default function Home() {
                     </table>
                   </div>
                   ) : null}
-                </>
+                </div>
+              )}
+              {sectionVendorContactsEnabled &&
+                eventSettings.liveEventShowVendorContacts &&
+                vendors.length > 0 && (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Event team & vendor contacts</h3>
+                    <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
+                      Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
+                      are prioritized at the top for fast scanning.
+                    </p>
+                    <div className="space-y-3">
+                      {sortVendorsForEventDocument(vendors).map((vendor) => {
+                        const headline =
+                          vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
+                        const companyLine =
+                          vendor.contactName.trim() && vendor.companyName.trim()
+                            ? vendor.companyName.trim()
+                            : null;
+                        return (
+                          <div
+                            key={`live-vendor-${vendor.id}`}
+                            className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
+                              <div className="min-w-0">
+                                <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
+                                  {headline}
+                                </p>
+                                {companyLine ? (
+                                  <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
+                                ) : null}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 print:text-black">
+                                  {vendorTypeLabel(vendor.vendorType)}
+                                </p>
+                                {isCutmasterEventTeam(vendor) ? (
+                                  <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
+                                    Cutmaster event team
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                            <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
+                              {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
+                              {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
+                              {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
+                              {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
+                              {vendor.arrivalTime.trim() ? (
+                                <li>Arrival: {vendor.arrivalTime.trim()}</li>
+                              ) : null}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
+                <div className="doc-section">
+                  <h3>{eventPrepMcHeading}</h3>
+                  <p>{mcAnnouncements || "None"}</p>
+                </div>
               )}
               {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
                 <div className="doc-section print-break-avoid">
@@ -10506,56 +11449,26 @@ export default function Home() {
                   </table>
                 </div>
               )}
-              {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
-                <div className="doc-section"><h3>Do Not Play List</h3><ul>{doNotPlaySongs.map((song) => <li key={`live-dnp-${song.id}`}>{song.title}{song.artist ? ` - ${song.artist}` : ""}</li>)}</ul></div>
-              )}
-              {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
-                <div className="doc-section">
-                  <h3>Music Notes</h3>
-                  {layoutProfileForActiveEvent === "School Dance" ? (
-                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600">Clean edits and school-appropriate selections.</p>
-                  ) : null}
-                  <p className="doc-note mb-1 font-medium text-zinc-700">Overall vibe</p>
-                  <p className="mb-3">{generalDjNotes || "None"}</p>
-                  {(musicVibeDetail.genres ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700">Genres / eras: </span>
-                      {musicVibeDetail.genres}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.energy ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700">Energy: </span>
-                      {musicVibeDetail.energy}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.crowdNotes ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700">Crowd: </span>
-                      {musicVibeDetail.crowdNotes}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700">
-                        {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
-                      </span>
-                      {musicVibeDetail.cleanMusicPrefs}
-                    </p>
-                  ) : null}
-                </div>
-              )}
               <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
               {(eventSettings.clientFacingNotes ?? "").trim() ? (
                 <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
               ) : null}
-              <div className="doc-section"><h3>Prep footer</h3><p>{effectivePrepSheetFooter}</p></div>
+              <div className="doc-section"><h3>Document footer</h3><p>{effectivePrepSheetFooter}</p></div>
+              <footer className="doc-footer-brand print-break-avoid" aria-label="Producer">
+                <p className="doc-footer-brand-line">
+                  Prepared by{" "}
+                  <span className="doc-footer-brand-name">{appSettings.companyName}</span>
+                </p>
+                <p className="doc-footer-brand-url">cutmastermusic.com</p>
+              </footer>
+            </div>
             </div>
           </section>
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Settings" && (
           <section className="mt-6 space-y-3">
+            <EventHomeNav trail={["Event Settings"]} onBack={() => setActiveScreen("Dashboard")} />
             <input
               ref={eventCoverPhotoInputRef}
               type="file"
@@ -10564,8 +11477,8 @@ export default function Home() {
               onChange={handleEventCoverPhotoChange}
             />
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Visual identity & cover photo</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">
+              <SectionTitle className="text-stone-950">Visual identity & cover photo</SectionTitle>
+              <p className="mt-2 text-xs text-stone-600">
                 Give this event a face. Your cover appears on the home hero and the All Events grid. Images are stored in
                 this browser only (local storage).
               </p>
@@ -10584,7 +11497,7 @@ export default function Home() {
                       aria-hidden
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+                  <div className="absolute inset-0 bg-black/45" />
                   <div className="absolute bottom-3 left-3 right-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Preview</p>
                     <p className="mt-0.5 truncate text-sm font-medium text-white drop-shadow">
@@ -10598,7 +11511,7 @@ export default function Home() {
                   type="button"
                   disabled={!canEditEventCover}
                   onClick={() => eventCoverPhotoInputRef.current?.click()}
-                  className="rounded-xl border border-white/12 bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2.5 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.28)] hover:brightness-110 disabled:opacity-45"
+                  className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
                 >
                   {eventSettings.coverPhotoDataUrl ? "Replace image" : "Upload image"}
                 </PrimaryButton>
@@ -10621,7 +11534,7 @@ export default function Home() {
               ) : null}
             </PremiumCard>
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Event status</SectionTitle>
+              <SectionTitle className="text-stone-950">Event status</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
                 Control how this event appears on All Events. Archived events stay in your data and remain findable via
                 search, but are hidden from the default list.
@@ -10635,7 +11548,7 @@ export default function Home() {
                   value={eventSettings.eventLifecycleStatus ?? "active"}
                   disabled={!canEditEventLifecycle}
                   onChange={(e) => applyEventLifecycleStatus(e.target.value as EventLifecycleStatus)}
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none disabled:opacity-45"
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none disabled:opacity-45"
                 >
                   <option value="active" className="bg-[#141419]">
                     Active — in progress
@@ -10653,7 +11566,7 @@ export default function Home() {
               ) : null}
             </PremiumCard>
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Event Type & Sections</SectionTitle>
+              <SectionTitle className="text-stone-950">Event Type & Sections</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
                 Event Type is the primary workflow selector. It applies defaults, then you can fine-tune section visibility. Hiding a
                 section only tucks it out of the way; your data stays in the file.
@@ -10675,7 +11588,7 @@ export default function Home() {
                         ...getLiveEventDocumentDefaults(event.target.value as EventLayoutProfile),
                       }))
                     }
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                   >
                     {EVENT_TYPES.map((profile) => (
                       <option key={`layout-profile-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
@@ -10718,7 +11631,6 @@ export default function Home() {
                     { key: "sectionVendorContactsEnabled", label: "Vendor Contacts" },
                     { key: "sectionMusicNotesEnabled", label: "Music Notes" },
                     { key: "sectionGuestRequestsEnabled", label: "Guest Requests" },
-                    { key: "sectionFormalitiesEnabled", label: "Formalities" },
                     { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
                     { key: "sectionPlanningQuestionsEnabled", label: "Planning Questions" },
                   ].map((item) => {
@@ -10737,7 +11649,7 @@ export default function Home() {
                               ),
                           }))
                         }
-                        className={`w-full ${enabled ? "bg-[#c9a35c]/20 text-[#f5e6c8]" : "bg-white/10 text-zinc-300"}`}
+                        className={`w-full ${enabled ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"}`}
                       >
                         {enabled ? `Hide ${item.label}` : `Show ${item.label}`}
                       </PrimaryButton>
@@ -10747,7 +11659,10 @@ export default function Home() {
               </div>
             </PremiumCard>
             <PremiumCard>
-              <SectionTitle className="text-[#e9d5a8]">Event Settings</SectionTitle>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <SectionTitle className="text-stone-950">Event Settings</SectionTitle>
+                <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
+              </div>
               <p className="mt-2 text-xs text-zinc-400">
                 Event-specific details and overrides for this event only.
               </p>
@@ -10784,7 +11699,7 @@ export default function Home() {
                         ...getLiveEventDocumentDefaults(nextType),
                       }));
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                   >
                     {EVENT_TYPES.map((type) => (
                       <option key={`event-type-setting-${type}`} value={type} className="bg-[#141419] text-zinc-100">
@@ -10857,7 +11772,7 @@ export default function Home() {
                         logActivity("team_member_assigned", `Assigned DJ: ${nextName}`);
                       }
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                   >
                     <option value="" className="bg-[#141419] text-zinc-100">
                       Select a DJ
@@ -10873,7 +11788,7 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={clearAssignedDjFromActiveEvent}
-                        className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-white/15"
+                        className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                       >
                         Remove from Event
                       </PrimaryButton>
@@ -10908,7 +11823,7 @@ export default function Home() {
                       onClick={() =>
                         removeTeamMemberFromActiveEvent(assignedPlannerTeamMemberForEvent)
                       }
-                      className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-[#f5e6c8] hover:bg-white/15"
+                      className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
                     >
                       Remove from Event
                     </PrimaryButton>
@@ -10981,10 +11896,11 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && sectionPlanningChecklistEnabled && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
+            <EventHomeNav trail={["Planning Checklist"]} onBack={() => setActiveScreen("Dashboard")} />
+            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
               <div className="flex items-center justify-between">
-                <SectionTitle className="text-[#e9d5a8]">Planning Checklist</SectionTitle>
-                <span className="rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-xs font-semibold text-[#f5e6c8]">
+                <SectionTitle className="!text-zinc-100">Planning Checklist</SectionTitle>
+                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
                   {completionPercent}% complete
                 </span>
               </div>
@@ -10997,16 +11913,16 @@ export default function Home() {
               <PremiumCard key={`task-${task.id}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <SectionTitle className="text-zinc-100">{task.title}</SectionTitle>
-                    <p className="mt-1 text-xs text-zinc-400">{task.description}</p>
+                    <SectionTitle className="text-stone-950">{task.title}</SectionTitle>
+                    <p className="mt-1 text-xs text-stone-600">{task.description}</p>
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
                       task.status === "Complete"
-                        ? "bg-emerald-500/20 text-emerald-200"
+                        ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
                         : task.status === "In Progress"
-                          ? "bg-amber-500/20 text-amber-200"
-                          : "bg-white/10 text-zinc-300"
+                          ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
+                          : "border border-stone-300 bg-stone-100 text-stone-700"
                     }`}
                   >
                     {task.status}
@@ -11032,7 +11948,7 @@ export default function Home() {
                   <div>
                     <label
                       htmlFor={`task-status-${task.id}`}
-                      className="text-[11px] uppercase tracking-wide text-zinc-400"
+                      className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600"
                     >
                       Status
                     </label>
@@ -11048,11 +11964,11 @@ export default function Home() {
                           },
                         }))
                       }
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                      className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25"
                     >
                       {(["Not Started", "In Progress", "Complete"] as ChecklistStatus[]).map(
                         (status) => (
-                          <option key={`${task.id}-${status}`} value={status} className="bg-[#141419]">
+                          <option key={`${task.id}-${status}`} value={status}>
                             {status}
                           </option>
                         ),
@@ -11063,7 +11979,7 @@ export default function Home() {
                 <div className="mt-3">
                   <PrimaryButton
                     onClick={() => setActiveScreen(task.linkedSection)}
-                    className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                    className="w-full rounded-xl border border-stone-400 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50"
                   >
                     Go to {navLabel(task.linkedSection)}
                   </PrimaryButton>
@@ -11078,34 +11994,46 @@ export default function Home() {
           activeScreen === "Planning Questions" &&
           sectionPlanningQuestionsEnabled && (
           <section className="mt-6 space-y-3">
-            {isCoupleView && (
-              <div className="no-print">
-                <PrimaryButton
-                  type="button"
-                  onClick={() => setActiveScreen("Dashboard")}
-                  className="w-full justify-start rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-medium text-[#f5e6c8] transition hover:border-[#c9a35c]/35 hover:bg-white/10 sm:inline-flex sm:w-auto"
-                >
-                  ← Back to Event
-                </PrimaryButton>
+            <EventHomeNav
+              trail={["Planning Questions"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={
+                coupleAttentionSummary.unansweredPlanningQuestionCount > 0
+                  ? {
+                      label: "Review questions",
+                      onClick: () =>
+                        document.getElementById("planning-questions-anchor")?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    }
+                  : undefined
+              }
+            />
+            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <SectionTitle className="!text-zinc-100">Planning Questions</SectionTitle>
+                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
               </div>
-            )}
-            <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
-              <SectionTitle className="text-[#e9d5a8]">Planning Questions</SectionTitle>
               <p className="mt-2 text-xs text-zinc-400">
-                Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in Event Prep when that block is turned on.
+                Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on.
               </p>
               <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
                 Event Type · {layoutProfileForActiveEvent}
               </p>
             </PremiumCard>
             {planningQuestionsForEvent.length === 0 ? (
-              <PremiumCard className="border-dashed border-white/15 bg-white/[0.03]">
-                <p className="text-sm text-zinc-400">
-                  No planning questions are configured for this event type yet.
-                </p>
-              </PremiumCard>
+              <SectionEmptyState
+                title="No prompts for this profile"
+                description="Questions follow your event type—adjust layout or profile in Event Settings if needed."
+                primaryAction={{
+                  label: "Open Event Settings",
+                  onClick: () => setActiveScreen("Event Settings"),
+                }}
+                cardClassName="border-dashed border-white/15 bg-white/[0.03]"
+              />
             ) : (
-              <div className="space-y-3">
+              <div id="planning-questions-anchor" className="space-y-3">
                 {planningQuestionsGroupedBySection.map((row) => {
                   const pct = computePlanningQuestionGroupCompletion(
                     row.questions,
@@ -11115,7 +12043,7 @@ export default function Home() {
                   return (
                     <PremiumCard
                       key={`pq-group-${row.group.id}`}
-                      className="border-white/12 bg-gradient-to-br from-white/[0.05] to-transparent"
+                      className="border-zinc-700 bg-zinc-900 shadow-none"
                     >
                       <button
                         type="button"
@@ -11128,14 +12056,14 @@ export default function Home() {
                         }
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-base font-semibold text-[#f5e6c8]">{row.group.label}</p>
+                          <p className="text-base font-semibold text-zinc-100">{row.group.label}</p>
                           <p className="mt-1 text-[11px] text-zinc-500">
                             {pct}% answered · {row.questions.length}{" "}
                             {row.questions.length === 1 ? "question" : "questions"}
                           </p>
                           <div className="mt-2 h-1.5 max-w-full overflow-hidden rounded-full bg-zinc-800/90 sm:max-w-xs">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-[#8f6b2f] via-[#c9a35c] to-[#e9d5a8]"
+                              className="h-full rounded-full bg-[#00D4FF]"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -11179,10 +12107,10 @@ export default function Home() {
 
         {authStage === "app" && activeScreen === "Notification Center" && (
           <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#c9a35c]/25 bg-gradient-to-b from-[#1b1b21] to-[#141419]">
+            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
               <div className="flex items-center justify-between">
-                <SectionTitle className="text-[#e9d5a8]">Notification Center</SectionTitle>
-                <span className="rounded-full bg-[#c9a35c]/20 px-2.5 py-1 text-xs font-semibold text-[#f5e6c8]">
+                <SectionTitle className="!text-zinc-100">Notification Center</SectionTitle>
+                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
                   {unreadBadgeCount} unread
                 </span>
               </div>
@@ -11213,6 +12141,7 @@ export default function Home() {
                     {[
                       "event_created",
                       "timeline_updated",
+                      "timeline_item_added",
                       "song_added",
                       "guest_request_submitted",
                       "guest_request_reviewed",
@@ -11237,7 +12166,7 @@ export default function Home() {
             </PremiumCard>
 
             {notifications.slice(0, 3).map((notice) => (
-              <PremiumCard key={`notice-${notice.id}`} className="border-[#c9a35c]/20">
+              <PremiumCard key={`notice-${notice.id}`} className="border-[#00D4FF]/20">
                 <p className="text-sm text-zinc-100">
                   <span className="mr-1">{activityTypeIcon(notice.type)}</span>
                   {notice.summary}
@@ -11256,7 +12185,7 @@ export default function Home() {
                     {item.summary}
                   </p>
                   {item.unread && (
-                    <span className="rounded-full bg-[#c9a35c]/20 px-2 py-1 text-[10px] text-[#f5e6c8]">
+                    <span className="rounded-full bg-[#00D4FF]/20 px-2 py-1 text-[10px] text-zinc-100">
                       New
                     </span>
                   )}
@@ -11281,7 +12210,7 @@ export default function Home() {
         <>
           <div
             onClick={() => setQuickActionsOpen(false)}
-            className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-200 lg:hidden ${
+            className={`fixed inset-0 z-40 bg-black/45 transition-opacity duration-200 lg:hidden ${
               quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
             }`}
           />
@@ -11300,7 +12229,7 @@ export default function Home() {
                     action.onClick();
                     setQuickActionsOpen(false);
                   }}
-                  className="w-full rounded-xl border border-white/15 bg-[#141419]/90 text-zinc-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)] hover:border-[#c9a35c]/35 hover:bg-[#191920]"
+                  className="w-full rounded-xl border border-white/15 bg-[#141419]/90 text-zinc-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)] hover:border-[#00D4FF]/35 hover:bg-[#191920]"
                 >
                   {action.label}
                 </PrimaryButton>
@@ -11308,7 +12237,7 @@ export default function Home() {
             </div>
             <PrimaryButton
               onClick={() => setQuickActionsOpen((prev) => !prev)}
-              className={`rounded-2xl border border-[#c9a35c]/35 bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-4 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${
+              className={`rounded-2xl border border-[#00D4FF]/35 bg-[#00D4FF] px-4 text-sm font-semibold text-black shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${
                 quickActionsOpen ? "rotate-45" : ""
               }`}
             >
@@ -11319,10 +12248,10 @@ export default function Home() {
       )}
 
       {teamModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-3 backdrop-blur lg:items-stretch lg:justify-end lg:p-5">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] lg:h-full lg:max-w-lg lg:rounded-3xl">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 lg:items-stretch lg:justify-end lg:p-5">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-w-lg lg:rounded-3xl">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-[#e9d5a8]">
+              <SectionTitle className="text-stone-950">
                 {teamEditingId ? "Edit Team Member" : "Add Team Member"}
               </SectionTitle>
               <PrimaryButton
@@ -11349,7 +12278,7 @@ export default function Home() {
                   value={teamRoleDraft}
                   disabled={!canManageEvents}
                   onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none disabled:opacity-60"
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none disabled:opacity-60"
                 >
                   {(["Admin", "DJ", "Planner"] as const).map((role) => (
                     <option key={`team-role-${role}`} value={role} className="bg-[#141419] text-zinc-100">
@@ -11401,7 +12330,7 @@ export default function Home() {
                 <PrimaryButton
                   onClick={saveTeamMember}
                   disabled={!canManageEvents}
-                  className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60"
+                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110 disabled:opacity-60"
                 >
                   {teamEditingId ? "Save Changes" : "Add Team Member"}
                 </PrimaryButton>
@@ -11412,10 +12341,10 @@ export default function Home() {
       )}
 
       {inviteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur sm:items-center">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-[#e9d5a8]">Invite Collaborator</SectionTitle>
+              <SectionTitle className="text-stone-950">Invite Collaborator</SectionTitle>
               <PrimaryButton
                 onClick={() => setInviteModalOpen(false)}
                 className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
@@ -11465,7 +12394,7 @@ export default function Home() {
               </PrimaryButton>
               <PrimaryButton
                 onClick={handleInviteCollaborator}
-                className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
               >
                 Send Invite
               </PrimaryButton>
@@ -11475,10 +12404,10 @@ export default function Home() {
       )}
 
       {templateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur sm:items-center">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-[#e9d5a8]">
+              <SectionTitle className="text-stone-950">
                 {templateModalMode === "new" ? "Save Template" : "Edit Template"}
               </SectionTitle>
               <PrimaryButton
@@ -11500,7 +12429,7 @@ export default function Home() {
                 placeholder="e.g. Summer Garden Wedding"
               />
               <p className="text-xs text-zinc-500">
-                Saves current timeline, formalities, and planning suggestions.
+                Saves current reception timeline and planning suggestions.
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -11515,7 +12444,7 @@ export default function Home() {
               </PrimaryButton>
               <PrimaryButton
                 onClick={handleSaveTemplateModal}
-                className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
               >
                 {templateModalMode === "new" ? "Save" : "Update"}
               </PrimaryButton>
@@ -11525,10 +12454,10 @@ export default function Home() {
       )}
 
       {authStage === "app" && canManageEvents && eventModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b14]/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] cm-section-enter sm:max-w-2xl sm:max-h-[88vh] sm:overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-5">
+          <div className="max-h-[min(92vh,880px)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12 cm-section-enter sm:max-h-[88vh] sm:max-w-2xl">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-[#e9d5a8]">
+              <SectionTitle className="text-stone-950">
                 {eventModalMode === "new" ? "Create Event" : "Edit Event"}
               </SectionTitle>
               <PrimaryButton
@@ -11585,7 +12514,7 @@ export default function Home() {
                       eventType: event.target.value as EventLayoutProfile,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                 >
                   {EVENT_TYPES.map((profile) => (
                     <option key={`draft-layout-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
@@ -11620,7 +12549,7 @@ export default function Home() {
                   </div>
                   <div className="mt-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                      Event Prep Default Sections
+                      Event Document Default Sections
                     </p>
                     <p className="mt-1 text-xs text-zinc-300">
                       {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
@@ -11636,7 +12565,7 @@ export default function Home() {
                       getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
                     ).map((label) => (
                       <li key={`draft-section-${label}`} className="flex gap-2">
-                        <span className="text-[#c9a35c]" aria-hidden>
+                        <span className="text-[#00D4FF]" aria-hidden>
                           ✓
                         </span>
                         <span>{label}</span>
@@ -11701,7 +12630,7 @@ export default function Home() {
                   onChange={(event) =>
                     setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
                   }
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                 >
                   <option value="" className="bg-[#141419] text-zinc-100">
                     Select a DJ
@@ -11775,7 +12704,7 @@ export default function Home() {
               </PrimaryButton>
               <PrimaryButton
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
               >
                 {eventModalMode === "new" ? "Create Event" : "Save Changes"}
               </PrimaryButton>
@@ -11786,11 +12715,11 @@ export default function Home() {
       )}
 
       {vendorModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/65 p-3 backdrop-blur sm:items-center sm:p-5">
-          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b0b14]/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-w-2xl sm:max-h-[90vh]">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-5">
+          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-w-2xl sm:max-h-[90vh]">
             <div className="shrink-0 border-b border-white/10 px-5 py-4">
               <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-[#e9d5a8]">
+                <SectionTitle className="text-stone-950">
                   {vendorEditingId ? "Edit Vendor" : "Add Vendor"}
                 </SectionTitle>
                 <PrimaryButton
@@ -11810,18 +12739,41 @@ export default function Home() {
             >
               <div className="space-y-3 overflow-y-auto px-5 py-4">
                 <div>
+                  <label htmlFor="vendor-affiliation" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                    On this event
+                  </label>
+                  <select
+                    id="vendor-affiliation"
+                    value={vendorAffiliationDraft}
+                    onChange={(event) =>
+                      setVendorAffiliationDraft(event.target.value as VendorAffiliation)
+                    }
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                  >
+                    <option value="event_partner" className="bg-[#141419] text-zinc-100">
+                      Event partner (external vendor)
+                    </option>
+                    <option value="cutmaster_event_team" className="bg-[#141419] text-zinc-100">
+                      Cutmaster event team
+                    </option>
+                  </select>
+                  <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">
+                    Cutmaster team appears in its own block; partners group by category below.
+                  </p>
+                </div>
+                <div>
                   <label htmlFor="vendor-type" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
-                    Vendor Type
+                    Role / category
                   </label>
                   <select
                     id="vendor-type"
                     value={vendorTypeDraft}
                     onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#c9a35c]/70 focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
                   >
-                    {VENDOR_TYPES.map((type) => (
+                    {VENDOR_TYPES_ORDERED.map((type) => (
                       <option key={`vendor-type-option-${type}`} value={type} className="bg-[#141419] text-zinc-100">
-                        {type}
+                        {vendorTypeLabel(type)}
                       </option>
                     ))}
                   </select>
@@ -11847,7 +12799,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="shrink-0 border-t border-white/10 bg-[#0b0b14]/95 px-5 py-3">
+              <div className="shrink-0 border-t border-white/10 bg-white/98 px-5 py-3">
                 <div className="grid grid-cols-2 gap-2">
                   <PrimaryButton
                     type="button"
@@ -11858,7 +12810,7 @@ export default function Home() {
                   </PrimaryButton>
                   <PrimaryButton
                     type="submit"
-                    className="rounded-xl bg-gradient-to-r from-[#8f6b2f] to-[#c9a35c] px-3 py-2 text-xs font-semibold text-white hover:brightness-110"
+                    className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
                   >
                     Save Vendor
                   </PrimaryButton>
@@ -11866,6 +12818,20 @@ export default function Home() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
+        <div
+          className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
+          style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <span
+            className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
+            aria-live="polite"
+          >
+            {persistPhase === "pending" ? "Saving…" : "Saved just now"}
+          </span>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { HTMLAttributes, ReactNode } from "react";
 
+import type { PersistFeedbackPhase } from "@/hooks/usePlanningApp";
 import type {
   AppSettings,
   PlanningInsight,
@@ -10,10 +11,15 @@ import type {
   WeddingDetails,
 } from "@/types/planning";
 
+export type PersistFeedback = {
+  phase: PersistFeedbackPhase;
+  hasBaseline: boolean;
+};
+
 type AppHeaderProps = {
   screenTitle: string;
   weddingDetails: WeddingDetails;
-  savedLocally: boolean;
+  persistFeedback: PersistFeedback;
   appSettings: AppSettings;
 };
 
@@ -71,16 +77,16 @@ type TextAreaProps = {
 function InsightAlertCard({ insight }: { insight: PlanningInsight }) {
   const label = insight.variant === "suggestion" ? "Suggestion" : "Heads up";
   return (
-    <div className="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/[0.08] via-[#c9a35c]/[0.06] to-transparent px-3 py-2.5 shadow-[0_6px_24px_rgba(0,0,0,0.22)]">
+    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-none">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-100/90">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
           {label}
         </span>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wide text-zinc-400">
+        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-stone-600">
           {insight.section}
         </span>
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-zinc-200">{insight.message}</p>
+      <p className="mt-1.5 text-xs leading-relaxed text-stone-800">{insight.message}</p>
     </div>
   );
 }
@@ -94,7 +100,7 @@ export function InsightStack({
 }) {
   if (insights.length === 0) {
     return (
-      <p className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-zinc-500">
+      <p className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-xs font-medium text-stone-600">
         {emptyLabel}
       </p>
     );
@@ -112,7 +118,7 @@ export function PremiumCard({ children, className = "", ...rest }: PremiumCardPr
   return (
     <article
       {...rest}
-      className={`rounded-2xl border border-white/12 bg-gradient-to-b from-[#1b1b20] to-[#141419] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.45)] backdrop-blur-[2px] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-[0_14px_38px_rgba(0,0,0,0.5)] ${className}`}
+      className={`rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition-colors duration-150 ${className}`}
     >
       {children}
     </article>
@@ -131,15 +137,153 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-11 rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${className}`}
+      className={`min-h-11 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${className}`}
     >
       {children}
     </button>
   );
 }
 
+type EventHomeNavAction = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+};
+
+/** Consistent back control + compact breadcrumb for event workspace screens (especially client/couple flows). */
+export function EventHomeNav({
+  trail,
+  onBack,
+  backLabel = "← Back to Event Home",
+  primaryAction,
+  className = "",
+}: {
+  trail: string[];
+  onBack: () => void;
+  backLabel?: string;
+  primaryAction?: EventHomeNavAction;
+  className?: string;
+}) {
+  return (
+    <div className={`no-print flex min-w-0 flex-col gap-3 ${className}`.trim()}>
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <PrimaryButton
+            type="button"
+            onClick={onBack}
+            className="min-h-12 w-full shrink-0 justify-start rounded-xl border border-stone-300 bg-white px-4 py-3.5 text-left text-sm font-semibold text-stone-900 shadow-none transition hover:border-stone-900 hover:bg-stone-50 sm:inline-flex sm:min-h-11 sm:w-auto sm:py-3"
+          >
+            {backLabel}
+          </PrimaryButton>
+          <nav aria-label="Breadcrumb" className="min-w-0">
+            <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug text-stone-600 sm:text-[11px]">
+              <li className="font-semibold text-stone-700">Event Home</li>
+              {trail.map((segment) => (
+                <li key={segment} className="flex min-w-0 items-center gap-1.5">
+                  <span aria-hidden className="select-none text-stone-400">
+                    →
+                  </span>
+                  <span className="min-w-0 break-words font-semibold text-stone-900">{segment}</span>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+        {primaryAction ? (
+          <PrimaryButton
+            type="button"
+            onClick={primaryAction.onClick}
+            disabled={primaryAction.disabled}
+            className="min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-45 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start"
+          >
+            {primaryAction.label}
+          </PrimaryButton>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+type EmptyStateAction = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+};
+
+type SectionEmptyStateProps = {
+  title: string;
+  description: string;
+  primaryAction?: EmptyStateAction;
+  secondaryAction?: EmptyStateAction;
+  /** When false, renders a subtle inset panel for use inside an existing card. */
+  wrapWithCard?: boolean;
+  cardClassName?: string;
+};
+
+export function SectionEmptyState({
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+  wrapWithCard = true,
+  cardClassName = "",
+}: SectionEmptyStateProps) {
+  const inner = (
+    <>
+      <p className="text-sm font-semibold text-stone-900">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-stone-600">{description}</p>
+      {primaryAction || secondaryAction ? (
+        <div className="mt-4 flex flex-col gap-2 sm:mx-auto sm:max-w-lg sm:flex-row sm:justify-center sm:gap-3">
+          {primaryAction ? (
+            <PrimaryButton
+              type="button"
+              onClick={primaryAction.onClick}
+              disabled={primaryAction.disabled}
+              className="min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-45 sm:min-h-10 sm:flex-1 sm:py-2"
+            >
+              {primaryAction.label}
+            </PrimaryButton>
+          ) : null}
+          {secondaryAction ? (
+            <PrimaryButton
+              type="button"
+              onClick={secondaryAction.onClick}
+              disabled={secondaryAction.disabled}
+              className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:flex-1 sm:py-2"
+            >
+              {secondaryAction.label}
+            </PrimaryButton>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (!wrapWithCard) {
+    return (
+      <div
+        className={`rounded-xl border border-stone-300 bg-stone-50 px-3 py-4 text-center sm:px-4 ${cardClassName}`.trim()}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <PremiumCard
+      className={`border-dashed border-stone-300 bg-white py-5 sm:py-6 ${cardClassName}`.trim()}
+    >
+      <div className="px-1 text-center sm:px-2">{inner}</div>
+    </PremiumCard>
+  );
+}
+
 export function SectionTitle({ children, className = "" }: SectionTitleProps) {
-  return <h2 className={`text-[15px] font-semibold tracking-tight ${className}`}>{children}</h2>;
+  return (
+    <h2 className={`text-[15px] font-semibold tracking-tight text-stone-950 ${className}`.trim()}>
+      {children}
+    </h2>
+  );
 }
 
 export function TextInput({
@@ -152,7 +296,7 @@ export function TextInput({
 }: TextInputProps) {
   return (
     <div>
-      <label htmlFor={id} className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+      <label htmlFor={id} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
         {label}
       </label>
       <input
@@ -161,7 +305,7 @@ export function TextInput({
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition-[border-color,background-color,box-shadow] duration-200 focus:border-[#c9a35c]/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_1px_rgba(201,163,92,0.15)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1.5 w-full touch-manipulation rounded-lg border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 placeholder:text-stone-500 transition-colors duration-150 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00D4FF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       />
     </div>
   );
@@ -178,7 +322,7 @@ export function TextArea({
 }: TextAreaProps) {
   return (
     <div>
-      <label htmlFor={id} className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+      <label htmlFor={id} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
         {label}
       </label>
       <textarea
@@ -188,7 +332,7 @@ export function TextArea({
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition-[border-color,background-color,box-shadow] duration-200 focus:border-[#c9a35c]/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_1px_rgba(201,163,92,0.15)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1.5 w-full touch-manipulation rounded-lg border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 placeholder:text-stone-500 transition-colors duration-150 focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00D4FF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       />
     </div>
   );
@@ -206,34 +350,34 @@ export function SongCard({
     <div
       className={
         isMustPlay
-          ? "rounded-xl border border-[#c9a35c]/30 bg-gradient-to-r from-[#c9a35c]/12 to-white/[0.02] p-3 shadow-[0_6px_18px_rgba(0,0,0,0.35)] transition-[transform,box-shadow,border-color] duration-200 ease-out motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-[0_10px_22px_rgba(0,0,0,0.42)]"
-          : "rounded-xl border border-[#7a5c5c]/35 bg-gradient-to-r from-[#7a5c5c]/25 to-[#1d1d22] p-3 shadow-[0_6px_18px_rgba(0,0,0,0.35)] transition-[transform,box-shadow,border-color] duration-200 ease-out motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-[0_10px_22px_rgba(0,0,0,0.42)]"
+          ? "rounded-xl border border-stone-200 border-l-[3px] border-l-[#7E52A0] bg-white p-3 shadow-none"
+          : "rounded-xl border border-stone-200 bg-white p-3 shadow-none"
       }
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-medium text-zinc-100">{song.title}</p>
-          {song.artist && <p className="mt-0.5 text-xs text-zinc-400">{song.artist}</p>}
+          <p className="text-sm font-medium text-stone-900">{song.title}</p>
+          {song.artist && <p className="mt-0.5 text-xs font-medium text-stone-600">{song.artist}</p>}
         </div>
         {song.highPriority && (
-          <span className="rounded-full bg-[#c9a35c]/22 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f5e6c8]">
+          <span className="rounded-full border border-stone-300 bg-stone-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
             Priority
           </span>
         )}
       </div>
-      {song.notes && <p className="mt-2 text-xs text-zinc-300">{song.notes}</p>}
+      {song.notes && <p className="mt-2 text-xs font-medium text-stone-700">{song.notes}</p>}
       <div className="mt-3 flex gap-2">
         <PrimaryButton
           onClick={() => onTogglePriority(listType, song.id)}
           disabled={disabled}
-          className="flex-1 rounded-lg bg-white/10 px-2 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+          className="flex-1 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
         >
           {song.highPriority ? "Unmark Priority" : "Mark Priority"}
         </PrimaryButton>
         <PrimaryButton
           onClick={() => onRemove(listType, song.id)}
           disabled={disabled}
-          className="rounded-lg bg-[#6f5353]/40 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/55"
+          className="rounded-lg border border-rose-300 bg-white px-3 py-2 text-[11px] font-semibold text-rose-900 hover:bg-rose-50"
         >
           Remove
         </PrimaryButton>
@@ -242,17 +386,59 @@ export function SongCard({
   );
 }
 
+export function PersistEcho({
+  persistFeedback,
+  variant = "light",
+  className = "",
+}: {
+  persistFeedback: PersistFeedback;
+  variant?: "light" | "dark";
+  className?: string;
+}) {
+  const { phase } = persistFeedback;
+  if (phase === "idle") return null;
+  const label = phase === "pending" ? "Saving…" : "Saved";
+  const tone =
+    variant === "dark"
+      ? phase === "pending"
+        ? "text-[#9ae8ff]/95"
+        : "text-zinc-200"
+      : phase === "pending"
+        ? "text-stone-600"
+        : "text-stone-800";
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.14em] ${tone} ${className}`.trim()}
+      aria-live="polite"
+    >
+      {label}
+    </span>
+  );
+}
+
 export function AppHeader({
   screenTitle,
   weddingDetails,
-  savedLocally,
+  persistFeedback,
   appSettings,
 }: AppHeaderProps) {
+  const saveLabel =
+    persistFeedback.phase === "pending"
+      ? "Saving…"
+      : persistFeedback.phase === "saved"
+        ? "Saved just now"
+        : persistFeedback.hasBaseline
+          ? "All changes saved"
+          : null;
+  const saveTone =
+    persistFeedback.phase === "pending"
+      ? "text-stone-600"
+      : persistFeedback.phase === "saved"
+        ? "text-stone-900"
+        : "text-stone-500";
+
   return (
-    <header
-      className="rounded-3xl border bg-gradient-to-b from-white/10 to-white/[0.03] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.5)] backdrop-blur"
-      style={{ borderColor: `${appSettings.accentColor}4d` }}
-    >
+    <header className="rounded-2xl border border-stone-200 bg-white p-5 shadow-none">
       <div className="relative mx-auto w-full max-w-[220px]">
         <Image
           src={appSettings.logoUrl || "/cmm-logo-white.png"}
@@ -261,45 +447,48 @@ export function AppHeader({
           height={140}
           priority
           sizes="(max-width: 640px) 220px, 260px"
-          className="h-auto w-full object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.12)]"
+          className="h-auto w-full object-contain brightness-0"
         />
       </div>
-      <p className="mt-2 text-center text-[11px] uppercase tracking-[0.16em] text-zinc-400">
+      <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
         {appSettings.companyName}
       </p>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">{screenTitle}</h1>
+      <div className="mt-3 flex min-w-0 items-start justify-between gap-3">
+        <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-stone-950">{screenTitle}</h1>
+        {saveLabel ? (
+          <p
+            className={`shrink-0 pt-1 text-right text-[11px] font-medium leading-snug tracking-tight ${saveTone}`}
+            aria-live="polite"
+          >
+            {saveLabel}
+          </p>
+        ) : null}
+      </div>
       {weddingDetails.couple ? (
         <>
-          <p className="mt-4 text-sm text-zinc-300">
+          <p className="mt-4 text-sm font-medium text-stone-800">
             {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
           </p>
-          <p className="mt-1 text-sm text-zinc-400">Wedding Date: {weddingDetails.date}</p>
-          <p className="mt-1 text-sm text-zinc-500">{weddingDetails.venue}</p>
+          <p className="mt-1 text-sm text-stone-600">Wedding Date: {weddingDetails.date}</p>
+          <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
         </>
       ) : null}
-      {savedLocally && (
-        <div className="mt-3 flex items-center justify-center">
-          <span className="rounded-full border border-[#c9a35c]/30 bg-[#c9a35c]/10 px-3 py-1 text-[11px] font-medium text-[#f5e6c8] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
-            Saved locally
-          </span>
-        </div>
-      )}
     </header>
   );
 }
 
 export function BottomNav({ items, activeScreen, onSelect }: BottomNavProps) {
   return (
-    <nav className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md border-t border-[#c9a35c]/20 bg-[#0a0a0c]/90 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 backdrop-blur-md lg:hidden">
-      <ul className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+    <nav className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-lg border-t border-stone-300 bg-white px-2 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 shadow-none lg:hidden">
+      <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-1 pl-0.5 pr-2 pt-0.5 no-scrollbar">
         {items.map((item) => (
-          <li key={item.screen} className="shrink-0">
+          <li key={item.screen} className="snap-start shrink-0">
             <PrimaryButton
               onClick={() => onSelect(item.screen)}
-              className={`min-w-[88px] px-3 ${
+              className={`min-h-[3.25rem] min-w-[96px] touch-manipulation px-3.5 ${
                 activeScreen === item.screen
-                  ? "border border-[#c9a35c]/35 bg-[#c9a35c]/20 text-[#f5e6c8] shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
-                  : "border border-transparent text-zinc-300 hover:border-white/10 hover:bg-white/5"
+                  ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                  : "border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
               }`}
             >
               {item.label}

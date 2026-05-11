@@ -1,28 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cutmaster Music — premium neutral workspace + restrained brand accents */
+  --cm-black: #000000;
+  --cm-white: #ffffff;
+  --cm-cyan: #00d4ff;
+  --cm-purple: #7e52a0;
+  --cm-pink: #e82167;
+
+  /* Flat neutral canvas — avoids pastel / tinted “haze” */
+  --background: #f5f5f5;
+  --foreground: #0a0a0a;
+  --cm-surface: #ffffff;
+  --cm-border: #e7e5e4;
+  --cm-muted: #57534e;
+  --cm-accent: var(--cm-cyan);
+  --cm-accent-foreground: var(--cm-black);
+  --cm-accent-soft: rgba(0, 212, 255, 0.14);
+  --cm-purple-soft: rgba(126, 82, 160, 0.12);
+  --cm-pink-soft: rgba(232, 33, 103, 0.12);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-cm-cyan: var(--cm-cyan);
+  --color-cm-purple: var(--cm-purple);
+  --color-cm-pink: var(--cm-pink);
+  --color-cm-black: var(--cm-black);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -54,7 +71,134 @@ body {
   color: #111827;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  padding: 16px;
+  padding: 20px 22px 24px;
+  max-width: 100%;
+}
+
+/* —— Branded packet header (screen + print: light, minimal ink) —— */
+.doc-header {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.doc-header-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px 32px;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .doc-header-main {
+    grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.2fr);
+    align-items: center;
+  }
+}
+
+.doc-header-brand {
+  min-width: 0;
+}
+
+.doc-header-logo-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Homepage logo is light-on-dark; brightness(0) yields a crisp black mark on white (screen + print). */
+.doc-header-logo-img {
+  display: block;
+  height: 56px;
+  width: auto;
+  max-width: min(340px, 88vw);
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: left center;
+  filter: brightness(0);
+}
+
+.doc-header-brand-tagline {
+  margin: 10px 0 0;
+  max-width: 340px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.doc-header-event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .doc-header-event {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.doc-event-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.4rem, 3.8vw, 1.95rem);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  color: #111827;
+}
+
+.doc-header-event-date,
+.doc-header-event-venue {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #374151;
+}
+
+.doc-header-event-placeholder {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.doc-header-event-type.doc-event-type-pill {
+  margin-top: 4px;
+}
+
+.doc-event-meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #374151;
+}
+
+.doc-meta-sep {
+  padding: 0 0.35em;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.doc-event-type-pill {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #fff;
 }
 
 .doc-title {
@@ -69,46 +213,129 @@ body {
 }
 
 .doc-section {
-  margin-top: 14px;
+  margin-top: 18px;
   border-top: 1px solid #e5e7eb;
-  padding-top: 10px;
+  padding-top: 14px;
+}
+
+.doc-section--lead {
+  margin-top: 16px;
+  border-top: none !important;
+  padding-top: 0 !important;
 }
 
 .doc-section h3 {
-  font-size: 12px;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   color: #111827;
 }
 
 .doc-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
 }
 
 .doc-table th,
 .doc-table td {
   border: 1px solid #e5e7eb;
-  padding: 6px 8px;
+  padding: 8px 10px;
   text-align: left;
   vertical-align: top;
 }
 
-/* Event Prep table hierarchy: quick scan for Time and Moment first. */
+.doc-section > ul {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #111827;
+}
+
+.doc-section > ul > li + li {
+  margin-top: 4px;
+}
+
+/* Ceremony timeline: operational scan like reception */
+.doc-ceremony-timeline thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #374151;
+  background: transparent;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.doc-ceremony-timeline tbody td:nth-child(2) {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #111827;
+}
+
+.doc-ceremony-timeline tbody td:nth-child(1) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #111827;
+}
+
+.doc-ceremony-timeline tbody tr + tr td {
+  border-top-color: #f3f4f6;
+}
+
+/* Reception / main timeline: moment forward, metadata secondary */
+.live-event-timeline-table {
+  margin-top: 12px;
+}
+
+.live-event-timeline-table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #374151;
+  background: transparent;
+  border-bottom: 2px solid #e5e7eb;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.live-event-timeline-table tbody tr + tr td {
+  border-top: 1px solid #f3f4f6;
+}
+
+.live-event-timeline-table tbody td {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .live-event-timeline-table th:nth-child(1),
 .live-event-timeline-table th:nth-child(2) {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 10px;
 }
 
 .live-event-timeline-table td:nth-child(1),
 .live-event-timeline-table td:nth-child(2) {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
+  color: #111827;
+}
+
+.live-event-timeline-table td:nth-child(1) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .live-event-timeline-table th:nth-child(3),
@@ -116,20 +343,25 @@ body {
 .live-event-timeline-table td:nth-child(3) {
   font-size: 11px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.45;
   color: #374151;
 }
 
 .live-event-timeline-table td:nth-child(4) {
   font-size: 10.5px;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #4b5563;
 }
 
 .live-reception-page-break {
+  margin-top: 8px;
   border-top: 1px solid #d1d5db;
-  padding-top: 10px;
+  padding-top: 14px;
+}
+
+.doc-playlists-page-start {
+  margin-top: 0;
 }
 
 .doc-mode-compact .doc-table th,
@@ -140,6 +372,29 @@ body {
 .doc-mode-compact .doc-section {
   margin-top: 10px;
   padding-top: 8px;
+}
+
+.doc-mode-compact .doc-header {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.doc-mode-compact .doc-header-logo-img {
+  height: 44px;
+  max-width: 260px;
+}
+
+.doc-mode-compact .doc-header-brand-tagline {
+  margin-top: 6px;
+  font-size: 9px;
+}
+
+.doc-mode-compact .doc-header-main {
+  gap: 14px 20px;
+}
+
+.doc-mode-compact .doc-event-title {
+  font-size: 1.2rem;
 }
 
 .doc-mode-large-print .doc-table {
@@ -160,12 +415,116 @@ body {
   font-size: 13px;
 }
 
+.doc-mode-large-print .doc-event-meta {
+  font-size: 14px;
+}
+
+.doc-mode-large-print .doc-header-logo-img {
+  height: 68px;
+  max-width: 380px;
+}
+
+.doc-mode-large-print .doc-event-title {
+  font-size: 1.85rem;
+}
+
+.doc-mode-large-print .doc-header-brand-tagline {
+  font-size: 11px;
+}
+
+.doc-mode-large-print .live-event-timeline-table td:nth-child(1),
+.doc-mode-large-print .live-event-timeline-table td:nth-child(2) {
+  font-size: 15px;
+}
+
+.doc-footer-brand {
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.doc-footer-brand-line {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.doc-footer-brand-name {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #4b5563;
+}
+
+.doc-footer-brand-url {
+  margin: 5px 0 0;
+  font-size: 10px;
+  color: #9ca3af;
+  letter-spacing: 0.03em;
+}
+
 .doc-note {
   margin-top: 8px;
   border-left: 3px solid #9ca3af;
   padding-left: 8px;
   font-size: 12px;
   color: #111827;
+}
+
+/* Horizontal scroll for wide Event Document tables on phones (timeline grids). */
+.doc-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 639px) {
+  .doc-sheet {
+    padding: 14px 12px 18px;
+    border-radius: 8px;
+  }
+
+  .doc-header {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+  }
+
+  .doc-header-main {
+    gap: 16px;
+  }
+
+  .doc-header-logo-img {
+    height: 52px;
+    max-width: min(320px, 94vw);
+  }
+
+  .doc-event-title {
+    font-size: 1.45rem;
+    line-height: 1.2;
+  }
+
+  .doc-header-event-date,
+  .doc-header-event-venue {
+    font-size: 13px;
+  }
+
+  .doc-section {
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .live-event-timeline-table td,
+  .live-event-timeline-table th,
+  .doc-ceremony-timeline td,
+  .doc-ceremony-timeline th {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -217,6 +576,10 @@ body {
     page-break-inside: avoid;
   }
 
+  .doc-table-scroll {
+    overflow: visible !important;
+  }
+
   .doc-sheet,
   .doc-section,
   .doc-table th,
@@ -253,9 +616,61 @@ body {
     padding-top: 6px !important;
   }
 
+  .doc-playlists-page-start {
+    break-before: page;
+    page-break-before: always;
+    margin-top: 0 !important;
+    padding-top: 6px !important;
+  }
+
   .live-event-timeline-table th,
   .live-event-timeline-table td {
     padding: 4px 6px !important;
+  }
+
+  .doc-header-main {
+    grid-template-columns: minmax(140px, 1fr) minmax(160px, 1.15fr) !important;
+    gap: 14pt 22pt !important;
+    align-items: center !important;
+  }
+
+  .doc-header-logo-img {
+    filter: brightness(0) !important;
+    height: 52pt !important;
+    max-width: 260pt !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .doc-event-title {
+    font-size: 20pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .doc-event-meta {
+    font-size: 11pt !important;
+  }
+
+  .doc-header-event-date,
+  .doc-header-event-venue {
+    font-size: 11pt !important;
+  }
+
+  .doc-header-brand-tagline {
+    font-size: 9pt !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .doc-footer-brand-line {
+    font-size: 9pt !important;
+  }
+
+  .doc-footer-brand-url {
+    font-size: 9pt !important;
+  }
+
+  .doc-event-type-pill {
+    border-color: #999 !important;
   }
 
   .doc-mode-compact .doc-table th,
@@ -271,5 +686,9 @@ body {
   .doc-mode-large-print .doc-table td {
     font-size: 12.5px !important;
     line-height: 1.4 !important;
+  }
+
+  .doc-mode-large-print .doc-event-title {
+    font-size: 22pt !important;
   }
 }

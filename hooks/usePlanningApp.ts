@@ -7,10 +7,13 @@ import type {
   UserRole,
 } from "@/types/planning";
 
+export type PersistFeedbackPhase = "idle" | "pending" | "saved";
+
 export function usePlanningApp() {
   const [activeScreen, setActiveScreen] = useState<Screen>("Dashboard");
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [savedLocally, setSavedLocally] = useState(false);
+  const [persistPhase, setPersistPhase] = useState<PersistFeedbackPhase>("idle");
+  const [persistBaseline, setPersistBaseline] = useState(false);
   const [authStage, setAuthStage] = useState<AuthStage>("login");
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
   const [inviteAccessPreview, setInviteAccessPreview] = useState<InviteAccessPreview | null>(
@@ -22,8 +25,10 @@ export function usePlanningApp() {
     setActiveScreen,
     hasHydrated,
     setHasHydrated,
-    savedLocally,
-    setSavedLocally,
+    persistPhase,
+    setPersistPhase,
+    persistBaseline,
+    setPersistBaseline,
     authStage,
     setAuthStage,
     currentRole,

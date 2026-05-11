@@ -13,9 +13,6 @@ export type Screen =
   | "Reception Hub"
   /** Couple/staff entry from Reception Hub — same editor as Timeline */
   | "Reception Timeline"
-  /** Couple/staff entry from Reception Hub — same editor as Formal Dances */
-  | "Reception Formalities"
-  | "Formal Dances"
   | "Event Prep"
   | "Vendors"
   | "Notes"
@@ -66,6 +63,12 @@ export type TimelineItem = {
   category: TimelineCategory;
   notes: string;
   needsDjMcAttention: boolean;
+  /** Song cue for reception/main timeline rows (optional for legacy persisted events). */
+  songTitle?: string;
+  artist?: string;
+  /** Optional DJ cue detail (formerly on separate formalities rows). */
+  fadeOutEarly?: boolean;
+  fadeOutTimestamp?: string;
 };
 
 export type Formality = {
@@ -83,12 +86,16 @@ export type Formality = {
 
 export type DisplayTimelineItem = {
   id: string;
-  source: "timeline" | "formality";
+  source: "timeline";
   time: string;
   title: string;
-  category: TimelineCategory | "Formality";
+  category: TimelineCategory;
   notes: string;
   needsDjMcAttention: boolean;
+  songTitle?: string;
+  artist?: string;
+  fadeOutEarly?: boolean;
+  fadeOutTimestamp?: string;
 };
 
 export type CeremonyPlan = {
@@ -134,13 +141,18 @@ export type VendorType =
   | "Videographer"
   | "Venue"
   | "Caterer"
+  | "Bar"
   | "Florist"
   | "Hair/Makeup"
+  | "DJ/Entertainment"
+  | "Transportation"
   | "Photo Booth"
   | "Officiant"
-  | "Band"
   | "Content Creator"
   | "Other";
+
+/** Internal Cutmaster staff on the event vs external partners (default when omitted). */
+export type VendorAffiliation = "cutmaster_event_team" | "event_partner";
 
 export type Vendor = {
   id: string;
@@ -154,6 +166,7 @@ export type Vendor = {
   instagram: string;
   arrivalTime: string;
   specialCoordinationNotes: string;
+  affiliation?: VendorAffiliation;
 };
 
 export type TeamMember = {
@@ -293,6 +306,8 @@ export type TimelinePresetItem = {
   songPlaceholder: string;
   notesPlaceholder: string;
   defaultIncluded: boolean;
+  /** Reception/main timeline category when this preset is applied (defaults to Reception). */
+  timelineCategory?: TimelineCategory;
 };
 
 export type EventSettings = {
@@ -357,6 +372,7 @@ export type EventSettings = {
 export type ActivityType =
   | "event_created"
   | "timeline_updated"
+  | "timeline_item_added"
   | "song_added"
   | "guest_request_submitted"
   | "guest_request_reviewed"

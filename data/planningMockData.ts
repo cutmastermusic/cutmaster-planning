@@ -17,6 +17,7 @@ import type {
   Vendor,
 } from "@/types/planning";
 import { getDefaultPlanningQuestionSets } from "@/data/planningQuestionsCatalog";
+import { migrateFormalitiesIntoTimelineItems } from "@/utils/planning";
 
 type SeedEventPlanningPayload = {
   timelineItems: TimelineItem[];
@@ -40,57 +41,98 @@ type SeedEventPlanningPayload = {
   mcAnnouncements: string;
 };
 
-const getDefaultTimelinePresetSets = (): Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]> => ({
+/** Default timeline preset rows per event type (Global Settings → Timeline Presets). */
+export const getDefaultTimelinePresetSets = (): Record<
+  EventSettings["eventLayoutProfile"],
+  TimelinePresetItem[]
+> => ({
   Wedding: [
-    { id: "w-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
-    { id: "w-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
-    { id: "w-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
-    { id: "w-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
-    { id: "w-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
-    { id: "w-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+    { id: "w-cer-1", timelineType: "ceremony", timeOrOrder: "", momentName: "Prelude", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "w-cer-2", timelineType: "ceremony", timeOrOrder: "", momentName: "Wedding Party Processional", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "w-cer-3", timelineType: "ceremony", timeOrOrder: "", momentName: "Partner/Couple Processional", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "w-main-1", timelineType: "main", timeOrOrder: "", momentName: "Cocktail Hour", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Cocktail Hour" },
+    { id: "w-main-2", timelineType: "main", timeOrOrder: "", momentName: "Grand Entrance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-3", timelineType: "main", timeOrOrder: "", momentName: "Welcome Speech", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "w-main-4", timelineType: "main", timeOrOrder: "", momentName: "Blessing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "w-main-5", timelineType: "main", timeOrOrder: "", momentName: "Dinner", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "w-main-6", timelineType: "main", timeOrOrder: "", momentName: "Toasts", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-7", timelineType: "main", timeOrOrder: "", momentName: "Cake Cutting", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-8", timelineType: "main", timeOrOrder: "", momentName: "First Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-9", timelineType: "main", timeOrOrder: "", momentName: "Father/Daughter Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-10", timelineType: "main", timeOrOrder: "", momentName: "Mother/Son Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-11", timelineType: "main", timeOrOrder: "", momentName: "Bouquet Toss", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-12", timelineType: "main", timeOrOrder: "", momentName: "Garter Toss", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "w-main-13", timelineType: "main", timeOrOrder: "", momentName: "Open Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "w-main-14", timelineType: "main", timeOrOrder: "", momentName: "Last Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
   ],
   "Gender-Neutral Wedding": [
-    { id: "gnw-cer-1", timelineType: "ceremony", timeOrOrder: "Prelude", momentName: "Prelude", songPlaceholder: "Instrumental Prelude", notesPlaceholder: "Guest arrival ambience.", defaultIncluded: true },
-    { id: "gnw-cer-2", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Wedding Party Processional", songPlaceholder: "Processional Song", notesPlaceholder: "Cue wedding party entrance.", defaultIncluded: true },
-    { id: "gnw-cer-3", timelineType: "ceremony", timeOrOrder: "Processional", momentName: "Partner/Couple Processional", songPlaceholder: "Partner Processional Song", notesPlaceholder: "Final processional cue.", defaultIncluded: true },
-    { id: "gnw-main-1", timelineType: "main", timeOrOrder: "5:00 PM", momentName: "Cocktail Hour", songPlaceholder: "Cocktail Playlist", notesPlaceholder: "Soft open while guests mingle.", defaultIncluded: true },
-    { id: "gnw-main-2", timelineType: "main", timeOrOrder: "6:15 PM", momentName: "Dinner", songPlaceholder: "Dinner Playlist", notesPlaceholder: "Lower volume for meal service.", defaultIncluded: true },
-    { id: "gnw-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy ramp and transitions.", defaultIncluded: true },
+    { id: "gnw-cer-1", timelineType: "ceremony", timeOrOrder: "", momentName: "Prelude", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "gnw-cer-2", timelineType: "ceremony", timeOrOrder: "", momentName: "Wedding Party Processional", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "gnw-cer-3", timelineType: "ceremony", timeOrOrder: "", momentName: "Partner/Couple Processional", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "gnw-main-1", timelineType: "main", timeOrOrder: "", momentName: "Cocktail Hour", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Cocktail Hour" },
+    { id: "gnw-main-2", timelineType: "main", timeOrOrder: "", momentName: "Grand Entrance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-3", timelineType: "main", timeOrOrder: "", momentName: "Welcome Speech", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "gnw-main-4", timelineType: "main", timeOrOrder: "", momentName: "Blessing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "gnw-main-5", timelineType: "main", timeOrOrder: "", momentName: "Dinner", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "gnw-main-6", timelineType: "main", timeOrOrder: "", momentName: "Toasts", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-7", timelineType: "main", timeOrOrder: "", momentName: "Cake Cutting", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-8", timelineType: "main", timeOrOrder: "", momentName: "First Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-9", timelineType: "main", timeOrOrder: "", momentName: "Father/Daughter Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-10", timelineType: "main", timeOrOrder: "", momentName: "Mother/Son Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-11", timelineType: "main", timeOrOrder: "", momentName: "Bouquet Toss", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-12", timelineType: "main", timeOrOrder: "", momentName: "Garter Toss", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Formalities" },
+    { id: "gnw-main-13", timelineType: "main", timeOrOrder: "", momentName: "Open Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "gnw-main-14", timelineType: "main", timeOrOrder: "", momentName: "Last Dance", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
   ],
   Corporate: [
-    { id: "co-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Background Set", notesPlaceholder: "Low-volume welcome music.", defaultIncluded: true },
-    { id: "co-main-2", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Run of Show: Welcome Remarks", songPlaceholder: "Walk-up Stinger", notesPlaceholder: "MC/presenter intro.", defaultIncluded: true },
-    { id: "co-main-3", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Program Segment", songPlaceholder: "Segment Bed", notesPlaceholder: "Cue transitions cleanly.", defaultIncluded: true },
+    { id: "co-main-1", timelineType: "main", timeOrOrder: "", momentName: "Guest Arrival", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "co-main-2", timelineType: "main", timeOrOrder: "", momentName: "Cocktail / Networking", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Cocktail Hour" },
+    { id: "co-main-3", timelineType: "main", timeOrOrder: "", momentName: "Welcome Remarks", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "co-main-4", timelineType: "main", timeOrOrder: "", momentName: "Dinner", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "co-main-5", timelineType: "main", timeOrOrder: "", momentName: "Awards / Recognition", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "co-main-6", timelineType: "main", timeOrOrder: "", momentName: "Presentation / Speaker", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "co-main-7", timelineType: "main", timeOrOrder: "", momentName: "Open Networking / Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "co-main-8", timelineType: "main", timeOrOrder: "", momentName: "Closing Remarks", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
   ],
   "Holiday Party": [
-    { id: "hp-main-1", timelineType: "main", timeOrOrder: "6:30 PM", momentName: "Doors Open", songPlaceholder: "Holiday Welcome Set", notesPlaceholder: "Seasonal background music.", defaultIncluded: true },
-    { id: "hp-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Housekeeping + acknowledgements.", defaultIncluded: true },
-    { id: "hp-main-3", timelineType: "main", timeOrOrder: "8:30 PM", momentName: "Dance Floor Opens", songPlaceholder: "Party Set", notesPlaceholder: "Transition to dance energy.", defaultIncluded: true },
+    { id: "hp-main-1", timelineType: "main", timeOrOrder: "", momentName: "Guest Arrival", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "hp-main-2", timelineType: "main", timeOrOrder: "", momentName: "Cocktail Hour", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Cocktail Hour" },
+    { id: "hp-main-3", timelineType: "main", timeOrOrder: "", momentName: "Welcome Remarks", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "hp-main-4", timelineType: "main", timeOrOrder: "", momentName: "Dinner", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "hp-main-5", timelineType: "main", timeOrOrder: "", momentName: "Awards / Raffle", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "hp-main-6", timelineType: "main", timeOrOrder: "", momentName: "Dancing / Entertainment", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "hp-main-7", timelineType: "main", timeOrOrder: "", momentName: "Closing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
   ],
   "Graduation Celebration": [
-    { id: "gc-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Set", notesPlaceholder: "Family/friends arrival.", defaultIncluded: true },
-    { id: "gc-main-2", timelineType: "main", timeOrOrder: "6:45 PM", momentName: "Family / Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Graduate recognition cues.", defaultIncluded: true },
-    { id: "gc-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Energy lift for celebration.", defaultIncluded: true },
+    { id: "gc-main-1", timelineType: "main", timeOrOrder: "", momentName: "Guest Arrival", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "gc-main-2", timelineType: "main", timeOrOrder: "", momentName: "Family / Special Moments", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "gc-main-3", timelineType: "main", timeOrOrder: "", momentName: "Open Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
   ],
   "Birthday Party": [
-    { id: "bd-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Warm-up while guests arrive.", defaultIncluded: true },
-    { id: "bd-main-2", timelineType: "main", timeOrOrder: "7:15 PM", momentName: "Special Moments", songPlaceholder: "Special Moment Song", notesPlaceholder: "Cake / toast / dedication cues.", defaultIncluded: true },
-    { id: "bd-main-3", timelineType: "main", timeOrOrder: "7:45 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Main dance-floor arc.", defaultIncluded: true },
+    { id: "bd-main-1", timelineType: "main", timeOrOrder: "", momentName: "Guest Arrival", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "bd-main-2", timelineType: "main", timeOrOrder: "", momentName: "Special Moments", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "bd-main-3", timelineType: "main", timeOrOrder: "", momentName: "Open Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
   ],
   "Private Party": [
-    { id: "pp-main-1", timelineType: "main", timeOrOrder: "6:00 PM", momentName: "Guest Arrival", songPlaceholder: "Welcome Playlist", notesPlaceholder: "Low-key opening.", defaultIncluded: true },
-    { id: "pp-main-2", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Main Event Timeline", songPlaceholder: "Core Set", notesPlaceholder: "Flexible flow by host cues.", defaultIncluded: true },
-    { id: "pp-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Open Dancing", songPlaceholder: "Dance Set", notesPlaceholder: "Raise energy.", defaultIncluded: true },
+    { id: "pp-main-1", timelineType: "main", timeOrOrder: "", momentName: "Guest Arrival", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "pp-main-2", timelineType: "main", timeOrOrder: "", momentName: "Main Event Timeline", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
+    { id: "pp-main-3", timelineType: "main", timeOrOrder: "", momentName: "Open Dancing", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true },
   ],
   "Bar/Club Event": [
-    { id: "bc-main-1", timelineType: "main", timeOrOrder: "9:00 PM", momentName: "Set Time 1", songPlaceholder: "Opening Set", notesPlaceholder: "Start room-building set.", defaultIncluded: true },
-    { id: "bc-main-2", timelineType: "main", timeOrOrder: "10:30 PM", momentName: "Set Time 2", songPlaceholder: "Peak Set", notesPlaceholder: "Main floor energy.", defaultIncluded: true },
-    { id: "bc-main-3", timelineType: "main", timeOrOrder: "12:00 AM", momentName: "Set Time 3", songPlaceholder: "Late Set", notesPlaceholder: "Maintain momentum.", defaultIncluded: true },
+    { id: "bc-main-1", timelineType: "main", timeOrOrder: "", momentName: "Doors Open", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "bc-main-2", timelineType: "main", timeOrOrder: "", momentName: "Opening Set", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "bc-main-3", timelineType: "main", timeOrOrder: "", momentName: "Peak Hour", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "bc-main-4", timelineType: "main", timeOrOrder: "", momentName: "Special Announcement", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "bc-main-5", timelineType: "main", timeOrOrder: "", momentName: "Last Call", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "bc-main-6", timelineType: "main", timeOrOrder: "", momentName: "Closing Track", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
   ],
   "School Dance": [
-    { id: "sd-main-1", timelineType: "main", timeOrOrder: "7:00 PM", momentName: "Doors Open", songPlaceholder: "Clean Opening Set", notesPlaceholder: "Set expectations and tone.", defaultIncluded: true },
-    { id: "sd-main-2", timelineType: "main", timeOrOrder: "7:30 PM", momentName: "Announcements", songPlaceholder: "Announcement Bed", notesPlaceholder: "Admin/chaperone lines.", defaultIncluded: true },
-    { id: "sd-main-3", timelineType: "main", timeOrOrder: "8:00 PM", momentName: "Dance Set", songPlaceholder: "Clean Dance Set", notesPlaceholder: "School-appropriate energy ramp.", defaultIncluded: true },
+    { id: "sd-main-1", timelineType: "main", timeOrOrder: "", momentName: "Doors Open", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "sd-main-2", timelineType: "main", timeOrOrder: "", momentName: "Warm-Up Set", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "sd-main-3", timelineType: "main", timeOrOrder: "", momentName: "Announcements", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Reception" },
+    { id: "sd-main-4", timelineType: "main", timeOrOrder: "", momentName: "Dance Block", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "sd-main-5", timelineType: "main", timeOrOrder: "", momentName: "Slow Set", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
+    { id: "sd-main-6", timelineType: "main", timeOrOrder: "", momentName: "Last Song", songPlaceholder: "", notesPlaceholder: "", defaultIncluded: true, timelineCategory: "Dancing" },
   ],
 });
 
@@ -154,71 +196,22 @@ export const initialGuestRequests: GuestRequestEntry[] = [
   },
 ];
 
+/** Demo reception timeline — structure-first (times/songs filled in by couple/DJ). */
 export const initialTimelineItems: TimelineItem[] = [
-  {
-    id: "timeline-1",
-    title: "Cocktail Hour",
-    time: "5:00 PM",
-    category: "Cocktail Hour",
-    notes: "Lounge set while guests transition from ceremony.",
-    needsDjMcAttention: false,
-  },
-  {
-    id: "timeline-2",
-    title: "Welcome Toast",
-    time: "6:00 PM",
-    category: "Reception",
-    notes: "MC welcome before blessing.",
-    needsDjMcAttention: true,
-  },
-  {
-    id: "timeline-3",
-    title: "Blessing",
-    time: "6:05 PM",
-    category: "Reception",
-    notes: "Soft instrumental bed under prayer.",
-    needsDjMcAttention: true,
-  },
-  {
-    id: "timeline-4",
-    title: "Dinner",
-    time: "6:10 PM",
-    category: "Reception",
-    notes: "Keep volume low for table conversation.",
-    needsDjMcAttention: false,
-  },
-  {
-    id: "timeline-5",
-    title: "Speeches",
-    time: "7:00 PM",
-    category: "Reception",
-    notes: "MOH, Best Man, and parent toast queue.",
-    needsDjMcAttention: true,
-  },
-  {
-    id: "timeline-6",
-    title: "Open Dancing",
-    time: "8:30 PM",
-    category: "Dancing",
-    notes: "Kick into high-energy set after formalities.",
-    needsDjMcAttention: true,
-  },
-  {
-    id: "timeline-7",
-    title: "Late Night Bite",
-    time: "9:45 PM",
-    category: "Reception",
-    notes: "Drop to mid-tempo while food opens.",
-    needsDjMcAttention: false,
-  },
-  {
-    id: "timeline-8",
-    title: "Last Call",
-    time: "10:40 PM",
-    category: "Reception",
-    notes: "MC final bar call announcement.",
-    needsDjMcAttention: true,
-  },
+  { id: "timeline-1", title: "Cocktail Hour", time: "", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+  { id: "timeline-2", title: "Grand Entrance", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-3", title: "Welcome Speech", time: "", category: "Reception", notes: "", needsDjMcAttention: true },
+  { id: "timeline-4", title: "Blessing", time: "", category: "Reception", notes: "", needsDjMcAttention: true },
+  { id: "timeline-5", title: "Dinner", time: "", category: "Reception", notes: "", needsDjMcAttention: false },
+  { id: "timeline-6", title: "Toasts", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-7", title: "Cake Cutting", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-8", title: "First Dance", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-9", title: "Father/Daughter Dance", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-10", title: "Mother/Son Dance", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-11", title: "Bouquet Toss", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-12", title: "Garter Toss", time: "", category: "Formalities", notes: "", needsDjMcAttention: true },
+  { id: "timeline-13", title: "Open Dancing", time: "", category: "Dancing", notes: "", needsDjMcAttention: true },
+  { id: "timeline-14", title: "Last Dance", time: "", category: "Dancing", notes: "", needsDjMcAttention: true },
 ];
 
 export const initialCeremonyTimelineItems: CeremonyTimelineItem[] = [
@@ -269,18 +262,14 @@ export const initialCeremonyTimelineItems: CeremonyTimelineItem[] = [
   },
 ];
 
-export const initialFormalities: FormalityItem[] = [
-  { id: "formality-1", momentName: "Grand Entrance", time: "5:50 PM", songTitle: "Bring Em Out", artist: "T.I.", notes: "Announce wedding party then couple with energy.", fadeOutEarly: true, fadeOutTimestamp: "0:55", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-2", momentName: "First Dance", time: "7:25 PM", songTitle: "At Last", artist: "Etta James", notes: "Fade into applause and invite parents for next dance.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-3", momentName: "Father/Daughter Dance", time: "7:30 PM", songTitle: "My Girl", artist: "The Temptations", notes: "Spotlight center floor.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-4", momentName: "Mother/Son Dance", time: "7:34 PM", songTitle: "Stand by Me", artist: "Ben E. King", notes: "Cue immediately after father/daughter applause.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-5", momentName: "Anniversary Dance", time: "7:45 PM", songTitle: "Unforgettable", artist: "Nat King Cole", notes: "Transition to bouquet after final couple remains.", fadeOutEarly: true, fadeOutTimestamp: "2:15", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-6", momentName: "Bouquet Toss", time: "7:55 PM", songTitle: "Single Ladies", artist: "Beyonce", notes: "MC gather guests before hit section.", fadeOutEarly: true, fadeOutTimestamp: "1:20", includeInTimeline: false, needsDjMcAttention: true },
-  { id: "formality-7", momentName: "Garter Toss", time: "8:00 PM", songTitle: "Pony", artist: "Ginuwine", notes: "Keep clean radio edit available.", fadeOutEarly: true, fadeOutTimestamp: "1:05", includeInTimeline: false, needsDjMcAttention: true },
-  { id: "formality-8", momentName: "Open Dancing Kickoff", time: "8:05 PM", songTitle: "Yeah!", artist: "Usher", notes: "Big countdown and floor invite.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-9", momentName: "Last Dance", time: "10:55 PM", songTitle: "Closing Time", artist: "Semisonic", notes: "Final circle and thank-you outro.", fadeOutEarly: true, fadeOutTimestamp: "2:10", includeInTimeline: true, needsDjMcAttention: true },
-  { id: "formality-10", momentName: "Custom Formality", time: "", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: false, needsDjMcAttention: false },
-];
+/** Legacy field kept empty — formal moments live on {@link initialTimelineItems}. */
+export const initialFormalities: FormalityItem[] = [];
+
+/** Reception timeline seed (same as merged; legacy formalities array is empty). */
+export const seedMergedTimelineItems = migrateFormalitiesIntoTimelineItems(
+  initialTimelineItems,
+  initialFormalities,
+);
 
 export const initialWeddingPartyProcessional: CeremonySongPlan = {
   title: "Canon in D",
@@ -313,7 +302,7 @@ export const initialMicrophoneNeeds =
 export const initialGeneralDjNotes =
   "Check in with planner 60 minutes before guest arrival. Confirm wireless backups and ceremony speakers.";
 export const initialMcAnnouncements =
-  "Welcome everyone, invite guests for cocktail hour, announce formal dances, last call reminder, final thank-you.";
+  "Welcome everyone, invite guests for cocktail hour, cue reception timeline moments (grand entrance through last dance), last call reminder, final thank-you.";
 export const initialPlannerNotes: string[] = [
   "Confirm final timeline with photographer by Monday.",
   "Upload final must-play list after tasting night.",
@@ -363,7 +352,6 @@ export const sectionTabs: Screen[] = [
   "Collaborators",
   "Guest Requests",
   "Ceremony",
-  "Formal Dances",
   "Notes",
   "Event Prep",
 ];
@@ -465,7 +453,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     sectionVendorContactsEnabled: true,
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
-    sectionFormalitiesEnabled: true,
+    sectionFormalitiesEnabled: false,
     sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
     planningQuestionAnswers: {},
@@ -534,42 +522,51 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
   ];
 }
 
-export const initialTemplates: TimelineTemplate[] = [
+const rawInitialTemplates: TimelineTemplate[] = [
   {
     id: "tpl-wedding",
     name: "Wedding",
     kind: "built_in",
     timelineItems: [
-      { id: "t1", time: "5:00 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "Lounge and mingling set.", needsDjMcAttention: false },
-      { id: "t2", time: "6:00 PM", title: "Grand Entrance", category: "Formalities", notes: "MC intros wedding party and couple.", needsDjMcAttention: true },
-      { id: "t3", time: "6:15 PM", title: "Dinner", category: "Reception", notes: "Low-volume dinner ambiance.", needsDjMcAttention: false },
-      { id: "t4", time: "7:05 PM", title: "Toasts", category: "Reception", notes: "MOH and Best Man first.", needsDjMcAttention: true },
-      { id: "t5", time: "8:00 PM", title: "Open Dancing", category: "Dancing", notes: "Energy shift into dance set.", needsDjMcAttention: true },
-      { id: "t6", time: "9:45 PM", title: "Late Night Bite", category: "Reception", notes: "Drop to mid-tempo while serving food.", needsDjMcAttention: false },
-      { id: "t7", time: "10:55 PM", title: "Last Dance", category: "Dancing", notes: "Final circle moment.", needsDjMcAttention: true },
+      { id: "tw1", time: "", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+      { id: "tw2", time: "", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw3", time: "", title: "Welcome Speech", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "tw4", time: "", title: "Blessing", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "tw5", time: "", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "tw6", time: "", title: "Toasts", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw7", time: "", title: "Cake Cutting", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw8", time: "", title: "First Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw9", time: "", title: "Father/Daughter Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw10", time: "", title: "Mother/Son Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw11", time: "", title: "Bouquet Toss", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw12", time: "", title: "Garter Toss", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tw13", time: "", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "tw14", time: "", title: "Last Dance", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
-    formalities: [
-      { id: "f1", momentName: "First Dance", time: "7:30 PM", songTitle: "", artist: "", notes: "After toasts.", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-      { id: "f2", momentName: "Father/Daughter Dance", time: "7:35 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-      { id: "f3", momentName: "Mother/Son Dance", time: "7:40 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-    ],
-    planningSuggestions: ["Leave a 10-minute speech buffer.", "Add one high-energy open dancing kickoff song."],
+    formalities: [],
+    planningSuggestions: ["Confirm timing once your venue publishes the schedule.", "Toggle bouquet/garter preset rows in Global Settings if you want them off by default."],
   },
   {
     id: "tpl-gender-neutral-wedding",
     name: "Gender-Neutral Wedding",
     kind: "built_in",
     timelineItems: [
-      { id: "gn1", time: "4:30 PM", title: "Ceremony", category: "Ceremony", notes: "Processional and vows.", needsDjMcAttention: true },
-      { id: "gn2", time: "5:30 PM", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
-      { id: "gn3", time: "6:15 PM", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
-      { id: "gn4", time: "6:30 PM", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "gn5", time: "7:25 PM", title: "Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "gn6", time: "8:00 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "tgn1", time: "", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+      { id: "tgn2", time: "", title: "Grand Entrance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn3", time: "", title: "Welcome Speech", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "tgn4", time: "", title: "Blessing", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "tgn5", time: "", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "tgn6", time: "", title: "Toasts", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn7", time: "", title: "Cake Cutting", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn8", time: "", title: "First Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn9", time: "", title: "Father/Daughter Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn10", time: "", title: "Mother/Son Dance", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn11", time: "", title: "Bouquet Toss", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn12", time: "", title: "Garter Toss", category: "Formalities", notes: "", needsDjMcAttention: true },
+      { id: "tgn13", time: "", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "tgn14", time: "", title: "Last Dance", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
-    formalities: [
-      { id: "gnf1", momentName: "First Dance", time: "7:45 PM", songTitle: "", artist: "", notes: "", fadeOutEarly: false, fadeOutTimestamp: "", includeInTimeline: true, needsDjMcAttention: true },
-    ],
+    formalities: [],
     planningSuggestions: ["Use inclusive announcement language.", "Confirm pronunciation for all names in scripts."],
   },
   {
@@ -577,23 +574,30 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "Corporate",
     kind: "built_in",
     timelineItems: [
-      { id: "co1", time: "6:00 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "co2", time: "6:30 PM", title: "Welcome Remarks", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "co3", time: "7:00 PM", title: "Program Segment", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "co4", time: "7:45 PM", title: "Networking + Music", category: "Dancing", notes: "", needsDjMcAttention: false },
+      { id: "co1", time: "", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "co2", time: "", title: "Cocktail / Networking", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+      { id: "co3", time: "", title: "Welcome Remarks", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "co4", time: "", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "co5", time: "", title: "Awards / Recognition", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "co6", time: "", title: "Presentation / Speaker", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "co7", time: "", title: "Open Networking / Dancing", category: "Dancing", notes: "", needsDjMcAttention: false },
+      { id: "co8", time: "", title: "Closing Remarks", category: "Reception", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
-    planningSuggestions: ["Prioritize speech clarity.", "Keep music conversational during networking."],
+    planningSuggestions: ["Prioritize speech clarity.", "Keep dinner beds under speech intelligibility."],
   },
   {
     id: "tpl-holiday-party",
     name: "Holiday Party",
     kind: "built_in",
     timelineItems: [
-      { id: "hp1", time: "6:30 PM", title: "Doors Open / Welcome", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "hp2", time: "7:00 PM", title: "Dinner + Mingling", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "hp3", time: "8:00 PM", title: "Holiday Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "hp4", time: "8:30 PM", title: "Dance Floor Opens", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "hp1", time: "", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "hp2", time: "", title: "Cocktail Hour", category: "Cocktail Hour", notes: "", needsDjMcAttention: false },
+      { id: "hp3", time: "", title: "Welcome Remarks", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "hp4", time: "", title: "Dinner", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "hp5", time: "", title: "Awards / Raffle", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "hp6", time: "", title: "Dancing / Entertainment", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "hp7", time: "", title: "Closing", category: "Reception", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Keep announcements brief and upbeat.", "Use themed transitions for seasonal moments."],
@@ -603,10 +607,10 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "Graduation Celebration",
     kind: "built_in",
     timelineItems: [
-      { id: "gc1", time: "6:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "gc2", time: "6:30 PM", title: "Graduate Entrance", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "gc3", time: "7:15 PM", title: "Family Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "gc4", time: "8:00 PM", title: "Dance Floor", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "gc1", time: "", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "gc2", time: "", title: "Graduate Entrance", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "gc3", time: "", title: "Family Toasts", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "gc4", time: "", title: "Dance Floor", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Keep clean edits queued early.", "Prepare shout-out blocks for family recognition."],
@@ -616,10 +620,10 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "Birthday Party",
     kind: "built_in",
     timelineItems: [
-      { id: "bd1", time: "6:00 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "bd2", time: "6:30 PM", title: "Birthday Intro", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "bd3", time: "7:15 PM", title: "Cake Moment", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "bd4", time: "7:45 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bd1", time: "", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "bd2", time: "", title: "Birthday Intro", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bd3", time: "", title: "Cake Moment", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bd4", time: "", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Front-load celebratory singalong tracks.", "Mark special dedications in MC notes."],
@@ -629,9 +633,9 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "Private Party",
     kind: "built_in",
     timelineItems: [
-      { id: "pp1", time: "5:30 PM", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "pp2", time: "6:30 PM", title: "Dinner / Social", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "pp3", time: "7:45 PM", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "pp1", time: "", title: "Guest Arrival", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "pp2", time: "", title: "Dinner / Social", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "pp3", time: "", title: "Open Dancing", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Capture any surprise cues before doors open.", "Build a smooth energy arc between dinner and dancing."],
@@ -641,10 +645,12 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "Bar/Club Event",
     kind: "built_in",
     timelineItems: [
-      { id: "bc1", time: "9:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "bc2", time: "10:30 PM", title: "Peak Set 1", category: "Dancing", notes: "", needsDjMcAttention: true },
-      { id: "bc3", time: "12:00 AM", title: "Peak Set 2", category: "Dancing", notes: "", needsDjMcAttention: true },
-      { id: "bc4", time: "1:45 AM", title: "Last Call Push", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bc1", time: "", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "bc2", time: "", title: "Opening Set", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bc3", time: "", title: "Peak Hour", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "bc4", time: "", title: "Special Announcement", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bc5", time: "", title: "Last Call", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "bc6", time: "", title: "Closing Track", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Stage transitions between sets to avoid dead air.", "Pre-plan clean fallback tracks for request-heavy windows."],
@@ -654,22 +660,30 @@ export const initialTemplates: TimelineTemplate[] = [
     name: "School Dance",
     kind: "built_in",
     timelineItems: [
-      { id: "sd1", time: "7:00 PM", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
-      { id: "sd2", time: "7:30 PM", title: "Announcements", category: "Reception", notes: "", needsDjMcAttention: true },
-      { id: "sd3", time: "8:00 PM", title: "Dance Set 1", category: "Dancing", notes: "", needsDjMcAttention: true },
-      { id: "sd4", time: "9:15 PM", title: "Dance Set 2", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "sd1", time: "", title: "Doors Open", category: "Reception", notes: "", needsDjMcAttention: false },
+      { id: "sd2", time: "", title: "Warm-Up Set", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "sd3", time: "", title: "Announcements", category: "Reception", notes: "", needsDjMcAttention: true },
+      { id: "sd4", time: "", title: "Dance Block", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "sd5", time: "", title: "Slow Set", category: "Dancing", notes: "", needsDjMcAttention: true },
+      { id: "sd6", time: "", title: "Last Song", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
     planningSuggestions: ["Keep clean edits in a dedicated crate.", "Plan admin announcement checkpoints."],
   },
 ];
 
+export const initialTemplates: TimelineTemplate[] = rawInitialTemplates.map((tpl) => ({
+  ...tpl,
+  timelineItems: migrateFormalitiesIntoTimelineItems(tpl.timelineItems, tpl.formalities ?? []),
+  formalities: [],
+}));
+
 export const defaultAppSettings: AppSettings = {
   companyName: "Cutmaster Music",
   appName: "Cutmaster Planning",
   logoUrl: "/cmm-logo-white.png",
-  brandColor: "#8f6b2f",
-  accentColor: "#c9a35c",
+  brandColor: "#000000",
+  accentColor: "#00D4FF",
   defaultEventTimezone: "America/Denver",
   defaultEventType: "Wedding",
   prepSheetFooterText: "Prepared by Cutmaster Music. Confirm final cues with your planner and DJ.",

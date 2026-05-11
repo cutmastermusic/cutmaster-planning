@@ -1,13 +1,17 @@
 import type {
   CeremonySongPlan,
+  CeremonyTimelineItem,
   ChecklistStatus,
   DisplayTimelineItem,
   EventRecord,
-  FormalityItem,
+  Formality,
   GuestRequestEntry,
   PlanningInsight,
   SongEntry,
+  TimelineItem,
+  TimelinePresetItem,
 } from "@/types/planning";
+import { normalizeVendorsArray } from "@/utils/vendors";
 
 export function parseTimeToMinutesValue(rawTime: string): number {
   const value = rawTime.trim().toUpperCase();
@@ -19,9 +23,218 @@ export function parseTimeToMinutesValue(rawTime: string): number {
   return hours * 60 + minutes;
 }
 
+function twelveHourClockToMinutes(hour12: number, minutes: number, mer: "AM" | "PM"): number | null {
+  if (hour12 < 1 || hour12 > 12 || minutes > 59) return null;
+  let h24 = hour12 % 12;
+  if (mer === "PM") h24 += 12;
+  return h24 * 60 + minutes;
+}
+
+/**
+ * Parses common event time labels into minutes from midnight for sorting.
+ * Returns null when the string is not a parseable clock time (e.g. "Grand entrance", "3").
+ */
+export function parseFlexibleTimeToMinutes(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed || !/\d/.test(trimmed)) return null;
+
+  const parseOne = (s: string): number | null => {
+    const t = s.trim();
+    if (!t) return null;
+
+    // 7 PM / 7PM / 7 pm
+    let m = t.match(/^(\d{1,2})\s*(AM|PM)$/i);
+    if (m) {
+      const h = Number(m[1]);
+      const mer = m[2].toUpperCase() as "AM" | "PM";
+      return twelveHourClockToMinutes(h, 0, mer);
+    }
+
+    // H:MM with optional AM/PM; bare H:MM uses 24h for 13–23, PM heuristic for 1–11, noon for 12
+    m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (m) {
+      const h = Number(m[1]);
+      const min = Number(m[2]);
+      const mer = m[3]?.toUpperCase() as "AM" | "PM" | undefined;
+      if (min > 59 || h > 24) return null;
+      if (mer === "AM" || mer === "PM") {
+        if (h < 1 || h > 12) return null;
+        return twelveHourClockToMinutes(h, min, mer);
+      }
+      if (h >= 13 && h <= 23) return h * 60 + min;
+      if (h === 12) return 12 * 60 + min;
+      if (h >= 1 && h <= 11) return (h + 12) * 60 + min;
+      if (h === 0 && min <= 59) return min;
+      return null;
+    }
+
+    return null;
+  };
+
+  let result = parseOne(trimmed);
+  if (result !== null) return result;
+
+  const embedded = trimmed.match(/\d{1,2}:\d{2}(?:\s*(?:AM|PM))?|\d{1,2}\s*(?:AM|PM)/i);
+  if (embedded?.[0]) {
+    result = parseOne(embedded[0]);
+    if (result !== null) return result;
+  }
+
+  return null;
+}
+
+/** Insert a reception/main timeline row by parsed clock order; stable ties; unparsed rows stay after timed blocks. */
+export function insertReceptionTimelineItemChronologically(
+  items: TimelineItem[],
+  newItem: TimelineItem,
+): TimelineItem[] {
+  const newM = parseFlexibleTimeToMinutes(newItem.time);
+  if (newM === null) return [...items, newItem];
+
+  let insertAt = items.length;
+  for (let i = 0; i < items.length; i++) {
+    const m = parseFlexibleTimeToMinutes(items[i].time);
+    if (m !== null && m > newM) {
+      insertAt = i;
+      break;
+    }
+    if (m !== null && m <= newM) {
+      insertAt = i + 1;
+    }
+  }
+  const next = [...items];
+  next.splice(insertAt, 0, newItem);
+  return next;
+}
+
+/** Reception timeline row from a Global Settings preset (structure-first: blank fields stay blank). */
+export function mainTimelineItemFromPreset(item: TimelinePresetItem, id: string): TimelineItem {
+  const song = item.songPlaceholder?.trim();
+  const notes = item.notesPlaceholder?.trim() ?? "";
+  const row: TimelineItem = {
+    id,
+    title: item.momentName,
+    time: item.timeOrOrder?.trim() ?? "",
+    category: item.timelineCategory ?? "Reception",
+    notes,
+    needsDjMcAttention: false,
+  };
+  if (song) row.songTitle = song;
+  return row;
+}
+
+/** Ceremony timeline row from a Global Settings preset. */
+export function ceremonyTimelineItemFromPreset(item: TimelinePresetItem, id: string): CeremonyTimelineItem {
+  const song = item.songPlaceholder?.trim() ?? "";
+  return {
+    id,
+    timeOrOrder: item.timeOrOrder?.trim() ?? "",
+    moment: item.momentName,
+    songTitle: song,
+    artist: "",
+    notes: item.notesPlaceholder?.trim() ?? "",
+    needsDjMcAttention: false,
+  };
+}
+
+/** Converts legacy formality records into reception timeline rows (single timeline workflow). */
+export function formalityRecordToTimelineItem(f: Formality): TimelineItem {
+  return {
+    id: f.id,
+    time: f.time,
+    title: f.momentName,
+    category: "Formalities",
+    notes: f.notes,
+    needsDjMcAttention: f.needsDjMcAttention,
+    songTitle: f.songTitle,
+    artist: f.artist,
+    fadeOutEarly: f.fadeOutEarly,
+    fadeOutTimestamp: f.fadeOutTimestamp,
+  };
+}
+
+/** Stable chronological sort for reception timeline rows (unparsed times keep seed order). */
+export function sortTimelineItemsChronologically(items: TimelineItem[]): TimelineItem[] {
+  const indexed = items.map((item, index) => ({ item, index }));
+  indexed.sort((a, b) => {
+    const ma = parseFlexibleTimeToMinutes(a.item.time);
+    const mb = parseFlexibleTimeToMinutes(b.item.time);
+    const aParsed = ma !== null;
+    const bParsed = mb !== null;
+    if (aParsed && bParsed && ma !== mb) return ma - mb;
+    if (aParsed && !bParsed) return -1;
+    if (!aParsed && bParsed) return 1;
+    return a.index - b.index;
+  });
+  return indexed.map((x) => x.item);
+}
+
+/**
+ * Merges legacy `formalities` into `timelineItems` once: drops timeline rows whose titles match
+ * migrated formality moment names, appends converted rows, sorts by time.
+ */
+export function migrateFormalitiesIntoTimelineItems(
+  timelineItems: TimelineItem[],
+  formalities: Formality[],
+): TimelineItem[] {
+  if (!formalities?.length) return timelineItems;
+
+  const momentKeys = new Set(
+    formalities.map((f) => f.momentName.trim().toLowerCase()).filter(Boolean),
+  );
+
+  const scrubbed = timelineItems.filter(
+    (item) => !momentKeys.has(item.title.trim().toLowerCase()),
+  );
+
+  const converted = formalities.map(formalityRecordToTimelineItem);
+
+  return sortTimelineItemsChronologically([...scrubbed, ...converted]);
+}
+
+/** Normalizes persisted events after consolidating formalities into the reception timeline. */
+export function normalizeEventRecordAfterFormalitiesMerge(evt: EventRecord): EventRecord {
+  const nextTimeline = migrateFormalitiesIntoTimelineItems(
+    evt.timelineItems ?? [],
+    evt.formalities ?? [],
+  );
+  return {
+    ...evt,
+    timelineItems: nextTimeline,
+    formalities: [],
+    vendors: normalizeVendorsArray(evt.vendors),
+    settings: {
+      ...evt.settings,
+      sectionFormalitiesEnabled: false,
+    },
+  };
+}
+
+export function insertCeremonyTimelineItemChronologically(
+  items: CeremonyTimelineItem[],
+  newItem: CeremonyTimelineItem,
+): CeremonyTimelineItem[] {
+  const newM = parseFlexibleTimeToMinutes(newItem.timeOrOrder);
+  if (newM === null) return [...items, newItem];
+
+  let insertAt = items.length;
+  for (let i = 0; i < items.length; i++) {
+    const m = parseFlexibleTimeToMinutes(items[i].timeOrOrder);
+    if (m !== null && m > newM) {
+      insertAt = i;
+      break;
+    }
+    if (m !== null && m <= newM) {
+      insertAt = i + 1;
+    }
+  }
+  const next = [...items];
+  next.splice(insertAt, 0, newItem);
+  return next;
+}
+
 export function buildPlanningInsights(
   mergedTimelineItems: DisplayTimelineItem[],
-  formalities: FormalityItem[],
   mustPlaySongs: SongEntry[],
   doNotPlaySongs: SongEntry[],
   weddingPartyProcessional: CeremonySongPlan,
@@ -102,22 +315,21 @@ export function buildPlanningInsights(
     });
   }
 
-  const formalitiesTimed = [...formalities]
-    .filter((f) => Number.isFinite(parseTimeToMinutesValue(f.time)))
-    .sort(
-      (a, b) =>
-        parseTimeToMinutesValue(a.time) - parseTimeToMinutesValue(b.time),
-    );
-  for (let i = 1; i < formalitiesTimed.length; i++) {
-    const gap =
-      parseTimeToMinutesValue(formalitiesTimed[i].time) -
-      parseTimeToMinutesValue(formalitiesTimed[i - 1].time);
+  const formalMomentChrono = chronological.filter(
+    (row) =>
+      row.item.category === "Formalities" ||
+      /first dance|father|mother|bouquet|garter|grand entrance|anniversary|toast|last dance|kickoff/i.test(
+        row.item.title,
+      ),
+  );
+  for (let i = 1; i < formalMomentChrono.length; i++) {
+    const gap = formalMomentChrono[i].minutes - formalMomentChrono[i - 1].minutes;
     if (gap >= 0 && gap < 12) {
       insights.push({
-        id: `tl-formality-gap-${formalitiesTimed[i].id}`,
+        id: `tl-formal-gap-${formalMomentChrono[i].item.id}`,
         section: "timeline",
         variant: "warning",
-        message: `${formalitiesTimed[i - 1].momentName} and ${formalitiesTimed[i].momentName} are very close together — allow breathing room for cues and applause.`,
+        message: `${formalMomentChrono[i - 1].item.title} and ${formalMomentChrono[i].item.title} are very close together — allow breathing room for cues and applause.`,
       });
     }
   }
@@ -142,10 +354,8 @@ export function buildPlanningInsights(
     });
   }
 
-  const lastDance = formalities.find((f) =>
-    /last\s*dance/i.test(f.momentName),
-  );
-  if (lastDance && !lastDance.songTitle.trim()) {
+  const lastDance = mergedTimelineItems.find((item) => /last\s*dance/i.test(item.title));
+  if (lastDance && !(lastDance.songTitle?.trim())) {
     insights.push({
       id: "music-last-dance",
       section: "music",
@@ -155,10 +365,10 @@ export function buildPlanningInsights(
     });
   }
 
-  const kickoff = formalities.find((f) =>
-    /open\s*dancing\s*kickoff/i.test(f.momentName),
+  const kickoff = mergedTimelineItems.find((item) =>
+    /open\s*dancing\s*kickoff/i.test(item.title),
   );
-  if (kickoff && !kickoff.songTitle.trim()) {
+  if (kickoff && !(kickoff.songTitle?.trim())) {
     insights.push({
       id: "music-kickoff",
       section: "music",
@@ -236,8 +446,10 @@ export function eventCoverFallbackClasses(layoutProfile: string): string {
  */
 export function approximatePlanningProgressPercent(evt: EventRecord): number {
   const s = evt.settings;
-  const formalities = evt.formalities ?? [];
-  const timelineItems = evt.timelineItems ?? [];
+  const timelineItems = migrateFormalitiesIntoTimelineItems(
+    evt.timelineItems ?? [],
+    evt.formalities ?? [],
+  );
 
   const hasEventDetailsComplete = Boolean(
     (s?.eventName ?? "").trim() &&
@@ -252,15 +464,16 @@ export function approximatePlanningProgressPercent(evt: EventRecord): number {
   const hasKeyCeremonySongs = Boolean(wp && bp && rs);
 
   const hasKeyFormalDanceSongs = Boolean(
-    formalities.find((f) => /first dance/i.test(f.momentName) && f.songTitle.trim()) &&
-      formalities.find((f) => /father\/daughter/i.test(f.momentName) && f.songTitle.trim()) &&
-      formalities.find((f) => /mother\/son/i.test(f.momentName) && f.songTitle.trim()),
+    timelineItems.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
+      timelineItems.some(
+        (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+      ) &&
+      timelineItems.some(
+        (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+      ),
   );
 
-  const combinedTimelineTitles = [
-    ...timelineItems.map((item) => item.title.toLowerCase()),
-    ...formalities.filter((item) => item.includeInTimeline).map((item) => item.momentName.toLowerCase()),
-  ];
+  const combinedTimelineTitles = timelineItems.map((item) => item.title.toLowerCase());
   const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every((needle) =>
     combinedTimelineTitles.some((title) => title.includes(needle)),
   );
