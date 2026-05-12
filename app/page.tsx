@@ -1246,6 +1246,12 @@ export default function Home() {
   const touchDragTimelineSourceRef = useRef<string | null>(null);
   /** Reception/main timeline: collapsed summary vs expanded inline edit */
   const [receptionTimelineExpandedId, setReceptionTimelineExpandedId] = useState<string | null>(null);
+  /** Confirm before removing reception or ceremony timeline rows from the planning UI */
+  const [pendingTimelineDelete, setPendingTimelineDelete] = useState<
+    | { kind: "reception"; id: string; label: string }
+    | { kind: "ceremony"; id: string; label: string }
+    | null
+  >(null);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Event Document: distraction-free live execution view (same timeline order as packet). */
@@ -10188,6 +10194,23 @@ export default function Home() {
                             {item.notes}
                           </p>
                         ) : null}
+                        {canEditTimeline ? (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingTimelineDelete({
+                                  kind: "reception",
+                                  id: item.id,
+                                  label: item.title.trim() || "this moment",
+                                })
+                              }
+                              className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
                           <PrimaryButton
                             type="button"
@@ -10241,7 +10264,13 @@ export default function Home() {
                               </PrimaryButton>
                               <PrimaryButton
                                 type="button"
-                                onClick={() => deleteTimelineItem(item.id)}
+                                onClick={() =>
+                                  setPendingTimelineDelete({
+                                    kind: "reception",
+                                    id: item.id,
+                                    label: item.title.trim() || "this moment",
+                                  })
+                                }
                                 disabled={!canEditTimeline}
                                 className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                               >
@@ -10328,6 +10357,23 @@ export default function Home() {
                         >
                           Expand to edit
                         </PrimaryButton>
+                        {canEditTimeline ? (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingTimelineDelete({
+                                  kind: "reception",
+                                  id: item.id,
+                                  label: item.title.trim() || "this moment",
+                                })
+                              }
+                              className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
                         <details className="min-h-12">
                           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
                             More actions
@@ -10372,7 +10418,13 @@ export default function Home() {
                             </PrimaryButton>
                             <PrimaryButton
                               type="button"
-                              onClick={() => deleteTimelineItem(item.id)}
+                              onClick={() =>
+                                setPendingTimelineDelete({
+                                  kind: "reception",
+                                  id: item.id,
+                                  label: item.title.trim() || "this moment",
+                                })
+                              }
                               disabled={!canEditTimeline}
                               className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                             >
@@ -10388,6 +10440,21 @@ export default function Home() {
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
                         <p className="text-[13px] font-semibold tracking-tight text-stone-900">Edit moment</p>
                         <div className="flex flex-wrap items-center justify-end gap-2">
+                          {canEditTimeline ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingTimelineDelete({
+                                  kind: "reception",
+                                  id: item.id,
+                                  label: item.title.trim() || "this moment",
+                                })
+                              }
+                              className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                            >
+                              Delete
+                            </button>
+                          ) : null}
                           <details className="min-h-10 sm:max-w-[8.5rem]">
                             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[11px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
                               More
@@ -10424,7 +10491,13 @@ export default function Home() {
                               </PrimaryButton>
                               <PrimaryButton
                                 type="button"
-                                onClick={() => deleteTimelineItem(item.id)}
+                                onClick={() =>
+                                  setPendingTimelineDelete({
+                                    kind: "reception",
+                                    id: item.id,
+                                    label: item.title.trim() || "this moment",
+                                  })
+                                }
                                 disabled={!canEditTimeline}
                                 className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                               >
@@ -11376,6 +11449,21 @@ export default function Home() {
                               >
                                 + After
                               </PrimaryButton>
+                              {canEditTimeline ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPendingTimelineDelete({
+                                      kind: "ceremony",
+                                      id: item.id,
+                                      label: item.moment.trim() || "this moment",
+                                    })
+                                  }
+                                  className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                                >
+                                  Delete
+                                </button>
+                              ) : null}
                             </div>
                           </div>
 
@@ -11449,6 +11537,23 @@ export default function Home() {
                             >
                               Expand to edit
                             </PrimaryButton>
+                            {canEditTimeline ? (
+                              <div className="flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPendingTimelineDelete({
+                                      kind: "ceremony",
+                                      id: item.id,
+                                      label: item.moment.trim() || "this moment",
+                                    })
+                                  }
+                                  className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
                             <details className="min-h-12">
                               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
                                 More actions
@@ -11490,7 +11595,13 @@ export default function Home() {
                                 </PrimaryButton>
                                 <PrimaryButton
                                   type="button"
-                                  onClick={() => deleteCeremonyTimelineItem(item.id)}
+                                  onClick={() =>
+                                    setPendingTimelineDelete({
+                                      kind: "ceremony",
+                                      id: item.id,
+                                      label: item.moment.trim() || "this moment",
+                                    })
+                                  }
                                   disabled={!canEditTimeline}
                                   className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                                 >
@@ -11503,7 +11614,7 @@ export default function Home() {
                       )}
                       {rowExpanded && (
                         <>
-                          <div className="mb-3 flex justify-end border-b border-stone-200 pb-3">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
                             <button
                               type="button"
                               onClick={() => setCeremonyTimelineExpandedId(null)}
@@ -11511,6 +11622,21 @@ export default function Home() {
                             >
                               Collapse view
                             </button>
+                            {canEditTimeline ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPendingTimelineDelete({
+                                    kind: "ceremony",
+                                    id: item.id,
+                                    label: item.moment.trim() || "this moment",
+                                  })
+                                }
+                                className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                              >
+                                Delete
+                              </button>
+                            ) : null}
                           </div>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <TextInput
@@ -11666,14 +11792,20 @@ export default function Home() {
                           >
                             Move Down
                           </PrimaryButton>
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => deleteCeremonyTimelineItem(item.id)}
-                            disabled={!canEditTimeline}
-                            className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                          >
-                            Delete
-                          </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() =>
+                            setPendingTimelineDelete({
+                              kind: "ceremony",
+                              id: item.id,
+                              label: item.moment.trim() || "this moment",
+                            })
+                          }
+                          disabled={!canEditTimeline}
+                          className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                        >
+                          Delete
+                        </PrimaryButton>
                           <PrimaryButton
                             type="button"
                             onClick={() => duplicateCeremonyTimelineItem(item)}
@@ -14591,6 +14723,53 @@ export default function Home() {
             ) : null}
           </div>
         )}
+
+      {pendingTimelineDelete ? (
+        <div
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          role="presentation"
+          onClick={() => setPendingTimelineDelete(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-delete-title"
+            className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p id="timeline-delete-title" className="text-base font-semibold text-stone-900">
+              Delete this timeline item?
+            </p>
+            <p className="mt-2 line-clamp-3 text-sm leading-snug text-stone-600">
+              {pendingTimelineDelete.label}
+            </p>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <PrimaryButton
+                type="button"
+                onClick={() => setPendingTimelineDelete(null)}
+                className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+              >
+                Cancel
+              </PrimaryButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  if (!pendingTimelineDelete) return;
+                  if (pendingTimelineDelete.kind === "reception") {
+                    deleteTimelineItem(pendingTimelineDelete.id);
+                  } else {
+                    deleteCeremonyTimelineItem(pendingTimelineDelete.id);
+                  }
+                  setPendingTimelineDelete(null);
+                }}
+                className="w-full rounded-lg border border-rose-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:w-auto"
+              >
+                Delete
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
         <div
