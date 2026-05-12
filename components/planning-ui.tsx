@@ -62,6 +62,10 @@ type TextInputProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Replace default {@link lightUiInputClass} (e.g. {@link darkUiInputClass} on zinc panels). */
+  inputClassName?: string;
+  /** Replace default {@link lightUiFormLabelClass}. */
+  labelClassName?: string;
 };
 
 type TextAreaProps = {
@@ -72,6 +76,8 @@ type TextAreaProps = {
   placeholder?: string;
   rows?: number;
   disabled?: boolean;
+  textareaClassName?: string;
+  labelClassName?: string;
 };
 
 function InsightAlertCard({ insight }: { insight: PlanningInsight }) {
@@ -169,6 +175,49 @@ export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:
 
 /** Native `<select>` on light workspace cards; use below {@link lightUiFormLabelClass}. */
 export const lightUiSelectClass = `mt-1.5 ${lightUiTextControlClass}`;
+
+/** Caption under a section title on white / stone cards (vendors, admin). */
+export const lightUiSectionCaptionClass = "mt-1 text-[11px] leading-relaxed text-stone-600";
+
+/** List row on white PremiumCard (arrival rows, etc.). */
+export const lightUiListRowClass =
+  "rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs text-stone-800";
+
+/** Empty / hint line inside a white card. */
+export const lightUiEmptyHintInCardClass =
+  "rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-600";
+
+/** Solid accent CTA on dark panels (timeline preset editor, music import on zinc-950). */
+export const darkUiAccentPrimaryButtonClass =
+  "rounded-xl bg-[#00D4FF] px-3 py-2 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50";
+
+/** Secondary outline on dark panels. */
+export const darkUiSecondaryOutlineButtonClass =
+  "rounded-xl border border-zinc-500/80 bg-zinc-800/90 px-3 py-2 text-[11px] font-semibold text-zinc-100 shadow-sm hover:border-zinc-400 hover:bg-zinc-800 disabled:opacity-50";
+
+/** Text field on dark zinc panels (Global Settings timeline rows, etc.). */
+export const darkUiInputClass =
+  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-500 transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+
+/** Micro label above fields on dark panels. */
+export const darkUiFieldLabelClass =
+  "text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400";
+
+/** `<select>` on dark zinc panels. */
+export const darkUiSelectClass =
+  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 shadow-inner transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:opacity-60";
+
+/** Compact secondary control on dark panel rows. */
+export const darkUiCompactGhostButtonClass =
+  "rounded-lg border border-zinc-500/70 bg-zinc-800 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-100 shadow-sm hover:bg-zinc-700/90";
+
+/** Inline danger on dark panel. */
+export const darkUiDangerGhostButtonClass =
+  "rounded-lg border border-rose-500/45 bg-rose-950/40 px-2.5 py-1.5 text-[11px] font-semibold text-rose-100 shadow-sm hover:bg-rose-950/55";
+
+/** Empty state inside a dark accordion/panel. */
+export const darkUiEmptyStateInPanelClass =
+  "rounded-xl border border-dashed border-zinc-600 bg-zinc-950/60 px-4 py-6 text-center text-xs leading-relaxed text-zinc-300";
 
 /**
  * “Jump to workspace settings” from a dark dashboard card (e.g. Admin quick actions).
@@ -326,10 +375,12 @@ export function TextInput({
   onChange,
   placeholder,
   disabled = false,
+  inputClassName,
+  labelClassName,
 }: TextInputProps) {
   return (
     <div>
-      <label htmlFor={id} className={lightUiFormLabelClass}>
+      <label htmlFor={id} className={labelClassName ?? lightUiFormLabelClass}>
         {label}
       </label>
       <input
@@ -338,7 +389,7 @@ export function TextInput({
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className={lightUiInputClass}
+        className={inputClassName ?? lightUiInputClass}
       />
     </div>
   );
@@ -352,10 +403,12 @@ export function TextArea({
   placeholder,
   rows = 3,
   disabled = false,
+  textareaClassName,
+  labelClassName,
 }: TextAreaProps) {
   return (
     <div>
-      <label htmlFor={id} className={lightUiFormLabelClass}>
+      <label htmlFor={id} className={labelClassName ?? lightUiFormLabelClass}>
         {label}
       </label>
       <textarea
@@ -365,7 +418,10 @@ export function TextArea({
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className={`mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500`}
+        className={
+          textareaClassName ??
+          `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500`
+        }
       />
     </div>
   );

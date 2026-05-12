@@ -22,12 +22,23 @@ import {
   SongCard,
   TextArea,
   TextInput,
+  darkUiAccentPrimaryButtonClass,
+  darkUiCompactGhostButtonClass,
+  darkUiDangerGhostButtonClass,
+  darkUiEmptyStateInPanelClass,
+  darkUiFieldLabelClass,
+  darkUiInputClass,
+  darkUiSecondaryOutlineButtonClass,
+  darkUiSelectClass,
   darkUiWorkspaceJumpButtonClass,
   lightUiCyanPrimaryButtonClass,
   lightUiDestructiveButtonClass,
+  lightUiEmptyHintInCardClass,
   lightUiFormLabelClass,
   lightUiInputClass,
+  lightUiListRowClass,
   lightUiSecondaryButtonClass,
+  lightUiSectionCaptionClass,
   lightUiSelectClass,
 } from "@/components/planning-ui";
 import type { PersistFeedback } from "@/components/planning-ui";
@@ -158,7 +169,7 @@ function PlanningQuestionAnswerEditor({
           placeholder={q.placeholder ?? "Add notes…"}
         />
         {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
         ) : null}
       </PremiumCard>
     );
@@ -167,27 +178,27 @@ function PlanningQuestionAnswerEditor({
   if (q.answerType === "yes_no") {
     return (
       <PremiumCard>
-        <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+        <label className={lightUiFormLabelClass}>
           {q.label}
           {labelSuffix}
         </label>
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+          className={lightUiSelectClass}
         >
-          <option value="" className="bg-[#141419] text-zinc-100">
+          <option value="" className="bg-white text-stone-900">
             Select…
           </option>
-          <option value="Yes" className="bg-[#141419] text-zinc-100">
+          <option value="Yes" className="bg-white text-stone-900">
             Yes
           </option>
-          <option value="No" className="bg-[#141419] text-zinc-100">
+          <option value="No" className="bg-white text-stone-900">
             No
           </option>
         </select>
         {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
         ) : null}
       </PremiumCard>
     );
@@ -196,26 +207,26 @@ function PlanningQuestionAnswerEditor({
   if (q.answerType === "multiple_choice") {
     return (
       <PremiumCard>
-        <label className="text-[11px] uppercase tracking-wide text-zinc-400">
+        <label className={lightUiFormLabelClass}>
           {q.label}
           {labelSuffix}
         </label>
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+          className={lightUiSelectClass}
         >
-          <option value="" className="bg-[#141419] text-zinc-100">
+          <option value="" className="bg-white text-stone-900">
             Select…
           </option>
           {(q.options ?? []).map((option) => (
-            <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-[#141419] text-zinc-100">
+            <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-white text-stone-900">
               {option}
             </option>
           ))}
         </select>
         {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
         ) : null}
       </PremiumCard>
     );
@@ -231,7 +242,7 @@ function PlanningQuestionAnswerEditor({
         placeholder={q.placeholder ?? "Add answer…"}
       />
       {(q.helpText ?? "").trim() ? (
-        <p className="mt-2 text-xs text-zinc-500">{q.helpText}</p>
+        <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
       ) : null}
     </PremiumCard>
   );
@@ -7158,7 +7169,7 @@ export default function Home() {
                                   disabled={!canManageEvents}
                                 />
                                 <div>
-                                  <label className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">Answer Type</label>
+                                  <label className={lightUiFormLabelClass}>Answer Type</label>
                                   <select
                                     value={question.answerType}
                                     onChange={(event) =>
@@ -7171,10 +7182,10 @@ export default function Home() {
                                       )
                                     }
                                     disabled={!canManageEvents}
-                                    className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
+                                    className={lightUiSelectClass}
                                   >
                                     {QUESTION_ANSWER_TYPES.map((type) => (
-                                      <option key={`pq-type-${type.value}`} value={type.value} className="bg-[#141419]">
+                                      <option key={`pq-type-${type.value}`} value={type.value} className="bg-white text-stone-900">
                                         {type.label}
                                       </option>
                                     ))}
@@ -7256,7 +7267,7 @@ export default function Home() {
                                     })
                                   }
                                   disabled={!canManageEvents || index === 0}
-                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                  className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
                                 >
                                   Move Up
                                 </PrimaryButton>
@@ -7270,7 +7281,7 @@ export default function Home() {
                                     })
                                   }
                                   disabled={!canManageEvents || index >= questions.length - 1}
-                                  className="rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                  className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
                                 >
                                   Move Down
                                 </PrimaryButton>
@@ -7281,7 +7292,7 @@ export default function Home() {
                                     )
                                   }
                                   disabled={!canManageEvents}
-                                  className="rounded-lg bg-rose-500/20 px-2 py-1.5 text-[11px] text-rose-100 disabled:opacity-50"
+                                  className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
                                 >
                                   Delete
                                 </PrimaryButton>
@@ -7289,7 +7300,7 @@ export default function Home() {
                             </div>
                           ))}
                           {questions.length === 0 && (
-                            <p className="text-xs text-zinc-500">No questions configured. Add your first question for this Event Type.</p>
+                            <p className="text-xs text-stone-600">No questions configured. Add your first question for this Event Type.</p>
                           )}
                         </div>
                       </div>
@@ -7303,7 +7314,7 @@ export default function Home() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <SectionTitle className="text-stone-950">Timeline Presets</SectionTitle>
-                      <p className="max-w-xl text-xs leading-relaxed text-zinc-400">
+                      <p className="max-w-xl text-xs leading-relaxed text-stone-600">
                         One modular card per Event Type. Collapsed cards show a compact flow preview; expand to add,
                         reorder, or refine moments. Defaults apply to new events and “Apply presets” actions.
                       </p>
@@ -7319,14 +7330,14 @@ export default function Home() {
                             }, {}),
                           )
                         }
-                        className="rounded-xl border border-white/12 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15"
+                        className={lightUiSecondaryButtonClass}
                       >
                         Expand all
                       </PrimaryButton>
                       <PrimaryButton
                         type="button"
                         onClick={() => setTimelinePresetExpandedByProfile({})}
-                        className="rounded-xl border border-white/12 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15"
+                        className={lightUiSecondaryButtonClass}
                       >
                         Collapse all
                       </PrimaryButton>
@@ -7368,15 +7379,15 @@ export default function Home() {
                             <div className="min-w-0 flex-1 space-y-2">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="text-sm font-semibold tracking-tight text-zinc-100">{profile}</span>
-                                <span className="rounded-full bg-[#00D4FF]/18 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-100">
+                                <span className="rounded-full border border-cyan-500/35 bg-[#00D4FF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-950">
                                   {presets.length} moment{presets.length === 1 ? "" : "s"}
                                 </span>
-                                <span className="text-[11px] text-zinc-500">
+                                <span className="text-[11px] text-zinc-400">
                                   {ceremonyCount} ceremony · {mainCount} main · defaults {defaultCount}
                                 </span>
                               </div>
                               {!expanded && (
-                                <p className="line-clamp-2 text-[13px] leading-snug text-zinc-400">{previewLine}</p>
+                                <p className="line-clamp-2 text-[13px] leading-snug text-zinc-300">{previewLine}</p>
                               )}
                             </div>
                           </button>
@@ -7388,7 +7399,7 @@ export default function Home() {
                                   type="button"
                                   onClick={() => addTimelinePresetToSet(profile)}
                                   disabled={!canManageEvents}
-                                  className="rounded-xl bg-[#00D4FF]/22 px-3 py-2 text-[11px] font-semibold text-zinc-100 hover:bg-[#00D4FF]/32 disabled:opacity-50"
+                                  className={darkUiAccentPrimaryButtonClass}
                                 >
                                   + Add moment
                                 </PrimaryButton>
@@ -7406,7 +7417,7 @@ export default function Home() {
                                     resetTimelinePresetSet(profile);
                                   }}
                                   disabled={!canManageEvents}
-                                  className="rounded-xl border border-white/14 bg-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-white/15 disabled:opacity-50"
+                                  className={darkUiSecondaryOutlineButtonClass}
                                 >
                                   Reset to default
                                 </PrimaryButton>
@@ -7458,9 +7469,7 @@ export default function Home() {
                                       <div className="min-w-0 flex-1 space-y-2.5">
                                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:gap-x-3 lg:gap-y-2">
                                           <div className="lg:col-span-2">
-                                            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                                              Type
-                                            </label>
+                                            <label className={darkUiFieldLabelClass}>Type</label>
                                             <select
                                               value={preset.timelineType}
                                               onChange={(event) =>
@@ -7476,12 +7485,12 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-zinc-100"
+                                              className={darkUiSelectClass}
                                             >
-                                              <option value="ceremony" className="bg-[#141419]">
+                                              <option value="ceremony" className="bg-zinc-950 text-zinc-100">
                                                 Ceremony
                                               </option>
-                                              <option value="main" className="bg-[#141419]">
+                                              <option value="main" className="bg-zinc-950 text-zinc-100">
                                                 Main Event
                                               </option>
                                             </select>
@@ -7499,6 +7508,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
+                                              inputClassName={darkUiInputClass}
+                                              labelClassName={darkUiFieldLabelClass}
                                             />
                                           </div>
                                           <div className="lg:col-span-4">
@@ -7514,6 +7525,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
+                                              inputClassName={darkUiInputClass}
+                                              labelClassName={darkUiFieldLabelClass}
                                             />
                                           </div>
                                           <div className="lg:col-span-4">
@@ -7529,6 +7542,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
+                                              inputClassName={darkUiInputClass}
+                                              labelClassName={darkUiFieldLabelClass}
                                             />
                                           </div>
                                           <div className="sm:col-span-2 lg:col-span-12">
@@ -7544,6 +7559,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
+                                              inputClassName={darkUiInputClass}
+                                              labelClassName={darkUiFieldLabelClass}
                                             />
                                           </div>
                                         </div>
@@ -7560,11 +7577,11 @@ export default function Home() {
                                               )
                                             }
                                             disabled={!canManageEvents}
-                                            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
+                                            className={
                                               preset.defaultIncluded
-                                                ? "bg-[#00D4FF]/22 text-zinc-100"
-                                                : "bg-white/10 text-zinc-300"
-                                            } disabled:opacity-50`}
+                                                ? "rounded-lg bg-[#00D4FF] px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                                                : darkUiCompactGhostButtonClass
+                                            }
                                           >
                                             {preset.defaultIncluded ? "Included by default" : "Excluded by default"}
                                           </PrimaryButton>
@@ -7579,7 +7596,7 @@ export default function Home() {
                                               })
                                             }
                                             disabled={!canManageEvents || index === 0}
-                                            className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                            className={`${darkUiCompactGhostButtonClass} disabled:opacity-40`}
                                           >
                                             Up
                                           </PrimaryButton>
@@ -7594,7 +7611,7 @@ export default function Home() {
                                               })
                                             }
                                             disabled={!canManageEvents || index >= presets.length - 1}
-                                            className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] text-zinc-300 disabled:opacity-40"
+                                            className={`${darkUiCompactGhostButtonClass} disabled:opacity-40`}
                                           >
                                             Down
                                           </PrimaryButton>
@@ -7602,7 +7619,7 @@ export default function Home() {
                                             type="button"
                                             onClick={() => duplicateTimelinePresetMoment(profile, index)}
                                             disabled={!canManageEvents}
-                                            className="rounded-lg border border-white/12 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+                                            className={darkUiCompactGhostButtonClass}
                                           >
                                             Duplicate
                                           </PrimaryButton>
@@ -7614,7 +7631,7 @@ export default function Home() {
                                               )
                                             }
                                             disabled={!canManageEvents}
-                                            className="rounded-lg bg-rose-500/18 px-2.5 py-1.5 text-[11px] text-rose-100 hover:bg-rose-500/28 disabled:opacity-50"
+                                            className={darkUiDangerGhostButtonClass}
                                           >
                                             Delete
                                           </PrimaryButton>
@@ -7624,9 +7641,9 @@ export default function Home() {
                                   </div>
                                 ))}
                                 {presets.length === 0 && (
-                                  <p className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-6 text-center text-xs text-zinc-500">
+                                  <p className={darkUiEmptyStateInPanelClass}>
                                     No moments yet. Use{" "}
-                                    <span className="text-zinc-400">Add moment</span> to create your first preset row.
+                                    <span className="font-semibold text-zinc-200">Add moment</span> to create your first preset row.
                                   </p>
                                 )}
                               </div>
@@ -9666,7 +9683,7 @@ export default function Home() {
             <EventHomeNav trail={["Music Import"]} onBack={() => setActiveScreen("Dashboard")} />
             <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
               <SectionTitle className="!text-zinc-100">Spotify Playlist Import (Prototype)</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs leading-relaxed text-zinc-400">
                 Paste a Spotify playlist link to simulate import and build event-ready song guidance.
               </p>
               <div className="mt-4 space-y-3">
@@ -9686,12 +9703,12 @@ export default function Home() {
                   Import Playlist
                 </PrimaryButton>
                 {musicImportStage === "analyzing" && (
-                  <p className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 px-3 py-2 text-xs text-zinc-100">
+                  <p className="rounded-xl border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs leading-relaxed text-zinc-200">
                     Analyzing playlist vibe...
                   </p>
                 )}
                 {musicImportStage === "building" && (
-                  <p className="rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/10 px-3 py-2 text-xs text-zinc-100">
+                  <p className="rounded-xl border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs leading-relaxed text-zinc-200">
                     Building your event soundtrack...
                   </p>
                 )}
@@ -9707,7 +9724,7 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-zinc-100">{importedPlaylistName}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{importedPlaylistSongs.length} songs</p>
+                    <p className="mt-1 text-xs text-zinc-400">{importedPlaylistSongs.length} songs</p>
                   </div>
                 </div>
                 <div className="mt-3 space-y-2">
@@ -9724,14 +9741,14 @@ export default function Home() {
                   <PrimaryButton
                     onClick={handleAddAllImportedToMustPlay}
                     disabled={!canManageMusic}
-                    className="rounded-xl bg-[#00D4FF]/20 px-3 py-2 text-[11px] text-zinc-100 hover:bg-[#00D4FF]/30"
+                    className={`w-full ${darkUiAccentPrimaryButtonClass}`}
                   >
                     Add All to Must Play
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => runAutoCategorization(importedPlaylistSongs)}
                     disabled={!canManageMusic}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-[11px] text-zinc-200 hover:bg-white/15"
+                    className={`w-full ${darkUiSecondaryOutlineButtonClass}`}
                   >
                     Categorize Automatically
                   </PrimaryButton>
@@ -11533,15 +11550,15 @@ export default function Home() {
                 <SectionTitle className="!text-zinc-100">Your event team</SectionTitle>
                 <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+              <p className="mt-2 text-xs leading-relaxed text-zinc-300">
                 One calm snapshot of everyone involved—organized by role, fast to reach from your phone, and aligned with your Event Document.
               </p>
               {vendorStatus && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${
                     vendorStatus.kind === "success"
-                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                      ? "border border-emerald-500/40 bg-emerald-950/35 text-emerald-50"
+                      : "border border-rose-500/40 bg-rose-950/35 text-rose-50"
                   }`}
                 >
                   {vendorStatus.message}
@@ -11554,7 +11571,7 @@ export default function Home() {
                 title="No contacts yet"
                 description="Add planners, venue, photo + video, catering, and entertainment so day-of calls and texts stay in one place—not buried in threads."
                 primaryAction={{ label: "Add vendor", onClick: openAddVendorModal }}
-                cardClassName="border-dashed border-white/15 bg-white/[0.02]"
+                cardClassName="border-dashed border-stone-300 bg-stone-50"
               />
             ) : (
               <>
@@ -11562,7 +11579,7 @@ export default function Home() {
                   <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
                     <div className="min-w-0">
                       <SectionTitle className="!text-zinc-100">Cutmaster event team</SectionTitle>
-                      <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                      <p className="mt-1 text-[11px] leading-snug text-zinc-400">
                         Internal production and coordination on this event—distinct from external partners below.
                       </p>
                     </div>
@@ -11583,7 +11600,7 @@ export default function Home() {
 
                 <PremiumCard>
                   <SectionTitle className="text-stone-950">Arrival & load-in</SectionTitle>
-                  <p className="mt-1 text-[11px] text-zinc-500">
+                  <p className={lightUiSectionCaptionClass}>
                     Quick scan of who is on-site and when—pair with coordination notes for timing-sensitive moments.
                   </p>
                   <div className="mt-3 space-y-2">
@@ -11593,17 +11610,17 @@ export default function Home() {
                       .map((vendor) => (
                         <div
                           key={`arrival-${vendor.id}`}
-                          className="rounded-xl border border-white/8 bg-white/5 px-3 py-2.5 text-xs text-zinc-300"
+                          className={lightUiListRowClass}
                         >
-                          <span className="font-medium text-zinc-100">{vendor.arrivalTime}</span>
-                          <span className="text-zinc-500"> · </span>
-                          <span className="text-zinc-200">{vendor.companyName}</span>
-                          <span className="text-zinc-500"> · </span>
-                          <span className="text-zinc-400">{vendorTypeLabel(vendor.vendorType)}</span>
+                          <span className="font-semibold text-stone-950">{vendor.arrivalTime}</span>
+                          <span className="text-stone-500"> · </span>
+                          <span className="font-medium text-stone-800">{vendor.companyName}</span>
+                          <span className="text-stone-500"> · </span>
+                          <span className="text-stone-600">{vendorTypeLabel(vendor.vendorType)}</span>
                         </div>
                       ))}
                     {vendors.filter((vendor) => vendor.arrivalTime.trim()).length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                      <p className={lightUiEmptyHintInCardClass}>
                         Add arrival times on each vendor to build a shareable load-in picture for the day.
                       </p>
                     ) : null}
@@ -11618,14 +11635,14 @@ export default function Home() {
                       .map((vendor) => (
                         <div
                           key={`coord-${vendor.id}`}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs"
+                          className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs"
                         >
-                          <p className="font-medium text-zinc-100">{vendor.companyName}</p>
-                          <p className="mt-1 leading-relaxed text-zinc-400">{vendor.specialCoordinationNotes}</p>
+                          <p className="font-semibold text-stone-950">{vendor.companyName}</p>
+                          <p className="mt-1 leading-relaxed text-stone-700">{vendor.specialCoordinationNotes}</p>
                         </div>
                       ))}
                     {vendors.filter((vendor) => vendor.specialCoordinationNotes.trim()).length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-zinc-400">
+                      <p className={lightUiEmptyHintInCardClass}>
                         Special instructions from vendors appear here—parking, power, staging, or ceremony cues.
                       </p>
                     ) : null}
@@ -11703,15 +11720,15 @@ export default function Home() {
                   </div>
                   <span className="flex shrink-0 items-center gap-2">
                     <PersistEcho persistFeedback={persistFeedback} variant="light" />
-                    <span className="text-[10px] text-stone-500 transition group-open:rotate-180 sm:text-zinc-500">
+                    <span className="text-[10px] text-stone-500 transition group-open:rotate-180">
                       ▼
                     </span>
                   </span>
                 </summary>
                 <div className="mt-4 space-y-4 border-t border-stone-200 pt-4">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Core sections</p>
-                    <p className="mt-0.5 text-[11px] text-zinc-600">Timelines follow your Event Settings—toggle extra narrative blocks here.</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Core sections</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-600">Timelines follow your Event Settings—toggle extra narrative blocks here.</p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {sectionPlanningQuestionsEnabled ? (
                         <PrimaryButton
