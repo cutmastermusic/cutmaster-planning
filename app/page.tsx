@@ -953,10 +953,8 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   if (role === "Planner") {
     return base;
   }
-  const receptionHubEligible = s.sectionReceptionTimelineEnabled;
   const coupleAllowedScreens: Screen[] = [
     "Dashboard",
-    "Reception Hub",
     "Reception Timeline",
     "Music Hub",
     "Music Import",
@@ -969,21 +967,15 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     "Event Settings",
     "Event Prep",
     "Collaborators",
-    "Notes",
   ];
   let coupleNav = base.filter((item) => coupleAllowedScreens.includes(item));
-  if (receptionHubEligible) {
-    coupleNav = coupleNav.filter((item) => item !== "Timeline");
+  coupleNav = coupleNav.filter((item) => item !== "Notes");
+  const ti = coupleNav.indexOf("Timeline");
+  const di = coupleNav.indexOf("Dashboard");
+  if (ti !== -1 && di !== -1 && ti !== di + 1) {
+    const [t] = coupleNav.splice(ti, 1);
     const dashIdx = coupleNav.indexOf("Dashboard");
-    if (dashIdx !== -1 && !coupleNav.includes("Reception Hub")) {
-      coupleNav = [
-        ...coupleNav.slice(0, dashIdx + 1),
-        "Reception Hub",
-        ...coupleNav.slice(dashIdx + 1),
-      ];
-    }
-  } else {
-    coupleNav = coupleNav.filter((item) => item !== "Reception Hub");
+    coupleNav.splice(dashIdx + 1, 0, t);
   }
   return coupleNav;
 }
@@ -2079,7 +2071,11 @@ export default function Home() {
   };
 
   const screenTitle =
-    activeScreen === "Dashboard" ? `${appSettings.appName} Dashboard` : activeScreen;
+    activeScreen === "Dashboard"
+      ? `${appSettings.appName} Dashboard`
+      : (currentRole ?? rolePreview) === "Couple" && activeScreen === "Reception Timeline"
+        ? "Timeline"
+        : activeScreen;
   const effectiveTimezone = appSettings.defaultEventTimezone;
   const effectiveEventType = eventSettings.eventType || appSettings.defaultEventType;
   const effectivePrepSheetFooter =
@@ -3417,10 +3413,9 @@ export default function Home() {
   ]);
 
   const coupleTimelineEntryScreen = useMemo((): Screen | null => {
-    if (receptionHubEligibleNav) return "Reception Hub";
-    if (sectionReceptionTimelineEnabled) return "Timeline";
-    return null;
-  }, [receptionHubEligibleNav, sectionReceptionTimelineEnabled]);
+    if (!sectionReceptionTimelineEnabled) return null;
+    return "Timeline";
+  }, [sectionReceptionTimelineEnabled]);
 
   const coupleGuidedNextScreen = useMemo((): Screen => {
     const answers = eventSettings.planningQuestionAnswers ?? {};
@@ -3442,7 +3437,7 @@ export default function Home() {
     if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return "Ceremony";
 
     if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
-      return receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
+      return "Timeline";
     }
 
     if (sectionMustPlayEnabled && mustPlaySongs.length === 0) return "Music Hub";
@@ -3473,7 +3468,6 @@ export default function Home() {
     doNotPlaySongs.length,
     playlistVibeOverrides,
     planningQuestionsForEvent,
-    receptionHubEligibleNav,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
@@ -3488,7 +3482,7 @@ export default function Home() {
     const labels: Partial<Record<Screen, string>> = {
       "Event Settings": "Next: your names, date & venue",
       Ceremony: "Next: ceremony music",
-      "Reception Timeline": "Next: reception flow",
+      "Reception Timeline": "Next: timeline",
       Timeline: "Next: timeline",
       "Music Hub": "Next: playlists & requests",
       "Planning Questions": "Next: your questionnaire",
@@ -3538,10 +3532,9 @@ export default function Home() {
       cards.push({
         id: "reception",
         kicker: "Main event",
-        title: receptionHubEligibleNav ? "Reception & main event" : "Reception / main event",
-        description: receptionHubEligibleNav
-          ? "One timeline for flow, formal moments, and cues — what's next on the night."
-          : "Shape the arc of your celebration.",
+        title: "Timeline",
+        description:
+          "Your reception flow—times, moments, music, and cues in one scrollable list.",
         screen: coupleTimelineEntryScreen,
         completion,
         ctaLabel: needsWork ? "Continue" : "Review",
@@ -3674,7 +3667,6 @@ export default function Home() {
     mustPlaySongs.length,
     doNotPlaySongs.length,
     playlistVibeOverrides,
-    receptionHubEligibleNav,
     sectionCeremonyEnabled,
     sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
@@ -3986,7 +3978,7 @@ export default function Home() {
 
   const shellNavActiveScreen = useMemo((): Screen => {
     if (activeScreen === "Reception Timeline") {
-      return "Reception Hub";
+      return "Timeline";
     }
     return activeScreen;
   }, [activeScreen]);
@@ -4030,7 +4022,7 @@ export default function Home() {
 
       let candidate: Screen = activeScreen;
 
-      if (activeScreen === "Reception Hub" && nextRole !== "Couple") {
+      if (activeScreen === "Reception Hub") {
         candidate = receptionHubEligibleNav ? "Reception Timeline" : "Timeline";
       } else if (activeScreen === "Event Settings" && nextRole === "DJ") {
         candidate = "Dashboard";
@@ -4122,6 +4114,17 @@ export default function Home() {
     () => vendors.filter((v) => !isCutmasterEventTeam(v)),
     [vendors],
   );
+
+  useEffect(() => {
+    if (authStage !== "app" || appMode !== "event" || !isCoupleView) return;
+    if (activeScreen === "Reception Hub") {
+      setActiveScreen(sectionReceptionTimelineEnabled ? "Timeline" : "Dashboard");
+      return;
+    }
+    if (activeScreen === "Notes") {
+      setActiveScreen("Dashboard");
+    }
+  }, [authStage, appMode, isCoupleView, activeScreen, sectionReceptionTimelineEnabled, setActiveScreen]);
 
   const EVENTS_STORAGE_KEY = "cutmaster_planning_events_v1";
   const GLOBAL_SETTINGS_STORAGE_KEY = "cutmaster_planning_global_settings_v1";
@@ -6905,7 +6908,7 @@ export default function Home() {
                           (targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
                           (false);
 
-                        if (m === "Reception Hub" && role !== "Couple") {
+                        if (m === "Reception Hub") {
                           m = hubEligible ? "Reception Timeline" : "Timeline";
                         }
                         if (m === "Event Settings" && role === "DJ") {
@@ -8795,17 +8798,6 @@ export default function Home() {
                 ))}
               </div>
 
-              {(sectionPlanningChecklistEnabled || sectionMusicNotesEnabled) && (
-                <div className="flex justify-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveScreen("Notes")}
-                    className="text-xs font-medium text-stone-600 underline-offset-4 transition hover:text-stone-900 hover:underline"
-                  >
-                    Notes & personal reminders
-                  </button>
-                </div>
-              )}
             </section>
           ) : (
           <>
@@ -9105,7 +9097,8 @@ export default function Home() {
         {authStage === "app" &&
           appMode === "event" &&
           activeScreen === "Reception Hub" &&
-          receptionHubEligibleNav && (
+          receptionHubEligibleNav &&
+          !isCoupleView && (
             <section className="mt-6 space-y-3">
               <EventHomeNav
                 trail={["Reception & timeline"]}
@@ -9767,9 +9760,11 @@ export default function Home() {
           >
             <EventHomeNav
               trail={
-                activeScreen === "Reception Timeline"
-                  ? ["Reception timeline"]
-                  : ["Event timeline"]
+                isCoupleView
+                  ? ["Timeline"]
+                  : activeScreen === "Reception Timeline"
+                    ? ["Reception timeline"]
+                    : ["Event timeline"]
               }
               onBack={() => setActiveScreen("Dashboard")}
               primaryAction={{
@@ -9797,7 +9792,11 @@ export default function Home() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
-                      {activeScreen === "Reception Timeline" ? "Reception timeline" : "Event timeline"}
+                      {isCoupleView
+                        ? "Timeline"
+                        : activeScreen === "Reception Timeline"
+                          ? "Reception timeline"
+                          : "Event timeline"}
                     </h2>
                     <PersistEcho
                       persistFeedback={persistFeedback}
@@ -11763,7 +11762,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Notes" && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Notes" && !isCoupleView && (
           <section className="mt-6 space-y-3">
             <EventHomeNav trail={["Planning notes"]} onBack={() => setActiveScreen("Dashboard")} />
             {!canEditNotes && (
@@ -13013,15 +13012,17 @@ export default function Home() {
                   }
                   rows={3}
                 />
-                <TextArea
-                  id="event-settings-client-notes"
-                  label="Client-facing Notes"
-                  value={eventSettings.clientFacingNotes}
-                  onChange={(value) =>
-                    setEventSettings((prev) => ({ ...prev, clientFacingNotes: value }))
-                  }
-                  rows={3}
-                />
+                {!isCoupleView ? (
+                  <TextArea
+                    id="event-settings-client-notes"
+                    label="Client-facing Notes"
+                    value={eventSettings.clientFacingNotes}
+                    onChange={(value) =>
+                      setEventSettings((prev) => ({ ...prev, clientFacingNotes: value }))
+                    }
+                    rows={3}
+                  />
+                ) : null}
                 <TextArea
                   id="event-settings-guestmsg"
                   label="Event-specific Guest Request Message Override"
