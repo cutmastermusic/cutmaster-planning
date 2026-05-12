@@ -94,6 +94,7 @@ import type {
   PlanningQuestionAnswerType,
   PlanningQuestionDef,
   Screen,
+  AuthStage,
   SharedPlaylistLink,
   SongEntry,
   SongListType,
@@ -1190,6 +1191,8 @@ export default function Home() {
   const timelineStreamRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineComposerRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineStreamRef = useRef<HTMLDivElement | null>(null);
+  /** Tracks last main nav context so we scroll to top only on real section/mode/auth changes. */
+  const prevMainNavScrollRef = useRef<{ screen: Screen; mode: AppMode; auth: AuthStage } | null>(null);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const hasParsedInviteParams = useRef(false);
   const {
@@ -2619,6 +2622,24 @@ export default function Home() {
   const canAccessRunOfShow = effectiveRole !== "Couple";
   /** Couple role cannot see ROS UI; keeps scroll lock off if `runOfShowOpen` is stale. */
   const runOfShowOverlayActive = runOfShowOpen && canAccessRunOfShow;
+
+  useLayoutEffect(() => {
+    if (!hasHydrated || typeof window === "undefined") return;
+    if (runOfShowOverlayActive) return;
+
+    const next = { screen: activeScreen, mode: appMode, auth: authStage };
+    const prev = prevMainNavScrollRef.current;
+    prevMainNavScrollRef.current = next;
+    if (!prev) return;
+    if (prev.screen === next.screen && prev.mode === next.mode && prev.auth === next.auth) return;
+
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (timelineStreamRef.current) timelineStreamRef.current.scrollTop = 0;
+    if (ceremonyTimelineStreamRef.current) ceremonyTimelineStreamRef.current.scrollTop = 0;
+  }, [activeScreen, appMode, authStage, hasHydrated]);
+
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
   /** Same resolution as {@link AppHeader} — Cutmaster default is `/cmm-logo-white.png` (light artwork). */
   const resolvedDocLogoSrc = useMemo(() => {
