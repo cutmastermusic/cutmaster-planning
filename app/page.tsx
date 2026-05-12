@@ -10110,6 +10110,9 @@ export default function Home() {
                     : "—");
                 const cueKind =
                   (item.songTitle?.trim() || item.artist?.trim()) ? "Song" : "Cue";
+                const songArtistCompact = [item.songTitle?.trim(), item.artist?.trim()]
+                  .filter(Boolean)
+                  .join(" · ");
                 const isDragging = draggingTimelineId === item.id;
                 const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                 return (
@@ -10149,70 +10152,202 @@ export default function Home() {
                     <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
                   )}
                   {!rowExpanded && (
-                    <div className="flex flex-col gap-5 sm:gap-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
-                            {item.title}
-                          </h3>
-                          <p className="mt-1.5 font-mono text-base font-semibold tabular-nums text-stone-800 sm:text-sm">
-                            {item.time?.trim() || "—"}
-                          </p>
-                        </div>
-                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:max-w-[55%] sm:justify-end lg:max-w-none">
-                          <span
-                            className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                              item.category === "Formalities"
-                                ? "border-stone-500 bg-stone-200 text-stone-900"
-                                : "border-stone-300 bg-white text-stone-700"
-                            }`}
-                          >
-                            {item.category}
-                          </span>
-                          {item.needsDjMcAttention ? (
-                            <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
-                              DJ/MC
+                    <>
+                      <div className="hidden md:flex md:flex-col gap-5 sm:gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
+                              {item.title}
+                            </h3>
+                            <p className="mt-1.5 font-mono text-base font-semibold tabular-nums text-stone-800 sm:text-sm">
+                              {item.time?.trim() || "—"}
+                            </p>
+                          </div>
+                          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:max-w-[55%] sm:justify-end lg:max-w-none">
+                            <span
+                              className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                item.category === "Formalities"
+                                  ? "border-stone-500 bg-stone-200 text-stone-900"
+                                  : "border-stone-300 bg-white text-stone-700"
+                              }`}
+                            >
+                              {item.category}
                             </span>
-                          ) : null}
+                            {item.needsDjMcAttention ? (
+                              <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                DJ/MC
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm [overflow-wrap:anywhere]">
+                          <span className="font-medium text-stone-500">{cueKind} · </span>
+                          {songPreview}
+                        </p>
+                        {item.notes?.trim() ? (
+                          <p className="line-clamp-2 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
+                            {item.notes}
+                          </p>
+                        ) : null}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => setReceptionTimelineExpandedId(item.id)}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4"
+                          >
+                            Edit
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none"
+                          >
+                            + After
+                          </PrimaryButton>
+                          <details className="min-h-12 flex-1 sm:min-h-10 sm:max-w-[8.5rem] sm:flex-none">
+                            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-2 text-[12px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white sm:min-h-10 sm:text-[11px]">
+                              More
+                            </summary>
+                            <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                              <div className="grid grid-cols-2 gap-2">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => moveTimelineItem(item.id, "up")}
+                                  disabled={!canEditTimeline}
+                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                >
+                                  Up
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => moveTimelineItem(item.id, "down")}
+                                  disabled={!canEditTimeline}
+                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                >
+                                  Down
+                                </PrimaryButton>
+                              </div>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                  const row = timelineItems.find((t) => t.id === item.id);
+                                  if (row) duplicateTimelineItem(row);
+                                }}
+                                disabled={!canEditTimeline}
+                                className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                              >
+                                Duplicate
+                              </PrimaryButton>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => deleteTimelineItem(item.id)}
+                                disabled={!canEditTimeline}
+                                className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                              >
+                                Delete
+                              </PrimaryButton>
+                            </div>
+                          </details>
                         </div>
                       </div>
-                      <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm [overflow-wrap:anywhere]">
-                        <span className="font-medium text-stone-500">{cueKind} · </span>
-                        {songPreview}
-                      </p>
-                      {item.notes?.trim() ? (
-                        <p className="line-clamp-2 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
-                          {item.notes}
-                        </p>
-                      ) : null}
-                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+
+                      <div className="flex flex-col gap-3 md:hidden">
+                        <div
+                          role="button"
+                          tabIndex={canEditTimeline ? 0 : -1}
+                          onClick={() => {
+                            if (!canEditTimeline) return;
+                            setReceptionTimelineExpandedId(item.id);
+                          }}
+                          onKeyDown={(event) => {
+                            if (!canEditTimeline) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setReceptionTimelineExpandedId(item.id);
+                            }
+                          }}
+                          className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
+                            canEditTimeline
+                              ? "cursor-pointer active:scale-[0.995]"
+                              : "cursor-default opacity-80"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              {item.time?.trim() ? (
+                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
+                                  {item.time.trim()}
+                                </p>
+                              ) : null}
+                              <h3 className="mt-0.5 text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
+                                {item.title}
+                              </h3>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1.5">
+                              <span
+                                className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  item.category === "Formalities"
+                                    ? "border-stone-500 bg-stone-200 text-stone-900"
+                                    : "border-stone-300 bg-white text-stone-700"
+                                }`}
+                              >
+                                {item.category}
+                              </span>
+                              {item.needsDjMcAttention ? (
+                                <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                  DJ/MC
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          {songArtistCompact ? (
+                            <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
+                              <span className="font-medium text-stone-500">{cueKind} · </span>
+                              {songArtistCompact}
+                            </p>
+                          ) : null}
+                          {item.notes?.trim() ? (
+                            <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
+                              {item.notes.trim()}
+                            </p>
+                          ) : null}
+                          {canEditTimeline ? (
+                            <p className="mt-3 text-sm font-semibold text-stone-600">
+                              Tap to expand · full edit
+                            </p>
+                          ) : (
+                            <p className="mt-3 text-sm font-medium text-stone-500">View only</p>
+                          )}
+                        </div>
                         <PrimaryButton
                           type="button"
                           onClick={() => setReceptionTimelineExpandedId(item.id)}
                           disabled={!canEditTimeline}
-                          className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4"
+                          className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45"
                         >
-                          Edit
+                          Expand to edit
                         </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none"
-                        >
-                          + After
-                        </PrimaryButton>
-                        <details className="min-h-12 flex-1 sm:min-h-10 sm:max-w-[8.5rem] sm:flex-none">
-                          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-2 text-[12px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white sm:min-h-10 sm:text-[11px]">
-                            More
+                        <details className="min-h-12">
+                          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
+                            More actions
                           </summary>
                           <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                              disabled={!canEditTimeline}
+                              className="w-full rounded-lg border border-stone-300 bg-white py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                            >
+                              + After
+                            </PrimaryButton>
                             <div className="grid grid-cols-2 gap-2">
                               <PrimaryButton
                                 type="button"
                                 onClick={() => moveTimelineItem(item.id, "up")}
                                 disabled={!canEditTimeline}
-                                className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                               >
                                 Up
                               </PrimaryButton>
@@ -10220,7 +10355,7 @@ export default function Home() {
                                 type="button"
                                 onClick={() => moveTimelineItem(item.id, "down")}
                                 disabled={!canEditTimeline}
-                                className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                               >
                                 Down
                               </PrimaryButton>
@@ -10232,7 +10367,7 @@ export default function Home() {
                                 if (row) duplicateTimelineItem(row);
                               }}
                               disabled={!canEditTimeline}
-                              className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                              className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                             >
                               Duplicate
                             </PrimaryButton>
@@ -10240,14 +10375,14 @@ export default function Home() {
                               type="button"
                               onClick={() => deleteTimelineItem(item.id)}
                               disabled={!canEditTimeline}
-                              className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                              className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
                             >
                               Delete
                             </PrimaryButton>
                           </div>
                         </details>
                       </div>
-                    </div>
+                    </>
                   )}
                   {rowExpanded && (
                     <>
@@ -11191,58 +11326,181 @@ export default function Home() {
                         <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
                       ) : null}
                       {!rowExpanded && (
-                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
-                          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-6">
-                            <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right">
-                              <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-sm">
-                                {item.timeOrOrder?.trim() || "—"}
-                              </p>
-                            </div>
-                            <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-5">
-                              <span className="absolute -left-[7px] top-2 h-3 w-3 rounded-full border-2 border-white bg-stone-700 shadow-sm ring-2 ring-stone-200" />
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
-                                  Ceremony
-                                </span>
-                                {item.needsDjMcAttention ? (
-                                  <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
-                                    DJ/MC
+                        <>
+                          <div className="hidden md:flex md:flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+                            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-6">
+                              <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right">
+                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-sm">
+                                  {item.timeOrOrder?.trim() || "—"}
+                                </p>
+                              </div>
+                              <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-5">
+                                <span className="absolute -left-[7px] top-2 h-3 w-3 rounded-full border-2 border-white bg-stone-700 shadow-sm ring-2 ring-stone-200" />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
+                                    Ceremony
                                   </span>
+                                  {item.needsDjMcAttention ? (
+                                    <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                      DJ/MC
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
+                                  {item.moment}
+                                </h3>
+                                <p className="mt-2 text-[15px] leading-snug text-stone-900 sm:mt-1.5 sm:text-sm sm:leading-normal sm:text-stone-800">
+                                  <span className="font-medium text-stone-500">Song · </span>
+                                  {songLine || "—"}
+                                </p>
+                                {item.notes?.trim() ? (
+                                  <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-stone-600">
+                                    {item.notes}
+                                  </p>
                                 ) : null}
                               </div>
-                              <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
-                                {item.moment}
-                              </h3>
-                              <p className="mt-2 text-[15px] leading-snug text-stone-900 sm:mt-1.5 sm:text-sm sm:leading-normal sm:text-stone-800">
-                                <span className="font-medium text-stone-500">Song · </span>
-                                {songLine || "—"}
-                              </p>
-                              {item.notes?.trim() ? (
-                                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-stone-600">
-                                  {item.notes}
-                                </p>
-                              ) : null}
+                            </div>
+                            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                                disabled={!canEditTimeline}
+                                className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                              >
+                                Details
+                              </PrimaryButton>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                                disabled={!canEditTimeline}
+                                className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                              >
+                                + After
+                              </PrimaryButton>
                             </div>
                           </div>
-                          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+
+                          <div className="flex flex-col gap-3 md:hidden">
+                            <div
+                              role="button"
+                              tabIndex={canEditTimeline ? 0 : -1}
+                              onClick={() => {
+                                if (!canEditTimeline) return;
+                                setCeremonyTimelineExpandedId(item.id);
+                              }}
+                              onKeyDown={(event) => {
+                                if (!canEditTimeline) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setCeremonyTimelineExpandedId(item.id);
+                                }
+                              }}
+                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
+                                canEditTimeline
+                                  ? "cursor-pointer active:scale-[0.995]"
+                                  : "cursor-default opacity-80"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  {item.timeOrOrder?.trim() ? (
+                                    <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
+                                      {item.timeOrOrder.trim()}
+                                    </p>
+                                  ) : null}
+                                  <h3 className="mt-0.5 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
+                                    {item.moment}
+                                  </h3>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
+                                    Ceremony
+                                  </span>
+                                  {item.needsDjMcAttention ? (
+                                    <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                      DJ/MC
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {songLine ? (
+                                <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
+                                  <span className="font-medium text-stone-500">Song · </span>
+                                  {songLine}
+                                </p>
+                              ) : null}
+                              {item.notes?.trim() ? (
+                                <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
+                                  {item.notes.trim()}
+                                </p>
+                              ) : null}
+                              {canEditTimeline ? (
+                                <p className="mt-3 text-sm font-semibold text-stone-600">
+                                  Tap to expand · full edit
+                                </p>
+                              ) : (
+                                <p className="mt-3 text-sm font-medium text-stone-500">View only</p>
+                              )}
+                            </div>
                             <PrimaryButton
                               type="button"
                               onClick={() => setCeremonyTimelineExpandedId(item.id)}
                               disabled={!canEditTimeline}
-                              className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                              className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45"
                             >
-                              Details
+                              Expand to edit
                             </PrimaryButton>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => prepareAddCeremonyMomentAfter(item.id)}
-                              disabled={!canEditTimeline}
-                              className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                            >
-                              + After
-                            </PrimaryButton>
+                            <details className="min-h-12">
+                              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
+                                More actions
+                              </summary>
+                              <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                                  disabled={!canEditTimeline}
+                                  className="w-full rounded-lg border border-stone-300 bg-white py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                                >
+                                  + After
+                                </PrimaryButton>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => moveCeremonyTimelineItem(item.id, "up")}
+                                    disabled={!canEditTimeline}
+                                    className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                  >
+                                    Move Up
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => moveCeremonyTimelineItem(item.id, "down")}
+                                    disabled={!canEditTimeline}
+                                    className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                  >
+                                    Move Down
+                                  </PrimaryButton>
+                                </div>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => duplicateCeremonyTimelineItem(item)}
+                                  disabled={!canEditTimeline}
+                                  className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                >
+                                  Duplicate
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => deleteCeremonyTimelineItem(item.id)}
+                                  disabled={!canEditTimeline}
+                                  className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                                >
+                                  Delete
+                                </PrimaryButton>
+                              </div>
+                            </details>
                           </div>
-                        </div>
+                        </>
                       )}
                       {rowExpanded && (
                         <>
@@ -11390,38 +11648,42 @@ export default function Home() {
                           <span className="text-[10px] tracking-wide text-stone-500">::</span>
                           <span>Reorder</span>
                         </button>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => moveCeremonyTimelineItem(item.id, "up")}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                        <div
+                          className={`flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:w-auto ${!rowExpanded ? "max-md:hidden" : ""}`}
                         >
-                          Move Up
-                        </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => moveCeremonyTimelineItem(item.id, "down")}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                        >
-                          Move Down
-                        </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => deleteCeremonyTimelineItem(item.id)}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                        >
-                          Delete
-                        </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => duplicateCeremonyTimelineItem(item)}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                        >
-                          Duplicate
-                        </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => moveCeremonyTimelineItem(item.id, "up")}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          >
+                            Move Up
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => moveCeremonyTimelineItem(item.id, "down")}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          >
+                            Move Down
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => deleteCeremonyTimelineItem(item.id)}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          >
+                            Delete
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => duplicateCeremonyTimelineItem(item)}
+                            disabled={!canEditTimeline}
+                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          >
+                            Duplicate
+                          </PrimaryButton>
+                        </div>
                       </div>
                       <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600">
                         {index + 1} / {ceremonyTimelineItems.length}
