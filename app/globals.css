@@ -42,10 +42,26 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Native selects: keep platform menulist appearance for reliable touch on iOS Safari. */
-select {
-  -webkit-appearance: menulist;
-  appearance: auto;
+/*
+ * Styled selects: single full-width hit target.
+ * Platform menulist / menulist-button often splits Android touch handling (value vs arrow).
+ * Chevron is a non-interactive background image; taps anywhere on the element open the menu.
+ */
+select.cm-select-light,
+select.cm-select-dark {
+  -webkit-appearance: none;
+  appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem 1.25rem;
+}
+
+select.cm-select-light {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath stroke='%2357534e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+select.cm-select-dark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
 }
 
 .no-scrollbar::-webkit-scrollbar {

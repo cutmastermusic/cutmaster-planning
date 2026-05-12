@@ -175,10 +175,11 @@ export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:
 
 /**
  * Native `<select>` on light workspace cards.
- * Uses `text-base` + `min-h-12` + explicit `appearance` for reliable iOS Safari taps (avoids broken “ghost” controls).
+ * `appearance-none` + CSS chevron: platform “menulist” chrome splits Android hit-testing (arrow vs value);
+ * one styled box keeps the full width/height tappable on first tap.
  */
 export const lightUiSelectClass =
-  "mt-1.5 w-full min-h-12 cursor-pointer touch-manipulation appearance-auto [-webkit-appearance:menulist-button] rounded-xl border border-stone-300 bg-white px-3 py-3.5 text-base leading-snug text-stone-900 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+  "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-xl border border-stone-300 bg-white py-3.5 pl-3 pr-10 text-left text-base leading-snug text-stone-900 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Caption under a section title on white / stone cards (vendors, admin). */
 export const lightUiSectionCaptionClass = "mt-1 text-[11px] leading-relaxed text-stone-600";
@@ -209,7 +210,7 @@ export const darkUiFieldLabelClass =
 
 /** `<select>` on dark zinc panels. */
 export const darkUiSelectClass =
-  "mt-1.5 w-full min-h-12 cursor-pointer touch-manipulation appearance-auto [-webkit-appearance:menulist-button] rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3.5 text-base leading-snug text-zinc-100 shadow-inner transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:opacity-60";
+  "cm-select-dark mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-xl border border-zinc-600 bg-zinc-950 py-3.5 pl-3 pr-10 text-left text-base leading-snug text-zinc-100 shadow-inner transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:opacity-60";
 
 /** Compact secondary control on dark panel rows. */
 export const darkUiCompactGhostButtonClass =
