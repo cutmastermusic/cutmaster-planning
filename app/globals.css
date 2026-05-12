@@ -42,6 +42,12 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Native selects: keep platform menulist appearance for reliable touch on iOS Safari. */
+select {
+  -webkit-appearance: menulist;
+  appearance: auto;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

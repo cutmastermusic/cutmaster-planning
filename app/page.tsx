@@ -12438,7 +12438,7 @@ export default function Home() {
                 Control how this event appears on All Events. Archived events stay in your data and remain findable via
                 search, but are hidden from the default list.
               </p>
-              <div className="mt-3">
+              <div className="relative z-10 isolate mt-3">
                 <label htmlFor="event-lifecycle-status" className={lightUiFormLabelClass}>
                   Status
                 </label>
@@ -12471,7 +12471,7 @@ export default function Home() {
                 section only tucks it out of the way; your data stays in the file.
               </p>
               <div className="mt-3 space-y-3">
-                <div>
+                <div className="relative z-10 isolate">
                   <label htmlFor="event-layout-profile" className={lightUiFormLabelClass}>
                     Event Type
                   </label>
@@ -12582,7 +12582,7 @@ export default function Home() {
                   value={eventSettings.coupleNames}
                   onChange={(value) => setEventSettings((prev) => ({ ...prev, coupleNames: value }))}
                 />
-                <div>
+                <div className="relative z-10 isolate">
                   <label
                     htmlFor="event-settings-event-type"
                     className={lightUiFormLabelClass}
@@ -12657,7 +12657,7 @@ export default function Home() {
                     }
                   />
                 </div>
-                <div>
+                <div className="relative z-10 isolate">
                   <label
                     htmlFor="event-settings-assigned-dj-select"
                     className={lightUiFormLabelClass}
