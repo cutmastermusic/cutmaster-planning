@@ -10067,7 +10067,7 @@ export default function Home() {
 
             <div
               ref={timelineStreamRef}
-              className="min-w-0 max-h-[min(72dvh,52rem)] space-y-5 overflow-x-hidden overflow-y-auto overscroll-y-contain sm:space-y-4 md:space-y-3"
+              className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
             >
             {mergedTimelineItems.length === 0 ? (
               showTimelinePresetOnboarding ? null : (
@@ -10115,7 +10115,7 @@ export default function Home() {
                 return (
                 <PremiumCard
                   key={item.id}
-                  className={`rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 ${
+                  className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 ${
                     index % 2 === 1 ? "bg-stone-50" : ""
                   } ${
                     isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
@@ -10502,7 +10502,7 @@ export default function Home() {
                         touchDragTimelineSourceRef.current = item.id;
                         setDraggingTimelineId(item.id);
                       }}
-                      className="inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem]"
+                      className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem]"
                       disabled={!canEditTimeline}
                       aria-label={`Drag handle for ${item.title}`}
                     >
@@ -11133,7 +11133,7 @@ export default function Home() {
 
             <div
               ref={ceremonyTimelineStreamRef}
-              className="min-w-0 max-h-[min(72dvh,52rem)] space-y-5 overflow-x-hidden overflow-y-auto overscroll-y-contain sm:space-y-4 md:space-y-3"
+              className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
             >
               {ceremonyTimelineItems.length === 0 ? (
                 <SectionEmptyState
@@ -11157,7 +11157,7 @@ export default function Home() {
                   return (
                     <PremiumCard
                       key={item.id}
-                      className={`rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 ${
+                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 ${
                         index % 2 === 1 ? "bg-stone-50" : ""
                       } transition-all duration-200 ${
                         isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
@@ -11383,7 +11383,7 @@ export default function Home() {
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
                           disabled={!canEditTimeline}
                           aria-label={`Drag handle for ${item.moment}`}
                         >
