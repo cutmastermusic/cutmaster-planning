@@ -12377,11 +12377,11 @@ export default function Home() {
             />
             <PremiumCard>
               <SectionTitle className="text-stone-950">Visual identity & cover photo</SectionTitle>
-              <p className="mt-2 text-xs text-stone-600">
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
                 Give this event a face. Your cover appears on the home hero and the All Events grid. Images are stored in
                 this browser only (local storage).
               </p>
-              <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+              <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200 shadow-sm">
                 <div className="relative aspect-[21/9] min-h-[140px] w-full sm:min-h-[160px]">
                   {eventSettings.coverPhotoDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -12410,7 +12410,7 @@ export default function Home() {
                   type="button"
                   disabled={!canEditEventCover}
                   onClick={() => eventCoverPhotoInputRef.current?.click()}
-                  className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                  className={lightUiCyanPrimaryButtonClass}
                 >
                   {eventSettings.coverPhotoDataUrl ? "Replace image" : "Upload image"}
                 </PrimaryButton>
@@ -12422,24 +12422,24 @@ export default function Home() {
                       if (!window.confirm("Remove the cover image?")) return;
                       applyEventCoverPhoto(undefined);
                     }}
-                    className="rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 disabled:opacity-45"
+                    className={lightUiSecondaryButtonClass}
                   >
                     Remove
                   </PrimaryButton>
                 ) : null}
               </div>
               {!canEditEventCover ? (
-                <p className="mt-3 text-xs text-zinc-500">Cover editing is not available for the DJ role in this build.</p>
+                <p className="mt-3 text-xs leading-relaxed text-stone-600">Cover editing is not available for the DJ role in this build.</p>
               ) : null}
             </PremiumCard>
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event status</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
                 Control how this event appears on All Events. Archived events stay in your data and remain findable via
                 search, but are hidden from the default list.
               </p>
               <div className="mt-3">
-                <label htmlFor="event-lifecycle-status" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                <label htmlFor="event-lifecycle-status" className={lightUiFormLabelClass}>
                   Status
                 </label>
                 <select
@@ -12447,32 +12447,32 @@ export default function Home() {
                   value={eventSettings.eventLifecycleStatus ?? "active"}
                   disabled={!canEditEventLifecycle}
                   onChange={(e) => applyEventLifecycleStatus(e.target.value as EventLifecycleStatus)}
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none disabled:opacity-45"
+                  className={lightUiSelectClass}
                 >
-                  <option value="active" className="bg-[#141419]">
+                  <option value="active" className="bg-white text-stone-900">
                     Active — in progress
                   </option>
-                  <option value="completed" className="bg-[#141419]">
+                  <option value="completed" className="bg-white text-stone-900">
                     Completed
                   </option>
-                  <option value="archived" className="bg-[#141419]">
+                  <option value="archived" className="bg-white text-stone-900">
                     Archived
                   </option>
                 </select>
               </div>
               {!canEditEventLifecycle ? (
-                <p className="mt-2 text-xs text-zinc-500">Only Admin and Planner can change event status.</p>
+                <p className="mt-2 text-xs leading-relaxed text-stone-600">Only Admin and Planner can change event status.</p>
               ) : null}
             </PremiumCard>
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event Type & Sections</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
                 Event Type is the primary workflow selector. It applies defaults, then you can fine-tune section visibility. Hiding a
                 section only tucks it out of the way; your data stays in the file.
               </p>
               <div className="mt-3 space-y-3">
                 <div>
-                  <label htmlFor="event-layout-profile" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                  <label htmlFor="event-layout-profile" className={lightUiFormLabelClass}>
                     Event Type
                   </label>
                   <select
@@ -12487,15 +12487,15 @@ export default function Home() {
                         ...getLiveEventDocumentDefaults(event.target.value as EventLayoutProfile),
                       }))
                     }
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                    className={lightUiSelectClass}
                   >
                     {EVENT_TYPES.map((profile) => (
-                      <option key={`layout-profile-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
+                      <option key={`layout-profile-${profile}`} value={profile} className="bg-white text-stone-900">
                         {profile}
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                  <p className="mt-2 text-xs leading-relaxed text-stone-600">
                     {LAYOUT_PROFILE_DESCRIPTIONS[eventSettings.eventLayoutProfile]}
                   </p>
                   <PrimaryButton
@@ -12514,7 +12514,7 @@ export default function Home() {
                         ...getLiveEventDocumentDefaults(prev.eventLayoutProfile),
                       }));
                     }}
-                    className="mt-3 w-full rounded-xl border border-white/12 bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                    className={`mt-3 w-full ${lightUiSecondaryButtonClass}`}
                   >
                     Apply Event Type Defaults
                   </PrimaryButton>
@@ -12548,7 +12548,11 @@ export default function Home() {
                               ),
                           }))
                         }
-                        className={`w-full ${enabled ? "bg-[#00D4FF]/20 text-zinc-100" : "bg-white/10 text-zinc-300"}`}
+                        className={`w-full ${
+                          enabled
+                            ? "rounded-xl bg-[#00D4FF] text-[11px] font-semibold leading-snug text-stone-950 shadow-sm hover:brightness-105 sm:text-xs"
+                            : `${lightUiSecondaryButtonClass} text-[11px] leading-snug sm:text-xs`
+                        }`}
                       >
                         {enabled ? `Hide ${item.label}` : `Show ${item.label}`}
                       </PrimaryButton>
@@ -12562,7 +12566,7 @@ export default function Home() {
                 <SectionTitle className="text-stone-950">Event Settings</SectionTitle>
                 <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
                 Event-specific details and overrides for this event only.
               </p>
               <div className="mt-4 space-y-3">
@@ -12581,7 +12585,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="event-settings-event-type"
-                    className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                    className={lightUiFormLabelClass}
                   >
                     Event Type
                   </label>
@@ -12598,10 +12602,10 @@ export default function Home() {
                         ...getLiveEventDocumentDefaults(nextType),
                       }));
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                    className={lightUiSelectClass}
                   >
                     {EVENT_TYPES.map((type) => (
-                      <option key={`event-type-setting-${type}`} value={type} className="bg-[#141419] text-zinc-100">
+                      <option key={`event-type-setting-${type}`} value={type} className="bg-white text-stone-900">
                         {type}
                       </option>
                     ))}
@@ -12656,7 +12660,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="event-settings-assigned-dj-select"
-                    className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
+                    className={lightUiFormLabelClass}
                   >
                     Assigned DJ from Team
                   </label>
@@ -12671,13 +12675,13 @@ export default function Home() {
                         logActivity("team_member_assigned", `Assigned DJ: ${nextName}`);
                       }
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                    className={lightUiSelectClass}
                   >
-                    <option value="" className="bg-[#141419] text-zinc-100">
+                    <option value="" className="bg-white text-stone-900">
                       Select a DJ
                     </option>
                     {activeDjTeamMembers.map((member) => (
-                      <option key={member.id} value={member.id} className="bg-[#141419] text-zinc-100">
+                      <option key={member.id} value={member.id} className="bg-white text-stone-900">
                         {member.name}
                       </option>
                     ))}
@@ -12687,11 +12691,11 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={clearAssignedDjFromActiveEvent}
-                        className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                        className={`w-full ${lightUiSecondaryButtonClass}`}
                       >
                         Remove from Event
                       </PrimaryButton>
-                      <p className="mt-1.5 text-[11px] text-zinc-500">
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-stone-600">
                         Clears the DJ assignment for this event only; team roster profiles are unchanged.
                       </p>
                     </div>
@@ -12722,11 +12726,11 @@ export default function Home() {
                       onClick={() =>
                         removeTeamMemberFromActiveEvent(assignedPlannerTeamMemberForEvent)
                       }
-                      className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                      className={`w-full ${lightUiSecondaryButtonClass}`}
                     >
                       Remove from Event
                     </PrimaryButton>
-                    <p className="mt-1.5 text-[11px] text-zinc-500">
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-stone-600">
                       Clears planner name and email on this event when they match team member{" "}
                       {assignedPlannerTeamMemberForEvent.name}. The roster entry is not deleted.
                     </p>
@@ -12785,7 +12789,7 @@ export default function Home() {
                   }
                   placeholder={appSettings.coupleWelcomeMessage}
                 />
-                <div className="rounded-xl bg-white/5 p-3 text-xs text-zinc-400">
+                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-700">
                   Collaborators are event-specific and managed in the Collaborators screen.
                 </div>
               </div>
