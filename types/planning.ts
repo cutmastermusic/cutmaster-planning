@@ -4,7 +4,6 @@ export type Screen =
   | "Dashboard"
   | "Command Center"
   | "Music Hub"
-  | "Music Import"
   | "Timeline"
   | "Timeline Templates"
   | "Collaborators"
@@ -24,7 +23,7 @@ export type Screen =
 
 export type AppMode = "events" | "event";
 export type AuthStage = "login" | "invite" | "app";
-export type SongListType = "mustPlay" | "doNotPlay";
+export type SongListType = "mustPlay" | "doNotPlay" | "playIfPossible";
 export type GuestRequestStatus = "Pending" | "Approved" | "Rejected";
 export type ChecklistStatus = "Not Started" | "In Progress" | "Complete";
 export type TimelineCategory =
@@ -210,6 +209,14 @@ export const PLAYLIST_BUCKET_IDS: PlaylistBucketId[] = [
   "custom",
 ];
 
+/** Client-shared streaming playlist (links only — no automated extraction in V1). */
+export type SharedPlaylistLink = {
+  id: string;
+  url: string;
+  label?: string;
+  notes?: string;
+};
+
 /** Optional structured fields for Music Hub / DJ vibe (stored on the event). */
 export type MusicVibeDetail = {
   genres?: string;
@@ -247,6 +254,12 @@ export type Event = {
   mcAnnouncements: string;
   /** Full playlist line lists per bucket; replaces merged defaults when set for that bucket. */
   playlistVibeOverrides?: Partial<Record<PlaylistBucketId, string[]>>;
+  /** Spotify, Apple Music, YouTube, etc. — URLs + labels for the DJ. */
+  musicPlaylistLinks?: SharedPlaylistLink[];
+  /** Selected genre / era chips from Music Hub. */
+  musicGenreEraSelections?: string[];
+  /** Nice-to-have songs (optional list). */
+  playIfPossibleSongs?: SongEntry[];
   musicVibeDetail?: MusicVibeDetail;
   vendors: Vendor[];
   settings: EventSettings;

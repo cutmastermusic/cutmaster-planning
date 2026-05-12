@@ -11,6 +11,7 @@ import type {
   TimelineItem,
   TimelinePresetItem,
 } from "@/types/planning";
+import { PLAYLIST_BUCKET_IDS } from "@/types/planning";
 import { normalizeVendorsArray } from "@/utils/vendors";
 
 export function parseTimeToMinutesValue(rawTime: string): number {
@@ -501,6 +502,16 @@ export function approximatePlanningProgressPercent(evt: EventRecord): number {
 
   const hasFinalDjNotes = Boolean((evt.generalDjNotes ?? "").trim().length >= 16);
 
+  const hasMomentPlaylistLines = PLAYLIST_BUCKET_IDS.some(
+    (id) => (evt.playlistVibeOverrides?.[id]?.length ?? 0) > 0,
+  );
+  const hasMusicDirection =
+    (evt.mustPlaySongs?.length ?? 0) > 0 ||
+    (evt.playIfPossibleSongs?.length ?? 0) > 0 ||
+    (evt.musicPlaylistLinks?.length ?? 0) > 0 ||
+    (evt.musicGenreEraSelections?.length ?? 0) > 0 ||
+    hasMomentPlaylistLines;
+
   const tasks: { id: string; autoStatus: ChecklistStatus }[] = [
     {
       id: "complete-event-details",
@@ -516,7 +527,7 @@ export function approximatePlanningProgressPercent(evt: EventRecord): number {
     },
     {
       id: "build-must-play-list",
-      autoStatus: (evt.mustPlaySongs?.length ?? 0) > 0 ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
+      autoStatus: hasMusicDirection ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
     },
     {
       id: "add-do-not-play-songs",

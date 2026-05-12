@@ -74,6 +74,7 @@ import {
   timelineCategories,
   vibeBuckets,
 } from "@/data/planningMockData";
+import { MUSIC_GENRE_ERA_OPTIONS } from "@/data/musicGenreEraOptions";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
   AppMode,
@@ -93,6 +94,7 @@ import type {
   PlanningQuestionAnswerType,
   PlanningQuestionDef,
   Screen,
+  SharedPlaylistLink,
   SongEntry,
   SongListType,
   TimelineCategory,
@@ -253,11 +255,9 @@ function PlanningQuestionAnswerEditor({
   );
 }
 
-type ImportedPlaylistSong = {
-  title: string;
-  artist: string;
-  vibe: "chill" | "romantic" | "dance";
-};
+const MUSIC_GENRE_ERA_ORDER = new Map(
+  MUSIC_GENRE_ERA_OPTIONS.map((label, index) => [label, index]),
+);
 
 type LocalAppStateBackup = {
   activeScreen: Screen;
@@ -709,6 +709,9 @@ function migrateLegacyScreenId(raw: unknown): Screen {
   if (raw === "Music") {
     return "Music Hub";
   }
+  if (raw === "Music Import") {
+    return "Music Hub";
+  }
   return raw as Screen;
 }
 
@@ -938,7 +941,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   const base: Screen[] = [
     "Dashboard",
     ...(s.sectionMustPlayEnabled || s.sectionDoNotPlayEnabled || s.sectionPlaylistsEnabled
-      ? (["Music Hub", "Music Import"] as Screen[])
+      ? (["Music Hub"] as Screen[])
       : []),
     ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
@@ -962,7 +965,6 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     "Dashboard",
     "Reception Timeline",
     "Music Hub",
-    "Music Import",
     "Planning Checklist",
     "Planning Questions",
     "Ceremony",
@@ -1215,15 +1217,12 @@ export default function Home() {
   const [newSongNotes, setNewSongNotes] = useState("");
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
-  const [playlistUrlInput, setPlaylistUrlInput] = useState("");
-  const [musicImportStage, setMusicImportStage] = useState<
-    "idle" | "analyzing" | "building" | "ready"
-  >("idle");
-  const [importedPlaylistName, setImportedPlaylistName] = useState("");
-  const [importedPlaylistSongs, setImportedPlaylistSongs] = useState<ImportedPlaylistSong[]>([]);
-  const [importCocktailSuggestions, setImportCocktailSuggestions] = useState<string[]>([]);
-  const [importDinnerSuggestions, setImportDinnerSuggestions] = useState<string[]>([]);
-  const [importOpenDancingSuggestions, setImportOpenDancingSuggestions] = useState<string[]>([]);
+  const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
+  const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
+  const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
+  const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
+  const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
+  const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -1538,6 +1537,9 @@ export default function Home() {
               formalities: [],
               mustPlaySongs,
               doNotPlaySongs,
+              playIfPossibleSongs,
+              musicPlaylistLinks,
+              musicGenreEraSelections,
               ceremonyStartTime,
               ceremonyGuestArrivalTime,
               officiantName,
@@ -1574,6 +1576,9 @@ export default function Home() {
     musicVibeDetail,
     mustPlaySongs,
     doNotPlaySongs,
+    playIfPossibleSongs,
+    musicPlaylistLinks,
+    musicGenreEraSelections,
     officiantName,
     plannerNotes,
     playlistVibeOverrides,
@@ -1590,6 +1595,9 @@ export default function Home() {
     setCeremonyTimelineItems(cloneJson(normalized.ceremonyTimelineItems ?? []));
     setMustPlaySongs(cloneJson(normalized.mustPlaySongs));
     setDoNotPlaySongs(cloneJson(normalized.doNotPlaySongs));
+    setPlayIfPossibleSongs(cloneJson(normalized.playIfPossibleSongs ?? []));
+    setMusicPlaylistLinks(cloneJson(normalized.musicPlaylistLinks ?? []));
+    setMusicGenreEraSelections(cloneJson(normalized.musicGenreEraSelections ?? []));
     setCeremonyStartTime(evt.ceremonyStartTime);
     setCeremonyGuestArrivalTime(evt.ceremonyGuestArrivalTime ?? "");
     setOfficiantName(evt.officiantName);
@@ -1788,6 +1796,9 @@ export default function Home() {
       formalities: [],
       mustPlaySongs: cloneJson(mustPlaySongs),
       doNotPlaySongs: cloneJson(doNotPlaySongs),
+      playIfPossibleSongs: cloneJson(playIfPossibleSongs),
+      musicPlaylistLinks: cloneJson(musicPlaylistLinks),
+      musicGenreEraSelections: cloneJson(musicGenreEraSelections),
       ceremonyStartTime,
       ceremonyGuestArrivalTime,
       officiantName,
@@ -2504,8 +2515,15 @@ export default function Home() {
       eventSettings.weddingDate.trim(),
   );
 
-  const checklistTasks = useMemo(
-    () => [
+  const checklistTasks = useMemo(() => {
+    const hasMusicTasteForChecklist =
+      mustPlaySongs.length > 0 ||
+      playIfPossibleSongs.length > 0 ||
+      musicPlaylistLinks.length > 0 ||
+      musicGenreEraSelections.length > 0 ||
+      PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
+
+    return [
       {
         id: "complete-event-details",
         title: "Complete Event Details",
@@ -2529,10 +2547,10 @@ export default function Home() {
       },
       {
         id: "build-must-play-list",
-        title: "Build Must Play List",
-        description: "Add must-play songs for the dance floor.",
+        title: "Share your music taste",
+        description: "Playlist links, genre picks, or a few favorite songs help your DJ read the room.",
         linkedSection: "Music Hub" as Screen,
-        autoStatus: mustPlaySongs.length > 0 ? "Complete" : "Not Started",
+        autoStatus: hasMusicTasteForChecklist ? "Complete" : "Not Started",
       },
       {
         id: "add-do-not-play-songs",
@@ -2565,14 +2583,18 @@ export default function Home() {
         linkedSection: "Event Prep" as Screen,
         autoStatus: hasFinalDjNotes ? "Complete" : "Not Started",
       },
-    ],
-    [
+    ];
+  }, [
       hasEventDetailsComplete,
       hasKeyCeremonySongs,
       hasKeyFormalDanceSongs,
       hasKeyTimelineMoments,
       hasFinalDjNotes,
       mustPlaySongs.length,
+      playIfPossibleSongs.length,
+      musicPlaylistLinks.length,
+      musicGenreEraSelections.length,
+      playlistVibeOverrides,
       doNotPlaySongs.length,
       guestRequests,
       noPendingGuestRequests,
@@ -2679,13 +2701,18 @@ export default function Home() {
     const openSeed =
       vibeBuckets.find((bucket) => bucket.title === "Open Dancing Vibe")?.songs ?? [];
     return {
-      cocktailHour: [...importCocktailSuggestions, ...cocktailSeed],
-      dinner: [...importDinnerSuggestions, ...dinnerSeed],
-      openDancing: [...importOpenDancingSuggestions, ...openSeed],
+      cocktailHour: [...cocktailSeed],
+      dinner: [...dinnerSeed],
+      openDancing: [...openSeed],
       afterparty: [],
       custom: [],
     };
-  }, [importCocktailSuggestions, importDinnerSuggestions, importOpenDancingSuggestions]);
+  }, []);
+
+  const hasMomentPlaylistLines = useMemo(
+    () => PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0),
+    [playlistVibeOverrides],
+  );
 
   const getPlaylistLines = useCallback(
     (id: PlaylistBucketId) => playlistVibeOverrides[id] ?? defaultPlaylistLinesById[id],
@@ -3002,12 +3029,19 @@ export default function Home() {
     return commandCenterEvents
       .map((evt) => {
         const pendingGuestRequests = evt.guestRequests.filter((req) => req.status === "Pending").length;
+        const evtMusicTaste =
+          (evt.mustPlaySongs?.length ?? 0) > 0 ||
+          (evt.playIfPossibleSongs?.length ?? 0) > 0 ||
+          (evt.musicPlaylistLinks?.length ?? 0) > 0 ||
+          (evt.musicGenreEraSelections?.length ?? 0) > 0 ||
+          PLAYLIST_BUCKET_IDS.some((id) => (evt.playlistVibeOverrides?.[id]?.length ?? 0) > 0);
         const incompleteChecklistCount = [
           !evt.settings?.eventName?.trim(),
           !evt.settings?.coupleNames?.trim(),
           !evt.settings?.venue?.trim(),
           !evt.settings?.weddingDate?.trim(),
-          evt.mustPlaySongs.length === 0,
+          (evt.settings?.sectionMustPlayEnabled || evt.settings?.sectionPlaylistsEnabled) &&
+            !evtMusicTaste,
           evt.timelineItems.length === 0,
         ].filter(Boolean).length;
         return { evt, pendingGuestRequests, incompleteChecklistCount };
@@ -3440,9 +3474,12 @@ export default function Home() {
       (q) => !answers[q.id]?.trim(),
     ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
-    const hasUserPlaylistLines = PLAYLIST_BUCKET_IDS.some(
-      (id) => (playlistVibeOverrides[id]?.length ?? 0) > 0,
-    );
+    const hasMusicTasteSignal =
+      musicPlaylistLinks.length > 0 ||
+      musicGenreEraSelections.length > 0 ||
+      mustPlaySongs.length > 0 ||
+      playIfPossibleSongs.length > 0 ||
+      hasMomentPlaylistLines;
 
     const mergedChecklist = checklistTasks.map((task) => {
       const manualStatus = eventSettings.checklistManualStatuses?.[task.id];
@@ -3457,9 +3494,12 @@ export default function Home() {
       return "Timeline";
     }
 
-    if (sectionMustPlayEnabled && mustPlaySongs.length === 0) return "Music Hub";
-    if (sectionDoNotPlayEnabled && doNotPlaySongs.length === 0) return "Music Hub";
-    if (sectionPlaylistsEnabled && !hasUserPlaylistLines) return "Music Hub";
+    if (
+      (sectionMustPlayEnabled || sectionPlaylistsEnabled) &&
+      !hasMusicTasteSignal
+    ) {
+      return "Music Hub";
+    }
 
     if (sectionPlanningQuestionsEnabled && unansweredPlanningQuestionCount > 0) {
       return "Planning Questions";
@@ -3482,16 +3522,17 @@ export default function Home() {
     hasKeyFormalDanceSongs,
     hasKeyTimelineMoments,
     mustPlaySongs.length,
-    doNotPlaySongs.length,
-    playlistVibeOverrides,
+    playIfPossibleSongs.length,
+    musicPlaylistLinks.length,
+    musicGenreEraSelections.length,
+    hasMomentPlaylistLines,
+    sectionMustPlayEnabled,
+    sectionPlaylistsEnabled,
     planningQuestionsForEvent,
     sectionCeremonyEnabled,
-    sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
-    sectionMustPlayEnabled,
     sectionPlanningChecklistEnabled,
     sectionPlanningQuestionsEnabled,
-    sectionPlaylistsEnabled,
     sectionReceptionTimelineEnabled,
   ]);
 
@@ -3501,7 +3542,7 @@ export default function Home() {
       Ceremony: "Next: ceremony music",
       "Reception Timeline": "Next: timeline",
       Timeline: "Next: timeline",
-      "Music Hub": "Next: playlists & requests",
+      "Music Hub": "Next: playlists & vibe",
       "Planning Questions": "Next: your questionnaire",
       "Guest Requests": "Next: guest song ideas",
       "Planning Checklist": "Review your checklist",
@@ -3559,23 +3600,18 @@ export default function Home() {
     }
 
     if (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) {
-      const parts: number[] = [];
-      if (sectionMustPlayEnabled) parts.push(mustPlaySongs.length > 0 ? 100 : 0);
-      if (sectionDoNotPlayEnabled) parts.push(doNotPlaySongs.length > 0 ? 100 : 0);
-      if (sectionPlaylistsEnabled) {
-        const hasUserPlaylistLines = PLAYLIST_BUCKET_IDS.some(
-          (id) => (playlistVibeOverrides[id]?.length ?? 0) > 0,
-        );
-        parts.push(hasUserPlaylistLines ? 100 : 0);
-      }
-      const completion = parts.length
-        ? Math.round(parts.reduce((acc, n) => acc + n, 0) / parts.length)
-        : 100;
+      const tasteDone =
+        musicPlaylistLinks.length > 0 ||
+        musicGenreEraSelections.length > 0 ||
+        mustPlaySongs.length > 0 ||
+        playIfPossibleSongs.length > 0 ||
+        hasMomentPlaylistLines;
+      const completion = tasteDone ? 100 : 40;
       cards.push({
         id: "music",
         kicker: "Music",
         title: "Music hub",
-        description: "Must-play, do-not-play, and playlists by moment.",
+        description: "Share playlists and vibes—add individual songs only if something is must-hear or off-limits.",
         screen: "Music Hub",
         completion,
         ctaLabel: completion >= 100 ? "Review" : "Continue",
@@ -3682,10 +3718,11 @@ export default function Home() {
     hasKeyFormalDanceSongs,
     hasKeyTimelineMoments,
     mustPlaySongs.length,
-    doNotPlaySongs.length,
-    playlistVibeOverrides,
+    playIfPossibleSongs.length,
+    musicPlaylistLinks.length,
+    musicGenreEraSelections.length,
+    hasMomentPlaylistLines,
     sectionCeremonyEnabled,
-    sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
     sectionPlanningQuestionsEnabled,
@@ -3777,7 +3814,7 @@ export default function Home() {
     if (effectiveRole === "DJ") {
       return filterScreens([
         { kind: "screen", screen: "Event Prep", label: "Event Document" },
-        { kind: "screen", screen: "Music Hub", label: "Music hub · must / DNP" },
+        { kind: "screen", screen: "Music Hub", label: "Music hub · playlists & taste" },
         { kind: "screen", screen: tl, label: "Timeline" },
         { kind: "screen", screen: "Ceremony", label: "Ceremony cues" },
       ]);
@@ -3826,14 +3863,21 @@ export default function Home() {
     }
 
     if (effectiveRole === "DJ") {
+      const musicTasteDone =
+        musicPlaylistLinks.length > 0 ||
+        musicGenreEraSelections.length > 0 ||
+        mustPlaySongs.length > 0 ||
+        playIfPossibleSongs.length > 0 ||
+        hasMomentPlaylistLines;
       const musicReady =
-        (!sectionMustPlayEnabled || mustPlaySongs.length > 0) &&
-        (!sectionDoNotPlayEnabled || doNotPlaySongs.length > 0);
+        (!sectionMustPlayEnabled && !sectionPlaylistsEnabled) ||
+        musicTasteDone ||
+        generalDjNotes.trim().length > 0;
       return [
         {
           label: "Music readiness",
           value: musicReady ? pctLabel : "In progress",
-          detail: "Must-play & do-not-play coverage for show time.",
+          detail: "Playlist links, genre picks, must-plays, and guardrails for show time.",
         },
         {
           label: "Timeline beats",
@@ -3873,13 +3917,17 @@ export default function Home() {
     activeEvent?.collaborators,
     completionPercent,
     coupleAttentionSummary.unansweredPlanningQuestionCount,
-    doNotPlaySongs.length,
     effectiveRole,
     enabledSectionToggleCount,
-    mcAnnouncements,
+    generalDjNotes,
+    musicGenreEraSelections.length,
+    musicPlaylistLinks.length,
     mustPlaySongs.length,
-    sectionDoNotPlayEnabled,
+    playIfPossibleSongs.length,
+    hasMomentPlaylistLines,
     sectionMustPlayEnabled,
+    sectionPlaylistsEnabled,
+    mcAnnouncements,
     timelineItems.length,
     vendors.length,
   ]);
@@ -3902,7 +3950,6 @@ export default function Home() {
           "Collaborators",
           "Ceremony",
           "Music Hub",
-          "Music Import",
           "Event Prep",
         ];
       } else if (effectiveRole === "DJ") {
@@ -3915,7 +3962,6 @@ export default function Home() {
           "Guest Requests",
           "Collaborators",
           "Notes",
-          "Music Import",
         ];
       } else if (effectiveRole === "Admin") {
         preferred = [
@@ -3930,7 +3976,6 @@ export default function Home() {
           "Guest Requests",
           "Planning Checklist",
           "Notes",
-          "Music Import",
         ];
       } else {
         return items.findIndex((s) => s === screen);
@@ -4334,6 +4379,9 @@ export default function Home() {
             formalities: [],
             mustPlaySongs,
             doNotPlaySongs,
+            playIfPossibleSongs,
+            musicPlaylistLinks,
+            musicGenreEraSelections,
             ceremonyStartTime,
             ceremonyGuestArrivalTime,
             officiantName,
@@ -4426,6 +4474,9 @@ export default function Home() {
     ceremonyTimelineItems,
     mustPlaySongs,
     doNotPlaySongs,
+    playIfPossibleSongs,
+    musicPlaylistLinks,
+    musicGenreEraSelections,
     ceremonyStartTime,
     ceremonyGuestArrivalTime,
     officiantName,
@@ -4614,6 +4665,9 @@ export default function Home() {
               formalities: [],
               mustPlaySongs,
               doNotPlaySongs,
+              playIfPossibleSongs,
+              musicPlaylistLinks,
+              musicGenreEraSelections,
               ceremonyStartTime,
               ceremonyGuestArrivalTime,
               officiantName,
@@ -4640,6 +4694,9 @@ export default function Home() {
       ceremonyTimelineItems,
       mustPlaySongs,
       doNotPlaySongs,
+      playIfPossibleSongs,
+      musicPlaylistLinks,
+      musicGenreEraSelections,
       ceremonyStartTime,
       ceremonyGuestArrivalTime,
       officiantName,
@@ -4897,6 +4954,8 @@ export default function Home() {
 
     if (newSongListType === "mustPlay") {
       setMustPlaySongs((prev) => [newEntry, ...prev]);
+    } else if (newSongListType === "playIfPossible") {
+      setPlayIfPossibleSongs((prev) => [newEntry, ...prev]);
     } else {
       setDoNotPlaySongs((prev) => [newEntry, ...prev]);
     }
@@ -4908,65 +4967,48 @@ export default function Home() {
     setNewSongHighPriority(false);
   };
 
-  const runAutoCategorization = useCallback((songs: ImportedPlaylistSong[]) => {
-    const cocktail: string[] = [];
-    const dinner: string[] = [];
-    const openDancing: string[] = [];
-    songs.forEach((song) => {
-      const label = `${song.title} - ${song.artist}`;
-      if (song.vibe === "chill") cocktail.push(label);
-      if (song.vibe === "romantic") dinner.push(label);
-      if (song.vibe === "dance") openDancing.push(label);
-    });
-    setImportCocktailSuggestions(cocktail);
-    setImportDinnerSuggestions(dinner);
-    setImportOpenDancingSuggestions(openDancing);
-  }, []);
-
-  const handleImportPlaylist = () => {
-    if (!playlistUrlInput.trim()) return;
-    const mockSongs: ImportedPlaylistSong[] = [
-      { title: "Best Part", artist: "H.E.R. ft. Daniel Caesar", vibe: "chill" },
-      { title: "Adore You", artist: "Harry Styles", vibe: "romantic" },
-      { title: "Levitating", artist: "Dua Lipa", vibe: "dance" },
-      { title: "Golden Hour", artist: "JVKE", vibe: "romantic" },
-      { title: "Electric Feel", artist: "MGMT", vibe: "dance" },
-      { title: "Put Your Records On", artist: "Corinne Bailey Rae", vibe: "chill" },
-    ];
-    setMusicImportStage("analyzing");
-    setImportedPlaylistSongs([]);
-    setImportCocktailSuggestions([]);
-    setImportDinnerSuggestions([]);
-    setImportOpenDancingSuggestions([]);
-    window.setTimeout(() => {
-      setMusicImportStage("building");
-      window.setTimeout(() => {
-        setImportedPlaylistName("Spotify Favorites - Wedding Edit");
-        setImportedPlaylistSongs(mockSongs);
-        runAutoCategorization(mockSongs);
-        setMusicImportStage("ready");
-      }, 1100);
-    }, 900);
+  const addMusicPlaylistLink = () => {
+    const url = musicNewPlaylistUrl.trim();
+    if (!url) return;
+    const entry: SharedPlaylistLink = {
+      id: `pl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      url,
+      label: musicNewPlaylistLabel.trim() || undefined,
+      notes: musicNewPlaylistNotes.trim() || undefined,
+    };
+    setMusicPlaylistLinks((prev) => [...prev, entry]);
+    setMusicNewPlaylistUrl("");
+    setMusicNewPlaylistLabel("");
+    setMusicNewPlaylistNotes("");
+    logActivity("song_added", `Added playlist link${entry.label ? `: ${entry.label}` : ""}`);
   };
 
-  const handleAddAllImportedToMustPlay = () => {
-    if (importedPlaylistSongs.length === 0) return;
-    const timestamp = Date.now();
-    const importedEntries: SongEntry[] = importedPlaylistSongs.map((song, index) => ({
-      id: `imported-must-${timestamp}-${index}`,
-      title: song.title,
-      artist: song.artist,
-      notes: "Imported from mock Spotify playlist.",
-      highPriority: song.vibe === "dance",
-    }));
-    setMustPlaySongs((prev) => [...importedEntries, ...prev]);
-    logActivity("song_added", `Imported ${importedEntries.length} songs to Must Play`);
-    pushNotification("Playlist songs imported", "song_added");
+  const updateMusicPlaylistLink = (id: string, patch: Partial<SharedPlaylistLink>) => {
+    setMusicPlaylistLinks((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const removeMusicPlaylistLink = (id: string) => {
+    setMusicPlaylistLinks((prev) => prev.filter((row) => row.id !== id));
+  };
+
+  const toggleGenreEraChip = (label: string) => {
+    setMusicGenreEraSelections((prev) => {
+      if (prev.includes(label)) return prev.filter((x) => x !== label);
+      const next = [...prev, label];
+      next.sort(
+        (a, b) => (MUSIC_GENRE_ERA_ORDER.get(a) ?? 0) - (MUSIC_GENRE_ERA_ORDER.get(b) ?? 0),
+      );
+      return next;
+    });
   };
 
   const removeSong = (listType: SongListType, songId: string) => {
     if (listType === "mustPlay") {
       setMustPlaySongs((prev) => prev.filter((song) => song.id !== songId));
+      return;
+    }
+    if (listType === "playIfPossible") {
+      setPlayIfPossibleSongs((prev) => prev.filter((song) => song.id !== songId));
       return;
     }
     setDoNotPlaySongs((prev) => prev.filter((song) => song.id !== songId));
@@ -4980,6 +5022,10 @@ export default function Home() {
 
     if (listType === "mustPlay") {
       setMustPlaySongs((prev) => updatePriority(prev));
+      return;
+    }
+    if (listType === "playIfPossible") {
+      setPlayIfPossibleSongs((prev) => updatePriority(prev));
       return;
     }
     setDoNotPlaySongs((prev) => updatePriority(prev));
@@ -5971,12 +6017,22 @@ export default function Home() {
       });
     }
 
-    if (sectionMustPlayEnabled && mustPlaySongs.length === 0) {
+    const musicTasteForReadiness =
+      musicPlaylistLinks.length > 0 ||
+      musicGenreEraSelections.length > 0 ||
+      mustPlaySongs.length > 0 ||
+      playIfPossibleSongs.length > 0 ||
+      PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
+
+    if (
+      (sectionMustPlayEnabled || sectionPlaylistsEnabled) &&
+      !musicTasteForReadiness
+    ) {
       rows.push({
         id: "rd-must-play",
         tier: "recommended",
-        title: "Must-play list is empty",
-        hint: "Even a short list signals what absolutely needs airtime—five songs is a fine start.",
+        title: "Share a playlist or vibe",
+        hint: "Paste a Spotify or Apple Music playlist link, tap a few genres, or add a handful of must-plays—your DJ does not need a full song-by-song list.",
         actionLabel: "Music Hub",
         targetScreen: "Music Hub",
       });
@@ -6064,6 +6120,10 @@ export default function Home() {
     hasKeyTimelineMoments,
     mergedTimelineItems,
     mustPlaySongs.length,
+    playIfPossibleSongs.length,
+    musicPlaylistLinks.length,
+    musicGenreEraSelections.length,
+    playlistVibeOverrides,
     doNotPlaySongs.length,
     primaryTimelineScreenForHome,
     sectionCeremonyEnabled,
@@ -6197,12 +6257,30 @@ export default function Home() {
         lines.push("(Clean edits / school-appropriate content)");
       }
       lines.push(`Overall vibe: ${generalDjNotes || "None"}`);
-      if (musicVibeDetail.genres?.trim()) lines.push(`Genres: ${musicVibeDetail.genres.trim()}`);
+      if (musicGenreEraSelections.length > 0) {
+        lines.push(`Genre / era picks: ${musicGenreEraSelections.join(", ")}`);
+      }
+      if (musicVibeDetail.genres?.trim()) lines.push(`Extra genre notes: ${musicVibeDetail.genres.trim()}`);
       if (musicVibeDetail.energy?.trim()) lines.push(`Energy: ${musicVibeDetail.energy.trim()}`);
       if (musicVibeDetail.crowdNotes?.trim()) lines.push(`Crowd: ${musicVibeDetail.crowdNotes.trim()}`);
       if (musicVibeDetail.cleanMusicPrefs?.trim())
         lines.push(`Clean / content prefs: ${musicVibeDetail.cleanMusicPrefs.trim()}`);
       lines.push("");
+    }
+
+    if (musicPlaylistLinks.length > 0) {
+      lines.push(
+        "PLAYLIST LINKS (CLIENT)",
+        ...musicPlaylistLinks.map((link, i) => {
+          const bits = [
+            `${i + 1}. ${link.url.trim()}`,
+            link.label?.trim() ? `Label: ${link.label.trim()}` : null,
+            link.notes?.trim() ? `Notes: ${link.notes.trim()}` : null,
+          ].filter(Boolean);
+          return bits.join(" | ");
+        }),
+        "",
+      );
     }
 
     if (showDnp) {
@@ -6243,6 +6321,17 @@ export default function Home() {
       lines.push(
         "MUST PLAY SONGS",
         ...mustPlaySongs.map(
+          (song) =>
+            `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
+        ),
+        "",
+      );
+    }
+
+    if (showPlaylists && sectionMustPlayEnabled && playIfPossibleSongs.length > 0) {
+      lines.push(
+        "PLAY IF POSSIBLE",
+        ...playIfPossibleSongs.map(
           (song) =>
             `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
         ),
@@ -6331,6 +6420,9 @@ export default function Home() {
     mergedTimelineItems,
     microphoneNeeds,
     mustPlaySongs,
+    playIfPossibleSongs,
+    musicPlaylistLinks,
+    musicGenreEraSelections,
     officiantName,
     parsePlaylistSongLine,
     planningQuestionsForEvent,
@@ -9217,13 +9309,13 @@ export default function Home() {
               trail={["Music Hub"]}
               onBack={() => setActiveScreen("Dashboard")}
               primaryAction={{
-                label: "Add song",
+                label: "Add playlist link",
                 onClick: () => {
-                  document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                  document.getElementById("music-hub-playlist-links")?.scrollIntoView({
                     behavior: "smooth",
-                    block: "center",
+                    block: "start",
                   });
-                  window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
                 },
                 disabled: !canManageMusic,
               }}
@@ -9232,13 +9324,13 @@ export default function Home() {
             <PremiumCard className="border-[#00D4FF]/35 bg-zinc-950 border-zinc-800">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#00D4FF]/75">Soundtrack</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#00D4FF]/75">Music planning</p>
                   <SectionTitle className="mt-1 !text-zinc-100">Music Hub</SectionTitle>
                 </div>
                 <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-1" />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                Keep must-plays, playlists, guest requests, and vibe notes in one calm place—organized by moment, not spreadsheets.
+                Share playlists and the sounds you love—your DJ uses this to prepare, not to replace their judgment on the night.
               </p>
             </PremiumCard>
 
@@ -9253,7 +9345,7 @@ export default function Home() {
               <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
                 <SectionTitle className="!text-zinc-100">Music Assistant</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Playlist balance and formality song cues.
+                  Operational read on playlist links, genre picks, and song lists.
                 </p>
                 <div className="mt-3">
                   <InsightStack
@@ -9264,10 +9356,139 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <PremiumCard id="music-hub-quick-add" className="border-stone-200 bg-white shadow-sm">
-              <SectionTitle className="text-stone-950">Quick add</SectionTitle>
-              <p className="mt-1 text-xs text-stone-600">
-                Drop a song onto Must Play or Do Not Play—notes are optional.
+            <PremiumCard
+              id="music-hub-playlist-links"
+              className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
+            >
+              <SectionTitle className="text-stone-950">Playlist links</SectionTitle>
+              <p className="mt-1 text-sm leading-snug text-stone-600">
+                Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste.
+              </p>
+              <p className="mt-2 text-xs text-stone-500">
+                Playlist song extraction coming later—we never pull tracks from a link automatically today.
+              </p>
+              <div className="mt-4 space-y-3">
+                <TextInput
+                  id="music-new-playlist-url"
+                  label="Playlist URL"
+                  value={musicNewPlaylistUrl}
+                  onChange={setMusicNewPlaylistUrl}
+                  placeholder="https://open.spotify.com/playlist/… or Apple Music / YouTube link"
+                  disabled={!canManageMusic}
+                />
+                <TextInput
+                  id="music-new-playlist-label"
+                  label="Label (optional)"
+                  value={musicNewPlaylistLabel}
+                  onChange={setMusicNewPlaylistLabel}
+                  placeholder="e.g. Cocktail hour ideas"
+                  disabled={!canManageMusic}
+                />
+                <TextArea
+                  id="music-new-playlist-notes"
+                  label="Notes (optional)"
+                  value={musicNewPlaylistNotes}
+                  onChange={setMusicNewPlaylistNotes}
+                  rows={2}
+                  placeholder="Anything your DJ should know about this list…"
+                  disabled={!canManageMusic}
+                />
+                <PrimaryButton
+                  type="button"
+                  onClick={addMusicPlaylistLink}
+                  disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
+                  className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                >
+                  Save playlist link
+                </PrimaryButton>
+              </div>
+              {musicPlaylistLinks.length > 0 ? (
+                <ul className="mt-5 space-y-3">
+                  {musicPlaylistLinks.map((link) => (
+                    <li
+                      key={link.id}
+                      className="rounded-xl border border-stone-200 bg-stone-50/90 p-3 sm:p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                          {link.label?.trim() ? link.label : "Playlist"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => removeMusicPlaylistLink(link.id)}
+                          disabled={!canManageMusic}
+                          className="shrink-0 text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <TextInput
+                        id={`pl-url-${link.id}`}
+                        label="URL"
+                        value={link.url}
+                        onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
+                        disabled={!canManageMusic}
+                      />
+                      <div className="mt-3">
+                        <TextInput
+                          id={`pl-label-${link.id}`}
+                          label="Label (optional)"
+                          value={link.label ?? ""}
+                          onChange={(v) => updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })}
+                          disabled={!canManageMusic}
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <TextArea
+                          id={`pl-notes-${link.id}`}
+                          label="Notes (optional)"
+                          value={link.notes ?? ""}
+                          onChange={(v) => updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })}
+                          rows={2}
+                          disabled={!canManageMusic}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 rounded-xl border border-dashed border-stone-200 bg-stone-50 px-3 py-3 text-xs text-stone-600">
+                  No links yet—paste one when you have a playlist that feels like you.
+                </p>
+              )}
+            </PremiumCard>
+
+            <PremiumCard className="border-stone-200 bg-white shadow-sm">
+              <SectionTitle className="text-stone-950">Genres &amp; eras</SectionTitle>
+              <p className="mt-1 text-sm text-stone-600">
+                Tap everything that fits—this is a quick map, not a test.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {MUSIC_GENRE_ERA_OPTIONS.map((label) => {
+                  const on = musicGenreEraSelections.includes(label);
+                  return (
+                    <button
+                      key={`genre-${label}`}
+                      type="button"
+                      disabled={!canManageMusic}
+                      onClick={() => toggleGenreEraChip(label)}
+                      className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${
+                        on
+                          ? "border-black bg-[#00D4FF] text-black shadow-none"
+                          : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                      } disabled:opacity-45`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </PremiumCard>
+
+            <PremiumCard id="music-hub-quick-add" className="border border-dashed border-stone-300 bg-stone-50/60 shadow-none">
+              <SectionTitle className="text-stone-950">Individual songs (optional)</SectionTitle>
+              <p className="mt-1 text-sm text-stone-600">
+                Add individual songs only if there are specific tracks we should know about. Most couples stop at playlists and genres.
               </p>
               <div className="mt-4 space-y-3">
                 <TextInput
@@ -9294,28 +9515,39 @@ export default function Home() {
                   placeholder="Special mix notes, timing cues, energy guidance..."
                   disabled={!canManageMusic}
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <PrimaryButton
                     onClick={() => setNewSongListType("mustPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
                       newSongListType === "mustPlay"
                         ? "border-black bg-[#00D4FF] text-black"
                         : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                   >
-                    Must Play
+                    Must play
+                  </PrimaryButton>
+                  <PrimaryButton
+                    onClick={() => setNewSongListType("playIfPossible")}
+                    disabled={!canManageMusic}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
+                      newSongListType === "playIfPossible"
+                        ? "border-emerald-700 bg-emerald-100 text-emerald-950"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    Play if possible
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => setNewSongListType("doNotPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
                       newSongListType === "doNotPlay"
                         ? "border-rose-600 bg-rose-100 text-rose-950"
                         : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                   >
-                    Do Not Play
+                    Do not play
                   </PrimaryButton>
                 </div>
                 <PrimaryButton
@@ -9339,13 +9571,13 @@ export default function Home() {
               </div>
             </PremiumCard>
 
-            <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
+            <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
               {sectionMustPlayEnabled && (
                 <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <SectionTitle className="!text-zinc-100">Must play</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-500">Non‑negotiable songs for your celebration.</p>
+                      <p className="mt-1 text-xs text-zinc-500">Songs that should absolutely make the night.</p>
                     </div>
                     <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-100">
                       {mustPlaySongs.length}
@@ -9356,7 +9588,7 @@ export default function Home() {
                       <SectionEmptyState
                         wrapWithCard={false}
                         title="No must-plays yet"
-                        description="Lock in the songs that define your dance floor."
+                        description="Totally fine—many couples only share playlists above."
                         primaryAction={{
                           label: "Add from quick add",
                           onClick: () => {
@@ -9376,6 +9608,53 @@ export default function Home() {
                         key={song.id}
                         song={song}
                         listType="mustPlay"
+                        onTogglePriority={togglePriority}
+                        onRemove={removeSong}
+                        disabled={!canManageMusic}
+                      />
+                    ))}
+                  </div>
+                </PremiumCard>
+              )}
+
+              {sectionMustPlayEnabled && (
+                <PremiumCard className="border border-emerald-200/80 bg-white shadow-none">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <SectionTitle className="text-stone-950">Play if possible</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">
+                        Nice-to-haves when the moment feels right—never a guarantee.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
+                      {playIfPossibleSongs.length}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {playIfPossibleSongs.length === 0 ? (
+                      <SectionEmptyState
+                        wrapWithCard={false}
+                        title="No “play if possible” yet"
+                        description="Optional—add a few if specific songs would make you smile."
+                        primaryAction={{
+                          label: "Add from box above",
+                          onClick: () => {
+                            setNewSongListType("playIfPossible");
+                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                          },
+                          disabled: !canManageMusic,
+                        }}
+                      />
+                    ) : null}
+                    {playIfPossibleSongs.map((song) => (
+                      <SongCard
+                        key={song.id}
+                        song={song}
+                        listType="playIfPossible"
                         onTogglePriority={togglePriority}
                         onRemove={removeSong}
                         disabled={!canManageMusic}
@@ -9434,6 +9713,14 @@ export default function Home() {
             </div>
 
             {sectionPlaylistsEnabled && (
+              <details className="group no-print rounded-2xl border border-stone-200 bg-white shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3.5 text-sm font-semibold text-stone-900 sm:px-5 [&::-webkit-details-marker]:hidden">
+                  <span>Song ideas by part of the night (optional)</span>
+                  <span className="text-[11px] font-medium text-stone-500 transition-transform group-open:rotate-180">
+                    ▼
+                  </span>
+                </summary>
+                <div className="border-t border-stone-200 px-4 pb-4 pt-2 sm:px-5">
               <div className="space-y-4">
                 <div className="px-1">
                   <SectionTitle className="text-stone-950">Playlists by moment</SectionTitle>
@@ -9457,7 +9744,7 @@ export default function Home() {
                             </SectionTitle>
                             <p className="mt-1 text-[11px] text-stone-600">
                               {lines.length} song{lines.length === 1 ? "" : "s"}
-                              {usingDefaults ? " · Includes starter ideas + imports" : " · Custom list"}
+                              {usingDefaults ? " · Includes starter ideas" : " · Custom list"}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -9574,6 +9861,8 @@ export default function Home() {
                   })}
                 </div>
               </div>
+                </div>
+              </details>
             )}
 
             {sectionGuestRequestsEnabled ? (
@@ -9689,17 +9978,6 @@ export default function Home() {
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <TextArea
-                      id="music-hub-genres"
-                      label="Genres / eras"
-                      value={musicVibeDetail.genres ?? ""}
-                      onChange={(value) =>
-                        setMusicVibeDetail((prev) => ({ ...prev, genres: value }))
-                      }
-                      rows={3}
-                      disabled={!canManageMusic}
-                      placeholder="e.g. 90s R&B, Latin nights, indie sing-alongs…"
-                    />
-                    <TextArea
                       id="music-hub-energy"
                       label="Energy arc"
                       value={musicVibeDetail.energy ?? ""}
@@ -9737,86 +10015,6 @@ export default function Home() {
                       placeholder="Radio edits, avoid explicit, requests handling…"
                     />
                   </div>
-                </div>
-              </PremiumCard>
-            )}
-          </section>
-        )}
-
-        {authStage === "app" && appMode === "event" && activeScreen === "Music Import" && (
-          <section className="mt-6 space-y-3">
-            <EventHomeNav trail={["Music Import"]} onBack={() => setActiveScreen("Dashboard")} />
-            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
-              <SectionTitle className="!text-zinc-100">Spotify Playlist Import (Prototype)</SectionTitle>
-              <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-                Paste a Spotify playlist link to simulate import and build event-ready song guidance.
-              </p>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="spotify-playlist-url"
-                  label="Spotify playlist URL"
-                  value={playlistUrlInput}
-                  onChange={setPlaylistUrlInput}
-                  placeholder="https://open.spotify.com/playlist/..."
-                  disabled={!canManageMusic || musicImportStage === "analyzing" || musicImportStage === "building"}
-                />
-                <PrimaryButton
-                  onClick={handleImportPlaylist}
-                  disabled={!canManageMusic || !playlistUrlInput.trim() || musicImportStage === "analyzing" || musicImportStage === "building"}
-                  className="w-full bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 disabled:opacity-50"
-                >
-                  Import Playlist
-                </PrimaryButton>
-                {musicImportStage === "analyzing" && (
-                  <p className="rounded-xl border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs leading-relaxed text-zinc-200">
-                    Analyzing playlist vibe...
-                  </p>
-                )}
-                {musicImportStage === "building" && (
-                  <p className="rounded-xl border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs leading-relaxed text-zinc-200">
-                    Building your event soundtrack...
-                  </p>
-                )}
-              </div>
-            </PremiumCard>
-
-            {musicImportStage === "ready" && importedPlaylistSongs.length > 0 && (
-              <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
-                <SectionTitle className="!text-zinc-100">Playlist Preview</SectionTitle>
-                <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-zinc-800 text-[10px] uppercase tracking-wide text-zinc-400">
-                    Artwork
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">{importedPlaylistName}</p>
-                    <p className="mt-1 text-xs text-zinc-400">{importedPlaylistSongs.length} songs</p>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {importedPlaylistSongs.map((song, index) => (
-                    <div
-                      key={`imported-${song.title}-${song.artist}-${index}`}
-                      className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-200"
-                    >
-                      {song.title} - {song.artist}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <PrimaryButton
-                    onClick={handleAddAllImportedToMustPlay}
-                    disabled={!canManageMusic}
-                    className={`w-full ${darkUiAccentPrimaryButtonClass}`}
-                  >
-                    Add All to Must Play
-                  </PrimaryButton>
-                  <PrimaryButton
-                    onClick={() => runAutoCategorization(importedPlaylistSongs)}
-                    disabled={!canManageMusic}
-                    className={`w-full ${darkUiSecondaryOutlineButtonClass}`}
-                  >
-                    Categorize Automatically
-                  </PrimaryButton>
                 </div>
               </PremiumCard>
             )}
@@ -12617,9 +12815,15 @@ export default function Home() {
                   ) : null}
                   <p className="doc-note mb-1 font-medium text-zinc-700 print:text-black">Overall vibe</p>
                   <p className="mb-3">{generalDjNotes || "None"}</p>
+                  {musicGenreEraSelections.length > 0 ? (
+                    <p className="mb-2">
+                      <span className="font-medium text-zinc-700 print:text-black">Genre / era picks: </span>
+                      {musicGenreEraSelections.join(", ")}
+                    </p>
+                  ) : null}
                   {(musicVibeDetail.genres ?? "").trim() ? (
                     <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">Genres / eras: </span>
+                      <span className="font-medium text-zinc-700 print:text-black">Extra genre notes: </span>
                       {musicVibeDetail.genres}
                     </p>
                   ) : null}
@@ -12642,6 +12846,33 @@ export default function Home() {
                       </span>
                       {musicVibeDetail.cleanMusicPrefs}
                     </p>
+                  ) : null}
+                  {musicPlaylistLinks.length > 0 ? (
+                    <>
+                      <p className="doc-note mb-2 mt-4 font-medium text-zinc-700 print:text-black">
+                        Client playlist links
+                      </p>
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Label</th>
+                            <th>URL</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {musicPlaylistLinks.map((link, index) => (
+                            <tr key={`doc-plink-${link.id}`}>
+                              <td>{index + 1}</td>
+                              <td>{link.label?.trim() || "—"}</td>
+                              <td className="max-w-[40%] break-all">{link.url}</td>
+                              <td>{link.notes?.trim() || ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
                   ) : null}
                 </div>
               )}
@@ -12707,6 +12938,31 @@ export default function Home() {
                       </tbody>
                     </table>
                   </div>
+                  {sectionMustPlayEnabled && playIfPossibleSongs.length > 0 ? (
+                    <div className="doc-section">
+                      <h3>Play If Possible</h3>
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Song</th>
+                            <th>Artist</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {playIfPossibleSongs.map((song, index) => (
+                            <tr key={`playlist-pip-${song.id}`}>
+                              <td>{index + 1}</td>
+                              <td>{song.title || "-"}</td>
+                              <td>{song.artist || ""}</td>
+                              <td>{song.notes || ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
                   {!eventSettings.liveEventShowGuestRequests ? (
                   <div className="doc-section">
                     <h3>Guest Approved Requests</h3>

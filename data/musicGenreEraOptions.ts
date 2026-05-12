@@ -1,0 +1,23 @@
+/** Curated genre / era chips for Music Hub (order preserved for stable display). */
+export const MUSIC_GENRE_ERA_OPTIONS: string[] = [
+  "Top 40",
+  "Motown",
+  "Country",
+  "80s",
+  "90s",
+  "2000s",
+  "Hip-Hop",
+  "R&B",
+  "Dance",
+  "EDM",
+  "Latin",
+  "Rock",
+  "Indie",
+  "Funk",
+  "Disco",
+  "Oldies",
+  "Pop Punk",
+  "Reggaeton",
+  "Salsa/Bachata",
+  "Throwbacks",
+];
