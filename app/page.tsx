@@ -137,6 +137,11 @@ import {
   sortTimelineItemsChronologically,
 } from "@/utils/planning";
 import {
+  parsePastedTimelineText,
+  timelineItemsFromImportDrafts,
+  type PastedTimelineImportDraft,
+} from "@/utils/timelinePasteImport";
+import {
   redrawRunOfShowAnnotationCanvas,
   runOfShowClientToContentCoords,
   type RunOfShowAnnotationStroke,
@@ -1252,6 +1257,12 @@ export default function Home() {
     | { kind: "ceremony"; id: string; label: string }
     | null
   >(null);
+  const [timelineImportOpen, setTimelineImportOpen] = useState(false);
+  const [timelineImportRaw, setTimelineImportRaw] = useState("");
+  const [timelineImportDrafts, setTimelineImportDrafts] = useState<PastedTimelineImportDraft[]>([]);
+  const [timelineImportStep, setTimelineImportStep] = useState<"paste" | "review">("paste");
+  const [timelineImportParseError, setTimelineImportParseError] = useState<string | null>(null);
+  const [timelineImportReplaceDanger, setTimelineImportReplaceDanger] = useState(false);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Event Document: distraction-free live execution view (same timeline order as packet). */
@@ -5172,6 +5183,61 @@ export default function Home() {
       setReceptionTimelineExpandedId(null);
     }
   };
+
+  const closeTimelineImport = useCallback(() => {
+    setTimelineImportOpen(false);
+    setTimelineImportRaw("");
+    setTimelineImportDrafts([]);
+    setTimelineImportStep("paste");
+    setTimelineImportParseError(null);
+    setTimelineImportReplaceDanger(false);
+  }, []);
+
+  const handleParseTimelineImport = useCallback(() => {
+    setTimelineImportParseError(null);
+    const drafts = parsePastedTimelineText(timelineImportRaw);
+    if (drafts.length === 0) {
+      setTimelineImportParseError(
+        "No moments could be parsed. Try lines that start with a time, like 4:30 PM or 6pm.",
+      );
+      return;
+    }
+    setTimelineImportDrafts(drafts);
+    setTimelineImportStep("review");
+  }, [timelineImportRaw]);
+
+  const applyTimelineImport = useCallback(
+    (mode: "add" | "replace") => {
+      if (timelineImportDrafts.length === 0) return;
+      const items = timelineItemsFromImportDrafts(timelineImportDrafts);
+      if (mode === "replace") {
+        setTimelineItems(sortTimelineItemsChronologically(items));
+        logActivity("timeline_updated", `Replaced timeline with ${items.length} imported moments`);
+        pushNotification("Timeline replaced", "timeline_updated");
+      } else {
+        setTimelineItems((prev) => {
+          let next = [...prev];
+          for (const it of items) {
+            next = insertReceptionTimelineItemChronologically(next, it);
+          }
+          return next;
+        });
+        logActivity("timeline_item_added", `Imported ${items.length} paste timeline moments`);
+        pushNotification("Timeline updated", "timeline_updated");
+      }
+      setReceptionTimelineExpandedId(null);
+      closeTimelineImport();
+    },
+    [closeTimelineImport, logActivity, pushNotification, timelineImportDrafts],
+  );
+
+  const updateTimelineImportDraft = useCallback((key: string, patch: Partial<PastedTimelineImportDraft>) => {
+    setTimelineImportDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+  }, []);
+
+  const removeTimelineImportDraft = useCallback((key: string) => {
+    setTimelineImportDrafts((prev) => prev.filter((d) => d.key !== key));
+  }, []);
 
   const moveTimelineItem = (itemId: string, direction: "up" | "down") => {
     setTimelineItems((prev) => {
@@ -9816,7 +9882,21 @@ export default function Home() {
                       : "Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit."}
                   </p>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  {canEditTimeline ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => {
+                        setTimelineImportOpen(true);
+                        setTimelineImportStep("paste");
+                        setTimelineImportParseError(null);
+                        setTimelineImportReplaceDanger(false);
+                      }}
+                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto sm:shrink-0"
+                    >
+                      Import Timeline
+                    </PrimaryButton>
+                  ) : null}
                   {hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
                     <details className="group w-full rounded-xl border border-stone-300 bg-white shadow-sm sm:w-auto sm:min-w-[220px]">
                       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-900 sm:min-h-0 sm:text-[12px] [&::-webkit-details-marker]:hidden">
@@ -14723,6 +14803,213 @@ export default function Home() {
             ) : null}
           </div>
         )}
+
+      {timelineImportOpen ? (
+        <div
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          role="presentation"
+          onClick={closeTimelineImport}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-import-title"
+            className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col rounded-2xl border border-stone-200 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+              <p id="timeline-import-title" className="text-base font-semibold text-stone-900">
+                Import Timeline
+              </p>
+              <p className="mt-1.5 text-sm leading-snug text-stone-600">
+                Paste a planner list. We&apos;ll suggest moments—you choose whether to add or replace.
+              </p>
+
+              {timelineImportStep === "paste" ? (
+                <div className="mt-5 space-y-4">
+                  <TextArea
+                    id="timeline-import-paste"
+                    label="Paste timeline text"
+                    value={timelineImportRaw}
+                    onChange={setTimelineImportRaw}
+                    placeholder={"4:30 Ceremony begins\n6:15 Grand entrance — Song: Signed, Sealed, Delivered\n7:30 Toasts — Best man and maid of honor"}
+                    rows={8}
+                    disabled={!canEditTimeline}
+                  />
+                  {timelineImportParseError ? (
+                    <p className="text-sm text-rose-700">{timelineImportParseError}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  <p className="text-sm text-stone-700">
+                    Review {timelineImportDrafts.length}{" "}
+                    {timelineImportDrafts.length === 1 ? "moment" : "moments"} before adding.
+                  </p>
+                  {timelineImportReplaceDanger ? (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+                      Replacing clears your current timeline. Confirm below, or tap Add to Timeline instead.
+                    </div>
+                  ) : null}
+                  <div className="space-y-3">
+                    {timelineImportDrafts.map((draft) => (
+                      <div
+                        key={draft.key}
+                        className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                            Moment
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => removeTimelineImportDraft(draft.key)}
+                            className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-rose-800 hover:bg-rose-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          <TextInput
+                            id={`ti-time-${draft.key}`}
+                            label="Time"
+                            value={draft.time}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { time: v })}
+                            placeholder="e.g. 6:30 PM"
+                          />
+                          <TextInput
+                            id={`ti-title-${draft.key}`}
+                            label="Moment"
+                            value={draft.title}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { title: v })}
+                            placeholder="Title"
+                          />
+                          <TextInput
+                            id={`ti-song-${draft.key}`}
+                            label="Song"
+                            value={draft.songTitle ?? ""}
+                            onChange={(v) =>
+                              updateTimelineImportDraft(draft.key, {
+                                songTitle: v.trim() ? v : undefined,
+                              })
+                            }
+                            placeholder="Optional"
+                          />
+                          <TextInput
+                            id={`ti-artist-${draft.key}`}
+                            label="Artist"
+                            value={draft.artist ?? ""}
+                            onChange={(v) =>
+                              updateTimelineImportDraft(draft.key, { artist: v.trim() ? v : undefined })
+                            }
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <TextArea
+                            id={`ti-notes-${draft.key}`}
+                            label="Notes"
+                            value={draft.notes}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { notes: v })}
+                            rows={2}
+                            placeholder="Optional"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {timelineImportDrafts.length === 0 ? (
+                    <p className="text-sm text-stone-600">All rows removed. Go back to paste or cancel.</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="shrink-0 border-t border-stone-200 bg-white p-4 sm:p-5">
+              {timelineImportStep === "paste" ? (
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                  <PrimaryButton
+                    type="button"
+                    onClick={closeTimelineImport}
+                    className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                  >
+                    Cancel
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="button"
+                    onClick={handleParseTimelineImport}
+                    disabled={!canEditTimeline || !timelineImportRaw.trim()}
+                    className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
+                  >
+                    Parse Timeline
+                  </PrimaryButton>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                    <PrimaryButton
+                      type="button"
+                      onClick={closeTimelineImport}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                    >
+                      Cancel
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => {
+                        setTimelineImportStep("paste");
+                        setTimelineImportReplaceDanger(false);
+                      }}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                    >
+                      Back
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                      onClick={() => {
+                        setTimelineImportReplaceDanger(false);
+                        applyTimelineImport("add");
+                      }}
+                      className="w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto"
+                    >
+                      Add to Timeline
+                    </PrimaryButton>
+                    {timelineImportReplaceDanger ? (
+                      <PrimaryButton
+                        type="button"
+                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                        onClick={() => applyTimelineImport("replace")}
+                        className="w-full rounded-lg border border-rose-500 bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-rose-700 disabled:opacity-45 sm:w-auto"
+                      >
+                        Confirm Replace Timeline
+                      </PrimaryButton>
+                    ) : (
+                      <PrimaryButton
+                        type="button"
+                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                        onClick={() => setTimelineImportReplaceDanger(true)}
+                        className="w-full rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45 sm:w-auto"
+                      >
+                        Replace Timeline
+                      </PrimaryButton>
+                    )}
+                  </div>
+                  {timelineImportReplaceDanger ? (
+                    <button
+                      type="button"
+                      onClick={() => setTimelineImportReplaceDanger(false)}
+                      className="w-full text-center text-[13px] font-medium text-stone-600 underline-offset-2 hover:underline sm:text-right"
+                    >
+                      Never mind — keep reviewing
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingTimelineDelete ? (
         <div
