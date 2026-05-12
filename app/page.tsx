@@ -36,6 +36,7 @@ import {
   lightUiEmptyHintInCardClass,
   lightUiFormLabelClass,
   lightUiInputClass,
+  lightUiTextControlClass,
   lightUiListRowClass,
   lightUiSecondaryButtonClass,
   lightUiSectionCaptionClass,
@@ -1185,6 +1186,11 @@ function VendorEventCard({
 }
 
 const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
+
+/** Desktop-only (md+) — timeline inline edit; mobile keeps default control sizing. */
+const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-12 md:px-4 md:py-3.5 md:text-base`;
+const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500 md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
+const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
 
 export default function Home() {
   const timelineComposerRef = useRef<HTMLDivElement | null>(null);
@@ -5306,21 +5312,6 @@ export default function Home() {
     setTimelineImportDrafts((prev) => prev.filter((d) => d.key !== key));
   }, []);
 
-  const moveTimelineItem = (itemId: string, direction: "up" | "down") => {
-    setTimelineItems((prev) => {
-      const currentIndex = prev.findIndex((item) => item.id === itemId);
-      if (currentIndex === -1) return prev;
-      if (direction === "up" && currentIndex === 0) return prev;
-      if (direction === "down" && currentIndex === prev.length - 1) return prev;
-
-      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-      const updated = [...prev];
-      const [movedItem] = updated.splice(currentIndex, 1);
-      updated.splice(targetIndex, 0, movedItem);
-      return updated;
-    });
-  };
-
   const reorderTimelineItemToTarget = (itemId: string, targetId: string) => {
     if (!itemId || !targetId || itemId === targetId) return;
     setTimelineItems((prev) => {
@@ -5483,21 +5474,6 @@ export default function Home() {
     );
     logActivity("ceremony_updated", `Duplicated ceremony moment: ${item.moment}`);
     pushNotification("Ceremony timeline updated", "ceremony_updated");
-  };
-
-  const moveCeremonyTimelineItem = (itemId: string, direction: "up" | "down") => {
-    setCeremonyTimelineItems((prev) => {
-      const currentIndex = prev.findIndex((item) => item.id === itemId);
-      if (currentIndex === -1) return prev;
-      if (direction === "up" && currentIndex === 0) return prev;
-      if (direction === "down" && currentIndex === prev.length - 1) return prev;
-
-      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-      const updated = [...prev];
-      const [movedItem] = updated.splice(currentIndex, 1);
-      updated.splice(targetIndex, 0, movedItem);
-      return updated;
-    });
   };
 
   const reorderCeremonyTimelineItemToTarget = (itemId: string, targetId: string) => {
@@ -10422,7 +10398,7 @@ export default function Home() {
                 return (
                 <PremiumCard
                   key={item.id}
-                  className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 ${
+                  className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${
                     index % 2 === 1 ? "bg-stone-50" : ""
                   } ${
                     isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
@@ -10457,19 +10433,28 @@ export default function Home() {
                   )}
                   {!rowExpanded && (
                     <>
-                      <div className="hidden md:flex md:flex-col gap-5 sm:gap-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
-                              {item.title}
-                            </h3>
-                            <p className="mt-1.5 font-mono text-base font-semibold tabular-nums text-stone-800 sm:text-sm">
-                              {item.time?.trim() || "—"}
+                      <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
+                        <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2 lg:max-w-[40rem] lg:space-y-1 xl:max-w-[42rem]">
+                          <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere] md:text-xl md:font-semibold lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
+                            {item.title}
+                          </h3>
+                          <p className="font-mono text-base font-semibold tabular-nums text-stone-700 sm:text-sm md:text-lg md:font-semibold lg:mt-0.5 lg:text-sm lg:font-semibold lg:text-stone-600 xl:text-[0.9375rem]">
+                            {item.time?.trim() || "—"}
+                          </p>
+                          <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm md:text-base md:leading-relaxed [overflow-wrap:anywhere] lg:mt-1.5 lg:text-sm lg:leading-snug xl:text-[15px] xl:leading-snug">
+                            <span className="font-medium text-stone-500">{cueKind} · </span>
+                            {songPreview}
+                          </p>
+                          {item.notes?.trim() ? (
+                            <p className="line-clamp-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-sm md:leading-relaxed md:text-stone-600 lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs xl:text-stone-600">
+                              {item.notes}
                             </p>
-                          </div>
-                          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:max-w-[55%] sm:justify-end lg:max-w-none">
+                          ) : null}
+                        </div>
+                        <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                          <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                             <span
-                              className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                              className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px] ${
                                 item.category === "Formalities"
                                   ? "border-stone-500 bg-stone-200 text-stone-900"
                                   : "border-stone-300 bg-white text-stone-700"
@@ -10478,90 +10463,41 @@ export default function Home() {
                               {item.category}
                             </span>
                             {item.needsDjMcAttention ? (
-                              <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                              <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
                                 DJ/MC
                               </span>
                             ) : null}
                           </div>
-                        </div>
-                        <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm [overflow-wrap:anywhere]">
-                          <span className="font-medium text-stone-500">{cueKind} · </span>
-                          {songPreview}
-                        </p>
-                        {item.notes?.trim() ? (
-                          <p className="line-clamp-2 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
-                            {item.notes}
-                          </p>
-                        ) : null}
-                        {canEditTimeline ? (
-                          <div className="flex justify-end">
-                            <button
+                          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                            <PrimaryButton
                               type="button"
-                              onClick={() =>
-                                setPendingTimelineDelete({
-                                  kind: "reception",
-                                  id: item.id,
-                                  label: item.title.trim() || "this moment",
-                                })
-                              }
-                              className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                              onClick={() => setReceptionTimelineExpandedId(item.id)}
+                              disabled={!canEditTimeline}
+                              className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
                             >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null}
-                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => setReceptionTimelineExpandedId(item.id)}
-                            disabled={!canEditTimeline}
-                            className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4"
-                          >
-                            Edit
-                          </PrimaryButton>
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                            disabled={!canEditTimeline}
-                            className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none"
-                          >
-                            + After
-                          </PrimaryButton>
-                          <details className="min-h-12 flex-1 sm:min-h-10 sm:max-w-[8.5rem] sm:flex-none">
-                            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-2 text-[12px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white sm:min-h-10 sm:text-[11px]">
-                              More
-                            </summary>
-                            <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-                              <div className="grid grid-cols-2 gap-2">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => moveTimelineItem(item.id, "up")}
-                                  disabled={!canEditTimeline}
-                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                >
-                                  Up
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => moveTimelineItem(item.id, "down")}
-                                  disabled={!canEditTimeline}
-                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                >
-                                  Down
-                                </PrimaryButton>
-                              </div>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => {
-                                  const row = timelineItems.find((t) => t.id === item.id);
-                                  if (row) duplicateTimelineItem(row);
-                                }}
-                                disabled={!canEditTimeline}
-                                className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                              >
-                                Duplicate
-                              </PrimaryButton>
-                              <PrimaryButton
+                              Edit
+                            </PrimaryButton>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                              disabled={!canEditTimeline}
+                              className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                            >
+                              + After
+                            </PrimaryButton>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => {
+                                const row = timelineItems.find((t) => t.id === item.id);
+                                if (row) duplicateTimelineItem(row);
+                              }}
+                              disabled={!canEditTimeline}
+                              className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                            >
+                              Duplicate
+                            </PrimaryButton>
+                            {canEditTimeline ? (
+                              <button
                                 type="button"
                                 onClick={() =>
                                   setPendingTimelineDelete({
@@ -10570,17 +10506,16 @@ export default function Home() {
                                     label: item.title.trim() || "this moment",
                                   })
                                 }
-                                disabled={!canEditTimeline}
-                                className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                                className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
                               >
                                 Delete
-                              </PrimaryButton>
-                            </div>
-                          </details>
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-3 md:hidden">
+                      <div className="flex flex-col gap-2 md:hidden">
                         <div
                           role="button"
                           tabIndex={canEditTimeline ? 0 : -1}
@@ -10595,7 +10530,7 @@ export default function Home() {
                               setReceptionTimelineExpandedId(item.id);
                             }
                           }}
-                          className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
+                          className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
                             canEditTimeline
                               ? "cursor-pointer active:scale-[0.995]"
                               : "cursor-default opacity-80"
@@ -10641,142 +10576,32 @@ export default function Home() {
                             </p>
                           ) : null}
                           {canEditTimeline ? (
-                            <p className="mt-3 text-sm font-semibold text-stone-600">
-                              Tap to expand · full edit
+                            <p className="mt-2 text-xs font-semibold text-stone-500">
+                              Tap summary to expand · full edit
                             </p>
                           ) : (
-                            <p className="mt-3 text-sm font-medium text-stone-500">View only</p>
+                            <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
                           )}
                         </div>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => setReceptionTimelineExpandedId(item.id)}
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45"
-                        >
-                          Expand to edit
-                        </PrimaryButton>
-                        {canEditTimeline ? (
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPendingTimelineDelete({
-                                  kind: "reception",
-                                  id: item.id,
-                                  label: item.title.trim() || "this moment",
-                                })
-                              }
-                              className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null}
-                        <details className="min-h-12">
-                          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
-                            More actions
-                          </summary>
-                          <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                              disabled={!canEditTimeline}
-                              className="w-full rounded-lg border border-stone-300 bg-white py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
-                            >
-                              + After
-                            </PrimaryButton>
-                            <div className="grid grid-cols-2 gap-2">
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => moveTimelineItem(item.id, "up")}
-                                disabled={!canEditTimeline}
-                                className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                              >
-                                Up
-                              </PrimaryButton>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => moveTimelineItem(item.id, "down")}
-                                disabled={!canEditTimeline}
-                                className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                              >
-                                Down
-                              </PrimaryButton>
-                            </div>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => {
-                                const row = timelineItems.find((t) => t.id === item.id);
-                                if (row) duplicateTimelineItem(row);
-                              }}
-                              disabled={!canEditTimeline}
-                              className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                            >
-                              Duplicate
-                            </PrimaryButton>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() =>
-                                setPendingTimelineDelete({
-                                  kind: "reception",
-                                  id: item.id,
-                                  label: item.title.trim() || "this moment",
-                                })
-                              }
-                              disabled={!canEditTimeline}
-                              className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
-                            >
-                              Delete
-                            </PrimaryButton>
-                          </div>
-                        </details>
-                      </div>
-                    </>
-                  )}
-                  {rowExpanded && (
-                    <>
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
-                        <p className="text-[13px] font-semibold tracking-tight text-stone-900">Edit moment</p>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => setReceptionTimelineExpandedId(item.id)}
+                            disabled={!canEditTimeline}
+                            className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                          >
+                            Expand
+                          </PrimaryButton>
                           {canEditTimeline ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPendingTimelineDelete({
-                                  kind: "reception",
-                                  id: item.id,
-                                  label: item.title.trim() || "this moment",
-                                })
-                              }
-                              className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
-                            >
-                              Delete
-                            </button>
-                          ) : null}
-                          <details className="min-h-10 sm:max-w-[8.5rem]">
-                            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[11px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
-                              More
-                            </summary>
-                            <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-                              <div className="grid grid-cols-2 gap-2">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => moveTimelineItem(item.id, "up")}
-                                  disabled={!canEditTimeline}
-                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                >
-                                  Up
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => moveTimelineItem(item.id, "down")}
-                                  disabled={!canEditTimeline}
-                                  className="rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                >
-                                  Down
-                                </PrimaryButton>
-                              </div>
+                            <>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                                disabled={!canEditTimeline}
+                                className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                              >
+                                + After
+                              </PrimaryButton>
                               <PrimaryButton
                                 type="button"
                                 onClick={() => {
@@ -10784,11 +10609,11 @@ export default function Home() {
                                   if (row) duplicateTimelineItem(row);
                                 }}
                                 disabled={!canEditTimeline}
-                                className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
                               >
                                 Duplicate
                               </PrimaryButton>
-                              <PrimaryButton
+                              <button
                                 type="button"
                                 onClick={() =>
                                   setPendingTimelineDelete({
@@ -10797,28 +10622,68 @@ export default function Home() {
                                     label: item.title.trim() || "this moment",
                                   })
                                 }
-                                disabled={!canEditTimeline}
-                                className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[11px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                                className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
                               >
                                 Delete
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {rowExpanded && (
+                    <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
+                        <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
+                          Edit moment
+                        </p>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {canEditTimeline ? (
+                            <>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                  const row = timelineItems.find((t) => t.id === item.id);
+                                  if (row) duplicateTimelineItem(row);
+                                }}
+                                disabled={!canEditTimeline}
+                                className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                              >
+                                Duplicate
                               </PrimaryButton>
-                            </div>
-                          </details>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPendingTimelineDelete({
+                                    kind: "reception",
+                                    id: item.id,
+                                    label: item.title.trim() || "this moment",
+                                  })
+                                }
+                                className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : null}
                           <PrimaryButton
                             type="button"
                             onClick={() => setReceptionTimelineExpandedId(null)}
-                            className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                            className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-5 md:text-[13px]"
                           >
                             Done
                           </PrimaryButton>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-2 md:space-y-3.5">
                         <TextInput
                           id={`timeline-inline-title-${item.id}`}
                           label="Moment"
                           value={item.title}
+                          inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                           onChange={(value) => {
                             setTimelineItems((prev) =>
                               prev.map((existing) =>
@@ -10828,11 +10693,13 @@ export default function Home() {
                           }}
                           disabled={!canEditTimeline}
                         />
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                           <TextInput
                             id={`timeline-inline-time-${item.id}`}
                             label="Time"
                             value={item.time}
+                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                             onChange={(value) => {
                               setTimelineItems((prev) =>
                                 prev.map((existing) =>
@@ -10845,7 +10712,7 @@ export default function Home() {
                           <div>
                             <label
                               htmlFor={`timeline-inline-cat-${item.id}`}
-                              className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600"
+                              className={TIMELINE_DESKTOP_LABEL_CLASS}
                             >
                               Category
                             </label>
@@ -10861,7 +10728,7 @@ export default function Home() {
                                   ),
                                 );
                               }}
-                              className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25"
+                              className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 md:min-h-12 md:px-4 md:py-3 md:text-base"
                             >
                               {timelineCategories.map((category) => (
                                 <option key={category} value={category}>
@@ -10871,11 +10738,13 @@ export default function Home() {
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                           <TextInput
                             id={`timeline-inline-song-${item.id}`}
                             label="Song"
                             value={timelineRow?.songTitle ?? ""}
+                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                             onChange={(value) => {
                               setTimelineItems((prev) =>
                                 prev.map((existing) =>
@@ -10890,6 +10759,8 @@ export default function Home() {
                             id={`timeline-inline-song-artist-${item.id}`}
                             label="Artist"
                             value={timelineRow?.artist ?? ""}
+                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                             onChange={(value) => {
                               setTimelineItems((prev) =>
                                 prev.map((existing) =>
@@ -10905,6 +10776,8 @@ export default function Home() {
                           id={`timeline-inline-notes-${item.id}`}
                           label="Notes"
                           value={item.notes}
+                          textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+                          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                           onChange={(value) => {
                             setTimelineItems((prev) =>
                               prev.map((existing) =>
@@ -10927,7 +10800,7 @@ export default function Home() {
                             )
                           }
                           disabled={!canEditTimeline}
-                          className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
+                          className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${
                             timelineRow?.needsDjMcAttention
                               ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                               : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
@@ -10937,14 +10810,14 @@ export default function Home() {
                         </PrimaryButton>
 
                         <details className="rounded-lg border border-stone-200 bg-stone-50">
-                          <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white">
+                          <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">
                             Fade / advanced timing
                           </summary>
-                          <div className="space-y-2 border-t border-stone-200 bg-white p-3">
-                            <p className="text-[10px] leading-relaxed text-stone-600">
+                          <div className="space-y-2 border-t border-stone-200 bg-white p-3 md:space-y-3 md:p-4">
+                            <p className="text-[10px] leading-relaxed text-stone-600 md:text-[11px] md:leading-relaxed">
                               Optional cue — common for introductions and formalities.
                             </p>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                               <PrimaryButton
                                 type="button"
                                 onClick={() =>
@@ -10957,7 +10830,7 @@ export default function Home() {
                                   )
                                 }
                                 disabled={!canEditTimeline}
-                                className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none ${
+                                className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${
                                   timelineRow?.fadeOutEarly
                                     ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                                     : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
@@ -10969,6 +10842,8 @@ export default function Home() {
                                 id={`timeline-inline-fade-${item.id}`}
                                 label="Fade timestamp"
                                 value={timelineRow?.fadeOutTimestamp ?? ""}
+                                inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                                 onChange={(value) =>
                                   setTimelineItems((prev) =>
                                     prev.map((existing) =>
@@ -10985,9 +10860,9 @@ export default function Home() {
                           </div>
                         </details>
                       </div>
-                    </>
+                    </div>
                   )}
-                  <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
+                  <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3 md:mt-6 md:gap-4 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
                     <button
                       type="button"
                       draggable={canEditTimeline}
@@ -11008,14 +10883,14 @@ export default function Home() {
                         touchDragTimelineSourceRef.current = item.id;
                         setDraggingTimelineId(item.id);
                       }}
-                      className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem]"
+                      className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
                       disabled={!canEditTimeline}
                       aria-label={`Drag handle for ${item.title}`}
                     >
-                      <span className="text-[10px] tracking-wide text-stone-500">::</span>
+                      <span className="text-[10px] tracking-wide text-stone-500 lg:text-[9px] lg:text-stone-400">::</span>
                       <span>Reorder</span>
                     </button>
-                    <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600">
+                    <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
                       {index + 1} / {mergedTimelineItems.length}
                     </p>
                   </div>
@@ -11663,7 +11538,7 @@ export default function Home() {
                   return (
                     <PremiumCard
                       key={item.id}
-                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 ${
+                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${
                         index % 2 === 1 ? "bg-stone-50" : ""
                       } transition-all duration-200 ${
                         isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
@@ -11698,75 +11573,85 @@ export default function Home() {
                       ) : null}
                       {!rowExpanded && (
                         <>
-                          <div className="hidden md:flex md:flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
-                            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-6">
-                              <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right">
-                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-sm">
+                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
+                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-5 lg:max-w-[40rem] lg:gap-4 xl:max-w-[42rem]">
+                              <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right md:w-24 lg:w-[4.5rem]">
+                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-base md:font-semibold lg:text-xs lg:text-stone-600 xl:text-sm">
                                   {item.timeOrOrder?.trim() || "—"}
                                 </p>
                               </div>
-                              <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-5">
+                              <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-4 md:pl-5 lg:pl-4">
                                 <span className="absolute -left-[7px] top-2 h-3 w-3 rounded-full border-2 border-white bg-stone-700 shadow-sm ring-2 ring-stone-200" />
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
-                                    Ceremony
-                                  </span>
-                                  {item.needsDjMcAttention ? (
-                                    <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
-                                      DJ/MC
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
+                                <h3 className="text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere] lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
                                   {item.moment}
                                 </h3>
-                                <p className="mt-2 text-[15px] leading-snug text-stone-900 sm:mt-1.5 sm:text-sm sm:leading-normal sm:text-stone-800">
+                                <p className="mt-1.5 text-[15px] leading-snug text-stone-900 sm:mt-1 sm:text-sm sm:leading-normal sm:text-stone-800 md:mt-2 md:text-base md:leading-relaxed lg:mt-1 lg:text-sm lg:leading-snug xl:text-[15px]">
                                   <span className="font-medium text-stone-500">Song · </span>
                                   {songLine || "—"}
                                 </p>
                                 {item.notes?.trim() ? (
-                                  <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-stone-600">
+                                  <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-stone-500 sm:text-stone-600 md:mt-2 md:text-sm md:leading-relaxed lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs">
                                     {item.notes}
                                   </p>
                                 ) : null}
                               </div>
                             </div>
-                            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => setCeremonyTimelineExpandedId(item.id)}
-                                disabled={!canEditTimeline}
-                                className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                              >
-                                Details
-                              </PrimaryButton>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => prepareAddCeremonyMomentAfter(item.id)}
-                                disabled={!canEditTimeline}
-                                className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                              >
-                                + After
-                              </PrimaryButton>
-                              {canEditTimeline ? (
-                                <button
+                            <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                              <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                                <span className="rounded border border-stone-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
+                                  Ceremony
+                                </span>
+                                {item.needsDjMcAttention ? (
+                                  <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
+                                    DJ/MC
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                                <PrimaryButton
                                   type="button"
-                                  onClick={() =>
-                                    setPendingTimelineDelete({
-                                      kind: "ceremony",
-                                      id: item.id,
-                                      label: item.moment.trim() || "this moment",
-                                    })
-                                  }
-                                  className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                                  onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
                                 >
-                                  Delete
-                                </button>
-                              ) : null}
+                                  Details
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                >
+                                  + After
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => duplicateCeremonyTimelineItem(item)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                >
+                                  Duplicate
+                                </PrimaryButton>
+                                {canEditTimeline ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  >
+                                    Delete
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-3 md:hidden">
+                          <div className="flex flex-col gap-2 md:hidden">
                             <div
                               role="button"
                               tabIndex={canEditTimeline ? 0 : -1}
@@ -11781,7 +11666,7 @@ export default function Home() {
                                   setCeremonyTimelineExpandedId(item.id);
                                 }
                               }}
-                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
+                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
                                 canEditTimeline
                                   ? "cursor-pointer active:scale-[0.995]"
                                   : "cursor-default opacity-80"
@@ -11821,127 +11706,104 @@ export default function Home() {
                                 </p>
                               ) : null}
                               {canEditTimeline ? (
-                                <p className="mt-3 text-sm font-semibold text-stone-600">
-                                  Tap to expand · full edit
+                                <p className="mt-2 text-xs font-semibold text-stone-500">
+                                  Tap summary to expand · full edit
                                 </p>
                               ) : (
-                                <p className="mt-3 text-sm font-medium text-stone-500">View only</p>
+                                <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
                               )}
                             </div>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => setCeremonyTimelineExpandedId(item.id)}
-                              disabled={!canEditTimeline}
-                              className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45"
-                            >
-                              Expand to edit
-                            </PrimaryButton>
-                            {canEditTimeline ? (
-                              <div className="flex justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPendingTimelineDelete({
-                                      kind: "ceremony",
-                                      id: item.id,
-                                      label: item.moment.trim() || "this moment",
-                                    })
-                                  }
-                                  className="min-h-11 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
-                            <details className="min-h-12">
-                              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] font-semibold text-stone-800 shadow-none [&::-webkit-details-marker]:hidden hover:bg-white">
-                                More actions
-                              </summary>
-                              <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => prepareAddCeremonyMomentAfter(item.id)}
-                                  disabled={!canEditTimeline}
-                                  className="w-full rounded-lg border border-stone-300 bg-white py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
-                                >
-                                  + After
-                                </PrimaryButton>
-                                <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                                disabled={!canEditTimeline}
+                                className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                              >
+                                Expand
+                              </PrimaryButton>
+                              {canEditTimeline ? (
+                                <>
                                   <PrimaryButton
                                     type="button"
-                                    onClick={() => moveCeremonyTimelineItem(item.id, "up")}
+                                    onClick={() => prepareAddCeremonyMomentAfter(item.id)}
                                     disabled={!canEditTimeline}
-                                    className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
                                   >
-                                    Move Up
+                                    + After
                                   </PrimaryButton>
                                   <PrimaryButton
                                     type="button"
-                                    onClick={() => moveCeremonyTimelineItem(item.id, "down")}
+                                    onClick={() => duplicateCeremonyTimelineItem(item)}
                                     disabled={!canEditTimeline}
-                                    className="rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
                                   >
-                                    Move Down
+                                    Duplicate
                                   </PrimaryButton>
-                                </div>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => duplicateCeremonyTimelineItem(item)}
-                                  disabled={!canEditTimeline}
-                                  className="w-full rounded-lg border border-stone-300 bg-white py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                >
-                                  Duplicate
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() =>
-                                    setPendingTimelineDelete({
-                                      kind: "ceremony",
-                                      id: item.id,
-                                      label: item.moment.trim() || "this moment",
-                                    })
-                                  }
-                                  disabled={!canEditTimeline}
-                                  className="w-full rounded-lg border border-rose-400 bg-white py-2 text-[12px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
-                                >
-                                  Delete
-                                </PrimaryButton>
-                              </div>
-                            </details>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
                         </>
                       )}
                       {rowExpanded && (
-                        <>
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
+                        <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
                             <button
                               type="button"
                               onClick={() => setCeremonyTimelineExpandedId(null)}
-                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline"
+                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline md:text-xs"
                             >
                               Collapse view
                             </button>
-                            {canEditTimeline ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPendingTimelineDelete({
-                                    kind: "ceremony",
-                                    id: item.id,
-                                    label: item.moment.trim() || "this moment",
-                                  })
-                                }
-                                className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
-                              >
-                                Delete
-                              </button>
-                            ) : null}
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              {canEditTimeline ? (
+                                <>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => duplicateCeremonyTimelineItem(item)}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                                  >
+                                    Duplicate
+                                  </PrimaryButton>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 md:min-h-11 md:px-4 md:py-2.5 md:text-sm"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                             <TextInput
                               id={`ceremony-inline-time-${item.id}`}
                               label="Time / order"
                               value={item.timeOrOrder}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
                                 setCeremonyTimelineItems((prev) =>
                                   prev.map((existing) =>
@@ -11957,6 +11819,8 @@ export default function Home() {
                               id={`ceremony-inline-moment-${item.id}`}
                               label="Moment"
                               value={item.moment}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
                                 setCeremonyTimelineItems((prev) =>
                                   prev.map((existing) =>
@@ -11969,11 +11833,13 @@ export default function Home() {
                               disabled={!canEditTimeline}
                             />
                           </div>
-                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                             <TextInput
                               id={`ceremony-inline-song-${item.id}`}
                               label="Song title"
                               value={item.songTitle}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
                                 setCeremonyTimelineItems((prev) =>
                                   prev.map((existing) =>
@@ -11989,6 +11855,8 @@ export default function Home() {
                               id={`ceremony-inline-artist-${item.id}`}
                               label="Artist"
                               value={item.artist}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
                                 setCeremonyTimelineItems((prev) =>
                                   prev.map((existing) =>
@@ -12005,6 +11873,8 @@ export default function Home() {
                             id={`ceremony-inline-notes-${item.id}`}
                             label="Notes"
                             value={item.notes}
+                            textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                             onChange={(value) =>
                               setCeremonyTimelineItems((prev) =>
                                 prev.map((existing) =>
@@ -12032,7 +11902,7 @@ export default function Home() {
                               )
                             }
                             disabled={!canEditTimeline}
-                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
+                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${
                               item.needsDjMcAttention
                                 ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                                 : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
@@ -12042,9 +11912,9 @@ export default function Home() {
                               ? "DJ/MC attention: On"
                               : "Flag DJ/MC attention"}
                           </PrimaryButton>
-                        </>
+                        </div>
                       )}
-                      <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pt-3">
+                      <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pt-3 md:mt-6 md:gap-3 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
                         <button
                           type="button"
                           draggable={canEditTimeline}
@@ -12065,57 +11935,27 @@ export default function Home() {
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                          className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
                           disabled={!canEditTimeline}
                           aria-label={`Drag handle for ${item.moment}`}
                         >
-                          <span className="text-[10px] tracking-wide text-stone-500">::</span>
+                          <span className="text-[10px] tracking-wide text-stone-500 lg:text-[9px] lg:text-stone-400">::</span>
                           <span>Reorder</span>
                         </button>
                         <div
-                          className={`flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:w-auto ${!rowExpanded ? "max-md:hidden" : ""}`}
+                          className={`flex w-full flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:w-auto sm:justify-end ${!rowExpanded ? "max-md:hidden" : ""}`}
                         >
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => moveCeremonyTimelineItem(item.id, "up")}
-                            disabled={!canEditTimeline}
-                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                          >
-                            Move Up
-                          </PrimaryButton>
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => moveCeremonyTimelineItem(item.id, "down")}
-                            disabled={!canEditTimeline}
-                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                          >
-                            Move Down
-                          </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() =>
-                            setPendingTimelineDelete({
-                              kind: "ceremony",
-                              id: item.id,
-                              label: item.moment.trim() || "this moment",
-                            })
-                          }
-                          disabled={!canEditTimeline}
-                          className="min-h-12 w-full rounded-lg border border-rose-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
-                        >
-                          Delete
-                        </PrimaryButton>
                           <PrimaryButton
                             type="button"
                             onClick={() => duplicateCeremonyTimelineItem(item)}
                             disabled={!canEditTimeline}
-                            className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px]"
+                            className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:text-[13px]"
                           >
                             Duplicate
                           </PrimaryButton>
                         </div>
                       </div>
-                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600">
+                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600 md:text-xs md:tracking-wide lg:mt-0 lg:text-[10px] lg:text-stone-500">
                         {index + 1} / {ceremonyTimelineItems.length}
                       </p>
                     </PremiumCard>
