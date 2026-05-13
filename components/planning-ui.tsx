@@ -32,6 +32,12 @@ type BottomNavProps = {
 type PremiumCardProps = {
   children: ReactNode;
   className?: string;
+  /**
+   * `default` — white workspace card.
+   * `accent` — soft neutral + subtle cyan ring (insights, assistants, admin highlights).
+   * `accentDashed` — same family, dashed border for empty / setup CTAs.
+   */
+  variant?: "default" | "accent" | "accentDashed";
 } & HTMLAttributes<HTMLElement>;
 
 type PrimaryButtonProps = {
@@ -83,16 +89,16 @@ type TextAreaProps = {
 function InsightAlertCard({ insight }: { insight: PlanningInsight }) {
   const label = insight.variant === "suggestion" ? "Suggestion" : "Heads up";
   return (
-    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-none">
+    <div className="rounded-xl border border-[var(--cm-border)] bg-[var(--cm-surface-muted)] px-3 py-2.5 shadow-none">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--cm-text-muted)]">
           {label}
         </span>
-        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-stone-600">
+        <span className="rounded-full border border-[var(--cm-border)] bg-[var(--cm-surface)] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--cm-text-secondary)]">
           {insight.section}
         </span>
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-stone-800">{insight.message}</p>
+      <p className="mt-1.5 text-xs leading-relaxed text-[var(--cm-text-secondary)]">{insight.message}</p>
     </div>
   );
 }
@@ -106,7 +112,7 @@ export function InsightStack({
 }) {
   if (insights.length === 0) {
     return (
-      <p className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-xs font-medium text-stone-600">
+      <p className="rounded-xl border border-[var(--cm-border)] bg-[var(--cm-surface-muted)] px-3 py-3 text-xs font-medium text-[var(--cm-text-muted)]">
         {emptyLabel}
       </p>
     );
@@ -120,12 +126,20 @@ export function InsightStack({
   );
 }
 
-export function PremiumCard({ children, className = "", ...rest }: PremiumCardProps) {
+export function PremiumCard({
+  children,
+  className = "",
+  variant = "default",
+  ...rest
+}: PremiumCardProps) {
+  const surface =
+    variant === "accent"
+      ? "rounded-2xl border border-stone-200/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-cyan-500/10"
+      : variant === "accentDashed"
+        ? "rounded-2xl border border-dashed border-stone-300/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-cyan-500/10"
+        : "rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)]";
   return (
-    <article
-      {...rest}
-      className={`rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition-colors duration-150 ${className}`}
-    >
+    <article {...rest} className={`${surface} transition-colors duration-150 ${className}`}>
       {children}
     </article>
   );
@@ -150,28 +164,53 @@ export function PrimaryButton({
   );
 }
 
+/** Main planning workspace shell (page root). Pairs with tokens in `app/globals.css`. */
+export const cmAppShellClass = "cm-app-shell";
+
+/**
+ * Overrides {@link PremiumCard} default padding for long forms so labels and fields clear the card edge.
+ * Use on form-heavy sections (Planning Questions groups, Ceremony Details, ceremony composer, etc.).
+ */
+export const premiumFormSectionCardClass = "!p-6 sm:!p-7 md:!p-8";
+
+/** Screen-level vertical stack (see `.cm-workspace-section` in `app/globals.css`). */
+export const workspaceSectionClass = "cm-workspace-section";
+
+/** Tighter vertical gap between stacked blocks (dense tools, sub-panels). */
+export const workspaceSectionCompactClass = "cm-workspace-section cm-workspace-section--compact";
+
+/** Extra air between stacked blocks (e.g. Planning Questions intro + groups). */
+export const workspaceSectionLooseClass = "cm-workspace-section cm-workspace-section--loose";
+
+/** Couple event dashboard content stack (responsive top margin + gaps). */
+export const workspaceSectionDashboardClass = "cm-workspace-section--dashboard";
+
 /** Secondary control on white / stone-50 cards (workspace, All Events, admin). */
 export const lightUiSecondaryButtonClass =
-  "rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-stone-50 active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400/35 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-text-primary)] shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-[var(--cm-surface-muted)] active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/35 focus-visible:ring-offset-2";
 
 /** Brand primary on light surfaces: charcoal on solid cyan (readable on mobile). */
 export const lightUiCyanPrimaryButtonClass =
-  "rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] bg-[var(--cm-accent)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-accent-foreground)] shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
 
 /** Destructive control on light surfaces. */
 export const lightUiDestructiveButtonClass =
-  "rounded-xl border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-950 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-rose-100/90 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/35 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-950 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-rose-100/90 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/35 focus-visible:ring-offset-2";
+
+/** Tertiary / quiet actions on light cards (toolbar chips, low-noise controls). */
+export const lightUiGhostButtonClass =
+  "rounded-[var(--cm-radius-control)] border border-transparent bg-transparent px-2.5 py-2 text-[11px] font-semibold text-[var(--cm-text-muted)] transition-[background-color,color,border-color] hover:border-[var(--cm-border)] hover:bg-[var(--cm-surface-muted)] hover:text-[var(--cm-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400/30 focus-visible:ring-offset-2";
 
 /** Micro-label for filters / admin fields on white cards (pairs with inputs below). */
 export const lightUiFormLabelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600";
+  "text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cm-text-muted)]";
 
 /** Shared field chrome for inputs and selects on light surfaces (TextInput, All Events filters). */
 export const lightUiTextControlClass =
-  "w-full min-h-11 touch-manipulation rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full min-h-11 touch-manipulation rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-3 text-sm text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-stone-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Text/search input on light workspace cards; use below {@link lightUiFormLabelClass}. */
-export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:text-stone-500`;
+export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:text-[var(--cm-text-subtle)]`;
 
 /**
  * Native `<select>` on light workspace cards.
@@ -179,10 +218,11 @@ export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:
  * one styled box keeps the full width/height tappable on first tap.
  */
 export const lightUiSelectClass =
-  "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-xl border border-stone-300 bg-white py-3.5 pl-3 pr-10 text-left text-base leading-snug text-stone-900 shadow-sm transition-colors focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+  "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] py-3.5 pl-3 pr-10 text-left text-base leading-snug text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-stone-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Caption under a section title on white / stone cards (vendors, admin). */
-export const lightUiSectionCaptionClass = "mt-1 text-[11px] leading-relaxed text-stone-600";
+export const lightUiSectionCaptionClass =
+  "mt-1 text-[11px] leading-relaxed text-[var(--cm-text-muted)]";
 
 /** List row on white PremiumCard (arrival rows, etc.). */
 export const lightUiListRowClass =
@@ -192,7 +232,7 @@ export const lightUiListRowClass =
 export const lightUiEmptyHintInCardClass =
   "rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-600";
 
-/** Solid accent CTA on dark panels (timeline preset editor, music import on zinc-950). */
+/** Solid accent CTA on dark zinc sub-panels (rare; prefer light controls on workspace cards). */
 export const darkUiAccentPrimaryButtonClass =
   "rounded-xl bg-[#00D4FF] px-3 py-2 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50";
 
@@ -367,7 +407,9 @@ export function SectionEmptyState({
 
 export function SectionTitle({ children, className = "" }: SectionTitleProps) {
   return (
-    <h2 className={`text-[15px] font-semibold tracking-tight text-stone-950 ${className}`.trim()}>
+    <h2
+      className={`text-[15px] font-semibold tracking-tight text-[var(--cm-text-primary)] md:text-[1.0625rem] md:tracking-tight ${className}`.trim()}
+    >
       {children}
     </h2>
   );
@@ -532,7 +574,7 @@ export function AppHeader({
         : "text-stone-500";
 
   return (
-    <header className="rounded-2xl border border-stone-200 bg-white p-5 shadow-none">
+    <header className="rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
       <div className="relative mx-auto w-full max-w-[220px]">
         <Image
           src={appSettings.logoUrl || "/cmm-logo-white.png"}

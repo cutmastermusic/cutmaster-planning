@@ -12,6 +12,7 @@ import {
 import {
   AppHeader,
   BottomNav,
+  cmAppShellClass,
   EventHomeNav,
   InsightStack,
   PersistEcho,
@@ -22,25 +23,22 @@ import {
   SongCard,
   TextArea,
   TextInput,
-  darkUiAccentPrimaryButtonClass,
-  darkUiCompactGhostButtonClass,
-  darkUiDangerGhostButtonClass,
-  darkUiEmptyStateInPanelClass,
-  darkUiFieldLabelClass,
-  darkUiInputClass,
-  darkUiSecondaryOutlineButtonClass,
-  darkUiSelectClass,
   darkUiWorkspaceJumpButtonClass,
   lightUiCyanPrimaryButtonClass,
   lightUiDestructiveButtonClass,
   lightUiEmptyHintInCardClass,
   lightUiFormLabelClass,
+  lightUiGhostButtonClass,
   lightUiInputClass,
   lightUiTextControlClass,
   lightUiListRowClass,
   lightUiSecondaryButtonClass,
   lightUiSectionCaptionClass,
   lightUiSelectClass,
+  premiumFormSectionCardClass,
+  workspaceSectionClass,
+  workspaceSectionDashboardClass,
+  workspaceSectionLooseClass,
 } from "@/components/planning-ui";
 import type { PersistFeedback } from "@/components/planning-ui";
 import {
@@ -155,6 +153,10 @@ import {
   groupPlanningQuestionsBySection,
 } from "@/data/planningQuestionGroups";
 
+/** Nested field block inside Planning Questions section groups — generous padding, clear vertical rhythm. */
+const planningQuestionFieldShellClass =
+  "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
+
 function PlanningQuestionAnswerEditor({
   q,
   value,
@@ -165,95 +167,101 @@ function PlanningQuestionAnswerEditor({
   onChange: (next: string) => void;
 }) {
   const labelSuffix = q.required ? " *" : "";
+  const helpBlock =
+    (q.helpText ?? "").trim() ? (
+      <p className="text-xs leading-relaxed text-stone-600">{q.helpText}</p>
+    ) : null;
 
   if (q.answerType === "long_text") {
     return (
-      <PremiumCard>
-        <TextArea
-          id={`planning-q-${q.id}`}
-          label={`${q.label}${labelSuffix}`}
-          value={value}
-          onChange={onChange}
-          rows={3}
-          placeholder={q.placeholder ?? "Add notes…"}
-        />
-        {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
-        ) : null}
-      </PremiumCard>
+      <div className={planningQuestionFieldShellClass}>
+        <div className="flex flex-col gap-4">
+          <TextArea
+            id={`planning-q-${q.id}`}
+            label={`${q.label}${labelSuffix}`}
+            value={value}
+            onChange={onChange}
+            rows={3}
+            placeholder={q.placeholder ?? "Add notes…"}
+            labelClassName={`block ${lightUiFormLabelClass}`}
+          />
+          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+        </div>
+      </div>
     );
   }
 
   if (q.answerType === "yes_no") {
     return (
-      <PremiumCard>
-        <label className={lightUiFormLabelClass}>
-          {q.label}
-          {labelSuffix}
-        </label>
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={lightUiSelectClass}
-        >
-          <option value="" className="bg-white text-stone-900">
-            Select…
-          </option>
-          <option value="Yes" className="bg-white text-stone-900">
-            Yes
-          </option>
-          <option value="No" className="bg-white text-stone-900">
-            No
-          </option>
-        </select>
-        {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
-        ) : null}
-      </PremiumCard>
+      <div className={planningQuestionFieldShellClass}>
+        <div className="flex flex-col gap-3.5">
+          <label className={`block ${lightUiFormLabelClass}`}>
+            {q.label}
+            {labelSuffix}
+          </label>
+          <select
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className={`${lightUiSelectClass} !mt-0`}
+          >
+            <option value="" className="bg-white text-stone-900">
+              Select…
+            </option>
+            <option value="Yes" className="bg-white text-stone-900">
+              Yes
+            </option>
+            <option value="No" className="bg-white text-stone-900">
+              No
+            </option>
+          </select>
+          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+        </div>
+      </div>
     );
   }
 
   if (q.answerType === "multiple_choice") {
     return (
-      <PremiumCard>
-        <label className={lightUiFormLabelClass}>
-          {q.label}
-          {labelSuffix}
-        </label>
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={lightUiSelectClass}
-        >
-          <option value="" className="bg-white text-stone-900">
-            Select…
-          </option>
-          {(q.options ?? []).map((option) => (
-            <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-white text-stone-900">
-              {option}
+      <div className={planningQuestionFieldShellClass}>
+        <div className="flex flex-col gap-3.5">
+          <label className={`block ${lightUiFormLabelClass}`}>
+            {q.label}
+            {labelSuffix}
+          </label>
+          <select
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className={`${lightUiSelectClass} !mt-0`}
+          >
+            <option value="" className="bg-white text-stone-900">
+              Select…
             </option>
-          ))}
-        </select>
-        {(q.helpText ?? "").trim() ? (
-          <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
-        ) : null}
-      </PremiumCard>
+            {(q.options ?? []).map((option) => (
+              <option key={`pq-option-${q.id}-${option}`} value={option} className="bg-white text-stone-900">
+                {option}
+              </option>
+            ))}
+          </select>
+          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+        </div>
+      </div>
     );
   }
 
   return (
-    <PremiumCard>
-      <TextInput
-        id={`planning-q-${q.id}`}
-        label={`${q.label}${labelSuffix}`}
-        value={value}
-        onChange={onChange}
-        placeholder={q.placeholder ?? "Add answer…"}
-      />
-      {(q.helpText ?? "").trim() ? (
-        <p className="mt-2 text-xs leading-relaxed text-stone-600">{q.helpText}</p>
-      ) : null}
-    </PremiumCard>
+    <div className={planningQuestionFieldShellClass}>
+      <div className="flex flex-col gap-4">
+        <TextInput
+          id={`planning-q-${q.id}`}
+          label={`${q.label}${labelSuffix}`}
+          value={value}
+          onChange={onChange}
+          placeholder={q.placeholder ?? "Add answer…"}
+          labelClassName={`block ${lightUiFormLabelClass}`}
+        />
+        {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+      </div>
+    </div>
   );
 }
 
@@ -7142,7 +7150,7 @@ export default function Home() {
   if (!hasHydrated) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
-        <main className="mx-auto w-full max-w-md overflow-x-hidden px-4 pb-32 pt-5 sm:px-5">
+        <main className="mx-auto w-full max-w-md overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
           <AppHeader
             screenTitle={
               appMode === "events"
@@ -7161,7 +7169,7 @@ export default function Home() {
               logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
             }}
           />
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             {Array.from({ length: 3 }).map((_, index) => (
               <PremiumCard key={`skeleton-${index}`} className="animate-pulse">
                 <div className="h-4 w-1/2 rounded bg-stone-200/80" />
@@ -7177,7 +7185,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
+    <div className={cmAppShellClass}>
       {showDesktopSidebar && (
         <aside className="no-print fixed left-5 top-5 z-30 hidden h-[calc(100vh-2.5rem)] w-60 overflow-y-auto rounded-2xl border border-stone-300 bg-white p-4 shadow-none lg:block">
           <p className="px-2 text-[11px] uppercase tracking-[0.14em] text-stone-500">
@@ -7201,9 +7209,9 @@ export default function Home() {
         </aside>
       )}
       <main
-        className={`mx-auto w-full max-w-full overflow-x-hidden px-4 pb-36 pt-5 transition-all max-lg:pb-40 sm:px-5 lg:pb-10 ${
+        className={`mx-auto w-full max-w-full overflow-x-hidden px-5 pb-36 pt-6 transition-all max-lg:pb-40 sm:px-6 lg:pb-10 ${
           showDesktopSidebar
-            ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-6"
+            ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-8"
             : "max-w-6xl"
         }`}
       >
@@ -7289,10 +7297,10 @@ export default function Home() {
         )}
 
         {authStage === "login" && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950 border-zinc-800">
-              <SectionTitle className="!text-zinc-100">Welcome to {appSettings.appName}</SectionTitle>
-              <p className="mt-2 text-xs text-zinc-400">
+          <section className={workspaceSectionClass}>
+            <PremiumCard variant="accent">
+              <SectionTitle>Welcome to {appSettings.appName}</SectionTitle>
+              <p className="mt-2 text-xs text-stone-600">
                 Prototype login for role-based planning access.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -7419,12 +7427,12 @@ export default function Home() {
         )}
 
         {authStage === "invite" && inviteAccessPreview && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <PremiumCard className="border-stone-300 bg-white shadow-none">
               <SectionTitle className="text-stone-950">
                 {INVITE_PREVIEW_TITLE[inviteLayoutProfile]}
               </SectionTitle>
-              <div className="mt-3 space-y-1 text-xs text-zinc-300">
+              <div className="mt-3 space-y-1 text-xs text-stone-600">
                 <p>
                   Event: {invitePreviewEvent?.settings?.eventName || invitePreviewEvent?.meta.couple || "Event"}
                 </p>
@@ -7433,12 +7441,12 @@ export default function Home() {
                 </p>
                 <p>Venue: {invitePreviewEvent?.settings?.venue || invitePreviewEvent?.meta.venue || "TBD"}</p>
                 <p>Role: {inviteAccessPreview.role}</p>
-                <p className="break-all text-zinc-500">{inviteAccessPreview.link}</p>
+                <p className="break-all text-stone-500">{inviteAccessPreview.link}</p>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <PrimaryButton
                   onClick={() => setAuthStage("login")}
-                  className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                  className={`w-full ${lightUiSecondaryButtonClass}`}
                 >
                   Back
                 </PrimaryButton>
@@ -7465,7 +7473,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Settings" && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             {!canManageEvents && (
               <PremiumCard className="border-amber-200/90 bg-amber-50">
                 <p className="text-xs font-medium leading-relaxed text-amber-950">Global Settings are admin-only.</p>
@@ -7811,11 +7819,11 @@ export default function Home() {
                       return (
                         <div
                           key={`tpset-${profile}`}
-                          className="overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-none"
+                          className="overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] shadow-[var(--cm-shadow-card)]"
                         >
                           <button
                             type="button"
-                            className="flex min-h-[3.25rem] w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-white/[0.04] sm:min-h-0 sm:gap-4 sm:px-5 sm:py-3.5"
+                            className="flex min-h-[3.25rem] w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[var(--cm-surface-muted)] sm:min-h-0 sm:gap-4 sm:px-5 sm:py-3.5"
                             onClick={() =>
                               setTimelinePresetExpandedByProfile((prev) => ({
                                 ...prev,
@@ -7824,33 +7832,33 @@ export default function Home() {
                             }
                             aria-expanded={expanded}
                           >
-                            <span className="mt-0.5 shrink-0 font-mono text-zinc-500" aria-hidden>
+                            <span className="mt-0.5 shrink-0 font-mono text-stone-400" aria-hidden>
                               {expanded ? "▼" : "▶"}
                             </span>
                             <div className="min-w-0 flex-1 space-y-2">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="text-sm font-semibold tracking-tight text-zinc-100">{profile}</span>
+                                <span className="text-sm font-semibold tracking-tight text-stone-950">{profile}</span>
                                 <span className="rounded-full border border-cyan-500/35 bg-[#00D4FF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-950">
                                   {presets.length} moment{presets.length === 1 ? "" : "s"}
                                 </span>
-                                <span className="text-[11px] text-zinc-400">
+                                <span className="text-[11px] text-stone-500">
                                   {ceremonyCount} ceremony · {mainCount} main · defaults {defaultCount}
                                 </span>
                               </div>
                               {!expanded && (
-                                <p className="line-clamp-2 text-[13px] leading-snug text-zinc-300">{previewLine}</p>
+                                <p className="line-clamp-2 text-[13px] leading-snug text-stone-600">{previewLine}</p>
                               )}
                             </div>
                           </button>
 
                           {expanded && (
-                            <div className="border-t border-white/10 px-4 pb-4 pt-1 sm:px-5">
-                              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-3">
+                            <div className="border-t border-[var(--cm-border)] px-4 pb-4 pt-1 sm:px-5">
+                              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-stone-200/90 pb-3">
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => addTimelinePresetToSet(profile)}
                                   disabled={!canManageEvents}
-                                  className={darkUiAccentPrimaryButtonClass}
+                                  className={lightUiCyanPrimaryButtonClass}
                                 >
                                   + Add moment
                                 </PrimaryButton>
@@ -7868,11 +7876,11 @@ export default function Home() {
                                     resetTimelinePresetSet(profile);
                                   }}
                                   disabled={!canManageEvents}
-                                  className={darkUiSecondaryOutlineButtonClass}
+                                  className={lightUiSecondaryButtonClass}
                                 >
                                   Reset to default
                                 </PrimaryButton>
-                                <span className="ml-auto text-[10px] text-zinc-500">
+                                <span className="ml-auto text-[10px] text-stone-500">
                                   Drag ⋮⋮ to reorder · duplicate creates a copy below
                                 </span>
                               </div>
@@ -7881,7 +7889,7 @@ export default function Home() {
                                 {presets.map((preset, index) => (
                                   <div
                                     key={`tp-row-${profile}-${preset.id}`}
-                                    className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-3.5"
+                                    className="rounded-xl border border-stone-200 bg-stone-50 p-3 sm:p-3.5"
                                     onDragOver={(e) => {
                                       if (!canManageEvents) return;
                                       e.preventDefault();
@@ -7897,7 +7905,7 @@ export default function Home() {
                                   >
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                                       <div
-                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2 py-3 text-zinc-500 sm:py-6 ${
+                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white px-2 py-3 text-stone-400 sm:py-6 ${
                                           canManageEvents ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
                                         }`}
                                         draggable={canManageEvents}
@@ -7913,14 +7921,14 @@ export default function Home() {
                                         }}
                                         role="presentation"
                                       >
-                                        <span className="select-none text-sm leading-none tracking-tighter text-zinc-500">
+                                        <span className="select-none text-sm leading-none tracking-tighter text-stone-400">
                                           ⋮⋮
                                         </span>
                                       </div>
                                       <div className="min-w-0 flex-1 space-y-2.5">
                                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:gap-x-3 lg:gap-y-2">
                                           <div className="lg:col-span-2">
-                                            <label className={darkUiFieldLabelClass}>Type</label>
+                                            <label className={lightUiFormLabelClass}>Type</label>
                                             <select
                                               value={preset.timelineType}
                                               onChange={(event) =>
@@ -7936,12 +7944,12 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              className={darkUiSelectClass}
+                                              className={lightUiSelectClass}
                                             >
-                                              <option value="ceremony" className="bg-zinc-950 text-zinc-100">
+                                              <option value="ceremony" className="bg-white text-stone-900">
                                                 Ceremony
                                               </option>
-                                              <option value="main" className="bg-zinc-950 text-zinc-100">
+                                              <option value="main" className="bg-white text-stone-900">
                                                 Main Event
                                               </option>
                                             </select>
@@ -7959,8 +7967,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              inputClassName={darkUiInputClass}
-                                              labelClassName={darkUiFieldLabelClass}
+                                              inputClassName={lightUiInputClass}
+                                              labelClassName={lightUiFormLabelClass}
                                             />
                                           </div>
                                           <div className="lg:col-span-4">
@@ -7976,8 +7984,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              inputClassName={darkUiInputClass}
-                                              labelClassName={darkUiFieldLabelClass}
+                                              inputClassName={lightUiInputClass}
+                                              labelClassName={lightUiFormLabelClass}
                                             />
                                           </div>
                                           <div className="lg:col-span-4">
@@ -7993,8 +8001,8 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              inputClassName={darkUiInputClass}
-                                              labelClassName={darkUiFieldLabelClass}
+                                              inputClassName={lightUiInputClass}
+                                              labelClassName={lightUiFormLabelClass}
                                             />
                                           </div>
                                           <div className="sm:col-span-2 lg:col-span-12">
@@ -8010,12 +8018,12 @@ export default function Home() {
                                                 )
                                               }
                                               disabled={!canManageEvents}
-                                              inputClassName={darkUiInputClass}
-                                              labelClassName={darkUiFieldLabelClass}
+                                              inputClassName={lightUiInputClass}
+                                              labelClassName={lightUiFormLabelClass}
                                             />
                                           </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-2.5">
+                                        <div className="flex flex-wrap gap-2 border-t border-stone-200/90 pt-2.5">
                                           <PrimaryButton
                                             type="button"
                                             onClick={() =>
@@ -8031,7 +8039,7 @@ export default function Home() {
                                             className={
                                               preset.defaultIncluded
                                                 ? "rounded-lg bg-[#00D4FF] px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
-                                                : darkUiCompactGhostButtonClass
+                                                : lightUiGhostButtonClass
                                             }
                                           >
                                             {preset.defaultIncluded ? "Included by default" : "Excluded by default"}
@@ -8047,7 +8055,7 @@ export default function Home() {
                                               })
                                             }
                                             disabled={!canManageEvents || index === 0}
-                                            className={`${darkUiCompactGhostButtonClass} disabled:opacity-40`}
+                                            className={`${lightUiGhostButtonClass} disabled:opacity-40`}
                                           >
                                             Up
                                           </PrimaryButton>
@@ -8062,7 +8070,7 @@ export default function Home() {
                                               })
                                             }
                                             disabled={!canManageEvents || index >= presets.length - 1}
-                                            className={`${darkUiCompactGhostButtonClass} disabled:opacity-40`}
+                                            className={`${lightUiGhostButtonClass} disabled:opacity-40`}
                                           >
                                             Down
                                           </PrimaryButton>
@@ -8070,7 +8078,7 @@ export default function Home() {
                                             type="button"
                                             onClick={() => duplicateTimelinePresetMoment(profile, index)}
                                             disabled={!canManageEvents}
-                                            className={darkUiCompactGhostButtonClass}
+                                            className={lightUiGhostButtonClass}
                                           >
                                             Duplicate
                                           </PrimaryButton>
@@ -8082,7 +8090,7 @@ export default function Home() {
                                               )
                                             }
                                             disabled={!canManageEvents}
-                                            className={darkUiDangerGhostButtonClass}
+                                            className={lightUiDestructiveButtonClass}
                                           >
                                             Delete
                                           </PrimaryButton>
@@ -8092,9 +8100,9 @@ export default function Home() {
                                   </div>
                                 ))}
                                 {presets.length === 0 && (
-                                  <p className={darkUiEmptyStateInPanelClass}>
+                                  <p className={lightUiEmptyHintInCardClass}>
                                     No moments yet. Use{" "}
-                                    <span className="font-semibold text-zinc-200">Add moment</span> to create your first preset row.
+                                    <span className="font-semibold text-stone-800">Add moment</span> to create your first preset row.
                                   </p>
                                 )}
                               </div>
@@ -8291,7 +8299,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Team" && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             {!canManageEvents && (
               <PremiumCard className="border-amber-200/90 bg-amber-50">
                 <p className="text-xs font-medium leading-relaxed text-amber-950">Team Management is admin-only.</p>
@@ -8384,7 +8392,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "All Events" && (
-          <section className="mt-6 space-y-4">
+          <section className={workspaceSectionClass}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">Events</SectionTitle>
               <div className="flex flex-wrap gap-2">
@@ -8428,7 +8436,7 @@ export default function Home() {
             </div>
 
             {visibleEvents.length === 0 ? (
-              <PremiumCard className="border-dashed border-[#00D4FF]/40 bg-zinc-950 border-zinc-800">
+              <PremiumCard variant="accentDashed">
                 <div className="py-10 text-center">
                   <p className="text-sm font-semibold text-zinc-100">
                     {canManageEvents ? "No events yet" : "No assigned events yet"}
@@ -8611,7 +8619,7 @@ export default function Home() {
                 </PremiumCard>
 
                 {allEventsFilteredAndSorted.length === 0 ? (
-                  <PremiumCard className="border-dashed border-[#00D4FF]/35 bg-zinc-950 border-zinc-800">
+                  <PremiumCard variant="accentDashed">
                     <div className="py-10 text-center">
                       <p className="text-sm font-semibold text-zinc-100">No events match</p>
                       <p className="mt-2 text-xs leading-relaxed text-zinc-400">
@@ -8850,12 +8858,12 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && (
-          <section className="mt-6 space-y-3 cm-section-enter">
+          <section className={`${workspaceSectionClass} cm-section-enter`}>
             <div className="grid gap-3 xl:grid-cols-[1.8fr_1fr]">
               <div className="space-y-3">
-                <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950 border-zinc-800">
+                <PremiumCard variant="accent">
                   <div className="flex items-center justify-between gap-2">
-                    <SectionTitle className="!text-zinc-100">Command Center</SectionTitle>
+                    <SectionTitle>Command Center</SectionTitle>
                     <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-zinc-300">
                       {commandCenterEvents.length} events
                     </span>
@@ -8958,35 +8966,35 @@ export default function Home() {
               </div>
 
               <div className="space-y-3">
-                <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
-                  <SectionTitle className="!text-zinc-100">Recent Activity</SectionTitle>
+                <PremiumCard variant="accent">
+                  <SectionTitle>Recent Activity</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {activities
                       .filter((item) => commandCenterEvents.some((evt) => evt.id === item.eventId))
                       .slice(0, 8)
                       .map((item) => (
-                        <div key={`cmd-activity-${item.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
-                          <p className="text-zinc-100">
+                        <div key={`cmd-activity-${item.id}`} className="rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs">
+                          <p className="text-stone-900">
                             <span className="mr-1">{activityTypeIcon(item.type)}</span>
                             {item.summary}
                           </p>
-                          <p className="mt-1 text-zinc-500">
+                          <p className="mt-1 text-stone-600">
                             {item.eventName} · {formatRelativeTime(item.timestamp)}
                           </p>
                         </div>
                       ))}
                   </div>
                 </PremiumCard>
-                <PremiumCard className="border-zinc-700 bg-zinc-950 shadow-none">
-                  <SectionTitle className="!text-zinc-100">Notifications</SectionTitle>
+                <PremiumCard variant="accent">
+                  <SectionTitle>Notifications</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {notifications
                       .filter((notice) => commandCenterEvents.some((evt) => evt.id === notice.eventId))
                       .slice(0, 6)
                       .map((notice) => (
-                        <div key={`cmd-notice-${notice.id}`} className="rounded-xl bg-white/5 px-3 py-2 text-xs">
-                          <p className="text-zinc-100">{notice.summary}</p>
-                          <p className="mt-1 text-zinc-500">
+                        <div key={`cmd-notice-${notice.id}`} className="rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs">
+                          <p className="text-stone-900">{notice.summary}</p>
+                          <p className="mt-1 text-stone-600">
                             {notice.eventName} · {formatRelativeTime(notice.timestamp)}
                           </p>
                         </div>
@@ -9000,8 +9008,8 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Dashboard" && (
           isCoupleView ? (
-            <section className="mt-4 space-y-6 sm:mt-6 sm:space-y-8">
-              <PremiumCard className="overflow-hidden border-[#00D4FF]/25 p-0 shadow-none sm:shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
+            <section className={workspaceSectionDashboardClass}>
+              <PremiumCard className="overflow-hidden border-stone-200 bg-white !p-0 shadow-sm sm:shadow-[0_20px_50px_-36px_rgba(28,25,23,0.18)]">
                 <div className="relative aspect-[16/11] min-h-[200px] overflow-hidden sm:aspect-[21/9] sm:min-h-[220px]">
                   {eventSettings.coverPhotoDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -9249,8 +9257,8 @@ export default function Home() {
             </section>
           ) : (
           <>
-            <section className="mt-6 space-y-3">
-              <PremiumCard className="overflow-hidden border border-zinc-700 bg-zinc-950 p-0 shadow-none">
+            <section className={workspaceSectionClass}>
+              <PremiumCard className="overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
                 <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
                   {eventSettings.coverPhotoDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -9333,7 +9341,7 @@ export default function Home() {
                 </div>
                 <div className="border-t border-white/10 px-5 pb-5 sm:px-6">
                   <div className="mt-4">
-                  <SectionTitle className="!text-zinc-100">{staffDashboardSectionTitles.nextTasks}</SectionTitle>
+                  <SectionTitle>{staffDashboardSectionTitles.nextTasks}</SectionTitle>
                   <div className="mt-2 space-y-2">
                     {nextChecklistTasks.length > 0 ? (
                       nextChecklistTasks.map((task) => (
@@ -9403,7 +9411,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="mt-6 space-y-3">
+            <section className={workspaceSectionClass}>
               <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
                 <div className="flex items-center justify-between">
                   <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
@@ -9498,7 +9506,7 @@ export default function Home() {
 
             </section>
 
-            <section className="mt-6 space-y-3">
+            <section className={workspaceSectionClass}>
               <SectionTitle className="mb-1 font-semibold text-stone-700">
                 {staffDashboardSectionTitles.insightsIntro}
               </SectionTitle>
@@ -9522,8 +9530,8 @@ export default function Home() {
               </PremiumCard>
             </section>
 
-            <section className="mt-6">
-              <SectionTitle className="mb-3 font-medium !text-stone-800">
+            <section className={workspaceSectionClass}>
+              <SectionTitle className="font-medium !text-stone-800">
                 {staffDashboardSectionTitles.allSections}
               </SectionTitle>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -9547,25 +9555,25 @@ export default function Home() {
           activeScreen === "Reception Hub" &&
           receptionHubEligibleNav &&
           !isCoupleView && (
-            <section className="mt-6 space-y-3">
+            <section className={workspaceSectionClass}>
               <EventHomeNav
                 trail={["Reception & timeline"]}
                 onBack={() => setActiveScreen("Dashboard")}
               />
-              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
-                <SectionTitle className="!text-zinc-100">Reception & main event</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-400">
+              <PremiumCard variant="accent">
+                <SectionTitle>Reception & main event</SectionTitle>
+                <p className="mt-1 text-xs text-stone-600">
                   Your timeline, special moments, and notes—everything for the heart of your celebration.
                 </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   {sectionReceptionTimelineEnabled && (
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Reception Timeline")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#00D4FF]/35 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:col-span-2"
                     >
-                      <span className="block text-sm font-semibold text-zinc-100">Reception timeline</span>
-                      <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
+                      <span className="block text-sm font-semibold text-stone-900">Reception timeline</span>
+                      <span className="mt-0.5 block text-[11px] font-normal text-stone-600">
                         Flow, formal moments, songs, and cues in one workspace
                       </span>
                     </PrimaryButton>
@@ -9574,10 +9582,10 @@ export default function Home() {
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Notes")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left hover:border-[#00D4FF]/35 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:col-span-2"
                     >
-                      <span className="block text-sm font-semibold text-zinc-100">Planning notes</span>
-                      <span className="mt-0.5 block text-[11px] font-normal text-zinc-500">
+                      <span className="block text-sm font-semibold text-stone-900">Planning notes</span>
+                      <span className="mt-0.5 block text-[11px] font-normal text-stone-600">
                         Shared notes for your vendor team
                       </span>
                     </PrimaryButton>
@@ -9588,7 +9596,9 @@ export default function Home() {
           )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Music Hub" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
-          <section className="mt-6 min-w-0 space-y-6 overflow-x-hidden sm:space-y-5 md:space-y-4">
+          <section
+            className={`${workspaceSectionClass} overflow-x-hidden`}
+          >
             <EventHomeNav
               trail={["Music Hub"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -9605,15 +9615,15 @@ export default function Home() {
               }}
             />
 
-            <PremiumCard className="border-[#00D4FF]/35 bg-zinc-950 border-zinc-800">
+            <PremiumCard variant="accent">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-[#00D4FF]/75">Music planning</p>
-                  <SectionTitle className="mt-1 !text-zinc-100">Music Hub</SectionTitle>
+                  <SectionTitle className="mt-1">Music Hub</SectionTitle>
                 </div>
-                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-1" />
+                <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
                 Share playlists and the sounds you love—your DJ uses this to prepare, not to replace their judgment on the night.
               </p>
             </PremiumCard>
@@ -9626,9 +9636,9 @@ export default function Home() {
               </PremiumCard>
             )}
             {!isCoupleView && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-                <SectionTitle className="!text-zinc-100">Music Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
+              <PremiumCard variant="accent">
+                <SectionTitle>Music Assistant</SectionTitle>
+                <p className="mt-1 text-xs text-stone-600">
                   Operational read on playlist links, genre picks, and song lists.
                 </p>
                 <div className="mt-3">
@@ -9857,13 +9867,13 @@ export default function Home() {
 
             <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
               {sectionMustPlayEnabled && (
-                <PremiumCard className="border-[#00D4FF]/25 bg-zinc-950">
+                <PremiumCard variant="accent">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle className="!text-zinc-100">Must play</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-500">Songs that should absolutely make the night.</p>
+                      <SectionTitle>Must play</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">Songs that should absolutely make the night.</p>
                     </div>
-                    <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-100">
+                    <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-stone-900">
                       {mustPlaySongs.length}
                     </span>
                   </div>
@@ -10150,30 +10160,30 @@ export default function Home() {
             )}
 
             {sectionGuestRequestsEnabled ? (
-              <PremiumCard className="border-zinc-700 bg-zinc-900">
+              <PremiumCard>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <SectionTitle className="!text-zinc-100">Guest requests</SectionTitle>
-                    <p className="mt-1 text-xs text-zinc-400">
+                    <SectionTitle>Guest requests</SectionTitle>
+                    <p className="mt-1 text-xs text-stone-600">
                       What guests are asking for—approve in one tap on the full screen.
                     </p>
                   </div>
                   <PrimaryButton
                     type="button"
                     onClick={() => setActiveScreen("Guest Requests")}
-                    className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                    className={lightUiCyanPrimaryButtonClass}
                   >
                     Open guest requests
                   </PrimaryButton>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-200/90">Approved</p>
+                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-800">Approved</p>
                     <div className="mt-2 space-y-2">
                       {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
                         <SectionEmptyState
                           wrapWithCard={false}
-                          cardClassName="border-emerald-500/15 bg-emerald-500/[0.04] py-3"
+                          cardClassName="border-emerald-200/80 bg-white py-3"
                           title="No approvals yet"
                           description="Approved picks stay ready for the DJ."
                         />
@@ -10183,27 +10193,27 @@ export default function Home() {
                           .map((request) => (
                             <div
                               key={`hub-approved-${request.id}`}
-                              className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                              className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-sm"
                             >
-                              <p className="text-sm text-zinc-100">
+                              <p className="text-sm text-stone-900">
                                 {request.songTitle}
                                 {request.artist ? (
-                                  <span className="font-normal text-zinc-400"> — {request.artist}</span>
+                                  <span className="font-normal text-stone-600"> — {request.artist}</span>
                                 ) : null}
                               </p>
-                              <p className="mt-1 text-[11px] text-zinc-500">{request.guestName}</p>
+                              <p className="mt-1 text-[11px] text-stone-500">{request.guestName}</p>
                             </div>
                           ))
                       )}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-[#7E52A0]/25 bg-[#7E52A0]/[0.06] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-300">Pending</p>
+                  <div className="rounded-xl border border-violet-200/90 bg-violet-50/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-violet-900">Pending</p>
                     <div className="mt-2 space-y-2">
                       {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
                         <SectionEmptyState
                           wrapWithCard={false}
-                          cardClassName="border-[#7E52A0]/20 bg-[#7E52A0]/[0.04] py-3"
+                          cardClassName="border-violet-200/80 bg-white py-3"
                           title="Inbox is clear"
                           description="New requests appear here when guests submit."
                         />
@@ -10213,15 +10223,15 @@ export default function Home() {
                           .map((request) => (
                             <div
                               key={`hub-pending-${request.id}`}
-                              className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                              className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-sm"
                             >
-                              <p className="text-sm text-zinc-100">
+                              <p className="text-sm text-stone-900">
                                 {request.songTitle}
                                 {request.artist ? (
-                                  <span className="font-normal text-zinc-400"> — {request.artist}</span>
+                                  <span className="font-normal text-stone-600"> — {request.artist}</span>
                                 ) : null}
                               </p>
-                              <p className="mt-1 text-[11px] text-zinc-500">{request.guestName}</p>
+                              <p className="mt-1 text-[11px] text-stone-500">{request.guestName}</p>
                               <span
                                 className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${guestRequestStatusBadgeClass(request.status)}`}
                               >
@@ -10245,9 +10255,9 @@ export default function Home() {
             )}
 
             {sectionMusicNotesEnabled && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-                <SectionTitle className="!text-zinc-100">Music notes &amp; vibe</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
+              <PremiumCard variant="accent">
+                <SectionTitle>Music notes &amp; vibe</SectionTitle>
+                <p className="mt-1 text-xs text-stone-600">
                   Give your DJ emotional guardrails—not just logistics.
                 </p>
                 <div className="mt-4 space-y-3">
@@ -10310,7 +10320,7 @@ export default function Home() {
           (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
           sectionReceptionTimelineEnabled && (
           <section
-            className={`mt-6 min-w-0 overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
           >
             <EventHomeNav
               trail={
@@ -10432,10 +10442,11 @@ export default function Home() {
             </div>
 
             {showTimelinePresetOnboarding && (
-              <PremiumCard className="no-print border-zinc-800 bg-zinc-950 py-5 shadow-none">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[#00D4FF]/85">Get started</p>
-                <h3 className="mt-2 text-lg font-semibold text-zinc-100">Build your run of show</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
+                <div className="p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-700">Get started</p>
+                <h3 className="mt-2 text-lg font-semibold text-stone-950">Build your run of show</h3>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">
                   Load the suggested {layoutProfileForActiveEvent} timeline (editable), or create your first moment from
                   scratch.
                 </p>
@@ -10462,33 +10473,34 @@ export default function Home() {
                       }, 50);
                     }}
                     disabled={!canEditTimeline}
-                    className="min-h-12 w-full rounded-xl border border-zinc-600 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 shadow-none hover:bg-zinc-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
+                    className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
                   >
                     Start from scratch
                   </PrimaryButton>
                 </div>
                 {!canEditTimeline ? (
-                  <p className="mt-4 text-xs text-zinc-500">Editing presets isn&apos;t available for your role.</p>
+                  <p className="mt-4 text-xs text-stone-600">Editing presets isn&apos;t available for your role.</p>
                 ) : !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded) ? (
-                  <p className="mt-4 text-xs text-zinc-500">
+                  <p className="mt-4 text-xs text-stone-600">
                     No default moments are enabled for this event type in Global Settings → Timeline Presets.
                   </p>
                 ) : (
-                  <p className="mt-4 text-xs text-zinc-500">
+                  <p className="mt-4 text-xs text-stone-600">
                     Tip: after your timeline has moments, preset shortcuts move under{" "}
-                    <span className="font-medium text-zinc-400">Preset tools</span>.
+                    <span className="font-medium text-stone-700">Preset tools</span>.
                   </p>
                 )}
+                </div>
               </PremiumCard>
             )}
 
             {timelineComposerOpen && (
-              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+              <PremiumCard variant="accent">
                 <div ref={timelineComposerRef}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <SectionTitle className="!text-zinc-100">New moment</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-400">
+                      <SectionTitle>New moment</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">
                         Lightweight capture—fine-tune anytime inline on the timeline.
                       </p>
                     </div>
@@ -10498,7 +10510,7 @@ export default function Home() {
                         resetTimelineForm();
                         setTimelineComposerOpen(false);
                       }}
-                      className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                      className="rounded-lg px-2 py-1 text-[11px] text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
                     >
                       Close
                     </button>
@@ -10532,7 +10544,7 @@ export default function Home() {
                           disabled={!canEditTimeline}
                         />
                         {timelineComposerError ? (
-                          <p className="mt-1.5 text-xs text-rose-300">{timelineComposerError}</p>
+                          <p className="mt-1.5 text-xs font-medium text-rose-700">{timelineComposerError}</p>
                         ) : null}
                       </div>
                     </div>
@@ -10555,10 +10567,7 @@ export default function Home() {
                       />
                     </div>
                     <div>
-                      <label
-                        htmlFor="timeline-category"
-                        className="text-[11px] uppercase tracking-wide text-zinc-400"
-                      >
+                      <label htmlFor="timeline-category" className={lightUiFormLabelClass}>
                         Category
                       </label>
                       <select
@@ -10568,10 +10577,10 @@ export default function Home() {
                         onChange={(event) =>
                           setTimelineCategory(event.target.value as TimelineCategory)
                         }
-                        className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                        className={lightUiSelectClass}
                       >
                         {timelineCategories.map((category) => (
-                          <option key={category} value={category} className="bg-[#141419] text-zinc-100">
+                          <option key={category} value={category} className="bg-white text-stone-900">
                             {category}
                           </option>
                         ))}
@@ -10591,8 +10600,8 @@ export default function Home() {
                       disabled={!canEditTimeline}
                       className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
                         timelineNeedsAttention
-                          ? "border-[#00D4FF] bg-[#00D4FF]/15 text-zinc-100"
-                          : "border-white/20 bg-white/[0.06] text-zinc-400 hover:bg-white/10"
+                          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+                          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                     >
                       {timelineNeedsAttention
@@ -11160,8 +11169,8 @@ export default function Home() {
             </div>
 
             {!isCoupleView && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-                <SectionTitle className="!text-zinc-100">Timeline Assistant</SectionTitle>
+              <PremiumCard variant="accent">
+                <SectionTitle>Timeline Assistant</SectionTitle>
                 <p className="mt-1 text-xs text-zinc-500">
                   Reception flow, spacing, and overlap checks.
                 </p>
@@ -11177,9 +11186,9 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Timeline Templates" && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-              <SectionTitle className="!text-zinc-100">Timeline Templates</SectionTitle>
+          <section className={workspaceSectionClass}>
+            <PremiumCard variant="accent">
+              <SectionTitle>Timeline Templates</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
                 Apply a preset, save current flow as a custom template, or refine custom templates.
               </p>
@@ -11272,7 +11281,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Collaborators" && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <EventHomeNav
               trail={["Collaborators"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -11281,8 +11290,8 @@ export default function Home() {
                 onClick: () => setInviteModalOpen(true),
               }}
             />
-            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-              <SectionTitle className="!text-zinc-100">Collaborators</SectionTitle>
+            <PremiumCard variant="accent">
+              <SectionTitle>Collaborators</SectionTitle>
               <p className="mt-1 text-xs text-zinc-500">
                 Prototype event access and role visibility. Invites are simulated locally.
               </p>
@@ -11380,7 +11389,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <EventHomeNav
               trail={["Guest Requests"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -11447,8 +11456,8 @@ export default function Home() {
                   </div>
                 </PremiumCard>
 
-                <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-                  <SectionTitle className="!text-zinc-100">Guest Requests Assistant</SectionTitle>
+                <PremiumCard variant="accent">
+                  <SectionTitle>Guest Requests Assistant</SectionTitle>
                   <p className="mt-1 text-xs text-zinc-500">
                     Queue health for approvals.
                   </p>
@@ -11622,7 +11631,7 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
           <section
-            className={`mt-6 min-w-0 overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
           >
             <EventHomeNav
               trail={["Ceremony"]}
@@ -11652,18 +11661,18 @@ export default function Home() {
               </div>
             </div>
 
-            <PremiumCard className="border-stone-200 bg-white px-4 py-5 shadow-sm sm:px-5 sm:py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+            <PremiumCard className={`border-stone-200 bg-white shadow-sm ${premiumFormSectionCardClass}`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600">
                     Ceremony presets
                   </p>
-                  <p className="mt-1 text-xs text-stone-600">
+                  <p className="text-xs leading-relaxed text-stone-600">
                     Drop in common beats—still editable on the timeline.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 sm:mt-3">
+              <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
                 {ceremonyPresetsForActiveEvent.map((preset) => (
                   <PrimaryButton
                     key={`ceremony-preset-${preset.id}`}
@@ -11679,12 +11688,12 @@ export default function Home() {
             </PremiumCard>
 
             {ceremonyTimelineComposerOpen && (
-              <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
                 <div ref={ceremonyTimelineComposerRef}>
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <SectionTitle className="!text-zinc-100">New ceremony moment</SectionTitle>
-                      <p className="mt-1 text-xs text-zinc-400">
+                    <div className="min-w-0 space-y-1.5">
+                      <SectionTitle>New ceremony moment</SectionTitle>
+                      <p className="text-xs leading-relaxed text-stone-600">
                         Lightweight capture—fine-tune anytime inline on the timeline.
                       </p>
                     </div>
@@ -11694,12 +11703,13 @@ export default function Home() {
                         resetCeremonyTimelineDraft();
                         setCeremonyTimelineComposerOpen(false);
                       }}
-                      className="rounded-lg px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
+                      className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
                     >
                       Close
                     </button>
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-6 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <TextInput
                       id="ceremony-composer-time-order"
                       label="Time / order"
@@ -11717,7 +11727,7 @@ export default function Home() {
                       disabled={!canEditTimeline}
                     />
                   </div>
-                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <TextInput
                       id="ceremony-composer-song-title"
                       label="Song title"
@@ -11735,7 +11745,7 @@ export default function Home() {
                       disabled={!canEditTimeline}
                     />
                   </div>
-                  <div className="mt-3">
+                  <div>
                     <TextArea
                       id="ceremony-composer-notes"
                       label="Notes / cues"
@@ -11750,10 +11760,10 @@ export default function Home() {
                     type="button"
                     onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
                     disabled={!canEditTimeline}
-                    className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
+                    className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
                       ceremonyTimelineDraftNeedsAttention
-                        ? "border-[#00D4FF] bg-[#00D4FF]/15 text-zinc-100"
-                        : "border-white/20 bg-white/[0.06] text-zinc-400 hover:bg-white/10"
+                        ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                   >
                     {ceremonyTimelineDraftNeedsAttention
@@ -11764,10 +11774,11 @@ export default function Home() {
                     type="button"
                     onClick={saveCeremonyTimelineComposerItem}
                     disabled={!canEditTimeline}
-                    className="mt-4 w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                    className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
                   >
                     Add to ceremony timeline
                   </PrimaryButton>
+                  </div>
                 </div>
               </PremiumCard>
             )}
@@ -12200,12 +12211,12 @@ export default function Home() {
             </div>
 
             {!isCoupleView && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
-                <SectionTitle className="!text-zinc-100">Ceremony Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
+                <SectionTitle>Ceremony Assistant</SectionTitle>
+                <p className="mt-3 text-xs leading-relaxed text-stone-600">
                   Processionals and audio readiness.
                 </p>
-                <div className="mt-3">
+                <div className="mt-5">
                   <InsightStack
                     insights={planningInsights.filter((i) => i.section === "ceremony")}
                     emptyLabel="Ceremony prep looks complete."
@@ -12214,9 +12225,9 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <PremiumCard>
+            <PremiumCard className={premiumFormSectionCardClass}>
               <SectionTitle className="text-stone-950">Ceremony Details</SectionTitle>
-              <div className="mt-4 space-y-3">
+              <div className="mt-6 space-y-4">
                 <TextInput
                   id="ceremony-location"
                   label="Ceremony Location"
@@ -12269,7 +12280,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Notes" && !isCoupleView && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <EventHomeNav trail={["Planning notes"]} onBack={() => setActiveScreen("Dashboard")} />
             {!canEditNotes && (
               <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
@@ -12278,9 +12289,9 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
-            <PremiumCard>
+            <PremiumCard className={premiumFormSectionCardClass}>
               <SectionTitle className="text-stone-950">Planner Notes</SectionTitle>
-              <div className="mt-3 space-y-3">
+              <div className="mt-6 space-y-4">
                 <TextArea
                   id="planner-notes-editor"
                   label="One note per line"
@@ -12303,7 +12314,9 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && sectionVendorContactsEnabled && (
-          <section className="mt-6 min-w-0 space-y-5 overflow-x-hidden sm:space-y-4 md:space-y-3">
+          <section
+            className={`${workspaceSectionClass} overflow-x-hidden`}
+          >
             <EventHomeNav
               trail={["Vendors / Team"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -12312,9 +12325,9 @@ export default function Home() {
                 onClick: openAddVendorModal,
               }}
             />
-            <PremiumCard className="border-[#00D4FF]/20 bg-zinc-950">
+            <PremiumCard variant="accent">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle className="!text-zinc-100">Your event team</SectionTitle>
+                <SectionTitle>Your event team</SectionTitle>
                 <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-zinc-300">
@@ -12343,9 +12356,9 @@ export default function Home() {
             ) : (
               <>
                 {cutmasterTeamVendors.length > 0 ? (
-                  <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+                  <PremiumCard variant="accent">
                     <div className="min-w-0">
-                      <SectionTitle className="!text-zinc-100">Cutmaster event team</SectionTitle>
+                      <SectionTitle>Cutmaster event team</SectionTitle>
                       <p className="mt-1 text-[11px] leading-snug text-zinc-400">
                         Internal production and coordination on this event—distinct from external partners below.
                       </p>
@@ -12443,7 +12456,9 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Prep" && (
-          <section className="mt-6 min-w-0 space-y-4 overflow-x-hidden print-doc sm:space-y-3">
+          <section
+            className={`${workspaceSectionClass} overflow-x-hidden print-doc`}
+          >
             <EventHomeNav trail={["Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
             <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:px-5 sm:py-3.5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
@@ -13191,7 +13206,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Settings" && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <EventHomeNav trail={["Event Settings"]} onBack={() => setActiveScreen("Dashboard")} />
             <input
               ref={eventCoverPhotoInputRef}
@@ -13625,11 +13640,11 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && sectionPlanningChecklistEnabled && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionClass}>
             <EventHomeNav trail={["Planning Checklist"]} onBack={() => setActiveScreen("Dashboard")} />
-            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+            <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
-                <SectionTitle className="!text-zinc-100">Planning Checklist</SectionTitle>
+                <SectionTitle>Planning Checklist</SectionTitle>
                 <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
                   {completionPercent}% complete
                 </span>
@@ -13723,7 +13738,7 @@ export default function Home() {
           appMode === "event" &&
           activeScreen === "Planning Questions" &&
           sectionPlanningQuestionsEnabled && (
-          <section className="mt-6 space-y-3">
+          <section className={workspaceSectionLooseClass}>
             <EventHomeNav
               trail={["Planning Questions"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -13740,15 +13755,15 @@ export default function Home() {
                   : undefined
               }
             />
-            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+            <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle className="!text-zinc-100">Planning Questions</SectionTitle>
-                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
+                <SectionTitle>Planning Questions</SectionTitle>
+                <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-3 text-xs leading-relaxed text-stone-600">
                 Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on.
               </p>
-              <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
                 Event Type · {layoutProfileForActiveEvent}
               </p>
             </PremiumCard>
@@ -13760,10 +13775,10 @@ export default function Home() {
                   label: "Open Event Settings",
                   onClick: () => setActiveScreen("Event Settings"),
                 }}
-                cardClassName="border-dashed border-white/15 bg-white/[0.03]"
+                cardClassName="border-dashed border-stone-300 bg-stone-50/80"
               />
             ) : (
-              <div id="planning-questions-anchor" className="space-y-3">
+              <div id="planning-questions-anchor" className="space-y-5">
                 {planningQuestionsGroupedBySection.map((row) => {
                   const pct = computePlanningQuestionGroupCompletion(
                     row.questions,
@@ -13771,13 +13786,10 @@ export default function Home() {
                   );
                   const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
                   return (
-                    <PremiumCard
-                      key={`pq-group-${row.group.id}`}
-                      className="border-zinc-700 bg-zinc-900 shadow-none"
-                    >
+                    <PremiumCard key={`pq-group-${row.group.id}`} className={premiumFormSectionCardClass}>
                       <button
                         type="button"
-                        className="flex w-full items-start gap-3 rounded-xl text-left transition hover:bg-white/[0.04] sm:items-center sm:justify-between"
+                        className="flex w-full items-start gap-3 rounded-lg px-0.5 py-2.5 text-left transition hover:bg-stone-50 sm:items-center sm:justify-between sm:py-3"
                         onClick={() =>
                           setExpandedPlanningQuestionGroups((p) => ({
                             ...p,
@@ -13785,29 +13797,26 @@ export default function Home() {
                           }))
                         }
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-base font-semibold text-zinc-100">{row.group.label}</p>
-                          <p className="mt-1 text-[11px] text-zinc-500">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
+                          <p className="text-[11px] font-medium leading-relaxed text-stone-600">
                             {pct}% answered · {row.questions.length}{" "}
                             {row.questions.length === 1 ? "question" : "questions"}
                           </p>
-                          <div className="mt-2 h-1.5 max-w-full overflow-hidden rounded-full bg-zinc-800/90 sm:max-w-xs">
+                          <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
                             <div
-                              className="h-full rounded-full bg-[#00D4FF]"
+                              className="h-full rounded-full bg-[var(--cm-accent)]"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>
-                        <span
-                          className="shrink-0 pt-0.5 text-sm text-zinc-500"
-                          aria-hidden
-                        >
+                        <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-400" aria-hidden>
                           {isExpanded ? "▼" : "▶"}
                         </span>
                       </button>
                       {isExpanded ? (
-                        <div className="mt-4 border-t border-white/10 pt-4">
-                          <div className="grid gap-3 md:grid-cols-2">
+                        <div className="mt-6 border-t border-stone-200 pt-6">
+                          <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
                             {row.questions.map((q) => (
                               <PlanningQuestionAnswerEditor
                                 key={q.id}
@@ -13836,10 +13845,10 @@ export default function Home() {
         )}
 
         {authStage === "app" && activeScreen === "Notification Center" && (
-          <section className="mt-6 space-y-3">
-            <PremiumCard className="border-zinc-800 bg-zinc-950 shadow-none">
+          <section className={workspaceSectionClass}>
+            <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
-                <SectionTitle className="!text-zinc-100">Notification Center</SectionTitle>
+                <SectionTitle>Notification Center</SectionTitle>
                 <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
                   {unreadBadgeCount} unread
                 </span>

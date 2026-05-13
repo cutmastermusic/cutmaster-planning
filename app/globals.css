@@ -1,24 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  /* Cutmaster Music — premium neutral workspace + restrained brand accents */
-  --cm-black: #000000;
+  /*
+   * Cutmaster Planning — design system (light workspace first).
+   * Operational / live overlays (Run Of Show, etc.) may use darker shells locally;
+   * default planning surfaces stay on neutral stone/zinc, not black-heavy cards.
+   */
+  --cm-black: #0a0a0a;
   --cm-white: #ffffff;
   --cm-cyan: #00d4ff;
   --cm-purple: #7e52a0;
   --cm-pink: #e82167;
 
-  /* Flat neutral canvas — avoids pastel / tinted “haze” */
-  --background: #f5f5f5;
-  --foreground: #0a0a0a;
+  /* Canvas & surfaces */
+  --cm-canvas: #f4f4f5;
+  --cm-canvas-subtle: #fafafa;
+  --background: var(--cm-canvas);
+  --foreground: #1c1917;
   --cm-surface: #ffffff;
+  --cm-surface-muted: #fafaf9;
+  --cm-surface-elevated: #ffffff;
+
+  /* Borders & dividers */
   --cm-border: #e7e5e4;
-  --cm-muted: #57534e;
+  --cm-border-strong: #d6d3d1;
+  --cm-ring-focus: rgba(0, 212, 255, 0.38);
+
+  /* Typography */
+  --cm-text-primary: #1c1917;
+  --cm-text-secondary: #44403c;
+  --cm-text-muted: #57534e;
+  --cm-text-subtle: #78716c;
+
+  /* Legacy alias */
+  --cm-muted: var(--cm-text-muted);
+
+  /* Accent */
   --cm-accent: var(--cm-cyan);
-  --cm-accent-foreground: var(--cm-black);
+  --cm-accent-foreground: #0c0a09;
   --cm-accent-soft: rgba(0, 212, 255, 0.14);
   --cm-purple-soft: rgba(126, 82, 160, 0.12);
   --cm-pink-soft: rgba(232, 33, 103, 0.12);
+
+  /* Elevation */
+  --cm-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.05), 0 2px 8px rgba(28, 25, 23, 0.04);
+  --cm-radius-card: 1rem;
+  --cm-radius-control: 0.75rem;
+  /* Default inset for PremiumCard / form surfaces */
+  --cm-space-card-padding: 1.5rem;
+  /* Vertical gap between major blocks inside a screen section (below header) */
+  --cm-space-section-gap: 1.5rem;
+}
+
+/* Optional: wrap main planning shell for token-driven background */
+.cm-app-shell {
+  min-height: 100vh;
+  background: var(--cm-canvas);
+  color: var(--cm-text-primary);
+}
+
+/**
+ * Workspace section stack — consistent top offset + vertical rhythm between
+ * EventHomeNav, PremiumCards, and action rows. Compose with overflow/max-width as needed.
+ */
+.cm-workspace-section {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cm-space-section-gap);
+  min-width: 0;
+}
+
+.cm-workspace-section--compact {
+  gap: 1.25rem;
+}
+
+.cm-workspace-section--loose {
+  gap: 2rem;
+}
+
+/** Couple dashboard: slightly tighter top on small viewports, roomier gaps on sm+. */
+.cm-workspace-section--dashboard {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .cm-workspace-section--dashboard {
+    margin-top: 1.5rem;
+    gap: 2rem;
+  }
 }
 
 @theme inline {
