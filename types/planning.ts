@@ -6,15 +6,15 @@ export type Screen =
   | "Music Hub"
   | "Timeline"
   | "Timeline Templates"
-  | "Collaborators"
   | "Guest Requests"
   | "Ceremony"
   | "Reception Hub"
   /** Couple/staff entry from Reception Hub — same editor as Timeline */
   | "Reception Timeline"
   | "Event Prep"
-  | "Vendors"
   | "Notes"
+  /** Unified people & contacts (vendors + app access); replaces legacy Vendors / Collaborators screens. */
+  | "Event Team"
   | "Planning Checklist"
   | "Planning Questions"
   | "Notification Center"

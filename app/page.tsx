@@ -810,6 +810,9 @@ function migrateLegacyScreenId(raw: unknown): Screen {
   if (raw === "Music Import") {
     return "Music Hub";
   }
+  if (raw === "Vendors" || raw === "Collaborators") {
+    return "Event Team";
+  }
   return raw as Screen;
 }
 
@@ -823,7 +826,7 @@ const LAYOUT_SECTION_PREVIEW: {
   { key: "sectionMustPlayEnabled", label: "Must play" },
   { key: "sectionDoNotPlayEnabled", label: "Do not play" },
   { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
-  { key: "sectionVendorContactsEnabled", label: "Vendor contacts" },
+  { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
   { key: "sectionMusicNotesEnabled", label: "Music notes" },
   { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
   { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
@@ -906,7 +909,7 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
     labels.push("Playlists");
   }
   if (visibility.liveEventShowVendorContacts && layoutDefaults.sectionVendorContactsEnabled) {
-    labels.push("Vendors / Contacts");
+    labels.push("Event team");
   }
   if (visibility.liveEventShowMcScript && layoutDefaults.sectionMcScriptEnabled) {
     labels.push(
@@ -1046,9 +1049,8 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     ...(s.sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
     ...(s.sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
-    ...(s.sectionVendorContactsEnabled ? (["Vendors"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
-    "Collaborators",
+    "Event Team",
     "Event Settings",
     ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
   ];
@@ -1067,11 +1069,10 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     "Planning Questions",
     "Ceremony",
     "Timeline",
-    "Vendors",
+    "Event Team",
     "Guest Requests",
     "Event Settings",
     "Event Prep",
-    "Collaborators",
   ];
   let coupleNav = base.filter((item) => coupleAllowedScreens.includes(item));
   coupleNav = coupleNav.filter((item) => item !== "Notes");
@@ -1113,6 +1114,15 @@ function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
     sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
     sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
   };
+}
+
+/** Client-friendly summary of what app access a collaborator role implies. */
+function collaboratorAccessPermissionLine(role: UserRole): string {
+  if (role === "Couple") return "Can edit planning, music, and guest requests";
+  if (role === "DJ") return "Can edit timeline, music, and day-of prep views";
+  if (role === "Planner") return "Can edit timeline, notes, and vendor-facing areas";
+  if (role === "Admin") return "Full access (internal)";
+  return "Custom permissions";
 }
 
 function VendorEventCard({
@@ -3119,11 +3129,11 @@ export default function Home() {
         priority: activeScreen === "Guest Requests" ? 100 : 37,
       },
       {
-        id: "invite-collaborator",
-        label: "Invite Collaborator",
+        id: "invite-team-member",
+        label: "Invite to app",
         visible: appMode === "event" && canInviteCollaborators,
         onClick: () => {
-          setActiveScreen("Collaborators");
+          setActiveScreen("Event Team");
           window.setTimeout(() => setInviteModalOpen(true), 0);
         },
         priority: 30,
@@ -3659,7 +3669,7 @@ export default function Home() {
     const selectedVendorType = vendorTypeDraft?.trim() as VendorType;
     const companyName = vendorCompanyDraft.trim();
     if (!selectedVendorType) {
-      setVendorStatus({ kind: "error", message: "Vendor Type is required." });
+      setVendorStatus({ kind: "error", message: "Role is required." });
       return;
     }
     if (!companyName) {
@@ -3849,7 +3859,7 @@ export default function Home() {
       "Guest Requests": "Next: guest song ideas",
       "Planning Checklist": "Review your checklist",
       "Event Prep": "Next: your event document",
-      Vendors: "Next: vendor contacts",
+      "Event Team": "Next: your event team",
       Notes: "Next: notes",
     };
     return labels[coupleGuidedNextScreen] ?? "Continue your planning";
@@ -3984,21 +3994,42 @@ export default function Home() {
       });
     }
 
-    if (sectionVendorContactsEnabled) {
-      const completion =
-        vendors.length === 0 ? 28 : Math.min(100, 35 + Math.min(vendors.length, 5) * 13);
-      const v = vendors.length;
+    if (eventNavItems.includes("Event Team")) {
+      const collabs = activeEvent?.collaborators ?? [];
+      const acc = acceptedCollaborators.length;
+      const pend = pendingCollaborators.length;
+      const v = sectionVendorContactsEnabled ? vendors.length : 0;
+      const hasAny = v > 0 || collabs.length > 0;
+      const completion = !hasAny
+        ? 28
+        : Math.min(
+            100,
+            38 + Math.min(v, 5) * 11 + Math.min(collabs.length, 5) * 9 + (pend > 0 ? -6 : 0),
+          );
+      const statParts: string[] = [];
+      if (sectionVendorContactsEnabled) {
+        statParts.push(`${v} day-of contact${v === 1 ? "" : "s"}`);
+      }
+      if (collabs.length > 0) {
+        statParts.push(`${acc} with app access${pend > 0 ? ` · ${pend} invite${pend === 1 ? "" : "s"} pending` : ""}`);
+      } else {
+        statParts.push("App access: couple account only");
+      }
       cards.push({
-        id: "vendors",
+        id: "event-team",
         kicker: "Team",
-        title: "Vendors & team",
-        description: "Planners, venue, photo, catering, entertainment—reachable in one place.",
-        screen: "Vendors",
+        title: "Event team",
+        description:
+          "People helping with your event—reach them in one place, and see who can edit or view the plan in the app.",
+        screen: "Event Team",
         completion,
-        ctaLabel: vendors.length === 0 ? "Continue" : "Review",
-        statLine: `${v} contact${v === 1 ? "" : "s"} saved`,
-        statSubline:
-          v === 0 ? "Add the people you’ll text on the wedding day" : "Keep phones and emails current for day-of",
+        ctaLabel: hasAny ? "Review" : "Continue",
+        statLine: statParts.join(" · "),
+        statSubline: sectionVendorContactsEnabled
+          ? v === 0 && collabs.length <= 1
+            ? "Add planners, venue, photo, or entertainment when contracts land"
+            : "Keep phones and emails current for day-of"
+          : "Vendor list is off in Event Settings—you can still manage app access here",
       });
     }
 
@@ -4089,7 +4120,7 @@ export default function Home() {
     const clientHomeOrder = [
       "reception",
       "music",
-      "vendors",
+      "event-team",
       "planning-questions",
       "ceremony",
       "event-prep",
@@ -4126,6 +4157,9 @@ export default function Home() {
     sectionVendorContactsEnabled,
     timelineItems.length,
     vendors.length,
+    activeEvent?.collaborators,
+    acceptedCollaborators.length,
+    pendingCollaborators.length,
     planningQuestionsForEvent,
   ]);
 
@@ -4199,7 +4233,7 @@ export default function Home() {
     if (effectiveRole === "Planner") {
       return filterScreens([
         { kind: "screen", screen: tl, label: tl === "Reception Timeline" ? "Reception timeline" : "Timeline" },
-        { kind: "screen", screen: "Vendors", label: "Vendor coordination" },
+        { kind: "screen", screen: "Event Team", label: "Event team" },
         { kind: "screen", screen: "Planning Questions", label: "Planning questions" },
         { kind: "screen", screen: "Planning Checklist", label: "Planning progress" },
         { kind: "screen", screen: "Notes", label: "Planning notes" },
@@ -4251,7 +4285,7 @@ export default function Home() {
               : "Answers still needed from the client or team.",
         },
         {
-          label: "Vendor roster",
+          label: "Event team contacts",
           value: `${vendors.length}`,
           detail: "Partners and contacts on file for coordination.",
         },
@@ -4302,9 +4336,9 @@ export default function Home() {
           detail: "Fine-grained modules turned on in Event Settings.",
         },
         {
-          label: "Collaborators",
-          value: `${collaboratorCount}`,
-          detail: "Invites and roles attached to this event.",
+          label: "Event team",
+          value: `${collaboratorCount} with access`,
+          detail: `${vendors.length} vendor-style contact${vendors.length === 1 ? "" : "s"} on file for this event.`,
         },
       ];
     }
@@ -4339,13 +4373,12 @@ export default function Home() {
       if (effectiveRole === "Planner") {
         preferred = [
           tl,
-          "Vendors",
+          "Event Team",
           "Planning Questions",
           "Planning Checklist",
           "Notes",
           "Event Settings",
           "Guest Requests",
-          "Collaborators",
           "Ceremony",
           "Music Hub",
           "Event Prep",
@@ -4358,7 +4391,7 @@ export default function Home() {
           "Ceremony",
           "Planning Checklist",
           "Guest Requests",
-          "Collaborators",
+          "Event Team",
           "Notes",
         ];
       } else if (effectiveRole === "Admin") {
@@ -4367,10 +4400,9 @@ export default function Home() {
           "Event Prep",
           "Music Hub",
           tl,
-          "Collaborators",
+          "Event Team",
           "Planning Questions",
           "Ceremony",
-          "Vendors",
           "Guest Requests",
           "Planning Checklist",
           "Notes",
@@ -6466,10 +6498,10 @@ export default function Home() {
       rows.push({
         id: "rd-vendors",
         tier: "recommended",
-        title: "Vendor contacts not captured",
+        title: "Event team contacts not captured",
         hint: "Photo, venue, catering, entertainment—light entries save frantic texting later.",
-        actionLabel: "Vendors",
-        targetScreen: "Vendors",
+        actionLabel: "Event Team",
+        targetScreen: "Event Team",
       });
     }
 
@@ -6782,7 +6814,7 @@ export default function Home() {
     if (showVendors) {
       const sorted = sortVendorsForEventDocument(vendors);
       lines.push(
-        "EVENT TEAM & VENDOR CONTACTS",
+        "EVENT TEAM",
         ...sorted.flatMap((vendor) => ["", ...formatVendorContactLines(vendor)]),
         "",
       );
@@ -8300,7 +8332,7 @@ export default function Home() {
                           <p className="mt-1 text-stone-600">
                             Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
                             Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
-                            Vendors: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
+                            Event team: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
                             MC: {liveDefaults.liveEventShowMcScript ? "On" : "Off"} ·
                             Playlists: {liveDefaults.liveEventShowPlaylists ? "On" : "Off"} ·
                             Questions: {liveDefaults.liveEventShowPlanningQuestions ? "On" : "Off"}
@@ -8593,7 +8625,7 @@ export default function Home() {
                   <p className="mt-2 text-xs leading-relaxed text-zinc-400">
                     {canManageEvents
                       ? "Create your first event to start planning a full Cutmaster workflow."
-                      : "Ask an admin to assign you to an event in Collaborators."}
+                      : "Ask an admin to assign you to an event from Event Team."}
                   </p>
                   {canManageEvents && (
                     <div className="mt-5">
@@ -9513,7 +9545,8 @@ export default function Home() {
                     ) : null}
                   </div>
                   <p className="text-xs font-medium text-stone-600">
-                    Vendors: <span className="font-semibold text-stone-900">{vendors.length}</span>
+                    Event team contacts:{" "}
+                    <span className="font-semibold text-stone-900">{vendors.length}</span>
                   </p>
                   <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5c4a12]">{eventCountdownLabel}</p>
@@ -11561,114 +11594,6 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Collaborators" && (
-          <section className={workspaceSectionClass}>
-            <EventHomeNav
-              trail={["Collaborators"]}
-              onBack={() => setActiveScreen("Dashboard")}
-              primaryAction={{
-                label: "Invite",
-                onClick: () => setInviteModalOpen(true),
-              }}
-            />
-            <PremiumCard variant="accent">
-              <SectionTitle>Collaborators</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
-                Prototype event access and role visibility. Invites are simulated locally.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
-                  Accepted: <span className="text-white">{acceptedCollaborators.length}</span>
-                </div>
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">
-                  Pending: <span className="text-white">{pendingCollaborators.length}</span>
-                </div>
-              </div>
-            </PremiumCard>
-
-            {(activeEvent?.collaborators ?? []).map((collab) => (
-              <PremiumCard key={collab.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-100">{collab.name}</p>
-                    <p className="mt-1 text-xs text-zinc-400">{collab.email}</p>
-                    <div className="mt-2 flex gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(collab.role)}`}>
-                        {collab.role}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${collab.status === "Accepted" ? "bg-emerald-500/20 text-emerald-200" : "bg-[#7E52A0]/22 text-violet-200"}`}>
-                        {collab.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <select
-                    value={collab.role}
-                    onChange={(event) =>
-                      updateCollaboratorsForActiveEvent((current) =>
-                        current.map((c) =>
-                          c.id === collab.id ? { ...c, role: event.target.value as UserRole } : c,
-                        ),
-                      )
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100"
-                  >
-                    {(["Couple", "DJ", "Planner", "Admin"] as UserRole[]).map((role) => (
-                      <option key={`${collab.id}-${role}`} value={role} className="bg-[#141419]">
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                  <PrimaryButton
-                    onClick={() =>
-                      updateCollaboratorsForActiveEvent((current) =>
-                        current.map((c) =>
-                          c.id === collab.id ? { ...c, status: c.status === "Pending" ? "Accepted" : "Pending" } : c,
-                        ),
-                      )
-                    }
-                    className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
-                  >
-                    {collab.status === "Pending" ? "Simulate Accept" : "Set Pending"}
-                  </PrimaryButton>
-                  <PrimaryButton
-                    onClick={() => {
-                      const ok =
-                        typeof window === "undefined" ||
-                        window.confirm(
-                          `Remove "${collab.name}" from this event? They lose access until invited again.`,
-                        );
-                      if (!ok) return;
-                      updateCollaboratorsForActiveEvent((current) =>
-                        current.filter((c) => c.id !== collab.id),
-                      );
-                      logActivity(
-                        "collaborator_removed_from_event",
-                        `Removed collaborator ${collab.name} (${collab.role}) from event`,
-                      );
-                    }}
-                    disabled={!canInviteCollaborators}
-                    className="col-span-2 rounded-xl bg-[#6f5353]/40 px-3 py-2 text-xs font-semibold text-[#f2dede] hover:bg-[#6f5353]/55 disabled:opacity-45"
-                  >
-                    Remove from Event
-                  </PrimaryButton>
-                </div>
-              </PremiumCard>
-            ))}
-
-            <PremiumCard>
-              <SectionTitle className="text-stone-950">Event Access Cards</SectionTitle>
-              <div className="mt-3 space-y-2 text-xs">
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">Couple: edit planning, submit music, manage guest requests</div>
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">DJ: edit timeline, manage music, view prep sheet</div>
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">Planner: edit timeline, add notes, view progress</div>
-                <div className="rounded-xl bg-white/5 px-3 py-2 text-zinc-300">Admin: full access</div>
-              </div>
-            </PremiumCard>
-          </section>
-        )}
-
         {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
           <section className={workspaceSectionClass}>
             <EventHomeNav
@@ -12594,25 +12519,29 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Vendors" && sectionVendorContactsEnabled && (
+        {authStage === "app" && appMode === "event" && activeScreen === "Event Team" && (
           <section
             className={`${workspaceSectionClass} overflow-x-hidden`}
           >
             <EventHomeNav
-              trail={["Vendors / Team"]}
+              trail={["Event Team"]}
               onBack={() => setActiveScreen("Dashboard")}
-              primaryAction={{
-                label: "Add vendor",
-                onClick: openAddVendorModal,
-              }}
+              primaryAction={
+                sectionVendorContactsEnabled
+                  ? { label: "Add team member", onClick: openAddVendorModal }
+                  : canInviteCollaborators
+                    ? { label: "Invite to app", onClick: () => setInviteModalOpen(true) }
+                    : undefined
+              }
             />
             <PremiumCard variant="accent">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle>Your event team</SectionTitle>
-                <PersistEcho persistFeedback={persistFeedback} variant="dark" className="pt-0.5" />
+                <SectionTitle>Event Team</SectionTitle>
+                <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-zinc-300">
-                One calm snapshot of everyone involved—organized by role, fast to reach from your phone, and aligned with your Event Document.
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                People helping with your event—planners, venue, photo, catering, entertainment, and who can open this
+                plan in the app.
               </p>
               {vendorStatus && (
                 <p
@@ -12627,11 +12556,158 @@ export default function Home() {
               )}
             </PremiumCard>
 
-            {vendors.length === 0 ? (
+            <PremiumCard variant="accent">
+              <SectionTitle>App access</SectionTitle>
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                Who can sign in to this event in Cutmaster Planning. Invites are simulated locally in this prototype.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
+                  Active:{" "}
+                  <span className="font-semibold tabular-nums text-stone-950">{acceptedCollaborators.length}</span>
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
+                  Pending invite:{" "}
+                  <span className="font-semibold tabular-nums text-stone-950">{pendingCollaborators.length}</span>
+                </div>
+              </div>
+            </PremiumCard>
+
+            {(activeEvent?.collaborators ?? []).map((collab) => (
+              <PremiumCard
+                key={collab.id}
+                className="border-stone-200 bg-white p-4 shadow-sm ring-1 ring-stone-200/80 sm:p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                      {collab.name}
+                    </p>
+                    <p className="mt-1 text-sm leading-snug text-stone-700 [overflow-wrap:anywhere]">
+                      {collab.email}
+                    </p>
+                    <p className="mt-2.5 text-[13px] leading-relaxed text-stone-600">
+                      <span className="font-semibold text-stone-800">Permissions · </span>
+                      {collaboratorAccessPermissionLine(collab.role)}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${roleBadgeClass(collab.role)}`}
+                      >
+                        Access: {collab.role}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                          collab.status === "Accepted"
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                            : "border-violet-300 bg-violet-50 text-violet-950"
+                        }`}
+                      >
+                        {collab.status === "Accepted" ? "Can open app" : "Invite pending"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 border-t border-stone-100 pt-4 sm:grid-cols-2 sm:items-end">
+                  <div>
+                    <label htmlFor={`collab-role-${collab.id}`} className={lightUiFormLabelClass}>
+                      Access level
+                    </label>
+                    <select
+                      id={`collab-role-${collab.id}`}
+                      value={collab.role}
+                      onChange={(event) =>
+                        updateCollaboratorsForActiveEvent((current) =>
+                          current.map((c) =>
+                            c.id === collab.id ? { ...c, role: event.target.value as UserRole } : c,
+                          ),
+                        )
+                      }
+                      className={lightUiSelectClass}
+                    >
+                      {(["Couple", "DJ", "Planner", "Admin"] as UserRole[]).map((role) => (
+                        <option key={`${collab.id}-${role}`} value={role} className="bg-white text-stone-900">
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <PrimaryButton
+                    onClick={() =>
+                      updateCollaboratorsForActiveEvent((current) =>
+                        current.map((c) =>
+                          c.id === collab.id ? { ...c, status: c.status === "Pending" ? "Accepted" : "Pending" } : c,
+                        ),
+                      )
+                    }
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-400 hover:bg-stone-50 sm:w-auto sm:min-w-[8.5rem]"
+                  >
+                    {collab.status === "Pending" ? "Simulate accept" : "Mark pending"}
+                  </PrimaryButton>
+                  <PrimaryButton
+                    onClick={() => {
+                      const ok =
+                        typeof window === "undefined" ||
+                        window.confirm(
+                          `Remove "${collab.name}" from this event? They lose access until invited again.`,
+                        );
+                      if (!ok) return;
+                      updateCollaboratorsForActiveEvent((current) =>
+                        current.filter((c) => c.id !== collab.id),
+                      );
+                      logActivity(
+                        "collaborator_removed_from_event",
+                        `Removed collaborator ${collab.name} (${collab.role}) from event`,
+                      );
+                    }}
+                    disabled={!canInviteCollaborators}
+                    className="sm:col-span-2 w-full rounded-xl border border-rose-400 bg-white px-3 py-2.5 text-xs font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45"
+                  >
+                    Remove from event
+                  </PrimaryButton>
+                </div>
+              </PremiumCard>
+            ))}
+
+            <PremiumCard className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80">
+              <SectionTitle className="text-stone-950">How access levels work</SectionTitle>
+              <p className={lightUiSectionCaptionClass}>
+                Same roles your team already uses—shown here so couples know what each access level means.
+              </p>
+              <div className="mt-4 space-y-2.5 text-sm leading-relaxed text-stone-700">
+                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+                  <span className="font-semibold text-stone-900">Couple · </span>
+                  Edit planning, music, and guest requests.
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+                  <span className="font-semibold text-stone-900">DJ · </span>
+                  Edit timeline, music, and day-of prep views.
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+                  <span className="font-semibold text-stone-900">Planner · </span>
+                  Edit timeline, notes, and vendor-facing areas.
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+                  <span className="font-semibold text-stone-900">Admin · </span>
+                  Full access (internal).
+                </div>
+              </div>
+            </PremiumCard>
+
+            {!sectionVendorContactsEnabled ? (
+              <PremiumCard className="border-amber-200 bg-amber-50/90">
+                <SectionTitle className="text-stone-950">Day-of contacts</SectionTitle>
+                <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                  The detailed contact list is turned off in Event Settings. Turn on{" "}
+                  <span className="font-semibold">Event team contacts</span> to add planners, venue, photo, catering,
+                  and entertainment here.
+                </p>
+              </PremiumCard>
+            ) : vendors.length === 0 ? (
               <SectionEmptyState
-                title="No contacts yet"
-                description="Add planners, venue, photo + video, catering, and entertainment so day-of calls and texts stay in one place—not buried in threads."
-                primaryAction={{ label: "Add vendor", onClick: openAddVendorModal }}
+                title="No day-of contacts yet"
+                description="Add planners, venue, photo + video, catering, and entertainment so calls and texts stay in one place—not buried in threads."
+                primaryAction={{ label: "Add team member", onClick: openAddVendorModal }}
                 cardClassName="border-dashed border-stone-300 bg-stone-50"
               />
             ) : (
@@ -12640,7 +12716,7 @@ export default function Home() {
                   <PremiumCard variant="accent">
                     <div className="min-w-0">
                       <SectionTitle>Cutmaster event team</SectionTitle>
-                      <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+                      <p className="mt-1 text-sm leading-snug text-stone-600">
                         Internal production and coordination on this event—distinct from external partners below.
                       </p>
                     </div>
@@ -12894,7 +12970,7 @@ export default function Home() {
 
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                      Vendor / contact sections
+                      Event team on document
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {sectionVendorContactsEnabled ? (
@@ -12912,7 +12988,7 @@ export default function Home() {
                               : EVENT_PACKET_SECTION_TOGGLE_OFF
                           }
                         >
-                          {eventSettings.liveEventShowVendorContacts ? "Vendor contacts on" : "Vendor contacts off"}
+                          {eventSettings.liveEventShowVendorContacts ? "Event team on" : "Event team off"}
                         </PrimaryButton>
                       ) : null}
                     </div>
@@ -13412,7 +13488,7 @@ export default function Home() {
                 eventSettings.liveEventShowVendorContacts &&
                 vendors.length > 0 && (
                   <div className="doc-section print-break-avoid">
-                    <h3>Event team & vendor contacts</h3>
+                    <h3>Event Team</h3>
                     <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
                       Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
                       are prioritized at the top for fast scanning.
@@ -13679,7 +13755,7 @@ export default function Home() {
                     { key: "sectionMustPlayEnabled", label: "Must Play" },
                     { key: "sectionDoNotPlayEnabled", label: "Do Not Play" },
                     { key: "sectionMcScriptEnabled", label: "MC Script" },
-                    { key: "sectionVendorContactsEnabled", label: "Vendor Contacts" },
+                    { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
                     { key: "sectionMusicNotesEnabled", label: "Music Notes" },
                     { key: "sectionGuestRequestsEnabled", label: "Guest Requests" },
                     { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
@@ -13944,7 +14020,7 @@ export default function Home() {
                   placeholder={appSettings.coupleWelcomeMessage}
                 />
                 <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-700">
-                  Collaborators are event-specific and managed in the Collaborators screen.
+                  App access and day-of contacts are managed together under Event Team.
                 </div>
               </div>
             </PremiumCard>
@@ -14397,7 +14473,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-stone-950">Invite Collaborator</SectionTitle>
+              <SectionTitle className="text-stone-950">Invite to app</SectionTitle>
               <PrimaryButton
                 onClick={() => setInviteModalOpen(false)}
                 className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
@@ -14773,7 +14849,7 @@ export default function Home() {
             <div className="shrink-0 border-b border-white/10 px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle className="text-stone-950">
-                  {vendorEditingId ? "Edit Vendor" : "Add Vendor"}
+                  {vendorEditingId ? "Edit team member" : "Add team member"}
                 </SectionTitle>
                 <PrimaryButton
                   onClick={closeVendorModal}
@@ -14865,7 +14941,7 @@ export default function Home() {
                     type="submit"
                     className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
                   >
-                    Save Vendor
+                    Save team member
                   </PrimaryButton>
                 </div>
               </div>

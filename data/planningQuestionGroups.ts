@@ -12,7 +12,7 @@ const WEDDING_STYLE_GROUPS: PlanningQuestionGroupDef[] = [
   { id: "ceremony", label: "Ceremony" },
   { id: "reception_timeline", label: "Reception / Timeline" },
   { id: "music_preferences", label: "Music Preferences" },
-  { id: "vendors_coordination", label: "Vendors / Coordination" },
+  { id: "vendors_coordination", label: "Event team / coordination" },
   { id: "special_moments", label: "Special Moments" },
   { id: "final_notes", label: "Final Notes" },
 ];
@@ -22,7 +22,7 @@ const CORPORATE_STYLE_GROUPS: PlanningQuestionGroupDef[] = [
   { id: "run_of_show", label: "Run of Show" },
   { id: "announcements_scripts", label: "Announcements / Scripts" },
   { id: "music_direction", label: "Music Direction" },
-  { id: "vendors_coordination", label: "Vendors / Coordination" },
+  { id: "vendors_coordination", label: "Event team / coordination" },
   { id: "final_notes", label: "Final Notes" },
 ];
 

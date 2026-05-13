@@ -349,7 +349,7 @@ export const sectionTabs: Screen[] = [
   "Music Hub",
   "Timeline",
   "Timeline Templates",
-  "Collaborators",
+  "Event Team",
   "Guest Requests",
   "Ceremony",
   "Notes",
