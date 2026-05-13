@@ -153,6 +153,11 @@ import {
   type PastedTimelineImportDraft,
 } from "@/utils/timelinePasteImport";
 import {
+  areaLabelForCouplePlanningGap,
+  buildCouplePlanningGaps,
+  COUPLE_PLANNING_GAPS_UI_MAX,
+} from "@/utils/couplePlanningGaps";
+import {
   redrawRunOfShowAnnotationCanvas,
   runOfShowClientToContentCoords,
   type RunOfShowAnnotationStroke,
@@ -1295,7 +1300,7 @@ const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
 
 /** Desktop-only (md+) — timeline inline edit; mobile keeps default control sizing. */
 const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-12 md:px-4 md:py-3.5 md:text-base`;
-const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500 md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
+const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)] md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
 const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
 
 export default function Home() {
@@ -6595,6 +6600,54 @@ export default function Home() {
     vendors.length,
   ]);
 
+  const couplePlanningGapsForDashboard = useMemo(
+    () =>
+      buildCouplePlanningGaps({
+        timelineScreen: primaryTimelineScreenForHome,
+        sectionCeremonyEnabled,
+        sectionReceptionTimelineEnabled,
+        sectionMustPlayEnabled,
+        sectionPlaylistsEnabled,
+        sectionVendorContactsEnabled,
+        sectionPlanningQuestionsEnabled,
+        ceremonyStartTime,
+        hasKeyCeremonySongs,
+        ceremonyTimelineItemCount: ceremonyTimelineItems.length,
+        timelineRows: mergedTimelineItems,
+        musicPlaylistLinksCount: musicPlaylistLinks.length,
+        musicGenreEraSelectionsCount: musicGenreEraSelections.length,
+        mustPlaySongsCount: mustPlaySongs.length,
+        playIfPossibleSongsCount: playIfPossibleSongs.length,
+        playlistVibeOverrides,
+        musicTasteProfileRaw: musicTasteProfile,
+        vendors,
+        planningQuestions: planningQuestionsForEvent,
+        planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
+      }),
+    [
+      ceremonyStartTime,
+      ceremonyTimelineItems.length,
+      eventSettings.planningQuestionAnswers,
+      hasKeyCeremonySongs,
+      mergedTimelineItems,
+      musicGenreEraSelections.length,
+      musicPlaylistLinks.length,
+      musicTasteProfile,
+      mustPlaySongs.length,
+      playIfPossibleSongs.length,
+      planningQuestionsForEvent,
+      playlistVibeOverrides,
+      primaryTimelineScreenForHome,
+      sectionCeremonyEnabled,
+      sectionMustPlayEnabled,
+      sectionPlanningQuestionsEnabled,
+      sectionPlaylistsEnabled,
+      sectionReceptionTimelineEnabled,
+      sectionVendorContactsEnabled,
+      vendors,
+    ],
+  );
+
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
       const value = eventSettings.assignedDj || "";
@@ -8013,7 +8066,7 @@ export default function Home() {
                             }
                             aria-expanded={expanded}
                           >
-                            <span className="mt-0.5 shrink-0 font-mono text-stone-400" aria-hidden>
+                            <span className="mt-0.5 shrink-0 font-mono text-stone-500" aria-hidden>
                               {expanded ? "▼" : "▶"}
                             </span>
                             <div className="min-w-0 flex-1 space-y-2">
@@ -8086,7 +8139,7 @@ export default function Home() {
                                   >
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                                       <div
-                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white px-2 py-3 text-stone-400 sm:py-6 ${
+                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white px-2 py-3 text-stone-500 sm:py-6 ${
                                           canManageEvents ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
                                         }`}
                                         draggable={canManageEvents}
@@ -8102,7 +8155,7 @@ export default function Home() {
                                         }}
                                         role="presentation"
                                       >
-                                        <span className="select-none text-sm leading-none tracking-tighter text-stone-400">
+                                        <span className="select-none text-sm leading-none tracking-tighter text-stone-500">
                                           ⋮⋮
                                         </span>
                                       </div>
@@ -8619,10 +8672,10 @@ export default function Home() {
             {visibleEvents.length === 0 ? (
               <PremiumCard variant="accentDashed">
                 <div className="py-10 text-center">
-                  <p className="text-sm font-semibold text-zinc-100">
+                  <p className="text-sm font-semibold text-stone-900">
                     {canManageEvents ? "No events yet" : "No assigned events yet"}
                   </p>
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                  <p className="mt-2 text-xs leading-relaxed text-stone-600">
                     {canManageEvents
                       ? "Create your first event to start planning a full Cutmaster workflow."
                       : "Ask an admin to assign you to an event from Event Team."}
@@ -8802,8 +8855,8 @@ export default function Home() {
                 {allEventsFilteredAndSorted.length === 0 ? (
                   <PremiumCard variant="accentDashed">
                     <div className="py-10 text-center">
-                      <p className="text-sm font-semibold text-zinc-100">No events match</p>
-                      <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                      <p className="text-sm font-semibold text-stone-900">No events match</p>
+                      <p className="mt-2 text-xs leading-relaxed text-stone-600">
                         Try clearing search or widening filters — archived events appear when they match search or when
                         Status is set to Archived or All statuses.
                       </p>
@@ -9045,11 +9098,11 @@ export default function Home() {
                 <PremiumCard variant="accent">
                   <div className="flex items-center justify-between gap-2">
                     <SectionTitle>Command Center</SectionTitle>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-zinc-300">
+                    <span className="rounded-full border border-stone-200 bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
                       {commandCenterEvents.length} events
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-zinc-400">
+                  <p className="mt-2 text-xs text-stone-600">
                     {effectiveRole === "Admin"
                       ? "Operational overview across all events."
                       : "Operational overview across your assigned events."}
@@ -9208,7 +9261,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-black/50" />
                   <div className="pointer-events-none absolute inset-0 bg-transparent" aria-hidden />
                   <div className="relative flex h-full flex-col justify-end p-5 pb-6 sm:p-8">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-300">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-200">
                       {primaryPartyShortLabel}
                     </p>
                     <h2 className="mt-2 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl">
@@ -9229,7 +9282,7 @@ export default function Home() {
                     </div>
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
                             className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
@@ -9291,6 +9344,37 @@ export default function Home() {
                   ) : null}
                 </div>
               </PremiumCard>
+
+              {couplePlanningGapsForDashboard.length > 0 ? (
+                <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-none sm:px-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
+                        Still needed
+                      </p>
+                      <p className="mt-1 text-sm leading-snug text-stone-700">
+                        Gentle next steps—nothing here blocks you from using the app.
+                      </p>
+                    </div>
+                  </div>
+                  <ul className="mt-3 space-y-2">
+                    {couplePlanningGapsForDashboard.slice(0, COUPLE_PLANNING_GAPS_UI_MAX).map((gap) => (
+                      <li key={gap.id}>
+                        <button
+                          type="button"
+                          onClick={() => setActiveScreen(gap.targetScreen)}
+                          className="flex w-full min-h-[3rem] items-start gap-2.5 rounded-xl border border-stone-200/90 bg-stone-50/50 px-3 py-2.5 text-left transition-colors hover:border-stone-300 hover:bg-stone-50 sm:min-h-0 sm:gap-3 sm:px-3.5 sm:py-3"
+                        >
+                          <span className="mt-0.5 inline-flex shrink-0 rounded-full border border-stone-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                            {areaLabelForCouplePlanningGap(gap.area)}
+                          </span>
+                          <span className="min-w-0 flex-1 text-sm leading-snug text-stone-900">{gap.message}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-none sm:px-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -9492,11 +9576,11 @@ export default function Home() {
                   )}
                   <div className="absolute inset-0 bg-black/45" />
                   <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">{primaryPartyShortLabel}</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">{primaryPartyShortLabel}</p>
                     <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                       {eventDisplayName}
                     </h2>
-                    <p className="mt-1 text-sm text-zinc-300">{coupleDisplayName}</p>
+                    <p className="mt-1 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
                         {layoutProfileForActiveEvent}
@@ -9511,7 +9595,7 @@ export default function Home() {
                     </div>
                     <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">Planning progress</p>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
                         <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
                             className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
@@ -11470,7 +11554,7 @@ export default function Home() {
                       disabled={!canEditTimeline}
                       aria-label={`Drag handle for ${item.title}`}
                     >
-                      <span className="text-[10px] tracking-wide text-stone-500 lg:text-[9px] lg:text-stone-400">::</span>
+                      <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
                       <span>Reorder</span>
                     </button>
                     <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
@@ -11485,7 +11569,7 @@ export default function Home() {
             {!isCoupleView && (
               <PremiumCard variant="accent">
                 <SectionTitle>Timeline Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-stone-600">
                   Reception flow, spacing, and overlap checks.
                 </p>
                 <div className="mt-3">
@@ -11503,16 +11587,16 @@ export default function Home() {
           <section className={workspaceSectionClass}>
             <PremiumCard variant="accent">
               <SectionTitle>Timeline Templates</SectionTitle>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-stone-600">
                 Apply a preset, save current flow as a custom template, or refine custom templates.
               </p>
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-[11px] text-stone-600">
                 Global defaults: {appSettings.globalTemplateDefaults}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <PrimaryButton
                   onClick={openCreateTemplateModal}
-                  className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-white/15"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                 >
                   Save Current as Template
                 </PrimaryButton>
@@ -11664,7 +11748,7 @@ export default function Home() {
 
                 <PremiumCard variant="accent">
                   <SectionTitle>Guest Requests Assistant</SectionTitle>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-stone-600">
                     Queue health for approvals.
                   </p>
                   <div className="mt-3">
@@ -12391,7 +12475,7 @@ export default function Home() {
                           disabled={!canEditTimeline}
                           aria-label={`Drag handle for ${item.moment}`}
                         >
-                          <span className="text-[10px] tracking-wide text-stone-500 lg:text-[9px] lg:text-stone-400">::</span>
+                          <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
                           <span>Reorder</span>
                         </button>
                         <div
@@ -12853,7 +12937,7 @@ export default function Home() {
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2 text-left sm:min-h-0 sm:py-1 [&::-webkit-details-marker]:hidden">
                   <div className="min-w-0">
                     <SectionTitle className="text-stone-950">Event Packet Options</SectionTitle>
-                    <p className="mt-1 text-[11px] leading-snug text-stone-600 sm:text-stone-500">
+                    <p className="mt-1 text-[11px] leading-snug text-stone-600 sm:text-stone-600">
                       Choose what appears in your packet—updates the preview below and print / PDF export.
                     </p>
                   </div>
@@ -12909,7 +12993,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Music sections</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Music sections</p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {sectionMusicNotesEnabled ? (
                         <PrimaryButton
@@ -12969,7 +13053,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
                       Event team on document
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -12995,7 +13079,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Scripts / notes</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Scripts / notes</p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {sectionMcScriptEnabled ? (
                         <PrimaryButton
@@ -13019,8 +13103,8 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Packet layout</p>
-                    <p className="mt-0.5 text-[11px] text-zinc-600">Screen preview and printed pages.</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Packet layout</p>
+                    <p className="mt-0.5 text-[11px] text-stone-600">Screen preview and printed pages.</p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <PrimaryButton
                         type="button"
@@ -13057,9 +13141,9 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="border-t border-white/10 pt-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Export</p>
-                    <p className="mt-0.5 text-[11px] text-zinc-600">
+                  <div className="border-t border-stone-200 pt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Export</p>
+                    <p className="mt-0.5 text-[11px] text-stone-600">
                       Uses your browser print dialog—choose “Save as PDF” where supported.
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -13073,7 +13157,7 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={copyLiveEventText}
-                        className="min-h-11 w-full border border-white/14 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-white/10 sm:w-auto"
+                        className="min-h-11 w-full border border-stone-300 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-sm hover:bg-stone-100 sm:w-auto"
                       >
                         Copy plain text
                       </PrimaryButton>
@@ -13516,7 +13600,7 @@ export default function Home() {
                                 ) : null}
                               </div>
                               <div className="text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 print:text-black">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
                                   {vendorTypeLabel(vendor.vendorType)}
                                 </p>
                                 {isCutmasterEventTeam(vendor) ? (
@@ -14033,11 +14117,11 @@ export default function Home() {
             <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
                 <SectionTitle>Planning Checklist</SectionTitle>
-                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
+                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-stone-900">
                   {completionPercent}% complete
                 </span>
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-stone-600">
                 Track major planning milestones and jump directly to the linked section.
               </p>
             </PremiumCard>
@@ -14198,7 +14282,7 @@ export default function Home() {
                             />
                           </div>
                         </div>
-                        <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-400" aria-hidden>
+                        <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-500" aria-hidden>
                           {isExpanded ? "▼" : "▶"}
                         </span>
                       </button>
@@ -14237,34 +14321,44 @@ export default function Home() {
             <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
                 <SectionTitle>Notification Center</SectionTitle>
-                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-zinc-100">
+                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-stone-900">
                   {unreadBadgeCount} unread
                 </span>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] uppercase tracking-wide text-zinc-400">Filter Event</label>
+                  <label htmlFor="activity-event-filter" className={lightUiFormLabelClass}>
+                    Filter Event
+                  </label>
                   <select
+                    id="activity-event-filter"
                     value={activityEventFilter}
                     onChange={(event) => setActivityEventFilter(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100"
+                    className={lightUiSelectClass}
                   >
-                    <option value="all" className="bg-[#141419]">All Events</option>
+                    <option value="all" className="bg-white text-stone-900">
+                      All Events
+                    </option>
                     {events.map((evt) => (
-                      <option key={`flt-evt-${evt.id}`} value={evt.id} className="bg-[#141419]">
+                      <option key={`flt-evt-${evt.id}`} value={evt.id} className="bg-white text-stone-900">
                         {evt.settings?.eventName || evt.meta.couple || "Event"}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[11px] uppercase tracking-wide text-zinc-400">Filter Type</label>
+                  <label htmlFor="activity-type-filter" className={lightUiFormLabelClass}>
+                    Filter Type
+                  </label>
                   <select
+                    id="activity-type-filter"
                     value={activityTypeFilter}
                     onChange={(event) => setActivityTypeFilter(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100"
+                    className={lightUiSelectClass}
                   >
-                    <option value="all" className="bg-[#141419]">All Types</option>
+                    <option value="all" className="bg-white text-stone-900">
+                      All Types
+                    </option>
                     {[
                       "event_created",
                       "timeline_updated",
@@ -14283,7 +14377,7 @@ export default function Home() {
                       "checklist_completed",
                       "template_applied",
                     ].map((type) => (
-                      <option key={`flt-type-${type}`} value={type} className="bg-[#141419]">
+                      <option key={`flt-type-${type}`} value={type} className="bg-white text-stone-900">
                         {type.replaceAll("_", " ")}
                       </option>
                     ))}
@@ -14294,11 +14388,11 @@ export default function Home() {
 
             {notifications.slice(0, 3).map((notice) => (
               <PremiumCard key={`notice-${notice.id}`} className="border-[#00D4FF]/20">
-                <p className="text-sm text-zinc-100">
+                <p className="text-sm text-stone-900">
                   <span className="mr-1">{activityTypeIcon(notice.type)}</span>
                   {notice.summary}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-stone-600">
                   {notice.eventName} · {formatRelativeTime(notice.timestamp)}
                 </p>
               </PremiumCard>
@@ -14307,24 +14401,24 @@ export default function Home() {
             {filteredActivities.map((item) => (
               <PremiumCard key={`activity-${item.id}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm text-zinc-100">
+                  <p className="text-sm text-stone-900">
                     <span className="mr-1">{activityTypeIcon(item.type)}</span>
                     {item.summary}
                   </p>
                   {item.unread && (
-                    <span className="rounded-full bg-[#00D4FF]/20 px-2 py-1 text-[10px] text-zinc-100">
+                    <span className="rounded-full bg-[#00D4FF]/20 px-2 py-1 text-[10px] font-semibold text-stone-900">
                       New
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-stone-600">
                   {item.userRole} · {item.eventName} · {formatRelativeTime(item.timestamp)}
                 </p>
               </PremiumCard>
             ))}
             {filteredActivities.length === 0 && (
               <PremiumCard>
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-stone-600">
                   No activity matches the current filters. Try broadening event or type selection.
                 </p>
               </PremiumCard>
@@ -14476,7 +14570,7 @@ export default function Home() {
               <SectionTitle className="text-stone-950">Invite to app</SectionTitle>
               <PrimaryButton
                 onClick={() => setInviteModalOpen(false)}
-                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Close
               </PrimaryButton>
@@ -14497,17 +14591,17 @@ export default function Home() {
                 placeholder="e.g. jamie@example.com"
               />
               <div>
-                <label htmlFor="invite-role" className="text-[11px] uppercase tracking-wide text-zinc-400">
+                <label htmlFor="invite-role" className={lightUiFormLabelClass}>
                   Role
                 </label>
                 <select
                   id="invite-role"
                   value={inviteRole}
                   onChange={(event) => setInviteRole(event.target.value as UserRole)}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-100"
+                  className={lightUiSelectClass}
                 >
                   {(["Couple", "DJ", "Planner", "Admin"] as UserRole[]).map((role) => (
-                    <option key={`invite-${role}`} value={role} className="bg-[#141419]">
+                    <option key={`invite-${role}`} value={role} className="bg-white text-stone-900">
                       {role}
                     </option>
                   ))}
@@ -14517,7 +14611,7 @@ export default function Home() {
             <div className="mt-5 grid grid-cols-2 gap-2">
               <PrimaryButton
                 onClick={() => setInviteModalOpen(false)}
-                className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Cancel
               </PrimaryButton>
@@ -14544,7 +14638,7 @@ export default function Home() {
                   setTemplateModalOpen(false);
                   setTemplateEditingId(null);
                 }}
-                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Close
               </PrimaryButton>
@@ -14557,7 +14651,7 @@ export default function Home() {
                 onChange={setTemplateDraftName}
                 placeholder="e.g. Summer Garden Wedding"
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-stone-600">
                 Saves current reception timeline and planning suggestions.
               </p>
             </div>
@@ -14567,7 +14661,7 @@ export default function Home() {
                   setTemplateModalOpen(false);
                   setTemplateEditingId(null);
                 }}
-                className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Cancel
               </PrimaryButton>
@@ -14595,7 +14689,7 @@ export default function Home() {
                   setEventEditingId(null);
                   setEventModalStatus(null);
                 }}
-                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Close
               </PrimaryButton>
@@ -14626,11 +14720,8 @@ export default function Home() {
                 }
                 placeholder="e.g. Jordan Vega"
               />
-              <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3">
-                <label
-                  htmlFor="event-type"
-                  className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
-                >
+              <div className="space-y-2 rounded-2xl border border-stone-200 bg-stone-50/90 px-3 py-3">
+                <label htmlFor="event-type" className={lightUiFormLabelClass}>
                   Event Type
                 </label>
                 <select
@@ -14643,33 +14734,33 @@ export default function Home() {
                       eventType: event.target.value as EventLayoutProfile,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                  className={lightUiSelectClass}
                 >
                   {EVENT_TYPES.map((profile) => (
-                    <option key={`draft-layout-${profile}`} value={profile} className="bg-[#141419] text-zinc-100">
+                    <option key={`draft-layout-${profile}`} value={profile} className="bg-white text-stone-900">
                       {profile}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs leading-relaxed text-zinc-500">
+                <p className="text-xs leading-relaxed text-stone-600">
                   {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
                 </p>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <p className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">Event Type Preview</p>
-                  <p className="mt-2 text-xs text-zinc-300">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
+                <div className="rounded-xl border border-stone-200 bg-white p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                    Event Type Preview
+                  </p>
+                  <p className="mt-2 text-xs text-stone-700">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
                   <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                      Enabled Sections
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-300">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">Enabled Sections</p>
+                    <p className="mt-1 text-xs text-stone-700">
                       {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
                     </p>
                   </div>
                   <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
                       Default Planning Questions
                     </p>
-                    <p className="mt-1 text-xs text-zinc-300">
+                    <p className="mt-1 text-xs text-stone-700">
                       {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
                         .map((q) => q.label)
                         .slice(0, 4)
@@ -14677,19 +14768,19 @@ export default function Home() {
                     </p>
                   </div>
                   <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
                       Event Document Default Sections
                     </p>
-                    <p className="mt-1 text-xs text-zinc-300">
+                    <p className="mt-1 text-xs text-stone-700">
                       {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
                     </p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
                     Sections enabled by default
                   </p>
-                  <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-zinc-300 sm:grid-cols-2">
+                  <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
                     {getEnabledLayoutSectionLabels(
                       getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
                     ).map((label) => (
@@ -14747,10 +14838,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label
-                  htmlFor="event-assigned-dj"
-                  className="text-[11px] uppercase tracking-[0.12em] text-zinc-400"
-                >
+                <label htmlFor="event-assigned-dj" className={lightUiFormLabelClass}>
                   Assigned DJ
                 </label>
                 <select
@@ -14759,13 +14847,13 @@ export default function Home() {
                   onChange={(event) =>
                     setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
                   }
-                  className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                  className={lightUiSelectClass}
                 >
-                  <option value="" className="bg-[#141419] text-zinc-100">
+                  <option value="" className="bg-white text-stone-900">
                     Select a DJ
                   </option>
                   {activeDjTeamMembers.map((member) => (
-                    <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-[#141419] text-zinc-100">
+                    <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-white text-stone-900">
                       {member.name}
                     </option>
                   ))}
@@ -14811,8 +14899,8 @@ export default function Home() {
                 <p
                   className={`rounded-xl px-3 py-2 text-xs ${
                     eventModalStatus.kind === "success"
-                      ? "border border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                      : "border border-rose-400/25 bg-rose-500/10 text-rose-100"
+                      ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+                      : "border border-rose-200 bg-rose-50 text-rose-950"
                   }`}
                 >
                   {eventModalStatus.message}
@@ -14827,7 +14915,7 @@ export default function Home() {
                   setEventEditingId(null);
                   setEventModalStatus(null);
                 }}
-                className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
                 Cancel
               </PrimaryButton>
@@ -14846,14 +14934,14 @@ export default function Home() {
       {vendorModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-5">
           <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-w-2xl sm:max-h-[90vh]">
-            <div className="shrink-0 border-b border-white/10 px-5 py-4">
+            <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle className="text-stone-950">
                   {vendorEditingId ? "Edit team member" : "Add team member"}
                 </SectionTitle>
                 <PrimaryButton
                   onClick={closeVendorModal}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/15"
+                  className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
                 >
                   Close
                 </PrimaryButton>
@@ -14868,7 +14956,7 @@ export default function Home() {
             >
               <div className="space-y-3 overflow-y-auto px-5 py-4">
                 <div>
-                  <label htmlFor="vendor-affiliation" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                  <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
                     On this event
                   </label>
                   <select
@@ -14877,31 +14965,31 @@ export default function Home() {
                     onChange={(event) =>
                       setVendorAffiliationDraft(event.target.value as VendorAffiliation)
                     }
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                    className={lightUiSelectClass}
                   >
-                    <option value="event_partner" className="bg-[#141419] text-zinc-100">
+                    <option value="event_partner" className="bg-white text-stone-900">
                       Event partner (external vendor)
                     </option>
-                    <option value="cutmaster_event_team" className="bg-[#141419] text-zinc-100">
+                    <option value="cutmaster_event_team" className="bg-white text-stone-900">
                       Cutmaster event team
                     </option>
                   </select>
-                  <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">
+                  <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
                     Cutmaster team appears in its own block; partners group by category below.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="vendor-type" className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
+                  <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
                     Role / category
                   </label>
                   <select
                     id="vendor-type"
                     value={vendorTypeDraft}
                     onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
-                    className="mt-1.5 w-full rounded-xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-zinc-100 transition focus:border-[#00D4FF]/70 focus:outline-none"
+                    className={lightUiSelectClass}
                   >
                     {VENDOR_TYPES_ORDERED.map((type) => (
-                      <option key={`vendor-type-option-${type}`} value={type} className="bg-[#141419] text-zinc-100">
+                      <option key={`vendor-type-option-${type}`} value={type} className="bg-white text-stone-900">
                         {vendorTypeLabel(type)}
                       </option>
                     ))}
@@ -14928,12 +15016,12 @@ export default function Home() {
                 />
               </div>
 
-              <div className="shrink-0 border-t border-white/10 bg-white/98 px-5 py-3">
+              <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3">
                 <div className="grid grid-cols-2 gap-2">
                   <PrimaryButton
                     type="button"
                     onClick={closeVendorModal}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/15"
+                    className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
                   >
                     Cancel
                   </PrimaryButton>

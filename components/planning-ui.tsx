@@ -157,7 +157,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-11 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${className}`}
+      className={`min-h-11 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 ${className}`}
     >
       {children}
     </button>
@@ -242,11 +242,11 @@ export const darkUiSecondaryOutlineButtonClass =
 
 /** Text field on dark zinc panels (Global Settings timeline rows, etc.). */
 export const darkUiInputClass =
-  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-500 transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-400 transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Micro label above fields on dark panels. */
 export const darkUiFieldLabelClass =
-  "text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400";
+  "text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-300";
 
 /** `<select>` on dark zinc panels. */
 export const darkUiSelectClass =
@@ -262,7 +262,7 @@ export const darkUiDangerGhostButtonClass =
 
 /** Empty state inside a dark accordion/panel. */
 export const darkUiEmptyStateInPanelClass =
-  "rounded-xl border border-dashed border-zinc-600 bg-zinc-950/60 px-4 py-6 text-center text-xs leading-relaxed text-zinc-300";
+  "rounded-xl border border-dashed border-zinc-600 bg-zinc-950/60 px-4 py-6 text-center text-xs leading-relaxed text-zinc-200";
 
 /**
  * “Jump to workspace settings” from a dark dashboard card (e.g. Admin quick actions).
@@ -307,7 +307,7 @@ export function EventHomeNav({
               <li className="font-semibold text-stone-700">Event Home</li>
               {trail.map((segment) => (
                 <li key={segment} className="flex min-w-0 items-center gap-1.5">
-                  <span aria-hidden className="select-none text-stone-400">
+                  <span aria-hidden className="select-none text-stone-500">
                     →
                   </span>
                   <span className="min-w-0 break-words font-semibold text-stone-900">{segment}</span>
@@ -321,7 +321,7 @@ export function EventHomeNav({
             type="button"
             onClick={primaryAction.onClick}
             disabled={primaryAction.disabled}
-            className="min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-45 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start"
+            className="min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start"
           >
             {primaryAction.label}
           </PrimaryButton>
@@ -366,7 +366,7 @@ export function SectionEmptyState({
               type="button"
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled}
-              className="min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-45 sm:min-h-10 sm:flex-1 sm:py-2"
+              className="min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2"
             >
               {primaryAction.label}
             </PrimaryButton>
@@ -376,7 +376,7 @@ export function SectionEmptyState({
               type="button"
               onClick={secondaryAction.onClick}
               disabled={secondaryAction.disabled}
-              className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:flex-1 sm:py-2"
+              className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2"
             >
               {secondaryAction.label}
             </PrimaryButton>
@@ -467,7 +467,7 @@ export function TextArea({
         placeholder={placeholder}
         className={
           textareaClassName ??
-          `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-stone-500`
+          `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)]`
         }
       />
     </div>
@@ -571,7 +571,7 @@ export function AppHeader({
       ? "text-stone-600"
       : persistFeedback.phase === "saved"
         ? "text-stone-900"
-        : "text-stone-500";
+        : "text-stone-600";
 
   return (
     <header className="rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">

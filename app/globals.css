@@ -28,9 +28,10 @@
 
   /* Typography */
   --cm-text-primary: #1c1917;
-  --cm-text-secondary: #44403c;
-  --cm-text-muted: #57534e;
-  --cm-text-subtle: #78716c;
+  --cm-text-secondary: #3f3a36;
+  --cm-text-muted: #524c47;
+  /* Placeholders / tertiary — stay above “faint gray” on white (≈ WCAG-friendly vs zinc-300/400). */
+  --cm-text-subtle: #6b635c;
 
   /* Legacy alias */
   --cm-muted: var(--cm-text-muted);
