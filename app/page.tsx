@@ -3846,18 +3846,50 @@ export default function Home() {
       ctaLabel: string;
       pendingBadge?: string;
       completionStatusLabel?: "Not Started" | "In Progress" | "Complete";
+      statLine?: string;
+      statSubline?: string;
     };
     const cards: CoupleHomeSectionCard[] = [];
+
+    const relTime = (ts: number) => {
+      const diffMs = nowTick - ts;
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    };
+
+    const lastTimelineActivity = activities
+      .filter((a) => a.eventId === activeEventId && a.type === "timeline_updated")
+      .sort((a, b) => b.timestamp - a.timestamp)[0];
+    const timelineUpdatedLabel = lastTimelineActivity ? relTime(lastTimelineActivity.timestamp) : null;
+
+    const lastCeremonyActivity = activities
+      .filter((a) => a.eventId === activeEventId && a.type === "ceremony_updated")
+      .sort((a, b) => b.timestamp - a.timestamp)[0];
+    const ceremonyUpdatedLabel = lastCeremonyActivity ? relTime(lastCeremonyActivity.timestamp) : null;
+
+    const receptionMomentCount = timelineItems.length;
+    const ceremonyMomentCount = ceremonyTimelineItems.length;
 
     if (sectionCeremonyEnabled) {
       cards.push({
         id: "ceremony",
         kicker: "Ceremony",
         title: "Ceremony",
-        description: "Processional moments, music, and ceremony flow.",
+        description: "Aisle to recessional—moments, music, and cues in order.",
         screen: "Ceremony",
         completion: hasKeyCeremonySongs ? 100 : 38,
         ctaLabel: hasKeyCeremonySongs ? "Review" : "Continue",
+        statLine: `${ceremonyMomentCount} ceremony moment${ceremonyMomentCount === 1 ? "" : "s"}`,
+        statSubline: ceremonyUpdatedLabel
+          ? `Last updated ${ceremonyUpdatedLabel}`
+          : ceremonyMomentCount > 0
+            ? "Refine anytime before the rehearsal"
+            : "Start with a preset or your own flow",
       });
     }
 
@@ -3871,13 +3903,18 @@ export default function Home() {
       const needsWork = completion < 100;
       cards.push({
         id: "reception",
-        kicker: "Main event",
-        title: "Timeline",
-        description:
-          "Your reception flow—times, moments, music, and cues in one scrollable list.",
+        kicker: "Timeline",
+        title: "Reception timeline",
+        description: "Your evening in order—times, moments, songs, and MC notes.",
         screen: coupleTimelineEntryScreen,
         completion,
         ctaLabel: needsWork ? "Continue" : "Review",
+        statLine: `${receptionMomentCount} moment${receptionMomentCount === 1 ? "" : "s"} planned`,
+        statSubline: timelineUpdatedLabel
+          ? `Last updated ${timelineUpdatedLabel}`
+          : receptionMomentCount > 0
+            ? "Scroll top to bottom like the night itself"
+            : "Add your first moment when timing feels real",
       });
     }
 
@@ -3889,44 +3926,78 @@ export default function Home() {
         playIfPossibleSongs.length > 0 ||
         hasMomentPlaylistLines;
       const completion = tasteDone ? 100 : 40;
+      const pl = musicPlaylistLinks.length;
+      const ge = musicGenreEraSelections.length;
+      const tasteParts: string[] = [];
+      if (pl > 0) tasteParts.push(`${pl} playlist${pl === 1 ? "" : "s"}`);
+      if (ge > 0) tasteParts.push(`${ge} style ${ge === 1 ? "pick" : "picks"}`);
+      const must = mustPlaySongs.length;
+      const pif = playIfPossibleSongs.length;
+      if (must > 0) tasteParts.push(`${must} must-play${must === 1 ? "" : "s"}`);
+      if (pif > 0) tasteParts.push(`${pif} play-if-possible`);
+      const statLineMusic =
+        tasteParts.length > 0
+          ? tasteParts.join(" · ")
+          : hasMomentPlaylistLines
+            ? "Vibe buckets have song ideas"
+            : "No playlists or picks yet";
       cards.push({
         id: "music",
         kicker: "Music",
         title: "Music hub",
-        description: "Share playlists and vibes—add individual songs only if something is must-hear or off-limits.",
+        description: "Playlists, vibe, and the songs that matter—without overwhelming your DJ.",
         screen: "Music Hub",
         completion,
         ctaLabel: completion >= 100 ? "Review" : "Continue",
+        statLine: statLineMusic,
+        statSubline: tasteDone
+          ? "Your DJ can prep from what you’ve shared"
+          : "Share a link or tag a few eras to get started",
       });
     }
 
     if (sectionVendorContactsEnabled) {
       const completion =
         vendors.length === 0 ? 28 : Math.min(100, 35 + Math.min(vendors.length, 5) * 13);
+      const v = vendors.length;
       cards.push({
         id: "vendors",
-        kicker: "Partners",
-        title: "Vendors",
-        description: "Your creative partners and day-of contacts.",
+        kicker: "Team",
+        title: "Vendors & team",
+        description: "Planners, venue, photo, catering, entertainment—reachable in one place.",
         screen: "Vendors",
         completion,
         ctaLabel: vendors.length === 0 ? "Continue" : "Review",
+        statLine: `${v} contact${v === 1 ? "" : "s"} saved`,
+        statSubline:
+          v === 0 ? "Add the people you’ll text on the wedding day" : "Keep phones and emails current for day-of",
       });
     }
 
     if (sectionGuestRequestsEnabled) {
       const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
+      const approvedGuestCount = guestRequests.filter((r) => r.status === "Approved").length;
       const completion =
         pendingGuestCount > 0 ? 52 : guestRequests.length === 0 ? 72 : 100;
       cards.push({
         id: "guest-requests",
         kicker: "Guests",
         title: "Guest requests",
-        description: "Song ideas and notes from the people you love.",
+        description: "Song ideas and notes from the people celebrating with you.",
         screen: "Guest Requests",
         completion,
         ctaLabel: pendingGuestCount > 0 ? "Continue" : "Review",
         pendingBadge: pendingGuestCount > 0 ? `${pendingGuestCount} pending` : undefined,
+        statLine:
+          guestRequests.length === 0
+            ? "No requests yet"
+            : `${guestRequests.length} total · ${approvedGuestCount} approved`,
+        statSubline:
+          pendingGuestCount > 0
+            ? `${pendingGuestCount} waiting for your review`
+            : guestRequests.length > 0
+              ? "Inbox is clear"
+              : "Share the link when invitations go out",
       });
     }
 
@@ -3944,46 +4015,55 @@ export default function Home() {
       let pqCta: string;
       if (answeredCount === 0) {
         completionStatus = "Not Started";
-        pqCta = "Start Questions";
+        pqCta = "Start questions";
       } else if (!requiredComplete) {
         completionStatus = "In Progress";
-        pqCta = "Continue Questions";
+        pqCta = "Continue questions";
       } else {
         completionStatus = "Complete";
-        pqCta = "Review / Edit Answers";
+        pqCta = "Review answers";
       }
       const pqPct =
         pqList.length === 0 ? 100 : Math.round((answeredCount / pqList.length) * 100);
       cards.push({
         id: "planning-questions",
-        kicker: "Details",
+        kicker: "Questions",
         title: "Planning questions",
-        description: "Thoughtful prompts for your event—answers stay with your plan and Event Document.",
+        description: "Short prompts so nothing important gets lost in the shuffle.",
         screen: "Planning Questions",
         completion: pqPct,
         ctaLabel: pqCta,
         completionStatusLabel: completionStatus,
+        statLine: `${pqPct}% complete (${answeredCount}/${pqList.length})`,
+        statSubline:
+          completionStatus === "Complete"
+            ? "Required prompts are covered—you can still edit anytime"
+            : completionStatus === "Not Started"
+              ? "About five minutes to get momentum"
+              : "Pick up where you left off",
       });
     }
 
     if (eventNavItems.includes("Event Prep")) {
       cards.push({
         id: "event-prep",
-        kicker: "Live event",
+        kicker: "Day-of",
         title: "Event document",
-        description: "Live event mode and exports for your team.",
+        description: "Printable packet and live view for your team when the day arrives.",
         screen: "Event Prep",
         completion: hasFinalDjNotes ? 100 : 48,
         ctaLabel: hasFinalDjNotes ? "Review" : "Continue",
+        statLine: hasFinalDjNotes ? "Music notes feel ready to export" : "Add a short overall note for your DJ",
+        statSubline: "Same export your vendors use on the day",
       });
     }
 
     const clientHomeOrder = [
-      "ceremony",
       "reception",
       "music",
-      "planning-questions",
       "vendors",
+      "planning-questions",
+      "ceremony",
       "event-prep",
       "guest-requests",
     ];
@@ -3991,6 +4071,9 @@ export default function Home() {
       .map((id) => cards.find((c) => c.id === id))
       .filter((c): c is (typeof cards)[number] => Boolean(c));
   }, [
+    activeEventId,
+    activities,
+    ceremonyTimelineItems.length,
     coupleTimelineEntryScreen,
     eventNavItems,
     eventSettings.planningQuestionAnswers,
@@ -3999,11 +4082,12 @@ export default function Home() {
     hasKeyCeremonySongs,
     hasKeyFormalDanceSongs,
     hasKeyTimelineMoments,
+    hasMomentPlaylistLines,
     mustPlaySongs.length,
     playIfPossibleSongs.length,
     musicPlaylistLinks.length,
     musicGenreEraSelections.length,
-    hasMomentPlaylistLines,
+    nowTick,
     sectionCeremonyEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
@@ -4011,6 +4095,7 @@ export default function Home() {
     sectionPlaylistsEnabled,
     sectionReceptionTimelineEnabled,
     sectionVendorContactsEnabled,
+    timelineItems.length,
     vendors.length,
     planningQuestionsForEvent,
   ]);
@@ -9084,6 +9169,19 @@ export default function Home() {
                       ) : null}
                     </p>
                   )}
+                  <div className="rounded-xl border border-stone-200/90 bg-white px-3 py-3 shadow-sm sm:px-4 sm:py-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{eventCountdownLabel}</p>
+                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                      {daysUntilWedding === null
+                        ? "Add your event date to unlock a gentle countdown"
+                        : daysUntilWedding === 0
+                          ? "It’s event day—breathe, you’ve got this"
+                          : layoutProfileForActiveEvent === "Wedding" ||
+                              layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+                            ? `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until you say “I do”`
+                            : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
+                    </p>
+                  </div>
                   {canEditEventCover ? (
                     <div className="flex flex-wrap gap-2">
                       <PrimaryButton
@@ -9102,10 +9200,10 @@ export default function Home() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
-                      Event readiness
+                      Planning guidance
                     </p>
                     <p className="mt-1 text-sm leading-snug text-stone-700">
-                      Gentle guidance for what&apos;s next—not alerts or deadlines.
+                      A light nudge on what to visit next—no pressure, no clutter.
                     </p>
                   </div>
                   <p className="shrink-0 text-[11px] font-medium tabular-nums text-stone-500">{completionPercent}% plan</p>
@@ -9191,41 +9289,63 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={() => setActiveScreen(coupleGuidedNextScreen)}
-                className="min-h-[5rem] w-full justify-center rounded-2xl border-2 border-black bg-[#00D4FF] px-5 py-5 text-center shadow-none sm:min-h-[4.75rem]"
+                className="min-h-[4.75rem] w-full justify-center rounded-2xl border border-stone-800 bg-[#00D4FF] px-5 py-4 text-center shadow-sm transition hover:brightness-[1.02] sm:min-h-[4.25rem]"
               >
                 <span className="block text-base font-semibold text-black">Continue planning</span>
                 <span className="mt-1 block text-xs font-semibold text-black/80">{coupleGuidedNextHint}</span>
               </PrimaryButton>
 
-              <div className="space-y-3 px-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-800">
-                  Your planning areas
+              <div className="space-y-2 px-0.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+                  Your planning workspace
                 </p>
                 <p className="text-sm leading-relaxed text-stone-700">
-                  Ceremony, music, reception, planning questions, vendors, and your event document—each in one calm
-                  place.
+                  Pick up where you left off—each card shows live counts from your event (nothing is guessed).
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
-                {coupleHomePlanningSections.map((section) => (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
+                {coupleHomePlanningSections.map((section) => {
+                  const isGuidedNext = section.screen === coupleGuidedNextScreen;
+                  return (
                   <button
                     type="button"
                     key={section.id}
                     onClick={() => setActiveScreen(section.screen)}
-                    className="group flex min-h-[11rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-6 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                    className={`group flex min-h-[10.5rem] flex-col rounded-2xl border bg-white px-5 py-5 text-left shadow-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
+                      isGuidedNext
+                        ? "border-stone-500 ring-2 ring-cyan-500/25 ring-offset-2 ring-offset-[var(--cm-canvas)] sm:shadow-[0_12px_32px_-14px_rgba(28,25,23,0.14)]"
+                        : "border-stone-300 ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
-                          {section.kicker}
-                        </p>
-                        <h3 className="mt-1 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
+                            {section.kicker}
+                          </p>
+                          {isGuidedNext ? (
+                            <span className="rounded-full border border-cyan-500/35 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
+                              Next up
+                            </span>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
                           {section.title}
                         </h3>
-                        <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-xs sm:leading-relaxed sm:text-stone-600">
+                        <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
                           {section.description}
                         </p>
+                        {section.statLine || section.statSubline ? (
+                          <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
+                            {section.statLine ? (
+                              <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
+                            ) : null}
+                            {section.statSubline ? (
+                              <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                       {section.pendingBadge ? (
                         <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
@@ -9233,25 +9353,26 @@ export default function Home() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-5">
+                    <div className="mt-4">
                       <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
-                        <span>{section.completionStatusLabel ?? "Progress"}</span>
-                        <span className="tabular-nums font-semibold text-[#5c4a12]">{section.completion}%</span>
+                        <span>{section.completionStatusLabel ?? "At-a-glance"}</span>
+                        <span className="tabular-nums font-semibold text-stone-700">{section.completion}%</span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
                         <div
                           className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
                           style={{ width: `${section.completion}%` }}
                         />
                       </div>
                     </div>
-                    <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-4">
-                      <span className="text-xs font-semibold text-[#7a5e18] transition group-hover:text-[#5c4a12]">
+                    <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
+                      <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
                         {section.ctaLabel} →
                       </span>
                     </div>
                   </button>
-                ))}
+                );
+                })}
               </div>
 
             </section>
