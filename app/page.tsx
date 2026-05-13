@@ -1,6 +1,11 @@
 "use client";
 
-import { createEvent as createDatabaseEvent } from "@/lib/actions/events";
+import { EventModal } from "@/components/events/EventModal";
+
+import {
+  createEvent as createDatabaseEvent,
+  getEvents as getDatabaseEvents,
+} from "@/lib/actions/events";
 import {
   useCallback,
   useEffect,
@@ -4627,6 +4632,62 @@ export default function Home() {
     () => vendors.filter((v) => !isCutmasterEventTeam(v)),
     [vendors],
   );
+
+  useEffect(() => {
+    const loadDatabaseEvents = async () => {
+      try {
+        const databaseEvents = await getDatabaseEvents();
+  
+        if (!databaseEvents.length) {
+          return;
+        }
+  
+        const hydratedEvents: EventRecord[] = databaseEvents.map((dbEvent) => {
+          const seededEvent = buildEventFromTemplate(
+            {
+              couple: dbEvent.title,
+              date: dbEvent.date
+                ? new Date(dbEvent.date).toISOString().split("T")[0]
+                : "",
+              venue: dbEvent.venue || "",
+            },
+            undefined,
+            {
+              eventId: dbEvent.id,
+              collaboratorId: `col-${dbEvent.id}`,
+            },
+          );
+  
+          seededEvent.settings = {
+            ...seededEvent.settings,
+            eventName: dbEvent.title,
+            coupleNames: dbEvent.title,
+            eventType: dbEvent.type || "Wedding",
+            venue: dbEvent.venue || "",
+            weddingDate: dbEvent.date
+              ? new Date(dbEvent.date).toISOString().split("T")[0]
+              : "",
+          };
+  
+          seededEvent.meta = {
+            couple: dbEvent.title,
+            date: dbEvent.date
+              ? new Date(dbEvent.date).toISOString().split("T")[0]
+              : "",
+            venue: dbEvent.venue || "",
+          };
+  
+          return seededEvent;
+        });
+  
+        setEvents(hydratedEvents);
+      } catch (error) {
+        console.error("Failed to load database events:", error);
+      }
+    };
+  
+    loadDatabaseEvents();
+  }, []);
 
   useEffect(() => {
     if (authStage !== "app" || appMode !== "event" || !isCoupleView) return;
@@ -14702,9 +14763,8 @@ export default function Home() {
       )}
 
       {authStage === "app" && canManageEvents && eventModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-5">
-          <div className="max-h-[min(92vh,880px)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12 cm-section-enter sm:max-h-[88vh] sm:max-w-2xl">
-            <div className="flex items-center justify-between gap-3">
+        <EventModal>
+         <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">
                 {eventModalMode === "new" ? "Create Event" : "Edit Event"}
               </SectionTitle>
@@ -14719,6 +14779,7 @@ export default function Home() {
                 Close
               </PrimaryButton>
             </div>
+            
 
             <form
               onSubmit={(event) => {
@@ -14952,8 +15013,7 @@ export default function Home() {
               </PrimaryButton>
             </div>
             </form>
-          </div>
-        </div>
+        </EventModal>
       )}
 
       {vendorModalOpen && (
