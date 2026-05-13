@@ -14469,9 +14469,14 @@ export default function Home() {
       )}
 
       {teamModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 lg:items-stretch lg:justify-end lg:p-5">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-w-lg lg:rounded-3xl">
-            <div className="flex items-center justify-between gap-3">
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label={teamEditingId ? "Edit team member" : "Add team member"}
+        >
+          <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-h-none lg:max-w-lg lg:rounded-3xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
               <SectionTitle className="text-stone-950">
                 {teamEditingId ? "Edit Team Member" : "Add Team Member"}
               </SectionTitle>
@@ -14482,67 +14487,71 @@ export default function Home() {
                 Close
               </PrimaryButton>
             </div>
-            <div className="mt-4 space-y-3">
-              <TextInput
-                id="team-member-name"
-                label="Name"
-                value={teamNameDraft}
-                onChange={setTeamNameDraft}
-                disabled={!canManageEvents}
-              />
-              <div>
-                <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
-                  Role
-                </label>
-                <select
-                  id="team-member-role"
-                  value={teamRoleDraft}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+              <div className="space-y-3">
+                <TextInput
+                  id="team-member-name"
+                  label="Name"
+                  value={teamNameDraft}
+                  onChange={setTeamNameDraft}
                   disabled={!canManageEvents}
-                  onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                />
+                <div>
+                  <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
+                    Role
+                  </label>
+                  <select
+                    id="team-member-role"
+                    value={teamRoleDraft}
+                    disabled={!canManageEvents}
+                    onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
+                    className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                  >
+                    {(["Admin", "DJ", "Planner"] as const).map((role) => (
+                      <option key={`team-role-${role}`} value={role} className="bg-white text-stone-900">
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput
+                    id="team-member-email"
+                    label="Email"
+                    value={teamEmailDraft}
+                    onChange={setTeamEmailDraft}
+                    disabled={!canManageEvents}
+                  />
+                  <TextInput
+                    id="team-member-phone"
+                    label="Phone"
+                    value={teamPhoneDraft}
+                    onChange={setTeamPhoneDraft}
+                    disabled={!canManageEvents}
+                  />
+                </div>
+                <TextArea
+                  id="team-member-notes"
+                  label="Notes"
+                  value={teamNotesDraft}
+                  onChange={setTeamNotesDraft}
+                  rows={3}
+                  disabled={!canManageEvents}
+                />
+                <PrimaryButton
+                  onClick={() => setTeamActiveDraft((prev) => !prev)}
+                  disabled={!canManageEvents}
+                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${
+                    teamActiveDraft
+                      ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
+                      : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
+                  }`}
                 >
-                  {(["Admin", "DJ", "Planner"] as const).map((role) => (
-                    <option key={`team-role-${role}`} value={role} className="bg-white text-stone-900">
-                      {role}
-                    </option>
-                  ))}
-                </select>
+                  {teamActiveDraft ? "Active Member" : "Inactive Member"}
+                </PrimaryButton>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <TextInput
-                  id="team-member-email"
-                  label="Email"
-                  value={teamEmailDraft}
-                  onChange={setTeamEmailDraft}
-                  disabled={!canManageEvents}
-                />
-                <TextInput
-                  id="team-member-phone"
-                  label="Phone"
-                  value={teamPhoneDraft}
-                  onChange={setTeamPhoneDraft}
-                  disabled={!canManageEvents}
-                />
-              </div>
-              <TextArea
-                id="team-member-notes"
-                label="Notes"
-                value={teamNotesDraft}
-                onChange={setTeamNotesDraft}
-                rows={3}
-                disabled={!canManageEvents}
-              />
-              <PrimaryButton
-                onClick={() => setTeamActiveDraft((prev) => !prev)}
-                disabled={!canManageEvents}
-                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${
-                  teamActiveDraft
-                    ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
-                    : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
-                }`}
-              >
-                {teamActiveDraft ? "Active Member" : "Inactive Member"}
-              </PrimaryButton>
+            </div>
+            <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] lg:pb-3">
               <div className="grid grid-cols-2 gap-2">
                 <PrimaryButton
                   onClick={closeTeamMemberModal}
@@ -14932,8 +14941,8 @@ export default function Home() {
       )}
 
       {vendorModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 sm:items-center sm:p-5">
-          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-w-2xl sm:max-h-[90vh]">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
+          <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
             <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle className="text-stone-950">
@@ -14954,7 +14963,7 @@ export default function Home() {
               }}
               className="flex min-h-0 flex-1 flex-col"
             >
-              <div className="space-y-3 overflow-y-auto px-5 py-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
                 <div>
                   <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
                     On this event
@@ -15016,7 +15025,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3">
+              <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] sm:pb-3">
                 <div className="grid grid-cols-2 gap-2">
                   <PrimaryButton
                     type="button"
