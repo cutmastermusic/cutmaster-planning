@@ -225,6 +225,18 @@ export type MusicVibeDetail = {
   cleanMusicPrefs?: string;
 };
 
+/**
+ * Structured music taste signals for DJs (and future tooling).
+ * Stored on the event; keep labels stable for downstream consumers.
+ */
+export type MusicTasteProfile = {
+  danceFloorStyles: string[];
+  crowdPreferences: string[];
+  musicBehavior: string[];
+  /** Optional freeform dance-floor vibe. */
+  danceFloorVibeNotes?: string;
+};
+
 /** Workspace lifecycle — archived events stay in data but hide from default lists. */
 export type EventLifecycleStatus = "active" | "completed" | "archived";
 
@@ -261,6 +273,8 @@ export type Event = {
   /** Nice-to-have songs (optional list). */
   playIfPossibleSongs?: SongEntry[];
   musicVibeDetail?: MusicVibeDetail;
+  /** Structured taste tags + optional vibe notes (Music Hub). */
+  musicTasteProfile?: MusicTasteProfile;
   vendors: Vendor[];
   settings: EventSettings;
 };

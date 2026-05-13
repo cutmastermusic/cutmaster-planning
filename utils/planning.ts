@@ -12,6 +12,7 @@ import type {
   TimelinePresetItem,
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS } from "@/types/planning";
+import { musicTasteProfileHasSelections, normalizeMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
 import { normalizeVendorsArray } from "@/utils/vendors";
 
 export function parseTimeToMinutesValue(rawTime: string): number {
@@ -505,11 +506,13 @@ export function approximatePlanningProgressPercent(evt: EventRecord): number {
   const hasMomentPlaylistLines = PLAYLIST_BUCKET_IDS.some(
     (id) => (evt.playlistVibeOverrides?.[id]?.length ?? 0) > 0,
   );
+  const tasteNorm = normalizeMusicTasteProfile(evt.musicTasteProfile);
   const hasMusicDirection =
     (evt.mustPlaySongs?.length ?? 0) > 0 ||
     (evt.playIfPossibleSongs?.length ?? 0) > 0 ||
     (evt.musicPlaylistLinks?.length ?? 0) > 0 ||
     (evt.musicGenreEraSelections?.length ?? 0) > 0 ||
+    musicTasteProfileHasSelections(tasteNorm) ||
     hasMomentPlaylistLines;
 
   const tasks: { id: string; autoStatus: ChecklistStatus }[] = [
