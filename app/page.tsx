@@ -10023,7 +10023,7 @@ export default function Home() {
           (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
           sectionReceptionTimelineEnabled && (
           <section
-            className={`mt-6 min-w-0 overflow-x-hidden ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+            className={`mt-6 min-w-0 overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
           >
             <EventHomeNav
               trail={
@@ -11362,7 +11362,7 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
           <section
-            className={`mt-6 min-w-0 overflow-x-hidden ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
+            className={`mt-6 min-w-0 overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${isCoupleView ? "space-y-6 sm:space-y-5" : "space-y-5 sm:space-y-3"}`}
           >
             <EventHomeNav
               trail={["Ceremony"]}
