@@ -369,6 +369,85 @@ function autoScrollForDragClientY(clientY: number, scrollContainer: HTMLElement 
   }
 }
 
+type ReceptionTimelineInlineEditDraftValues = {
+  title: string;
+  time: string;
+  category: TimelineCategory;
+  notes: string;
+  songTitle: string;
+  artist: string;
+  needsDjMcAttention: boolean;
+  fadeOutEarly: boolean;
+  fadeOutTimestamp: string;
+};
+
+type CeremonyTimelineInlineEditDraftValues = {
+  timeOrOrder: string;
+  moment: string;
+  songTitle: string;
+  artist: string;
+  notes: string;
+  needsDjMcAttention: boolean;
+};
+
+function receptionTimelineInlineDraftFromRow(row: TimelineItem): ReceptionTimelineInlineEditDraftValues {
+  return {
+    title: row.title,
+    time: row.time,
+    category: row.category,
+    notes: row.notes,
+    songTitle: row.songTitle ?? "",
+    artist: row.artist ?? "",
+    needsDjMcAttention: row.needsDjMcAttention,
+    fadeOutEarly: row.fadeOutEarly ?? false,
+    fadeOutTimestamp: row.fadeOutTimestamp ?? "",
+  };
+}
+
+function applyReceptionTimelineInlineDraftToRow(
+  row: TimelineItem,
+  v: ReceptionTimelineInlineEditDraftValues,
+): TimelineItem {
+  return {
+    ...row,
+    title: v.title,
+    time: v.time,
+    category: v.category,
+    notes: v.notes,
+    songTitle: v.songTitle.trim() ? v.songTitle : undefined,
+    artist: v.artist.trim() ? v.artist : undefined,
+    needsDjMcAttention: v.needsDjMcAttention,
+    fadeOutEarly: v.fadeOutEarly,
+    fadeOutTimestamp: v.fadeOutTimestamp.trim() ? v.fadeOutTimestamp : undefined,
+  };
+}
+
+function ceremonyTimelineInlineDraftFromRow(row: CeremonyTimelineItem): CeremonyTimelineInlineEditDraftValues {
+  return {
+    timeOrOrder: row.timeOrOrder,
+    moment: row.moment,
+    songTitle: row.songTitle,
+    artist: row.artist,
+    notes: row.notes,
+    needsDjMcAttention: row.needsDjMcAttention,
+  };
+}
+
+function applyCeremonyTimelineInlineDraftToRow(
+  row: CeremonyTimelineItem,
+  v: CeremonyTimelineInlineEditDraftValues,
+): CeremonyTimelineItem {
+  return {
+    ...row,
+    timeOrOrder: v.timeOrOrder,
+    moment: v.moment,
+    songTitle: v.songTitle,
+    artist: v.artist,
+    notes: v.notes,
+    needsDjMcAttention: v.needsDjMcAttention,
+  };
+}
+
 type EventLayoutProfile =
   | "Wedding"
   | "Gender-Neutral Wedding"
@@ -1259,6 +1338,11 @@ export default function Home() {
   const touchDragTimelineSourceRef = useRef<string | null>(null);
   /** Reception/main timeline: collapsed summary vs expanded inline edit */
   const [receptionTimelineExpandedId, setReceptionTimelineExpandedId] = useState<string | null>(null);
+  /** Inline expanded row: field edits stay local until flush (avoids full-tree persist on each keystroke). */
+  const [receptionTimelineInlineEditDraft, setReceptionTimelineInlineEditDraft] = useState<{
+    itemId: string;
+    values: ReceptionTimelineInlineEditDraftValues;
+  } | null>(null);
   /** Confirm before removing reception or ceremony timeline rows from the planning UI */
   const [pendingTimelineDelete, setPendingTimelineDelete] = useState<
     | { kind: "reception"; id: string; label: string }
@@ -1511,6 +1595,11 @@ export default function Home() {
     useState<VendorAffiliation>("event_partner");
   /** Ceremony timeline: collapsed summary vs expanded inline edit */
   const [ceremonyTimelineExpandedId, setCeremonyTimelineExpandedId] = useState<string | null>(null);
+  /** Inline expanded ceremony row: local draft until flush */
+  const [ceremonyTimelineInlineEditDraft, setCeremonyTimelineInlineEditDraft] = useState<{
+    itemId: string;
+    values: CeremonyTimelineInlineEditDraftValues;
+  } | null>(null);
   /** Compact composer for new ceremony moments */
   const [ceremonyTimelineComposerOpen, setCeremonyTimelineComposerOpen] = useState(false);
   const [ceremonyTimelineDraftTimeOrOrder, setCeremonyTimelineDraftTimeOrOrder] = useState("");
@@ -1528,7 +1617,149 @@ export default function Home() {
     () => {},
   );
 
+  const receptionTimelineInlineEditDraftRef = useRef(receptionTimelineInlineEditDraft);
+  receptionTimelineInlineEditDraftRef.current = receptionTimelineInlineEditDraft;
+  const ceremonyTimelineInlineEditDraftRef = useRef(ceremonyTimelineInlineEditDraft);
+  ceremonyTimelineInlineEditDraftRef.current = ceremonyTimelineInlineEditDraft;
+
+  const flushReceptionTimelineInlineEditDraftIntoTimeline = useCallback(() => {
+    const draft = receptionTimelineInlineEditDraftRef.current;
+    if (!draft) return;
+    setTimelineItems((prev) =>
+      prev.map((t) => (t.id === draft.itemId ? applyReceptionTimelineInlineDraftToRow(t, draft.values) : t)),
+    );
+    setReceptionTimelineInlineEditDraft(null);
+  }, []);
+
+  const closeReceptionTimelineCardExpanded = useCallback(() => {
+    flushReceptionTimelineInlineEditDraftIntoTimeline();
+    setReceptionTimelineExpandedId(null);
+  }, [flushReceptionTimelineInlineEditDraftIntoTimeline]);
+
+  const openReceptionTimelineCardExpanded = useCallback((row: TimelineItem) => {
+    const prevDraft = receptionTimelineInlineEditDraftRef.current;
+    if (prevDraft && prevDraft.itemId !== row.id) {
+      setTimelineItems((prev) =>
+        prev.map((t) =>
+          t.id === prevDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, prevDraft.values) : t,
+        ),
+      );
+      setReceptionTimelineInlineEditDraft(null);
+    } else if (prevDraft?.itemId === row.id) {
+      setReceptionTimelineExpandedId(row.id);
+      return;
+    }
+    setReceptionTimelineInlineEditDraft({
+      itemId: row.id,
+      values: receptionTimelineInlineDraftFromRow(row),
+    });
+    setReceptionTimelineExpandedId(row.id);
+  }, []);
+
+  const flushCeremonyTimelineInlineEditDraftIntoTimeline = useCallback(() => {
+    const draft = ceremonyTimelineInlineEditDraftRef.current;
+    if (!draft) return;
+    setCeremonyTimelineItems((prev) =>
+      prev.map((t) => (t.id === draft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, draft.values) : t)),
+    );
+    setCeremonyTimelineInlineEditDraft(null);
+  }, []);
+
+  const closeCeremonyTimelineCardExpanded = useCallback(() => {
+    flushCeremonyTimelineInlineEditDraftIntoTimeline();
+    setCeremonyTimelineExpandedId(null);
+  }, [flushCeremonyTimelineInlineEditDraftIntoTimeline]);
+
+  const openCeremonyTimelineCardExpanded = useCallback((row: CeremonyTimelineItem) => {
+    const prevDraft = ceremonyTimelineInlineEditDraftRef.current;
+    if (prevDraft && prevDraft.itemId !== row.id) {
+      setCeremonyTimelineItems((prev) =>
+        prev.map((t) =>
+          t.id === prevDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, prevDraft.values) : t,
+        ),
+      );
+      setCeremonyTimelineInlineEditDraft(null);
+    } else if (prevDraft?.itemId === row.id) {
+      setCeremonyTimelineExpandedId(row.id);
+      return;
+    }
+    setCeremonyTimelineInlineEditDraft({
+      itemId: row.id,
+      values: ceremonyTimelineInlineDraftFromRow(row),
+    });
+    setCeremonyTimelineExpandedId(row.id);
+  }, []);
+
+  const patchReceptionTimelineInlineDraft = useCallback(
+    (itemId: string, patch: Partial<ReceptionTimelineInlineEditDraftValues>, anchorRow: TimelineItem | null) => {
+      setReceptionTimelineInlineEditDraft((prev) => {
+        if (prev && prev.itemId === itemId) {
+          return { ...prev, values: { ...prev.values, ...patch } };
+        }
+        if (anchorRow && anchorRow.id === itemId) {
+          return {
+            itemId,
+            values: { ...receptionTimelineInlineDraftFromRow(anchorRow), ...patch },
+          };
+        }
+        return prev;
+      });
+    },
+    [],
+  );
+
+  const patchCeremonyTimelineInlineDraft = useCallback(
+    (itemId: string, patch: Partial<CeremonyTimelineInlineEditDraftValues>, anchorRow: CeremonyTimelineItem | null) => {
+      setCeremonyTimelineInlineEditDraft((prev) => {
+        if (prev && prev.itemId === itemId) {
+          return { ...prev, values: { ...prev.values, ...patch } };
+        }
+        if (anchorRow && anchorRow.id === itemId) {
+          return {
+            itemId,
+            values: { ...ceremonyTimelineInlineDraftFromRow(anchorRow), ...patch },
+          };
+        }
+        return prev;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const flushInlineTimelineDrafts = () => {
+      flushReceptionTimelineInlineEditDraftIntoTimeline();
+      flushCeremonyTimelineInlineEditDraftIntoTimeline();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushInlineTimelineDrafts();
+    };
+    const onPageHide = () => flushInlineTimelineDrafts();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [flushCeremonyTimelineInlineEditDraftIntoTimeline, flushReceptionTimelineInlineEditDraftIntoTimeline]);
+
   const commitActiveEventPlanningToEventsState = useCallback(() => {
+    const recvDraft = receptionTimelineInlineEditDraftRef.current;
+    const timelinePayload =
+      recvDraft === null
+        ? timelineItems
+        : timelineItems.map((t) =>
+            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+          );
+    const cerDraft = ceremonyTimelineInlineEditDraftRef.current;
+    const ceremonyPayload =
+      cerDraft === null
+        ? ceremonyTimelineItems
+        : ceremonyTimelineItems.map((t) =>
+            t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+          );
+
     setEvents((prev) =>
       prev.map((evt) =>
         evt.id === activeEventId
@@ -1541,8 +1772,8 @@ export default function Home() {
                 date: eventSettings.weddingDate || evt.meta.date,
                 venue: eventSettings.venue || evt.meta.venue,
               },
-              timelineItems,
-              ceremonyTimelineItems,
+              timelineItems: timelinePayload,
+              ceremonyTimelineItems: ceremonyPayload,
               formalities: [],
               mustPlaySongs,
               doNotPlaySongs,
@@ -1570,6 +1801,16 @@ export default function Home() {
           : evt,
       ),
     );
+    if (recvDraft) {
+      setTimelineItems(timelinePayload);
+      setReceptionTimelineInlineEditDraft(null);
+      setReceptionTimelineExpandedId(null);
+    }
+    if (cerDraft) {
+      setCeremonyTimelineItems(ceremonyPayload);
+      setCeremonyTimelineInlineEditDraft(null);
+      setCeremonyTimelineExpandedId(null);
+    }
   }, [
     activeEventId,
     brideGroomProcessional,
@@ -1687,6 +1928,10 @@ export default function Home() {
     // Reset local editing modes when switching context.
     setEditingTimelineId(null);
     setTimelineNeedsAttention(false);
+    setReceptionTimelineInlineEditDraft(null);
+    setCeremonyTimelineInlineEditDraft(null);
+    setReceptionTimelineExpandedId(null);
+    setCeremonyTimelineExpandedId(null);
   };
 
   const switchToEvent = (nextEventId: string) => {
@@ -2280,12 +2525,14 @@ export default function Home() {
 
   const applyPresetItemsToTimelineState = useCallback(
     (presets: TimelinePresetItem[], replaceExisting: boolean) => {
+      closeReceptionTimelineCardExpanded();
+      closeCeremonyTimelineCardExpanded();
       const { ceremonyItems, mainItems } = buildTimelineItemsFromPresets(presets);
 
       setCeremonyTimelineItems((prev) => (replaceExisting ? ceremonyItems : [...prev, ...ceremonyItems]));
       setTimelineItems((prev) => (replaceExisting ? mainItems : [...prev, ...mainItems]));
     },
-    [buildTimelineItemsFromPresets],
+    [buildTimelineItemsFromPresets, closeCeremonyTimelineCardExpanded, closeReceptionTimelineCardExpanded],
   );
 
   const updateTimelinePresetSet = useCallback(
@@ -4397,12 +4644,27 @@ export default function Home() {
     if (!hasHydrated) return;
     if (typeof window === "undefined") return;
 
+    const recvDraft = receptionTimelineInlineEditDraft;
+    const timelineForStore =
+      recvDraft === null
+        ? timelineItems
+        : timelineItems.map((t) =>
+            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+          );
+    const cerDraft = ceremonyTimelineInlineEditDraft;
+    const ceremonyForStore =
+      cerDraft === null
+        ? ceremonyTimelineItems
+        : ceremonyTimelineItems.map((t) =>
+            t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+          );
+
     const payloadEvents = events.map((e) =>
       e.id === activeEventId
         ? {
             ...e,
-            timelineItems,
-            ceremonyTimelineItems,
+            timelineItems: timelineForStore,
+            ceremonyTimelineItems: ceremonyForStore,
             formalities: [],
             mustPlaySongs,
             doNotPlaySongs,
@@ -4498,7 +4760,9 @@ export default function Home() {
     guestRequestView,
     inviteAccessPreview,
     timelineItems,
+    receptionTimelineInlineEditDraft,
     ceremonyTimelineItems,
+    ceremonyTimelineInlineEditDraft,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -5183,10 +5447,10 @@ export default function Home() {
   const prepareAddMomentAfterTimelineItem = (timelineItemId: string) => {
     const item = timelineItems.find((t) => t.id === timelineItemId);
     if (!item) return;
+    closeReceptionTimelineCardExpanded();
     resetTimelineForm();
     setTimelineTime(item.time);
     setTimelineCategory(item.category);
-    setReceptionTimelineExpandedId(null);
     setTimelineComposerOpen(true);
     window.setTimeout(() => {
       timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -5254,6 +5518,7 @@ export default function Home() {
     }
     if (receptionTimelineExpandedId === itemId) {
       setReceptionTimelineExpandedId(null);
+      setReceptionTimelineInlineEditDraft(null);
     }
   };
 
@@ -5282,6 +5547,7 @@ export default function Home() {
   const applyTimelineImport = useCallback(
     (mode: "add" | "replace") => {
       if (timelineImportDrafts.length === 0) return;
+      closeReceptionTimelineCardExpanded();
       const items = timelineItemsFromImportDrafts(timelineImportDrafts);
       if (mode === "replace") {
         setTimelineItems(sortTimelineItemsChronologically(items));
@@ -5298,10 +5564,9 @@ export default function Home() {
         logActivity("timeline_item_added", `Imported ${items.length} paste timeline moments`);
         pushNotification("Timeline updated", "timeline_updated");
       }
-      setReceptionTimelineExpandedId(null);
       closeTimelineImport();
     },
-    [closeTimelineImport, logActivity, pushNotification, timelineImportDrafts],
+    [closeReceptionTimelineCardExpanded, closeTimelineImport, logActivity, pushNotification, timelineImportDrafts],
   );
 
   const updateTimelineImportDraft = useCallback((key: string, patch: Partial<PastedTimelineImportDraft>) => {
@@ -5314,6 +5579,7 @@ export default function Home() {
 
   const reorderTimelineItemToTarget = (itemId: string, targetId: string) => {
     if (!itemId || !targetId || itemId === targetId) return;
+    flushReceptionTimelineInlineEditDraftIntoTimeline();
     setTimelineItems((prev) => {
       const fromIndex = prev.findIndex((item) => item.id === itemId);
       const toIndex = prev.findIndex((item) => item.id === targetId);
@@ -5329,19 +5595,33 @@ export default function Home() {
 
   const sortReceptionTimelineByEnteredTime = () => {
     if (!canEditTimeline) return;
-    setTimelineItems((prev) => sortTimelineItemsChronologically(prev));
+    setTimelineItems((prev) => {
+      const draft = receptionTimelineInlineEditDraftRef.current;
+      const base =
+        draft === null
+          ? prev
+          : prev.map((t) => (t.id === draft.itemId ? applyReceptionTimelineInlineDraftToRow(t, draft.values) : t));
+      return sortTimelineItemsChronologically(base);
+    });
+    setReceptionTimelineInlineEditDraft(null);
+    setReceptionTimelineExpandedId(null);
     logActivity("timeline_updated", "Sorted reception timeline by entered time");
   };
 
   const duplicateTimelineItem = (item: TimelineItem) => {
+    const draft = receptionTimelineInlineEditDraftRef.current;
+    const base =
+      draft && draft.itemId === item.id
+        ? applyReceptionTimelineInlineDraftToRow(item, draft.values)
+        : item;
     const duplicate: TimelineItem = {
-      ...item,
+      ...base,
       id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      title: `${item.title} (Copy)`,
-      songTitle: item.songTitle,
-      artist: item.artist,
-      fadeOutEarly: item.fadeOutEarly,
-      fadeOutTimestamp: item.fadeOutTimestamp,
+      title: `${base.title} (Copy)`,
+      songTitle: base.songTitle,
+      artist: base.artist,
+      fadeOutEarly: base.fadeOutEarly,
+      fadeOutTimestamp: base.fadeOutTimestamp,
     };
     setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, duplicate));
     logActivity("timeline_updated", `Duplicated timeline item: ${item.title}`);
@@ -5414,7 +5694,7 @@ export default function Home() {
 
   const openCeremonyTimelineComposer = () => {
     resetCeremonyTimelineDraft();
-    setCeremonyTimelineExpandedId(null);
+    closeCeremonyTimelineCardExpanded();
     setCeremonyTimelineComposerOpen(true);
     window.setTimeout(() => {
       ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -5424,9 +5704,9 @@ export default function Home() {
   const prepareAddCeremonyMomentAfter = (afterItemId: string) => {
     const prior = ceremonyTimelineItems.find((t) => t.id === afterItemId);
     if (!prior) return;
+    closeCeremonyTimelineCardExpanded();
     resetCeremonyTimelineDraft();
     setCeremonyTimelineDraftTimeOrOrder(prior.timeOrOrder);
-    setCeremonyTimelineExpandedId(null);
     setCeremonyTimelineComposerOpen(true);
     window.setTimeout(() => {
       ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -5458,16 +5738,22 @@ export default function Home() {
     setCeremonyTimelineItems((prev) => prev.filter((item) => item.id !== itemId));
     if (ceremonyTimelineExpandedId === itemId) {
       setCeremonyTimelineExpandedId(null);
+      setCeremonyTimelineInlineEditDraft(null);
     }
     logActivity("ceremony_updated", "Removed ceremony moment");
     pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
 
   const duplicateCeremonyTimelineItem = (item: CeremonyTimelineItem) => {
+    const draft = ceremonyTimelineInlineEditDraftRef.current;
+    const base =
+      draft && draft.itemId === item.id
+        ? applyCeremonyTimelineInlineDraftToRow(item, draft.values)
+        : item;
     const duplicate: CeremonyTimelineItem = {
-      ...item,
+      ...base,
       id: `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      moment: `${item.moment} (Copy)`,
+      moment: `${base.moment} (Copy)`,
     };
     setCeremonyTimelineItems((prev) =>
       insertCeremonyTimelineItemChronologically(prev, duplicate),
@@ -5478,6 +5764,7 @@ export default function Home() {
 
   const reorderCeremonyTimelineItemToTarget = (itemId: string, targetId: string) => {
     if (!itemId || !targetId || itemId === targetId) return;
+    flushCeremonyTimelineInlineEditDraftIntoTimeline();
     setCeremonyTimelineItems((prev) => {
       const fromIndex = prev.findIndex((item) => item.id === itemId);
       const toIndex = prev.findIndex((item) => item.id === targetId);
@@ -10038,7 +10325,7 @@ export default function Home() {
                 label: "+ Add moment",
                 onClick: () => {
                   resetTimelineForm();
-                  setReceptionTimelineExpandedId(null);
+                  closeReceptionTimelineCardExpanded();
                   setTimelineComposerOpen(true);
                   window.setTimeout(() => {
                     timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -10168,7 +10455,7 @@ export default function Home() {
                     type="button"
                     onClick={() => {
                       resetTimelineForm();
-                      setReceptionTimelineExpandedId(null);
+                      closeReceptionTimelineCardExpanded();
                       setTimelineComposerOpen(true);
                       window.setTimeout(() => {
                         timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -10358,7 +10645,7 @@ export default function Home() {
                     label: "+ Add moment",
                     onClick: () => {
                       resetTimelineForm();
-                      setReceptionTimelineExpandedId(null);
+                      closeReceptionTimelineCardExpanded();
                       setTimelineComposerOpen(true);
                       window.setTimeout(() => {
                         timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -10393,6 +10680,19 @@ export default function Home() {
                 const songArtistCompact = [item.songTitle?.trim(), item.artist?.trim()]
                   .filter(Boolean)
                   .join(" · ");
+                const recvInlineVals =
+                  receptionTimelineInlineEditDraft?.itemId === item.id
+                    ? receptionTimelineInlineEditDraft.values
+                    : null;
+                const recvTitle = recvInlineVals?.title ?? timelineRow?.title ?? item.title;
+                const recvTime = recvInlineVals?.time ?? timelineRow?.time ?? item.time;
+                const recvNotes = recvInlineVals?.notes ?? timelineRow?.notes ?? item.notes;
+                const recvSong = recvInlineVals?.songTitle ?? timelineRow?.songTitle ?? "";
+                const recvArtist = recvInlineVals?.artist ?? timelineRow?.artist ?? "";
+                const recvCategory = recvInlineVals?.category ?? timelineRow?.category ?? item.category;
+                const recvNeedsMc = recvInlineVals?.needsDjMcAttention ?? timelineRow?.needsDjMcAttention ?? false;
+                const recvFadeEarly = recvInlineVals?.fadeOutEarly ?? timelineRow?.fadeOutEarly ?? false;
+                const recvFadeTs = recvInlineVals?.fadeOutTimestamp ?? timelineRow?.fadeOutTimestamp ?? "";
                 const isDragging = draggingTimelineId === item.id;
                 const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                 return (
@@ -10471,7 +10771,9 @@ export default function Home() {
                           <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
                             <PrimaryButton
                               type="button"
-                              onClick={() => setReceptionTimelineExpandedId(item.id)}
+                              onClick={() => {
+                                if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                              }}
                               disabled={!canEditTimeline}
                               className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
                             >
@@ -10521,13 +10823,13 @@ export default function Home() {
                           tabIndex={canEditTimeline ? 0 : -1}
                           onClick={() => {
                             if (!canEditTimeline) return;
-                            setReceptionTimelineExpandedId(item.id);
+                            if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                           }}
                           onKeyDown={(event) => {
                             if (!canEditTimeline) return;
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              setReceptionTimelineExpandedId(item.id);
+                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                             }
                           }}
                           className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
@@ -10586,7 +10888,9 @@ export default function Home() {
                         <div className="grid grid-cols-2 gap-1.5">
                           <PrimaryButton
                             type="button"
-                            onClick={() => setReceptionTimelineExpandedId(item.id)}
+                            onClick={() => {
+                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                            }}
                             disabled={!canEditTimeline}
                             className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
                           >
@@ -10669,7 +10973,7 @@ export default function Home() {
                           ) : null}
                           <PrimaryButton
                             type="button"
-                            onClick={() => setReceptionTimelineExpandedId(null)}
+                            onClick={() => closeReceptionTimelineCardExpanded()}
                             className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-5 md:text-[13px]"
                           >
                             Done
@@ -10681,32 +10985,20 @@ export default function Home() {
                         <TextInput
                           id={`timeline-inline-title-${item.id}`}
                           label="Moment"
-                          value={item.title}
+                          value={recvTitle}
                           inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                           labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                          onChange={(value) => {
-                            setTimelineItems((prev) =>
-                              prev.map((existing) =>
-                                existing.id === item.id ? { ...existing, title: value } : existing,
-                              ),
-                            );
-                          }}
+                          onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow ?? null)}
                           disabled={!canEditTimeline}
                         />
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                           <TextInput
                             id={`timeline-inline-time-${item.id}`}
                             label="Time"
-                            value={item.time}
+                            value={recvTime}
                             inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                             labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => {
-                              setTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id ? { ...existing, time: value } : existing,
-                                ),
-                              );
-                            }}
+                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)}
                             disabled={!canEditTimeline}
                           />
                           <div>
@@ -10718,15 +11010,11 @@ export default function Home() {
                             </label>
                             <select
                               id={`timeline-inline-cat-${item.id}`}
-                              value={timelineRow?.category ?? item.category}
+                              value={recvCategory}
                               disabled={!canEditTimeline}
                               onChange={(event) => {
                                 const next = event.target.value as TimelineCategory;
-                                setTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id ? { ...existing, category: next } : existing,
-                                  ),
-                                );
+                                patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow ?? null);
                               }}
                               className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 md:min-h-12 md:px-4 md:py-3 md:text-base"
                             >
@@ -10742,32 +11030,20 @@ export default function Home() {
                           <TextInput
                             id={`timeline-inline-song-${item.id}`}
                             label="Song"
-                            value={timelineRow?.songTitle ?? ""}
+                            value={recvSong}
                             inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                             labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => {
-                              setTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id ? { ...existing, songTitle: value } : existing,
-                                ),
-                              );
-                            }}
+                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)}
                             placeholder="Song title"
                             disabled={!canEditTimeline}
                           />
                           <TextInput
                             id={`timeline-inline-song-artist-${item.id}`}
                             label="Artist"
-                            value={timelineRow?.artist ?? ""}
+                            value={recvArtist}
                             inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                             labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => {
-                              setTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id ? { ...existing, artist: value } : existing,
-                                ),
-                              );
-                            }}
+                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)}
                             placeholder="Artist"
                             disabled={!canEditTimeline}
                           />
@@ -10775,38 +11051,30 @@ export default function Home() {
                         <TextArea
                           id={`timeline-inline-notes-${item.id}`}
                           label="Notes"
-                          value={item.notes}
+                          value={recvNotes}
                           textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
                           labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                          onChange={(value) => {
-                            setTimelineItems((prev) =>
-                              prev.map((existing) =>
-                                existing.id === item.id ? { ...existing, notes: value } : existing,
-                              ),
-                            );
-                          }}
+                          onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)}
                           rows={2}
                           disabled={!canEditTimeline}
                         />
                         <PrimaryButton
                           type="button"
                           onClick={() =>
-                            setTimelineItems((prev) =>
-                              prev.map((existing) =>
-                                existing.id === item.id
-                                  ? { ...existing, needsDjMcAttention: !existing.needsDjMcAttention }
-                                  : existing,
-                              ),
+                            patchReceptionTimelineInlineDraft(
+                              item.id,
+                              { needsDjMcAttention: !recvNeedsMc },
+                              timelineRow ?? null,
                             )
                           }
                           disabled={!canEditTimeline}
                           className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${
-                            timelineRow?.needsDjMcAttention
+                            recvNeedsMc
                               ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                               : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                           }`}
                         >
-                          {timelineRow?.needsDjMcAttention ? "DJ/MC flagged" : "Flag DJ / MC"}
+                          {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
                         </PrimaryButton>
 
                         <details className="rounded-lg border border-stone-200 bg-stone-50">
@@ -10821,37 +11089,29 @@ export default function Home() {
                               <PrimaryButton
                                 type="button"
                                 onClick={() =>
-                                  setTimelineItems((prev) =>
-                                    prev.map((existing) =>
-                                      existing.id === item.id
-                                        ? { ...existing, fadeOutEarly: !existing.fadeOutEarly }
-                                        : existing,
-                                    ),
+                                  patchReceptionTimelineInlineDraft(
+                                    item.id,
+                                    { fadeOutEarly: !recvFadeEarly },
+                                    timelineRow ?? null,
                                   )
                                 }
                                 disabled={!canEditTimeline}
                                 className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${
-                                  timelineRow?.fadeOutEarly
+                                  recvFadeEarly
                                     ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                                     : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                                 }`}
                               >
-                                {timelineRow?.fadeOutEarly ? "Fade out early: On" : "Fade out early"}
+                                {recvFadeEarly ? "Fade out early: On" : "Fade out early"}
                               </PrimaryButton>
                               <TextInput
                                 id={`timeline-inline-fade-${item.id}`}
                                 label="Fade timestamp"
-                                value={timelineRow?.fadeOutTimestamp ?? ""}
+                                value={recvFadeTs}
                                 inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                                 labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                                 onChange={(value) =>
-                                  setTimelineItems((prev) =>
-                                    prev.map((existing) =>
-                                      existing.id === item.id
-                                        ? { ...existing, fadeOutTimestamp: value }
-                                        : existing,
-                                    ),
-                                  )
+                                  patchReceptionTimelineInlineDraft(item.id, { fadeOutTimestamp: value }, timelineRow ?? null)
                                 }
                                 placeholder="e.g. 1:20"
                                 disabled={!canEditTimeline}
@@ -11532,6 +11792,16 @@ export default function Home() {
                   const songLine = [item.songTitle?.trim(), item.artist?.trim()]
                     .filter(Boolean)
                     .join(" · ");
+                  const cerInlineVals =
+                    ceremonyTimelineInlineEditDraft?.itemId === item.id
+                      ? ceremonyTimelineInlineEditDraft.values
+                      : null;
+                  const cerTime = cerInlineVals?.timeOrOrder ?? item.timeOrOrder;
+                  const cerMoment = cerInlineVals?.moment ?? item.moment;
+                  const cerSong = cerInlineVals?.songTitle ?? item.songTitle;
+                  const cerArtist = cerInlineVals?.artist ?? item.artist;
+                  const cerNotes = cerInlineVals?.notes ?? item.notes;
+                  const cerNeedsMc = cerInlineVals?.needsDjMcAttention ?? item.needsDjMcAttention;
                   const isDragging = draggingCeremonyTimelineId === item.id;
                   const isDropTarget =
                     dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
@@ -11610,7 +11880,7 @@ export default function Home() {
                               <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
                                 <PrimaryButton
                                   type="button"
-                                  onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                                  onClick={() => openCeremonyTimelineCardExpanded(item)}
                                   disabled={!canEditTimeline}
                                   className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
                                 >
@@ -11657,13 +11927,13 @@ export default function Home() {
                               tabIndex={canEditTimeline ? 0 : -1}
                               onClick={() => {
                                 if (!canEditTimeline) return;
-                                setCeremonyTimelineExpandedId(item.id);
+                                openCeremonyTimelineCardExpanded(item);
                               }}
                               onKeyDown={(event) => {
                                 if (!canEditTimeline) return;
                                 if (event.key === "Enter" || event.key === " ") {
                                   event.preventDefault();
-                                  setCeremonyTimelineExpandedId(item.id);
+                                  openCeremonyTimelineCardExpanded(item);
                                 }
                               }}
                               className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
@@ -11716,7 +11986,7 @@ export default function Home() {
                             <div className="grid grid-cols-2 gap-1.5">
                               <PrimaryButton
                                 type="button"
-                                onClick={() => setCeremonyTimelineExpandedId(item.id)}
+                                onClick={() => openCeremonyTimelineCardExpanded(item)}
                                 disabled={!canEditTimeline}
                                 className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
                               >
@@ -11764,7 +12034,7 @@ export default function Home() {
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
                             <button
                               type="button"
-                              onClick={() => setCeremonyTimelineExpandedId(null)}
+                              onClick={() => closeCeremonyTimelineCardExpanded()}
                               className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline md:text-xs"
                             >
                               Collapse view
@@ -11801,34 +12071,22 @@ export default function Home() {
                             <TextInput
                               id={`ceremony-inline-time-${item.id}`}
                               label="Time / order"
-                              value={item.timeOrOrder}
+                              value={cerTime}
                               inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                               labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, timeOrOrder: value }
-                                      : existing,
-                                  ),
-                                )
+                                patchCeremonyTimelineInlineDraft(item.id, { timeOrOrder: value }, item)
                               }
                               disabled={!canEditTimeline}
                             />
                             <TextInput
                               id={`ceremony-inline-moment-${item.id}`}
                               label="Moment"
-                              value={item.moment}
+                              value={cerMoment}
                               inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                               labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, moment: value }
-                                      : existing,
-                                  ),
-                                )
+                                patchCeremonyTimelineInlineDraft(item.id, { moment: value }, item)
                               }
                               disabled={!canEditTimeline}
                             />
@@ -11837,34 +12095,22 @@ export default function Home() {
                             <TextInput
                               id={`ceremony-inline-song-${item.id}`}
                               label="Song title"
-                              value={item.songTitle}
+                              value={cerSong}
                               inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                               labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, songTitle: value }
-                                      : existing,
-                                  ),
-                                )
+                                patchCeremonyTimelineInlineDraft(item.id, { songTitle: value }, item)
                               }
                               disabled={!canEditTimeline}
                             />
                             <TextInput
                               id={`ceremony-inline-artist-${item.id}`}
                               label="Artist"
-                              value={item.artist}
+                              value={cerArtist}
                               inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
                               labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               onChange={(value) =>
-                                setCeremonyTimelineItems((prev) =>
-                                  prev.map((existing) =>
-                                    existing.id === item.id
-                                      ? { ...existing, artist: value }
-                                      : existing,
-                                  ),
-                                )
+                                patchCeremonyTimelineInlineDraft(item.id, { artist: value }, item)
                               }
                               disabled={!canEditTimeline}
                             />
@@ -11872,17 +12118,11 @@ export default function Home() {
                           <TextArea
                             id={`ceremony-inline-notes-${item.id}`}
                             label="Notes"
-                            value={item.notes}
+                            value={cerNotes}
                             textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
                             labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                             onChange={(value) =>
-                              setCeremonyTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id
-                                    ? { ...existing, notes: value }
-                                    : existing,
-                                ),
-                              )
+                              patchCeremonyTimelineInlineDraft(item.id, { notes: value }, item)
                             }
                             rows={2}
                             disabled={!canEditTimeline}
@@ -11890,25 +12130,20 @@ export default function Home() {
                           <PrimaryButton
                             type="button"
                             onClick={() =>
-                              setCeremonyTimelineItems((prev) =>
-                                prev.map((existing) =>
-                                  existing.id === item.id
-                                    ? {
-                                        ...existing,
-                                        needsDjMcAttention: !existing.needsDjMcAttention,
-                                      }
-                                    : existing,
-                                ),
+                              patchCeremonyTimelineInlineDraft(
+                                item.id,
+                                { needsDjMcAttention: !cerNeedsMc },
+                                item,
                               )
                             }
                             disabled={!canEditTimeline}
                             className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${
-                              item.needsDjMcAttention
+                              cerNeedsMc
                                 ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                                 : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                             }`}
                           >
-                            {item.needsDjMcAttention
+                            {cerNeedsMc
                               ? "DJ/MC attention: On"
                               : "Flag DJ/MC attention"}
                           </PrimaryButton>
