@@ -1,5 +1,6 @@
 "use client";
 
+import { createEvent as createDatabaseEvent } from "@/lib/actions/events";
 import {
   useCallback,
   useEffect,
@@ -2237,7 +2238,7 @@ export default function Home() {
     setTemplateModalOpen(true);
   };
 
-  const handleSaveEventModal = () => {
+  const handleSaveEventModal = async () => {
     const draft = eventDraft;
     const couple = draft.coupleNames.trim();
     const date = draft.weddingDate.trim();
@@ -2306,8 +2307,23 @@ export default function Home() {
         .map((item) =>
           mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
         );
-      setEvents((prev) => [...prev, newEvent]);
-      setActiveEventId(newEvent.id);
+        try {
+          await createDatabaseEvent({
+            title: eventName,
+            date: date ? new Date(date) : null,
+            type: draft.eventType || newEvent.settings.eventType,
+            venue,
+          });
+        } catch (error) {
+          console.error("Failed to save event to database:", error);
+          setEventModalStatus({
+            kind: "error",
+            message: "Event was created locally, but failed to save to the database.",
+          });
+        }
+        
+        setEvents((prev) => [...prev, newEvent]);
+        setActiveEventId(newEvent.id);
       loadEventPlanningIntoWorkingState(newEvent);
       setAppMode("event");
       setActiveScreen("Dashboard");
