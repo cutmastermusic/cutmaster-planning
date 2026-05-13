@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  events Event[]
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  title     String
+  date      DateTime?
+  type      String?
+  venue     String?
+
+  ownerId String
+  owner   User @relation(fields: [ownerId], references: [id])
+
+  timelines Timeline[]
+
+  createdAt DateTime @default(now())
+}
+
+model Timeline {
+  id      String @id @default(cuid())
+  title   String
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id])
+
+  items TimelineItem[]
+}
+
+model TimelineItem {
+  id    String @id @default(cuid())
+  time  String?
+  title String
+  notes String?
+  order Int
+
+  timelineId String
+  timeline   Timeline @relation(fields: [timelineId], references: [id])
+}
