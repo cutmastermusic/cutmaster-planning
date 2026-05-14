@@ -1,12 +1,9 @@
 "use client";
 
-
+import { EventModalActions } from "@/components/events/EventModalActions";
 import { EventTypeSection } from "@/components/events/EventTypeSection";
-
 import { EventModalForm } from "@/components/events/EventModalForm";
-
 import { EventModal } from "@/components/events/EventModal";
-
 import {
   createEvent as createDatabaseEvent,
   getEvents as getDatabaseEvents,
@@ -535,13 +532,13 @@ const QUESTION_ANSWER_TYPES: {
   value: PlanningQuestionAnswerType;
   label: string;
 }[] = [
-  { value: "short_text", label: "Short text" },
-  { value: "long_text", label: "Long text" },
-  { value: "yes_no", label: "Yes / No" },
-  { value: "multiple_choice", label: "Multiple choice" },
-  { value: "song", label: "Song" },
-  { value: "contact", label: "Contact" },
-];
+    { value: "short_text", label: "Short text" },
+    { value: "long_text", label: "Long text" },
+    { value: "yes_no", label: "Yes / No" },
+    { value: "multiple_choice", label: "Multiple choice" },
+    { value: "song", label: "Song" },
+    { value: "contact", label: "Contact" },
+  ];
 
 const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
   if (profile === "Gender-Neutral Wedding") {
@@ -836,18 +833,18 @@ const LAYOUT_SECTION_PREVIEW: {
   key: keyof LayoutSectionDefaults;
   label: string;
 }[] = [
-  { key: "sectionCeremonyEnabled", label: "Ceremony" },
-  { key: "sectionReceptionTimelineEnabled", label: "Reception timeline" },
-  { key: "sectionPlaylistsEnabled", label: "Playlists" },
-  { key: "sectionMustPlayEnabled", label: "Must play" },
-  { key: "sectionDoNotPlayEnabled", label: "Do not play" },
-  { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
-  { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
-  { key: "sectionMusicNotesEnabled", label: "Music notes" },
-  { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
-  { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
-  { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
-];
+    { key: "sectionCeremonyEnabled", label: "Ceremony" },
+    { key: "sectionReceptionTimelineEnabled", label: "Reception timeline" },
+    { key: "sectionPlaylistsEnabled", label: "Playlists" },
+    { key: "sectionMustPlayEnabled", label: "Must play" },
+    { key: "sectionDoNotPlayEnabled", label: "Do not play" },
+    { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
+    { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
+    { key: "sectionMusicNotesEnabled", label: "Music notes" },
+    { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
+    { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
+    { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
+  ];
 
 const getEnabledLayoutSectionLabels = (defaults: LayoutSectionDefaults) =>
   LAYOUT_SECTION_PREVIEW.filter((row) => defaults[row.key]).map((row) => row.label);
@@ -900,11 +897,11 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
       profile === "Corporate"
         ? "Run of Show"
         : profile === "School Dance" ||
-            profile === "Private Party" ||
-            profile === "Graduation Celebration" ||
-            profile === "Birthday Party" ||
-            profile === "Bar/Club Event" ||
-            profile === "Holiday Party"
+          profile === "Private Party" ||
+          profile === "Graduation Celebration" ||
+          profile === "Birthday Party" ||
+          profile === "Bar/Club Event" ||
+          profile === "Holiday Party"
           ? "Timeline"
           : "Reception Timeline",
     );
@@ -1656,9 +1653,9 @@ export default function Home() {
   const [dropTargetCeremonyTimelineId, setDropTargetCeremonyTimelineId] = useState<string | null>(null);
   const dropTargetCeremonyTimelineIdRef = useRef<string | null>(null);
   const touchDragCeremonyTimelineSourceRef = useRef<string | null>(null);
-  const reorderTimelineItemToTargetRef = useRef<(itemId: string, targetId: string) => void>(() => {});
+  const reorderTimelineItemToTargetRef = useRef<(itemId: string, targetId: string) => void>(() => { });
   const reorderCeremonyTimelineItemToTargetRef = useRef<(itemId: string, targetId: string) => void>(
-    () => {},
+    () => { },
   );
 
   const receptionTimelineInlineEditDraftRef = useRef(receptionTimelineInlineEditDraft);
@@ -1794,55 +1791,55 @@ export default function Home() {
       recvDraft === null
         ? timelineItems
         : timelineItems.map((t) =>
-            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
-          );
+          t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+        );
     const cerDraft = ceremonyTimelineInlineEditDraftRef.current;
     const ceremonyPayload =
       cerDraft === null
         ? ceremonyTimelineItems
         : ceremonyTimelineItems.map((t) =>
-            t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
-          );
+          t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+        );
 
     setEvents((prev) =>
       prev.map((evt) =>
         evt.id === activeEventId
           ? {
-              ...evt,
-              lastUpdatedAt: Date.now(),
-              meta: {
-                ...evt.meta,
-                couple: eventSettings.coupleNames || evt.meta.couple,
-                date: eventSettings.weddingDate || evt.meta.date,
-                venue: eventSettings.venue || evt.meta.venue,
-              },
-              timelineItems: timelinePayload,
-              ceremonyTimelineItems: ceremonyPayload,
-              formalities: [],
-              mustPlaySongs,
-              doNotPlaySongs,
-              playIfPossibleSongs,
-              musicPlaylistLinks,
-              musicGenreEraSelections,
-              ceremonyStartTime,
-              ceremonyGuestArrivalTime,
-              officiantName,
-              ceremonyNotes,
-              microphoneNeeds,
-              weddingPartyProcessional,
-              brideGroomProcessional,
-              unityCeremonySong,
-              recessionalSong,
-              plannerNotes,
-              vendors,
-              guestRequests,
-              generalDjNotes,
-              playlistVibeOverrides,
-              musicVibeDetail,
-              musicTasteProfile: cloneJson(musicTasteProfile),
-              mcAnnouncements,
-              settings: eventSettings,
-            }
+            ...evt,
+            lastUpdatedAt: Date.now(),
+            meta: {
+              ...evt.meta,
+              couple: eventSettings.coupleNames || evt.meta.couple,
+              date: eventSettings.weddingDate || evt.meta.date,
+              venue: eventSettings.venue || evt.meta.venue,
+            },
+            timelineItems: timelinePayload,
+            ceremonyTimelineItems: ceremonyPayload,
+            formalities: [],
+            mustPlaySongs,
+            doNotPlaySongs,
+            playIfPossibleSongs,
+            musicPlaylistLinks,
+            musicGenreEraSelections,
+            ceremonyStartTime,
+            ceremonyGuestArrivalTime,
+            officiantName,
+            ceremonyNotes,
+            microphoneNeeds,
+            weddingPartyProcessional,
+            brideGroomProcessional,
+            unityCeremonySong,
+            recessionalSong,
+            plannerNotes,
+            vendors,
+            guestRequests,
+            generalDjNotes,
+            playlistVibeOverrides,
+            musicVibeDetail,
+            musicTasteProfile: cloneJson(musicTasteProfile),
+            mcAnnouncements,
+            settings: eventSettings,
+          }
           : evt,
       ),
     );
@@ -1948,8 +1945,8 @@ export default function Home() {
           typeof evt.settings?.liveEventShowGuestRequests === "boolean"
             ? evt.settings.liveEventShowGuestRequests
             : getLiveEventDocumentDefaults(
-                (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
-              ).liveEventShowGuestRequests,
+              (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+            ).liveEventShowGuestRequests,
         liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
         liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
         sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
@@ -2074,9 +2071,9 @@ export default function Home() {
   ): EventRecord => {
     const templateTimeline = template
       ? migrateFormalitiesIntoTimelineItems(
-          cloneJson(template.timelineItems),
-          cloneJson(template.formalities ?? []),
-        )
+        cloneJson(template.timelineItems),
+        cloneJson(template.formalities ?? []),
+      )
       : cloneJson(timelineItems);
     const templateSuggestions = template ? cloneJson(template.planningSuggestions) : cloneJson(plannerNotes);
     return {
@@ -2317,23 +2314,23 @@ export default function Home() {
         .map((item) =>
           mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
         );
-        try {
-          await createDatabaseEvent({
-            title: eventName,
-            date: date ? new Date(date) : null,
-            type: draft.eventType || newEvent.settings.eventType,
-            venue,
-          });
-        } catch (error) {
-          console.error("Failed to save event to database:", error);
-          setEventModalStatus({
-            kind: "error",
-            message: "Event was created locally, but failed to save to the database.",
-          });
-        }
-        
-        setEvents((prev) => [...prev, newEvent]);
-        setActiveEventId(newEvent.id);
+      try {
+        await createDatabaseEvent({
+          title: eventName,
+          date: date ? new Date(date) : null,
+          type: draft.eventType || newEvent.settings.eventType,
+          venue,
+        });
+      } catch (error) {
+        console.error("Failed to save event to database:", error);
+        setEventModalStatus({
+          kind: "error",
+          message: "Event was created locally, but failed to save to the database.",
+        });
+      }
+
+      setEvents((prev) => [...prev, newEvent]);
+      setActiveEventId(newEvent.id);
       loadEventPlanningIntoWorkingState(newEvent);
       setAppMode("event");
       setActiveScreen("Dashboard");
@@ -2349,25 +2346,25 @@ export default function Home() {
         prev.map((evt) =>
           evt.id === eventEditingId
             ? {
-                ...evt,
-                meta: { couple, date, venue },
-                settings: {
-                  ...evt.settings,
-                  eventLayoutProfile: inferredProfile,
-                  eventName,
-                  coupleNames: couple,
-                  eventType: draft.eventType,
-                  weddingDate: date,
-                  venue,
-                  ceremonyLocation: draft.ceremonyLocation.trim(),
-                  receptionLocation: draft.receptionLocation.trim(),
-                  assignedDj: draft.assignedDj,
-                  packageName: draft.packageName.trim(),
-                  plannerName: draft.plannerName.trim(),
-                  plannerEmail: draft.plannerEmail.trim(),
-                  internalNotes: draft.internalNotes.trim(),
-                },
-              }
+              ...evt,
+              meta: { couple, date, venue },
+              settings: {
+                ...evt.settings,
+                eventLayoutProfile: inferredProfile,
+                eventName,
+                coupleNames: couple,
+                eventType: draft.eventType,
+                weddingDate: date,
+                venue,
+                ceremonyLocation: draft.ceremonyLocation.trim(),
+                receptionLocation: draft.receptionLocation.trim(),
+                assignedDj: draft.assignedDj,
+                packageName: draft.packageName.trim(),
+                plannerName: draft.plannerName.trim(),
+                plannerEmail: draft.plannerEmail.trim(),
+                internalNotes: draft.internalNotes.trim(),
+              },
+            }
             : evt,
         ),
       );
@@ -2402,12 +2399,12 @@ export default function Home() {
       prev.map((tpl) =>
         tpl.id === templateEditingId
           ? {
-              ...tpl,
-              name,
-              timelineItems: cloneJson(timelineItems),
-              formalities: [],
-              planningSuggestions: cloneJson(plannerNotes),
-            }
+            ...tpl,
+            name,
+            timelineItems: cloneJson(timelineItems),
+            formalities: [],
+            planningSuggestions: cloneJson(plannerNotes),
+          }
           : tpl,
       ),
     );
@@ -2438,12 +2435,12 @@ export default function Home() {
   const primaryPartyShortLabel = PRIMARY_PARTY_SHORT_LABEL[layoutProfileForActiveEvent];
   const eventDateGridLabel =
     layoutProfileForActiveEvent === "Wedding" ||
-    layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+      layoutProfileForActiveEvent === "Gender-Neutral Wedding"
       ? "Wedding date"
       : "Event date";
   const eventDateFieldLabel =
     layoutProfileForActiveEvent === "Wedding" ||
-    layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+      layoutProfileForActiveEvent === "Gender-Neutral Wedding"
       ? "Wedding Date"
       : "Event Date";
 
@@ -2451,11 +2448,11 @@ export default function Home() {
     layoutProfileForActiveEvent === "Corporate"
       ? "Run of Show"
       : layoutProfileForActiveEvent === "School Dance" ||
-          layoutProfileForActiveEvent === "Private Party" ||
-          layoutProfileForActiveEvent === "Graduation Celebration" ||
-          layoutProfileForActiveEvent === "Birthday Party" ||
-          layoutProfileForActiveEvent === "Bar/Club Event" ||
-          layoutProfileForActiveEvent === "Holiday Party"
+        layoutProfileForActiveEvent === "Private Party" ||
+        layoutProfileForActiveEvent === "Graduation Celebration" ||
+        layoutProfileForActiveEvent === "Birthday Party" ||
+        layoutProfileForActiveEvent === "Bar/Club Event" ||
+        layoutProfileForActiveEvent === "Holiday Party"
         ? "Timeline"
         : "Reception Timeline";
 
@@ -2463,7 +2460,7 @@ export default function Home() {
     layoutProfileForActiveEvent === "Corporate" || layoutProfileForActiveEvent === "Holiday Party"
       ? "Announcements / Script Notes"
       : layoutProfileForActiveEvent === "School Dance" ||
-          layoutProfileForActiveEvent === "Graduation Celebration"
+        layoutProfileForActiveEvent === "Graduation Celebration"
         ? "Announcements"
         : "Key Announcements / MC Scripts";
   const eventCountdownLabel =
@@ -2755,10 +2752,10 @@ export default function Home() {
         prev.map((evt) =>
           evt.id === activeEventId
             ? {
-                ...evt,
-                lastUpdatedAt: Date.now(),
-                settings: { ...evt.settings, eventLifecycleStatus: status },
-              }
+              ...evt,
+              lastUpdatedAt: Date.now(),
+              settings: { ...evt.settings, eventLifecycleStatus: status },
+            }
             : evt,
         ),
       );
@@ -2809,17 +2806,17 @@ export default function Home() {
 
   const hasKeyCeremonySongs = Boolean(
     weddingPartyProcessional.title.trim() &&
-      brideGroomProcessional.title.trim() &&
-      recessionalSong.title.trim(),
+    brideGroomProcessional.title.trim() &&
+    recessionalSong.title.trim(),
   );
   const hasKeyFormalDanceSongs = Boolean(
     timelineItems.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
-      timelineItems.some(
-        (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
-      ) &&
-      timelineItems.some(
-        (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
-      ),
+    timelineItems.some(
+      (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+    ) &&
+    timelineItems.some(
+      (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+    ),
   );
   const combinedTimelineTitles = timelineItems.map((item) => item.title.toLowerCase());
   const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every(
@@ -2829,9 +2826,9 @@ export default function Home() {
   const hasFinalDjNotes = Boolean(generalDjNotes.trim().length >= 16);
   const hasEventDetailsComplete = Boolean(
     eventSettings.eventName.trim() &&
-      eventSettings.coupleNames.trim() &&
-      eventSettings.venue.trim() &&
-      eventSettings.weddingDate.trim(),
+    eventSettings.coupleNames.trim() &&
+    eventSettings.venue.trim() &&
+    eventSettings.weddingDate.trim(),
   );
 
   const checklistTasks = useMemo(() => {
@@ -2905,23 +2902,23 @@ export default function Home() {
       },
     ];
   }, [
-      hasEventDetailsComplete,
-      hasKeyCeremonySongs,
-      hasKeyFormalDanceSongs,
-      hasKeyTimelineMoments,
-      hasFinalDjNotes,
-      mustPlaySongs.length,
-      playIfPossibleSongs.length,
-      musicPlaylistLinks.length,
-      musicGenreEraSelections.length,
-      musicTasteProfile,
-      playlistVibeOverrides,
-      doNotPlaySongs.length,
-      guestRequests,
-      noPendingGuestRequests,
-      receptionHubEligibleNav,
-      sectionReceptionTimelineEnabled,
-    ],
+    hasEventDetailsComplete,
+    hasKeyCeremonySongs,
+    hasKeyFormalDanceSongs,
+    hasKeyTimelineMoments,
+    hasFinalDjNotes,
+    mustPlaySongs.length,
+    playIfPossibleSongs.length,
+    musicPlaylistLinks.length,
+    musicGenreEraSelections.length,
+    musicTasteProfile,
+    playlistVibeOverrides,
+    doNotPlaySongs.length,
+    guestRequests,
+    noPendingGuestRequests,
+    receptionHubEligibleNav,
+    sectionReceptionTimelineEnabled,
+  ],
   );
 
   const planningChecklist = checklistTasks.map((task) => {
@@ -2933,7 +2930,7 @@ export default function Home() {
 
   const completionPercent = Math.round(
     (planningChecklist.filter((item) => item.status === "Complete").length / planningChecklist.length) *
-      100,
+    100,
   );
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
@@ -3110,94 +3107,94 @@ export default function Home() {
       onClick: () => void;
       priority: number;
     }> = [
-      {
-        id: "add-song",
-        label: "Add Song",
-        visible: appMode === "event" && canManageMusic,
-        onClick: () => {
-          setActiveScreen("Music Hub");
-          setNewSongListType("mustPlay");
+        {
+          id: "add-song",
+          label: "Add Song",
+          visible: appMode === "event" && canManageMusic,
+          onClick: () => {
+            setActiveScreen("Music Hub");
+            setNewSongListType("mustPlay");
+          },
+          priority: activeScreen === "Music Hub" ? 100 : 40,
         },
-        priority: activeScreen === "Music Hub" ? 100 : 40,
-      },
-      {
-        id: "add-timeline",
-        label: "Add Timeline Item",
-        visible: appMode === "event" && canEditTimeline,
-        onClick: () => {
-          const timelineScreen: Screen =
-            isCoupleView &&
-            receptionHubEligibleNav &&
-            sectionReceptionTimelineEnabled
-              ? "Reception Timeline"
-              : "Timeline";
-          setActiveScreen(timelineScreen);
-          setTimelineTitle("");
-          setTimelineTime("");
-          setTimelineCategory("Ceremony");
-          setTimelineNotes("");
-          setTimelineSongTitle("");
-          setTimelineArtist("");
-          setTimelineComposerError(null);
-          setTimelineNeedsAttention(false);
-          setEditingTimelineId(null);
-          setTimelineComposerOpen(true);
-          window.setTimeout(() => {
-            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 0);
+        {
+          id: "add-timeline",
+          label: "Add Timeline Item",
+          visible: appMode === "event" && canEditTimeline,
+          onClick: () => {
+            const timelineScreen: Screen =
+              isCoupleView &&
+                receptionHubEligibleNav &&
+                sectionReceptionTimelineEnabled
+                ? "Reception Timeline"
+                : "Timeline";
+            setActiveScreen(timelineScreen);
+            setTimelineTitle("");
+            setTimelineTime("");
+            setTimelineCategory("Ceremony");
+            setTimelineNotes("");
+            setTimelineSongTitle("");
+            setTimelineArtist("");
+            setTimelineComposerError(null);
+            setTimelineNeedsAttention(false);
+            setEditingTimelineId(null);
+            setTimelineComposerOpen(true);
+            window.setTimeout(() => {
+              timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }, 0);
+          },
+          priority:
+            activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 39,
         },
-        priority:
-          activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 39,
-      },
-      {
-        id: "add-guest-request",
-        label: "Add Guest Request",
-        visible: appMode === "event" && canManageGuestRequests,
-        onClick: () => {
-          setActiveScreen("Guest Requests");
-          setGuestRequestView("guest");
+        {
+          id: "add-guest-request",
+          label: "Add Guest Request",
+          visible: appMode === "event" && canManageGuestRequests,
+          onClick: () => {
+            setActiveScreen("Guest Requests");
+            setGuestRequestView("guest");
+          },
+          priority: activeScreen === "Guest Requests" ? 100 : 37,
         },
-        priority: activeScreen === "Guest Requests" ? 100 : 37,
-      },
-      {
-        id: "invite-team-member",
-        label: "Invite to app",
-        visible: appMode === "event" && canInviteCollaborators,
-        onClick: () => {
-          setActiveScreen("Event Team");
-          window.setTimeout(() => setInviteModalOpen(true), 0);
+        {
+          id: "invite-team-member",
+          label: "Invite to app",
+          visible: appMode === "event" && canInviteCollaborators,
+          onClick: () => {
+            setActiveScreen("Event Team");
+            window.setTimeout(() => setInviteModalOpen(true), 0);
+          },
+          priority: 30,
         },
-        priority: 30,
-      },
-      {
-        id: "create-event",
-        label: "Create Event",
-        visible: canManageEvents,
-        onClick: () => {
-          setAppMode("events");
-          setActiveScreen("All Events");
-          setEventModalMode("new");
-          setEventEditingId(null);
-          setEventDraft({
-            eventName: "",
-            coupleNames: "",
-            eventType: effectiveEventType,
-            eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
-            weddingDate: "",
-            venue: "",
-            ceremonyLocation: "",
-            receptionLocation: "",
-            assignedDj: "",
-            packageName: "",
-            plannerName: "",
-            plannerEmail: "",
-            internalNotes: "",
-          });
-          setEventModalOpen(true);
+        {
+          id: "create-event",
+          label: "Create Event",
+          visible: canManageEvents,
+          onClick: () => {
+            setAppMode("events");
+            setActiveScreen("All Events");
+            setEventModalMode("new");
+            setEventEditingId(null);
+            setEventDraft({
+              eventName: "",
+              coupleNames: "",
+              eventType: effectiveEventType,
+              eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
+              weddingDate: "",
+              venue: "",
+              ceremonyLocation: "",
+              receptionLocation: "",
+              assignedDj: "",
+              packageName: "",
+              plannerName: "",
+              plannerEmail: "",
+              internalNotes: "",
+            });
+            setEventModalOpen(true);
+          },
+          priority: 20,
         },
-        priority: 20,
-      },
-    ];
+      ];
     return actions.filter((a) => a.visible).sort((a, b) => b.priority - a.priority);
   }, [
     activeScreen,
@@ -3381,7 +3378,7 @@ export default function Home() {
           !evt.settings?.venue?.trim(),
           !evt.settings?.weddingDate?.trim(),
           (evt.settings?.sectionMustPlayEnabled || evt.settings?.sectionPlaylistsEnabled) &&
-            !evtMusicTaste,
+          !evtMusicTaste,
           evt.timelineItems.length === 0,
         ].filter(Boolean).length;
         return { evt, pendingGuestRequests, incompleteChecklistCount };
@@ -3465,14 +3462,14 @@ export default function Home() {
       prev.map((member) =>
         member.id === teamEditingId
           ? {
-              ...member,
-              name,
-              role: teamRoleDraft,
-              email,
-              phone: teamPhoneDraft.trim(),
-              notes: teamNotesDraft.trim(),
-              isActive: teamActiveDraft,
-            }
+            ...member,
+            name,
+            role: teamRoleDraft,
+            email,
+            phone: teamPhoneDraft.trim(),
+            notes: teamNotesDraft.trim(),
+            isActive: teamActiveDraft,
+          }
           : member,
       ),
     );
@@ -3487,20 +3484,20 @@ export default function Home() {
       typeof window === "undefined"
         ? true
         : window.confirm(
-            `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
-          );
+          `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
+        );
     if (!ok) return;
     setTeamMembers((prev) => prev.filter((member) => member.id !== teamMemberId));
     setEvents((prev) =>
       prev.map((evt) =>
         evt.settings.assignedDj === teamMemberId
           ? {
-              ...evt,
-              settings: {
-                ...evt.settings,
-                assignedDj: "",
-              },
-            }
+            ...evt,
+            settings: {
+              ...evt.settings,
+              assignedDj: "",
+            },
+          }
           : evt,
       ),
     );
@@ -3621,10 +3618,10 @@ export default function Home() {
       prev.map((e) =>
         e.id === activeEventId
           ? {
-              ...e,
-              lastUpdatedAt: Date.now(),
-              settings: { ...e.settings, assignedDj: "" },
-            }
+            ...e,
+            lastUpdatedAt: Date.now(),
+            settings: { ...e.settings, assignedDj: "" },
+          }
           : e,
       ),
     );
@@ -3688,9 +3685,9 @@ export default function Home() {
       prev.map((evt) =>
         evt.id === activeEventId
           ? {
-              ...evt,
-              vendors: nextVendors,
-            }
+            ...evt,
+            vendors: nextVendors,
+          }
           : evt,
       ),
     );
@@ -4034,9 +4031,9 @@ export default function Home() {
       const completion = !hasAny
         ? 28
         : Math.min(
-            100,
-            38 + Math.min(v, 5) * 11 + Math.min(collabs.length, 5) * 9 + (pend > 0 ? -6 : 0),
-          );
+          100,
+          38 + Math.min(v, 5) * 11 + Math.min(collabs.length, 5) * 9 + (pend > 0 ? -6 : 0),
+        );
       const statParts: string[] = [];
       if (sectionVendorContactsEnabled) {
         statParts.push(`${v} day-of contact${v === 1 ? "" : "s"}`);
@@ -4642,11 +4639,11 @@ export default function Home() {
     const loadDatabaseEvents = async () => {
       try {
         const databaseEvents = await getDatabaseEvents();
-  
+
         if (!databaseEvents.length) {
           return;
         }
-  
+
         const hydratedEvents: EventRecord[] = databaseEvents.map((dbEvent) => {
           const seededEvent = buildEventFromTemplate(
             {
@@ -4662,7 +4659,7 @@ export default function Home() {
               collaboratorId: `col-${dbEvent.id}`,
             },
           );
-  
+
           seededEvent.settings = {
             ...seededEvent.settings,
             eventName: dbEvent.title,
@@ -4673,7 +4670,7 @@ export default function Home() {
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
           };
-  
+
           seededEvent.meta = {
             couple: dbEvent.title,
             date: dbEvent.date
@@ -4681,16 +4678,16 @@ export default function Home() {
               : "",
             venue: dbEvent.venue || "",
           };
-  
+
           return seededEvent;
         });
-  
+
         setEvents(hydratedEvents);
       } catch (error) {
         console.error("Failed to load database events:", error);
       }
     };
-  
+
     loadDatabaseEvents();
   }, []);
 
@@ -4786,8 +4783,8 @@ export default function Home() {
             typeof evt.settings?.liveEventShowGuestRequests === "boolean"
               ? evt.settings.liveEventShowGuestRequests
               : getLiveEventDocumentDefaults(
-                  (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
-                ).liveEventShowGuestRequests,
+                (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+              ).liveEventShowGuestRequests,
           liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
           liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
           sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
@@ -4892,47 +4889,47 @@ export default function Home() {
       recvDraft === null
         ? timelineItems
         : timelineItems.map((t) =>
-            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
-          );
+          t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+        );
     const cerDraft = ceremonyTimelineInlineEditDraft;
     const ceremonyForStore =
       cerDraft === null
         ? ceremonyTimelineItems
         : ceremonyTimelineItems.map((t) =>
-            t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
-          );
+          t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+        );
 
     const payloadEvents = events.map((e) =>
       e.id === activeEventId
         ? {
-            ...e,
-            timelineItems: timelineForStore,
-            ceremonyTimelineItems: ceremonyForStore,
-            formalities: [],
-            mustPlaySongs,
-            doNotPlaySongs,
-            playIfPossibleSongs,
-            musicPlaylistLinks,
-            musicGenreEraSelections,
-            ceremonyStartTime,
-            ceremonyGuestArrivalTime,
-            officiantName,
-            ceremonyNotes,
-            microphoneNeeds,
-            weddingPartyProcessional,
-            brideGroomProcessional,
-            unityCeremonySong,
-            recessionalSong,
-            plannerNotes,
-            vendors,
-            guestRequests,
-            generalDjNotes,
-            playlistVibeOverrides,
-            musicVibeDetail,
-            musicTasteProfile: cloneJson(musicTasteProfile),
-            mcAnnouncements,
-            settings: eventSettings,
-          }
+          ...e,
+          timelineItems: timelineForStore,
+          ceremonyTimelineItems: ceremonyForStore,
+          formalities: [],
+          mustPlaySongs,
+          doNotPlaySongs,
+          playIfPossibleSongs,
+          musicPlaylistLinks,
+          musicGenreEraSelections,
+          ceremonyStartTime,
+          ceremonyGuestArrivalTime,
+          officiantName,
+          ceremonyNotes,
+          microphoneNeeds,
+          weddingPartyProcessional,
+          brideGroomProcessional,
+          unityCeremonySong,
+          recessionalSong,
+          plannerNotes,
+          vendors,
+          guestRequests,
+          generalDjNotes,
+          playlistVibeOverrides,
+          musicVibeDetail,
+          musicTasteProfile: cloneJson(musicTasteProfile),
+          mcAnnouncements,
+          settings: eventSettings,
+        }
         : e,
     );
 
@@ -5195,33 +5192,33 @@ export default function Home() {
       events.map((e) =>
         e.id === activeEventId
           ? {
-              ...e,
-              timelineItems,
-              ceremonyTimelineItems,
-              formalities: [],
-              mustPlaySongs,
-              doNotPlaySongs,
-              playIfPossibleSongs,
-              musicPlaylistLinks,
-              musicGenreEraSelections,
-              ceremonyStartTime,
-              ceremonyGuestArrivalTime,
-              officiantName,
-              ceremonyNotes,
-              microphoneNeeds,
-              weddingPartyProcessional,
-              brideGroomProcessional,
-              unityCeremonySong,
-              recessionalSong,
-              plannerNotes,
-              guestRequests,
-              generalDjNotes,
-              playlistVibeOverrides,
-              musicVibeDetail,
-              musicTasteProfile: cloneJson(musicTasteProfile),
-              mcAnnouncements,
-              settings: eventSettings,
-            }
+            ...e,
+            timelineItems,
+            ceremonyTimelineItems,
+            formalities: [],
+            mustPlaySongs,
+            doNotPlaySongs,
+            playIfPossibleSongs,
+            musicPlaylistLinks,
+            musicGenreEraSelections,
+            ceremonyStartTime,
+            ceremonyGuestArrivalTime,
+            officiantName,
+            ceremonyNotes,
+            microphoneNeeds,
+            weddingPartyProcessional,
+            brideGroomProcessional,
+            unityCeremonySong,
+            recessionalSong,
+            plannerNotes,
+            guestRequests,
+            generalDjNotes,
+            playlistVibeOverrides,
+            musicVibeDetail,
+            musicTasteProfile: cloneJson(musicTasteProfile),
+            mcAnnouncements,
+            settings: eventSettings,
+          }
           : e,
       ),
     [
@@ -5369,8 +5366,8 @@ export default function Home() {
           typeof evt.settings?.liveEventShowGuestRequests === "boolean"
             ? evt.settings.liveEventShowGuestRequests
             : getLiveEventDocumentDefaults(
-                (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
-              ).liveEventShowGuestRequests,
+              (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+            ).liveEventShowGuestRequests,
         liveEventCompactMode: evt.settings?.liveEventCompactMode ?? false,
         liveEventLargePrintMode: evt.settings?.liveEventLargePrintMode ?? false,
         sectionCeremonyEnabled: evt.settings?.sectionCeremonyEnabled ?? true,
@@ -5411,13 +5408,13 @@ export default function Home() {
     setTemplates(
       Array.isArray(payload.templates)
         ? payload.templates.map((tpl) => ({
-            ...tpl,
-            timelineItems: migrateFormalitiesIntoTimelineItems(
-              tpl.timelineItems ?? [],
-              tpl.formalities ?? [],
-            ),
-            formalities: [],
-          }))
+          ...tpl,
+          timelineItems: migrateFormalitiesIntoTimelineItems(
+            tpl.timelineItems ?? [],
+            tpl.formalities ?? [],
+          ),
+          formalities: [],
+        }))
         : [],
     );
     setTeamMembers(Array.isArray(payload.teamMembers) ? payload.teamMembers : []);
@@ -5732,15 +5729,15 @@ export default function Home() {
         prev.map((item) =>
           item.id === editingTimelineId
             ? {
-                ...item,
-                title: cleanTitle,
-                time: cleanTime,
-                category: timelineCategory,
-                notes: timelineNotes.trim(),
-                songTitle: cleanSong,
-                artist: cleanArtist,
-                needsDjMcAttention: timelineNeedsAttention,
-              }
+              ...item,
+              title: cleanTitle,
+              time: cleanTime,
+              category: timelineCategory,
+              notes: timelineNotes.trim(),
+              songTitle: cleanSong,
+              artist: cleanArtist,
+              needsDjMcAttention: timelineNeedsAttention,
+            }
             : item,
         ),
       );
@@ -7236,11 +7233,11 @@ export default function Home() {
           setRunOfShowAnnotationStrokes(
             Array.isArray(ann)
               ? ann.filter(
-                  (s) =>
-                    s &&
-                    Array.isArray(s.points) &&
-                    s.points.every((p) => typeof p.x === "number" && typeof p.y === "number"),
-                )
+                (s) =>
+                  s &&
+                  Array.isArray(s.points) &&
+                  s.points.every((p) => typeof p.x === "number" && typeof p.y === "number"),
+              )
               : [],
           );
         }
@@ -7472,8 +7469,8 @@ export default function Home() {
               appMode === "events"
                 ? navLabel(activeScreen)
                 : appMode === "event" &&
-                    (currentRole ?? rolePreview) === "Couple" &&
-                    activeScreen === "Dashboard"
+                  (currentRole ?? rolePreview) === "Couple" &&
+                  activeScreen === "Dashboard"
                   ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
                   : screenTitle
             }
@@ -7512,11 +7509,10 @@ export default function Home() {
               <PrimaryButton
                 key={`desktop-nav-${item}`}
                 onClick={() => setActiveScreen(item)}
-                className={`w-full justify-start rounded-xl border px-3 text-left ${
-                  shellNavActiveScreen === item
-                    ? "border-black bg-[#00D4FF] font-semibold text-black shadow-none"
-                    : "border-stone-300 bg-white text-stone-800 hover:border-stone-900 hover:bg-stone-50"
-                }`}
+                className={`w-full justify-start rounded-xl border px-3 text-left ${shellNavActiveScreen === item
+                  ? "border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                  : "border-stone-300 bg-white text-stone-800 hover:border-stone-900 hover:bg-stone-50"
+                  }`}
               >
                 {navLabel(item)}
               </PrimaryButton>
@@ -7525,19 +7521,18 @@ export default function Home() {
         </aside>
       )}
       <main
-        className={`mx-auto w-full max-w-full overflow-x-hidden px-5 pb-36 pt-6 transition-all max-lg:pb-40 sm:px-6 lg:pb-10 ${
-          showDesktopSidebar
-            ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-8"
-            : "max-w-6xl"
-        }`}
+        className={`mx-auto w-full max-w-full overflow-x-hidden px-5 pb-36 pt-6 transition-all max-lg:pb-40 sm:px-6 lg:pb-10 ${showDesktopSidebar
+          ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-8"
+          : "max-w-6xl"
+          }`}
       >
         <AppHeader
           screenTitle={
             appMode === "events"
               ? navLabel(activeScreen)
               : appMode === "event" &&
-                  (currentRole ?? rolePreview) === "Couple" &&
-                  activeScreen === "Dashboard"
+                (currentRole ?? rolePreview) === "Couple" &&
+                activeScreen === "Dashboard"
                 ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
                 : screenTitle
           }
@@ -7565,11 +7560,10 @@ export default function Home() {
                     key={`perspective-${role}`}
                     type="button"
                     onClick={() => switchPerspectiveRole(role)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] ${
-                      (currentRole ?? rolePreview) === role
-                        ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
-                        : "border border-stone-300 bg-white font-medium text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
-                    }`}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] ${(currentRole ?? rolePreview) === role
+                      ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                      : "border border-stone-300 bg-white font-medium text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
+                      }`}
                   >
                     {perspectiveRoleLabel(role)}
                   </PrimaryButton>
@@ -7590,23 +7584,23 @@ export default function Home() {
                 </p>
               )}
               <div className="flex items-center gap-2">
-              <PrimaryButton
-                onClick={() => setActiveScreen("Notification Center")}
-                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-              >
-                Notifications
-                {unreadBadgeCount > 0 && (
-                  <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
-                    {unreadBadgeCount}
-                  </span>
-                )}
-              </PrimaryButton>
-              <PrimaryButton
-                onClick={() => setAuthStage("login")}
-                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-              >
-                Sign out
-              </PrimaryButton>
+                <PrimaryButton
+                  onClick={() => setActiveScreen("Notification Center")}
+                  className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                >
+                  Notifications
+                  {unreadBadgeCount > 0 && (
+                    <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
+                      {unreadBadgeCount}
+                    </span>
+                  )}
+                </PrimaryButton>
+                <PrimaryButton
+                  onClick={() => setAuthStage("login")}
+                  className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                >
+                  Sign out
+                </PrimaryButton>
               </div>
             </div>
           </div>
@@ -7820,11 +7814,10 @@ export default function Home() {
                         <PrimaryButton
                           key={`settings-side-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
-                          className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] font-medium ${
-                            activeGlobalSettingsSection === section
-                              ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
-                              : "bg-transparent text-stone-700 hover:bg-stone-100"
-                          }`}
+                          className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] font-medium ${activeGlobalSettingsSection === section
+                            ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
+                            : "bg-transparent text-stone-700 hover:bg-stone-100"
+                            }`}
                         >
                           {section}
                         </PrimaryButton>
@@ -7840,11 +7833,10 @@ export default function Home() {
                         <PrimaryButton
                           key={`settings-tab-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
-                          className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
-                            activeGlobalSettingsSection === section
-                              ? "border-cyan-500/40 bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
-                              : "border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50"
-                          }`}
+                          className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${activeGlobalSettingsSection === section
+                            ? "border-cyan-500/40 bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
+                            : "border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50"
+                            }`}
                         >
                           {section}
                         </PrimaryButton>
@@ -7852,762 +7844,759 @@ export default function Home() {
                     </div>
                   </div>
 
-              {activeGlobalSettingsSection === "Event Types" && (
-                <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-stone-950">Event Types</SectionTitle>
-                  <TextInput
-                    id="global-event-type"
-                    label="Default Event Type"
-                    value={appSettings.defaultEventType}
-                    onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventType: value }))}
-                    disabled={!canManageEvents}
-                  />
-                  <div className="space-y-2">
-                    {EVENT_TYPES.map((profile) => {
-                      const defaults = getLayoutProfileDefaults(profile);
-                      return (
-                        <div key={`etype-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
-                          <p className="text-sm font-semibold text-stone-950">{profile}</p>
-                          <p className="mt-1 text-xs text-stone-600">
-                            {LAYOUT_PROFILE_DESCRIPTIONS[profile]}
-                          </p>
-                          <p className="mt-2 text-[11px] text-stone-600">
-                            Default sections: {getEnabledSectionLabels(profile, defaults).join(", ")}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                  {activeGlobalSettingsSection === "Event Types" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Event Types</SectionTitle>
+                      <TextInput
+                        id="global-event-type"
+                        label="Default Event Type"
+                        value={appSettings.defaultEventType}
+                        onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventType: value }))}
+                        disabled={!canManageEvents}
+                      />
+                      <div className="space-y-2">
+                        {EVENT_TYPES.map((profile) => {
+                          const defaults = getLayoutProfileDefaults(profile);
+                          return (
+                            <div key={`etype-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                              <p className="text-sm font-semibold text-stone-950">{profile}</p>
+                              <p className="mt-1 text-xs text-stone-600">
+                                {LAYOUT_PROFILE_DESCRIPTIONS[profile]}
+                              </p>
+                              <p className="mt-2 text-[11px] text-stone-600">
+                                Default sections: {getEnabledSectionLabels(profile, defaults).join(", ")}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-              {activeGlobalSettingsSection === "Planning Questions" && (
-                <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-stone-950">Planning Question Sets</SectionTitle>
-                  <p className="text-xs leading-relaxed text-stone-600">
-                    Customize planning questions by Event Type. Existing event answers remain saved even if questions are hidden or removed.
-                  </p>
-                  {EVENT_TYPES.map((profile) => {
-                    const questions = planningQuestionSetsForSettings[profile] ?? [];
-                    return (
-                      <div key={`pqset-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm font-semibold text-stone-950">{profile}</p>
-                          <div className="flex gap-2">
-                            <PrimaryButton
-                              onClick={() => addPlanningQuestionToSet(profile)}
-                              disabled={!canManageEvents}
-                              className="rounded-lg bg-[#00D4FF] px-2 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
-                            >
-                              Add Question
-                            </PrimaryButton>
-                            <PrimaryButton
-                              onClick={() => resetPlanningQuestionSet(profile)}
-                              disabled={!canManageEvents}
-                              className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-100 disabled:opacity-50"
-                            >
-                              Reset Defaults
-                            </PrimaryButton>
-                          </div>
-                        </div>
-                        <p className="mt-1 text-[11px] text-stone-600">
-                          Default set: {getPlanningQuestionsForProfile(profile).length} questions · Current set: {questions.length}
-                        </p>
-                        <div className="mt-3 space-y-2">
-                          {questions.map((question, index) => (
-                            <div key={`pq-row-${profile}-${question.id}`} className="rounded-lg border border-stone-200 bg-white p-2.5">
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <TextInput
-                                  id={`pq-label-${profile}-${question.id}`}
-                                  label="Question Label"
-                                  value={question.label}
-                                  onChange={(value) =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id ? { ...item, label: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                                <TextInput
-                                  id={`pq-help-${profile}-${question.id}`}
-                                  label="Help Text / Description"
-                                  value={question.helpText ?? ""}
-                                  onChange={(value) =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id ? { ...item, helpText: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                                <div>
-                                  <label className={lightUiFormLabelClass}>Answer Type</label>
-                                  <select
-                                    value={question.answerType}
-                                    onChange={(event) =>
-                                      updatePlanningQuestionSet(profile, (items) =>
-                                        items.map((item) =>
-                                          item.id === question.id
-                                            ? { ...item, answerType: event.target.value as PlanningQuestionAnswerType }
-                                            : item,
-                                        ),
-                                      )
-                                    }
-                                    disabled={!canManageEvents}
-                                    className={lightUiSelectClass}
-                                  >
-                                    {QUESTION_ANSWER_TYPES.map((type) => (
-                                      <option key={`pq-type-${type.value}`} value={type.value} className="bg-white text-stone-900">
-                                        {type.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <TextInput
-                                  id={`pq-placeholder-${profile}-${question.id}`}
-                                  label="Placeholder"
-                                  value={question.placeholder ?? ""}
-                                  onChange={(value) =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id ? { ...item, placeholder: value } : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                              </div>
-                              {question.answerType === "multiple_choice" && (
-                                <TextInput
-                                  id={`pq-options-${profile}-${question.id}`}
-                                  label="Multiple Choice Options (comma-separated)"
-                                  value={(question.options ?? []).join(", ")}
-                                  onChange={(value) =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id
-                                          ? {
-                                              ...item,
-                                              options: value
-                                                .split(",")
-                                                .map((part) => part.trim())
-                                                .filter(Boolean),
-                                            }
-                                          : item,
-                                      ),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                />
-                              )}
-                              <div className="mt-2 flex flex-wrap gap-2">
+                  {activeGlobalSettingsSection === "Planning Questions" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Planning Question Sets</SectionTitle>
+                      <p className="text-xs leading-relaxed text-stone-600">
+                        Customize planning questions by Event Type. Existing event answers remain saved even if questions are hidden or removed.
+                      </p>
+                      {EVENT_TYPES.map((profile) => {
+                        const questions = planningQuestionSetsForSettings[profile] ?? [];
+                        return (
+                          <div key={`pqset-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-sm font-semibold text-stone-950">{profile}</p>
+                              <div className="flex gap-2">
                                 <PrimaryButton
-                                  onClick={() =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id ? { ...item, required: !item.required } : item,
-                                      ),
-                                    )
-                                  }
+                                  onClick={() => addPlanningQuestionToSet(profile)}
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.required ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                  className="rounded-lg bg-[#00D4FF] px-2 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
                                 >
-                                  {question.required ? "Required" : "Optional"}
+                                  Add Question
                                 </PrimaryButton>
                                 <PrimaryButton
-                                  onClick={() =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.map((item) =>
-                                        item.id === question.id
-                                          ? { ...item, showInLiveEventMode: !item.showInLiveEventMode }
-                                          : item,
-                                      ),
-                                    )
-                                  }
+                                  onClick={() => resetPlanningQuestionSet(profile)}
                                   disabled={!canManageEvents}
-                                  className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.showInLiveEventMode ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                  className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-100 disabled:opacity-50"
                                 >
-                                  {question.showInLiveEventMode ? "Shown in Event Document" : "Hidden in Event Document"}
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  onClick={() =>
-                                    updatePlanningQuestionSet(profile, (items) => {
-                                      if (index === 0) return items;
-                                      const next = [...items];
-                                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                                      return next;
-                                    })
-                                  }
-                                  disabled={!canManageEvents || index === 0}
-                                  className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
-                                >
-                                  Move Up
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  onClick={() =>
-                                    updatePlanningQuestionSet(profile, (items) => {
-                                      if (index >= items.length - 1) return items;
-                                      const next = [...items];
-                                      [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                                      return next;
-                                    })
-                                  }
-                                  disabled={!canManageEvents || index >= questions.length - 1}
-                                  className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
-                                >
-                                  Move Down
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  onClick={() =>
-                                    updatePlanningQuestionSet(profile, (items) =>
-                                      items.filter((item) => item.id !== question.id),
-                                    )
-                                  }
-                                  disabled={!canManageEvents}
-                                  className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
-                                >
-                                  Delete
+                                  Reset Defaults
                                 </PrimaryButton>
                               </div>
                             </div>
-                          ))}
-                          {questions.length === 0 && (
-                            <p className="text-xs text-stone-600">No questions configured. Add your first question for this Event Type.</p>
-                          )}
+                            <p className="mt-1 text-[11px] text-stone-600">
+                              Default set: {getPlanningQuestionsForProfile(profile).length} questions · Current set: {questions.length}
+                            </p>
+                            <div className="mt-3 space-y-2">
+                              {questions.map((question, index) => (
+                                <div key={`pq-row-${profile}-${question.id}`} className="rounded-lg border border-stone-200 bg-white p-2.5">
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <TextInput
+                                      id={`pq-label-${profile}-${question.id}`}
+                                      label="Question Label"
+                                      value={question.label}
+                                      onChange={(value) =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id ? { ...item, label: value } : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                    />
+                                    <TextInput
+                                      id={`pq-help-${profile}-${question.id}`}
+                                      label="Help Text / Description"
+                                      value={question.helpText ?? ""}
+                                      onChange={(value) =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id ? { ...item, helpText: value } : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                    />
+                                    <div>
+                                      <label className={lightUiFormLabelClass}>Answer Type</label>
+                                      <select
+                                        value={question.answerType}
+                                        onChange={(event) =>
+                                          updatePlanningQuestionSet(profile, (items) =>
+                                            items.map((item) =>
+                                              item.id === question.id
+                                                ? { ...item, answerType: event.target.value as PlanningQuestionAnswerType }
+                                                : item,
+                                            ),
+                                          )
+                                        }
+                                        disabled={!canManageEvents}
+                                        className={lightUiSelectClass}
+                                      >
+                                        {QUESTION_ANSWER_TYPES.map((type) => (
+                                          <option key={`pq-type-${type.value}`} value={type.value} className="bg-white text-stone-900">
+                                            {type.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <TextInput
+                                      id={`pq-placeholder-${profile}-${question.id}`}
+                                      label="Placeholder"
+                                      value={question.placeholder ?? ""}
+                                      onChange={(value) =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id ? { ...item, placeholder: value } : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                    />
+                                  </div>
+                                  {question.answerType === "multiple_choice" && (
+                                    <TextInput
+                                      id={`pq-options-${profile}-${question.id}`}
+                                      label="Multiple Choice Options (comma-separated)"
+                                      value={(question.options ?? []).join(", ")}
+                                      onChange={(value) =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id
+                                              ? {
+                                                ...item,
+                                                options: value
+                                                  .split(",")
+                                                  .map((part) => part.trim())
+                                                  .filter(Boolean),
+                                              }
+                                              : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                    />
+                                  )}
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <PrimaryButton
+                                      onClick={() =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id ? { ...item, required: !item.required } : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.required ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                    >
+                                      {question.required ? "Required" : "Optional"}
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      onClick={() =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.map((item) =>
+                                            item.id === question.id
+                                              ? { ...item, showInLiveEventMode: !item.showInLiveEventMode }
+                                              : item,
+                                          ),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.showInLiveEventMode ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                    >
+                                      {question.showInLiveEventMode ? "Shown in Event Document" : "Hidden in Event Document"}
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      onClick={() =>
+                                        updatePlanningQuestionSet(profile, (items) => {
+                                          if (index === 0) return items;
+                                          const next = [...items];
+                                          [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                          return next;
+                                        })
+                                      }
+                                      disabled={!canManageEvents || index === 0}
+                                      className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
+                                    >
+                                      Move Up
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      onClick={() =>
+                                        updatePlanningQuestionSet(profile, (items) => {
+                                          if (index >= items.length - 1) return items;
+                                          const next = [...items];
+                                          [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                          return next;
+                                        })
+                                      }
+                                      disabled={!canManageEvents || index >= questions.length - 1}
+                                      className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-40"
+                                    >
+                                      Move Down
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      onClick={() =>
+                                        updatePlanningQuestionSet(profile, (items) =>
+                                          items.filter((item) => item.id !== question.id),
+                                        )
+                                      }
+                                      disabled={!canManageEvents}
+                                      className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-950 shadow-sm hover:bg-rose-100/90 disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </PrimaryButton>
+                                  </div>
+                                </div>
+                              ))}
+                              {questions.length === 0 && (
+                                <p className="text-xs text-stone-600">No questions configured. Add your first question for this Event Type.</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {activeGlobalSettingsSection === "Timeline Presets" && (
+                    <div className="mt-4 space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <SectionTitle className="text-stone-950">Timeline Presets</SectionTitle>
+                          <p className="max-w-xl text-xs leading-relaxed text-stone-600">
+                            One modular card per Event Type. Collapsed cards show a compact flow preview; expand to add,
+                            reorder, or refine moments. Defaults apply to new events and “Apply presets” actions.
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <PrimaryButton
+                            type="button"
+                            onClick={() =>
+                              setTimelinePresetExpandedByProfile(
+                                EVENT_TYPES.reduce<Partial<Record<EventLayoutProfile, boolean>>>((acc, p) => {
+                                  acc[p] = true;
+                                  return acc;
+                                }, {}),
+                              )
+                            }
+                            className={lightUiSecondaryButtonClass}
+                          >
+                            Expand all
+                          </PrimaryButton>
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => setTimelinePresetExpandedByProfile({})}
+                            className={lightUiSecondaryButtonClass}
+                          >
+                            Collapse all
+                          </PrimaryButton>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
 
-              {activeGlobalSettingsSection === "Timeline Presets" && (
-                <div className="mt-4 space-y-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 space-y-1">
-                      <SectionTitle className="text-stone-950">Timeline Presets</SectionTitle>
-                      <p className="max-w-xl text-xs leading-relaxed text-stone-600">
-                        One modular card per Event Type. Collapsed cards show a compact flow preview; expand to add,
-                        reorder, or refine moments. Defaults apply to new events and “Apply presets” actions.
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <PrimaryButton
-                        type="button"
-                        onClick={() =>
-                          setTimelinePresetExpandedByProfile(
-                            EVENT_TYPES.reduce<Partial<Record<EventLayoutProfile, boolean>>>((acc, p) => {
-                              acc[p] = true;
-                              return acc;
-                            }, {}),
-                          )
-                        }
-                        className={lightUiSecondaryButtonClass}
-                      >
-                        Expand all
-                      </PrimaryButton>
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => setTimelinePresetExpandedByProfile({})}
-                        className={lightUiSecondaryButtonClass}
-                      >
-                        Collapse all
-                      </PrimaryButton>
-                    </div>
-                  </div>
+                      <div className="space-y-4 sm:space-y-3">
+                        {EVENT_TYPES.map((profile) => {
+                          const presets = timelinePresetSetsForSettings[profile] ?? [];
+                          const defaultCount = (getDefaultTimelinePresetSets()[profile] ?? []).length;
+                          const expanded = timelinePresetExpandedByProfile[profile] === true;
+                          const ceremonyCount = presets.filter((p) => p.timelineType === "ceremony").length;
+                          const mainCount = presets.filter((p) => p.timelineType === "main").length;
+                          const previewLabels = presets.map((p) => p.momentName.trim()).filter(Boolean);
+                          const previewLine =
+                            previewLabels.length === 0
+                              ? "No moments yet — expand to add."
+                              : `${previewLabels.slice(0, 6).join(" → ")}${previewLabels.length > 6 ? " → …" : ""}`;
 
-                  <div className="space-y-4 sm:space-y-3">
-                    {EVENT_TYPES.map((profile) => {
-                      const presets = timelinePresetSetsForSettings[profile] ?? [];
-                      const defaultCount = (getDefaultTimelinePresetSets()[profile] ?? []).length;
-                      const expanded = timelinePresetExpandedByProfile[profile] === true;
-                      const ceremonyCount = presets.filter((p) => p.timelineType === "ceremony").length;
-                      const mainCount = presets.filter((p) => p.timelineType === "main").length;
-                      const previewLabels = presets.map((p) => p.momentName.trim()).filter(Boolean);
-                      const previewLine =
-                        previewLabels.length === 0
-                          ? "No moments yet — expand to add."
-                          : `${previewLabels.slice(0, 6).join(" → ")}${previewLabels.length > 6 ? " → …" : ""}`;
-
-                      return (
-                        <div
-                          key={`tpset-${profile}`}
-                          className="overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] shadow-[var(--cm-shadow-card)]"
-                        >
-                          <button
-                            type="button"
-                            className="flex min-h-[3.25rem] w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[var(--cm-surface-muted)] sm:min-h-0 sm:gap-4 sm:px-5 sm:py-3.5"
-                            onClick={() =>
-                              setTimelinePresetExpandedByProfile((prev) => ({
-                                ...prev,
-                                [profile]: !expanded,
-                              }))
-                            }
-                            aria-expanded={expanded}
-                          >
-                            <span className="mt-0.5 shrink-0 font-mono text-stone-500" aria-hidden>
-                              {expanded ? "▼" : "▶"}
-                            </span>
-                            <div className="min-w-0 flex-1 space-y-2">
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="text-sm font-semibold tracking-tight text-stone-950">{profile}</span>
-                                <span className="rounded-full border border-cyan-500/35 bg-[#00D4FF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-950">
-                                  {presets.length} moment{presets.length === 1 ? "" : "s"}
+                          return (
+                            <div
+                              key={`tpset-${profile}`}
+                              className="overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] shadow-[var(--cm-shadow-card)]"
+                            >
+                              <button
+                                type="button"
+                                className="flex min-h-[3.25rem] w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[var(--cm-surface-muted)] sm:min-h-0 sm:gap-4 sm:px-5 sm:py-3.5"
+                                onClick={() =>
+                                  setTimelinePresetExpandedByProfile((prev) => ({
+                                    ...prev,
+                                    [profile]: !expanded,
+                                  }))
+                                }
+                                aria-expanded={expanded}
+                              >
+                                <span className="mt-0.5 shrink-0 font-mono text-stone-500" aria-hidden>
+                                  {expanded ? "▼" : "▶"}
                                 </span>
-                                <span className="text-[11px] text-stone-500">
-                                  {ceremonyCount} ceremony · {mainCount} main · defaults {defaultCount}
-                                </span>
-                              </div>
-                              {!expanded && (
-                                <p className="line-clamp-2 text-[13px] leading-snug text-stone-600">{previewLine}</p>
-                              )}
-                            </div>
-                          </button>
+                                <div className="min-w-0 flex-1 space-y-2">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="text-sm font-semibold tracking-tight text-stone-950">{profile}</span>
+                                    <span className="rounded-full border border-cyan-500/35 bg-[#00D4FF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-950">
+                                      {presets.length} moment{presets.length === 1 ? "" : "s"}
+                                    </span>
+                                    <span className="text-[11px] text-stone-500">
+                                      {ceremonyCount} ceremony · {mainCount} main · defaults {defaultCount}
+                                    </span>
+                                  </div>
+                                  {!expanded && (
+                                    <p className="line-clamp-2 text-[13px] leading-snug text-stone-600">{previewLine}</p>
+                                  )}
+                                </div>
+                              </button>
 
-                          {expanded && (
-                            <div className="border-t border-[var(--cm-border)] px-4 pb-4 pt-1 sm:px-5">
-                              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-stone-200/90 pb-3">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => addTimelinePresetToSet(profile)}
-                                  disabled={!canManageEvents}
-                                  className={lightUiCyanPrimaryButtonClass}
-                                >
-                                  + Add moment
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => {
-                                    if (
-                                      typeof window !== "undefined" &&
-                                      !window.confirm(
-                                        `Reset “${profile}” timeline presets to built-in defaults? Custom edits for this event type will be replaced.`,
-                                      )
-                                    ) {
-                                      return;
-                                    }
-                                    resetTimelinePresetSet(profile);
-                                  }}
-                                  disabled={!canManageEvents}
-                                  className={lightUiSecondaryButtonClass}
-                                >
-                                  Reset to default
-                                </PrimaryButton>
-                                <span className="ml-auto text-[10px] text-stone-500">
-                                  Drag ⋮⋮ to reorder · duplicate creates a copy below
-                                </span>
-                              </div>
+                              {expanded && (
+                                <div className="border-t border-[var(--cm-border)] px-4 pb-4 pt-1 sm:px-5">
+                                  <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-stone-200/90 pb-3">
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => addTimelinePresetToSet(profile)}
+                                      disabled={!canManageEvents}
+                                      className={lightUiCyanPrimaryButtonClass}
+                                    >
+                                      + Add moment
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => {
+                                        if (
+                                          typeof window !== "undefined" &&
+                                          !window.confirm(
+                                            `Reset “${profile}” timeline presets to built-in defaults? Custom edits for this event type will be replaced.`,
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        resetTimelinePresetSet(profile);
+                                      }}
+                                      disabled={!canManageEvents}
+                                      className={lightUiSecondaryButtonClass}
+                                    >
+                                      Reset to default
+                                    </PrimaryButton>
+                                    <span className="ml-auto text-[10px] text-stone-500">
+                                      Drag ⋮⋮ to reorder · duplicate creates a copy below
+                                    </span>
+                                  </div>
 
-                              <div className="space-y-2.5">
-                                {presets.map((preset, index) => (
-                                  <div
-                                    key={`tp-row-${profile}-${preset.id}`}
-                                    className="rounded-xl border border-stone-200 bg-stone-50 p-3 sm:p-3.5"
-                                    onDragOver={(e) => {
-                                      if (!canManageEvents) return;
-                                      e.preventDefault();
-                                      e.dataTransfer.dropEffect = "move";
-                                    }}
-                                    onDrop={(e) => {
-                                      e.preventDefault();
-                                      const src = timelinePresetDragRef.current;
-                                      if (!src || src.profile !== profile) return;
-                                      reorderTimelinePresetRows(profile, src.index, index);
-                                      timelinePresetDragRef.current = null;
-                                    }}
-                                  >
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                                  <div className="space-y-2.5">
+                                    {presets.map((preset, index) => (
                                       <div
-                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white px-2 py-3 text-stone-500 sm:py-6 ${
-                                          canManageEvents ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
-                                        }`}
-                                        draggable={canManageEvents}
-                                        title="Drag to reorder"
-                                        onDragStart={(e) => {
+                                        key={`tp-row-${profile}-${preset.id}`}
+                                        className="rounded-xl border border-stone-200 bg-stone-50 p-3 sm:p-3.5"
+                                        onDragOver={(e) => {
                                           if (!canManageEvents) return;
-                                          timelinePresetDragRef.current = { profile, index };
-                                          e.dataTransfer.effectAllowed = "move";
-                                          e.dataTransfer.setData("text/plain", String(index));
+                                          e.preventDefault();
+                                          e.dataTransfer.dropEffect = "move";
                                         }}
-                                        onDragEnd={() => {
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          const src = timelinePresetDragRef.current;
+                                          if (!src || src.profile !== profile) return;
+                                          reorderTimelinePresetRows(profile, src.index, index);
                                           timelinePresetDragRef.current = null;
                                         }}
-                                        role="presentation"
                                       >
-                                        <span className="select-none text-sm leading-none tracking-tighter text-stone-500">
-                                          ⋮⋮
-                                        </span>
-                                      </div>
-                                      <div className="min-w-0 flex-1 space-y-2.5">
-                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:gap-x-3 lg:gap-y-2">
-                                          <div className="lg:col-span-2">
-                                            <label className={lightUiFormLabelClass}>Type</label>
-                                            <select
-                                              value={preset.timelineType}
-                                              onChange={(event) =>
-                                                updateTimelinePresetSet(profile, (items) =>
-                                                  items.map((item) =>
-                                                    item.id === preset.id
-                                                      ? {
-                                                          ...item,
-                                                          timelineType: event.target.value as "ceremony" | "main",
-                                                        }
-                                                      : item,
-                                                  ),
-                                                )
-                                              }
-                                              disabled={!canManageEvents}
-                                              className={lightUiSelectClass}
-                                            >
-                                              <option value="ceremony" className="bg-white text-stone-900">
-                                                Ceremony
-                                              </option>
-                                              <option value="main" className="bg-white text-stone-900">
-                                                Main Event
-                                              </option>
-                                            </select>
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                                          <div
+                                            className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white px-2 py-3 text-stone-500 sm:py-6 ${canManageEvents ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-50"
+                                              }`}
+                                            draggable={canManageEvents}
+                                            title="Drag to reorder"
+                                            onDragStart={(e) => {
+                                              if (!canManageEvents) return;
+                                              timelinePresetDragRef.current = { profile, index };
+                                              e.dataTransfer.effectAllowed = "move";
+                                              e.dataTransfer.setData("text/plain", String(index));
+                                            }}
+                                            onDragEnd={() => {
+                                              timelinePresetDragRef.current = null;
+                                            }}
+                                            role="presentation"
+                                          >
+                                            <span className="select-none text-sm leading-none tracking-tighter text-stone-500">
+                                              ⋮⋮
+                                            </span>
                                           </div>
-                                          <div className="lg:col-span-2">
-                                            <TextInput
-                                              id={`tp-time-${profile}-${preset.id}`}
-                                              label="Time / order"
-                                              value={preset.timeOrOrder}
-                                              onChange={(value) =>
-                                                updateTimelinePresetSet(profile, (items) =>
-                                                  items.map((item) =>
-                                                    item.id === preset.id ? { ...item, timeOrOrder: value } : item,
-                                                  ),
-                                                )
-                                              }
-                                              disabled={!canManageEvents}
-                                              inputClassName={lightUiInputClass}
-                                              labelClassName={lightUiFormLabelClass}
-                                            />
-                                          </div>
-                                          <div className="lg:col-span-4">
-                                            <TextInput
-                                              id={`tp-moment-${profile}-${preset.id}`}
-                                              label="Moment name"
-                                              value={preset.momentName}
-                                              onChange={(value) =>
-                                                updateTimelinePresetSet(profile, (items) =>
-                                                  items.map((item) =>
-                                                    item.id === preset.id ? { ...item, momentName: value } : item,
-                                                  ),
-                                                )
-                                              }
-                                              disabled={!canManageEvents}
-                                              inputClassName={lightUiInputClass}
-                                              labelClassName={lightUiFormLabelClass}
-                                            />
-                                          </div>
-                                          <div className="lg:col-span-4">
-                                            <TextInput
-                                              id={`tp-song-${profile}-${preset.id}`}
-                                              label="Song placeholder"
-                                              value={preset.songPlaceholder}
-                                              onChange={(value) =>
-                                                updateTimelinePresetSet(profile, (items) =>
-                                                  items.map((item) =>
-                                                    item.id === preset.id ? { ...item, songPlaceholder: value } : item,
-                                                  ),
-                                                )
-                                              }
-                                              disabled={!canManageEvents}
-                                              inputClassName={lightUiInputClass}
-                                              labelClassName={lightUiFormLabelClass}
-                                            />
-                                          </div>
-                                          <div className="sm:col-span-2 lg:col-span-12">
-                                            <TextInput
-                                              id={`tp-notes-${profile}-${preset.id}`}
-                                              label="Notes placeholder"
-                                              value={preset.notesPlaceholder}
-                                              onChange={(value) =>
-                                                updateTimelinePresetSet(profile, (items) =>
-                                                  items.map((item) =>
-                                                    item.id === preset.id ? { ...item, notesPlaceholder: value } : item,
-                                                  ),
-                                                )
-                                              }
-                                              disabled={!canManageEvents}
-                                              inputClassName={lightUiInputClass}
-                                              labelClassName={lightUiFormLabelClass}
-                                            />
+                                          <div className="min-w-0 flex-1 space-y-2.5">
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:gap-x-3 lg:gap-y-2">
+                                              <div className="lg:col-span-2">
+                                                <label className={lightUiFormLabelClass}>Type</label>
+                                                <select
+                                                  value={preset.timelineType}
+                                                  onChange={(event) =>
+                                                    updateTimelinePresetSet(profile, (items) =>
+                                                      items.map((item) =>
+                                                        item.id === preset.id
+                                                          ? {
+                                                            ...item,
+                                                            timelineType: event.target.value as "ceremony" | "main",
+                                                          }
+                                                          : item,
+                                                      ),
+                                                    )
+                                                  }
+                                                  disabled={!canManageEvents}
+                                                  className={lightUiSelectClass}
+                                                >
+                                                  <option value="ceremony" className="bg-white text-stone-900">
+                                                    Ceremony
+                                                  </option>
+                                                  <option value="main" className="bg-white text-stone-900">
+                                                    Main Event
+                                                  </option>
+                                                </select>
+                                              </div>
+                                              <div className="lg:col-span-2">
+                                                <TextInput
+                                                  id={`tp-time-${profile}-${preset.id}`}
+                                                  label="Time / order"
+                                                  value={preset.timeOrOrder}
+                                                  onChange={(value) =>
+                                                    updateTimelinePresetSet(profile, (items) =>
+                                                      items.map((item) =>
+                                                        item.id === preset.id ? { ...item, timeOrOrder: value } : item,
+                                                      ),
+                                                    )
+                                                  }
+                                                  disabled={!canManageEvents}
+                                                  inputClassName={lightUiInputClass}
+                                                  labelClassName={lightUiFormLabelClass}
+                                                />
+                                              </div>
+                                              <div className="lg:col-span-4">
+                                                <TextInput
+                                                  id={`tp-moment-${profile}-${preset.id}`}
+                                                  label="Moment name"
+                                                  value={preset.momentName}
+                                                  onChange={(value) =>
+                                                    updateTimelinePresetSet(profile, (items) =>
+                                                      items.map((item) =>
+                                                        item.id === preset.id ? { ...item, momentName: value } : item,
+                                                      ),
+                                                    )
+                                                  }
+                                                  disabled={!canManageEvents}
+                                                  inputClassName={lightUiInputClass}
+                                                  labelClassName={lightUiFormLabelClass}
+                                                />
+                                              </div>
+                                              <div className="lg:col-span-4">
+                                                <TextInput
+                                                  id={`tp-song-${profile}-${preset.id}`}
+                                                  label="Song placeholder"
+                                                  value={preset.songPlaceholder}
+                                                  onChange={(value) =>
+                                                    updateTimelinePresetSet(profile, (items) =>
+                                                      items.map((item) =>
+                                                        item.id === preset.id ? { ...item, songPlaceholder: value } : item,
+                                                      ),
+                                                    )
+                                                  }
+                                                  disabled={!canManageEvents}
+                                                  inputClassName={lightUiInputClass}
+                                                  labelClassName={lightUiFormLabelClass}
+                                                />
+                                              </div>
+                                              <div className="sm:col-span-2 lg:col-span-12">
+                                                <TextInput
+                                                  id={`tp-notes-${profile}-${preset.id}`}
+                                                  label="Notes placeholder"
+                                                  value={preset.notesPlaceholder}
+                                                  onChange={(value) =>
+                                                    updateTimelinePresetSet(profile, (items) =>
+                                                      items.map((item) =>
+                                                        item.id === preset.id ? { ...item, notesPlaceholder: value } : item,
+                                                      ),
+                                                    )
+                                                  }
+                                                  disabled={!canManageEvents}
+                                                  inputClassName={lightUiInputClass}
+                                                  labelClassName={lightUiFormLabelClass}
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2 border-t border-stone-200/90 pt-2.5">
+                                              <PrimaryButton
+                                                type="button"
+                                                onClick={() =>
+                                                  updateTimelinePresetSet(profile, (items) =>
+                                                    items.map((item) =>
+                                                      item.id === preset.id
+                                                        ? { ...item, defaultIncluded: !item.defaultIncluded }
+                                                        : item,
+                                                    ),
+                                                  )
+                                                }
+                                                disabled={!canManageEvents}
+                                                className={
+                                                  preset.defaultIncluded
+                                                    ? "rounded-lg bg-[#00D4FF] px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                                                    : lightUiGhostButtonClass
+                                                }
+                                              >
+                                                {preset.defaultIncluded ? "Included by default" : "Excluded by default"}
+                                              </PrimaryButton>
+                                              <PrimaryButton
+                                                type="button"
+                                                onClick={() =>
+                                                  updateTimelinePresetSet(profile, (items) => {
+                                                    if (index === 0) return items;
+                                                    const next = [...items];
+                                                    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                                    return next;
+                                                  })
+                                                }
+                                                disabled={!canManageEvents || index === 0}
+                                                className={`${lightUiGhostButtonClass} disabled:opacity-40`}
+                                              >
+                                                Up
+                                              </PrimaryButton>
+                                              <PrimaryButton
+                                                type="button"
+                                                onClick={() =>
+                                                  updateTimelinePresetSet(profile, (items) => {
+                                                    if (index >= items.length - 1) return items;
+                                                    const next = [...items];
+                                                    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                                    return next;
+                                                  })
+                                                }
+                                                disabled={!canManageEvents || index >= presets.length - 1}
+                                                className={`${lightUiGhostButtonClass} disabled:opacity-40`}
+                                              >
+                                                Down
+                                              </PrimaryButton>
+                                              <PrimaryButton
+                                                type="button"
+                                                onClick={() => duplicateTimelinePresetMoment(profile, index)}
+                                                disabled={!canManageEvents}
+                                                className={lightUiGhostButtonClass}
+                                              >
+                                                Duplicate
+                                              </PrimaryButton>
+                                              <PrimaryButton
+                                                type="button"
+                                                onClick={() =>
+                                                  updateTimelinePresetSet(profile, (items) =>
+                                                    items.filter((item) => item.id !== preset.id),
+                                                  )
+                                                }
+                                                disabled={!canManageEvents}
+                                                className={lightUiDestructiveButtonClass}
+                                              >
+                                                Delete
+                                              </PrimaryButton>
+                                            </div>
                                           </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2 border-t border-stone-200/90 pt-2.5">
-                                          <PrimaryButton
-                                            type="button"
-                                            onClick={() =>
-                                              updateTimelinePresetSet(profile, (items) =>
-                                                items.map((item) =>
-                                                  item.id === preset.id
-                                                    ? { ...item, defaultIncluded: !item.defaultIncluded }
-                                                    : item,
-                                                ),
-                                              )
-                                            }
-                                            disabled={!canManageEvents}
-                                            className={
-                                              preset.defaultIncluded
-                                                ? "rounded-lg bg-[#00D4FF] px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
-                                                : lightUiGhostButtonClass
-                                            }
-                                          >
-                                            {preset.defaultIncluded ? "Included by default" : "Excluded by default"}
-                                          </PrimaryButton>
-                                          <PrimaryButton
-                                            type="button"
-                                            onClick={() =>
-                                              updateTimelinePresetSet(profile, (items) => {
-                                                if (index === 0) return items;
-                                                const next = [...items];
-                                                [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                                                return next;
-                                              })
-                                            }
-                                            disabled={!canManageEvents || index === 0}
-                                            className={`${lightUiGhostButtonClass} disabled:opacity-40`}
-                                          >
-                                            Up
-                                          </PrimaryButton>
-                                          <PrimaryButton
-                                            type="button"
-                                            onClick={() =>
-                                              updateTimelinePresetSet(profile, (items) => {
-                                                if (index >= items.length - 1) return items;
-                                                const next = [...items];
-                                                [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                                                return next;
-                                              })
-                                            }
-                                            disabled={!canManageEvents || index >= presets.length - 1}
-                                            className={`${lightUiGhostButtonClass} disabled:opacity-40`}
-                                          >
-                                            Down
-                                          </PrimaryButton>
-                                          <PrimaryButton
-                                            type="button"
-                                            onClick={() => duplicateTimelinePresetMoment(profile, index)}
-                                            disabled={!canManageEvents}
-                                            className={lightUiGhostButtonClass}
-                                          >
-                                            Duplicate
-                                          </PrimaryButton>
-                                          <PrimaryButton
-                                            type="button"
-                                            onClick={() =>
-                                              updateTimelinePresetSet(profile, (items) =>
-                                                items.filter((item) => item.id !== preset.id),
-                                              )
-                                            }
-                                            disabled={!canManageEvents}
-                                            className={lightUiDestructiveButtonClass}
-                                          >
-                                            Delete
-                                          </PrimaryButton>
-                                        </div>
                                       </div>
-                                    </div>
+                                    ))}
+                                    {presets.length === 0 && (
+                                      <p className={lightUiEmptyHintInCardClass}>
+                                        No moments yet. Use{" "}
+                                        <span className="font-semibold text-stone-800">Add moment</span> to create your first preset row.
+                                      </p>
+                                    )}
                                   </div>
-                                ))}
-                                {presets.length === 0 && (
-                                  <p className={lightUiEmptyHintInCardClass}>
-                                    No moments yet. Use{" "}
-                                    <span className="font-semibold text-stone-800">Add moment</span> to create your first preset row.
-                                  </p>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {activeGlobalSettingsSection === "Event Document" && (
-                <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-stone-950">Event Document</SectionTitle>
-                  <p className="text-xs leading-relaxed text-stone-600">Defaults for the printable Event Document. Live Event Mode refers to the same export.</p>
-                  <TextArea
-                    id="global-prep-footer"
-                    label="Default Event Document Footer"
-                    value={appSettings.prepSheetFooterText}
-                    onChange={(value) => setAppSettings((prev) => ({ ...prev, prepSheetFooterText: value }))}
-                    rows={3}
-                    disabled={!canManageEvents}
-                  />
-                  <TextArea
-                    id="global-guest-msg"
-                    label="Default Guest Request Message"
-                    value={appSettings.publicGuestRequestMessage}
-                    onChange={(value) => setAppSettings((prev) => ({ ...prev, publicGuestRequestMessage: value }))}
-                    rows={3}
-                    disabled={!canManageEvents}
-                  />
-                  <TextInput
-                    id="global-couple-welcome"
-                    label="Default Welcome Message"
-                    value={appSettings.coupleWelcomeMessage}
-                    onChange={(value) => setAppSettings((prev) => ({ ...prev, coupleWelcomeMessage: value }))}
-                    disabled={!canManageEvents}
-                  />
-                  <div className="space-y-2">
-                    {EVENT_TYPES.map((profile) => {
-                      const liveDefaults = getLiveEventDocumentDefaults(profile);
-                      return (
-                        <div key={`live-defaults-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs">
-                          <p className="font-semibold text-stone-950">{profile}</p>
-                          <p className="mt-1 text-stone-600">
-                            Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
-                            Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
-                            Event team: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
-                            MC: {liveDefaults.liveEventShowMcScript ? "On" : "Off"} ·
-                            Playlists: {liveDefaults.liveEventShowPlaylists ? "On" : "Off"} ·
-                            Questions: {liveDefaults.liveEventShowPlanningQuestions ? "On" : "Off"}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {activeGlobalSettingsSection === "Team Management" && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <SectionTitle className="text-stone-950">Team Management</SectionTitle>
-                    <PrimaryButton
-                      onClick={openAddTeamMemberModal}
-                      disabled={!canManageEvents}
-                      className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
-                    >
-                      Add Team Member
-                    </PrimaryButton>
-                  </div>
-                  <p className="text-xs leading-relaxed text-stone-600">
-                    Manage users, role assignments, and planning permissions at the account level.
-                  </p>
-                  <p className="text-xs leading-relaxed text-stone-600">
-                    Remove from Event unassigns someone from the event you last had selected (DJ assignment or planner fields that match a roster member) without deleting them from the team. To delete a profile entirely, use{" "}
-                    <span className="font-medium text-stone-800">Workspace → Team → Delete from Team</span>.
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
-                      Admins:{" "}
-                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Admin").length}</span>
-                    </div>
-                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
-                      DJs:{" "}
-                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "DJ").length}</span>
-                    </div>
-                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
-                      Planners:{" "}
-                      <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Planner").length}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {teamMembers.map((member) => (
-                      <div key={`settings-team-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-stone-950">{member.name}</p>
-                            <p className="mt-1 truncate text-xs text-stone-600">{member.email}</p>
-                          </div>
-                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(member.role)}`}>
-                            {member.role}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                          Permissions: {member.role === "Admin" ? "Full settings + event management" : member.role === "DJ" ? "Timeline/music/event prep" : "Planning/timeline/vendor coordination"}
-                        </p>
-                        {canManageEvents &&
-                        activeEventId &&
-                        isTeamMemberAssignedToActiveEvent(member) ? (
-                          <div className="mt-3">
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => removeTeamMemberFromActiveEvent(member)}
-                              className="w-full rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
-                            >
-                              Remove from Event
-                            </PrimaryButton>
-                          </div>
-                        ) : null}
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                  {teamFormStatus && (
-                    <p
-                      className={`rounded-xl px-3 py-2 text-xs ${
-                        teamFormStatus.kind === "success"
-                          ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
-                          : "border border-rose-300/80 bg-rose-50 text-rose-950"
-                      }`}
-                    >
-                      {teamFormStatus.message}
-                    </p>
+                    </div>
                   )}
-                </div>
-              )}
 
-              {activeGlobalSettingsSection === "Branding / App" && (
-                <div className="mt-4 space-y-3">
-                  <SectionTitle className="text-stone-950">Branding / App Settings</SectionTitle>
-                  <TextInput id="global-company-name" label="Company Name" value={appSettings.companyName} onChange={(value) => setAppSettings((prev) => ({ ...prev, companyName: value }))} disabled={!canManageEvents} />
-                  <TextInput id="global-app-name" label="App Name" value={appSettings.appName} onChange={(value) => setAppSettings((prev) => ({ ...prev, appName: value }))} disabled={!canManageEvents} />
-                  <TextInput id="global-logo-url" label="Logo/Branding Path" value={appSettings.logoUrl} onChange={(value) => setAppSettings((prev) => ({ ...prev, logoUrl: value }))} disabled={!canManageEvents} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <TextInput id="global-brand-color" label="Brand Color" value={appSettings.brandColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, brandColor: value }))} disabled={!canManageEvents} />
-                    <TextInput id="global-accent-color" label="Accent Color" value={appSettings.accentColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, accentColor: value }))} disabled={!canManageEvents} />
-                  </div>
-                  <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
-                  <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
-                  <div className="rounded-xl border border-cyan-400/40 bg-cyan-50/90 p-3 text-xs font-medium leading-relaxed text-stone-800">
-                    Backup recommended while this remains a frontend-only prototype.
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <PrimaryButton
-                      onClick={exportBackupJson}
-                      disabled={!canManageEvents}
-                      className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100 disabled:opacity-50"
-                    >
-                      Export Backup JSON
-                    </PrimaryButton>
-                    <PrimaryButton
-                      onClick={triggerBackupFilePicker}
-                      disabled={!canManageEvents}
-                      className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
-                    >
-                      Import Backup JSON
-                    </PrimaryButton>
-                    <input
-                      ref={backupFileInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={importBackupJson}
-                      className="hidden"
-                    />
-                  </div>
-                  {backupStatus && (
-                    <p
-                      className={`rounded-xl px-3 py-2 text-xs ${
-                        backupStatus.kind === "success"
-                          ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
-                          : "border border-rose-300/80 bg-rose-50 text-rose-950"
-                      }`}
-                    >
-                      {backupStatus.message}
-                    </p>
+                  {activeGlobalSettingsSection === "Event Document" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Event Document</SectionTitle>
+                      <p className="text-xs leading-relaxed text-stone-600">Defaults for the printable Event Document. Live Event Mode refers to the same export.</p>
+                      <TextArea
+                        id="global-prep-footer"
+                        label="Default Event Document Footer"
+                        value={appSettings.prepSheetFooterText}
+                        onChange={(value) => setAppSettings((prev) => ({ ...prev, prepSheetFooterText: value }))}
+                        rows={3}
+                        disabled={!canManageEvents}
+                      />
+                      <TextArea
+                        id="global-guest-msg"
+                        label="Default Guest Request Message"
+                        value={appSettings.publicGuestRequestMessage}
+                        onChange={(value) => setAppSettings((prev) => ({ ...prev, publicGuestRequestMessage: value }))}
+                        rows={3}
+                        disabled={!canManageEvents}
+                      />
+                      <TextInput
+                        id="global-couple-welcome"
+                        label="Default Welcome Message"
+                        value={appSettings.coupleWelcomeMessage}
+                        onChange={(value) => setAppSettings((prev) => ({ ...prev, coupleWelcomeMessage: value }))}
+                        disabled={!canManageEvents}
+                      />
+                      <div className="space-y-2">
+                        {EVENT_TYPES.map((profile) => {
+                          const liveDefaults = getLiveEventDocumentDefaults(profile);
+                          return (
+                            <div key={`live-defaults-${profile}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs">
+                              <p className="font-semibold text-stone-950">{profile}</p>
+                              <p className="mt-1 text-stone-600">
+                                Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
+                                Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
+                                Event team: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
+                                MC: {liveDefaults.liveEventShowMcScript ? "On" : "Off"} ·
+                                Playlists: {liveDefaults.liveEventShowPlaylists ? "On" : "Off"} ·
+                                Questions: {liveDefaults.liveEventShowPlanningQuestions ? "On" : "Off"}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
-                </div>
-              )}
+
+                  {activeGlobalSettingsSection === "Team Management" && (
+                    <div className="mt-4 space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <SectionTitle className="text-stone-950">Team Management</SectionTitle>
+                        <PrimaryButton
+                          onClick={openAddTeamMemberModal}
+                          disabled={!canManageEvents}
+                          className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                        >
+                          Add Team Member
+                        </PrimaryButton>
+                      </div>
+                      <p className="text-xs leading-relaxed text-stone-600">
+                        Manage users, role assignments, and planning permissions at the account level.
+                      </p>
+                      <p className="text-xs leading-relaxed text-stone-600">
+                        Remove from Event unassigns someone from the event you last had selected (DJ assignment or planner fields that match a roster member) without deleting them from the team. To delete a profile entirely, use{" "}
+                        <span className="font-medium text-stone-800">Workspace → Team → Delete from Team</span>.
+                      </p>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                          Admins:{" "}
+                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Admin").length}</span>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                          DJs:{" "}
+                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "DJ").length}</span>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
+                          Planners:{" "}
+                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Planner").length}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {teamMembers.map((member) => (
+                          <div key={`settings-team-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-stone-950">{member.name}</p>
+                                <p className="mt-1 truncate text-xs text-stone-600">{member.email}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wide ${roleBadgeClass(member.role)}`}>
+                                {member.role}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                              Permissions: {member.role === "Admin" ? "Full settings + event management" : member.role === "DJ" ? "Timeline/music/event prep" : "Planning/timeline/vendor coordination"}
+                            </p>
+                            {canManageEvents &&
+                              activeEventId &&
+                              isTeamMemberAssignedToActiveEvent(member) ? (
+                              <div className="mt-3">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => removeTeamMemberFromActiveEvent(member)}
+                                  className="w-full rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
+                                >
+                                  Remove from Event
+                                </PrimaryButton>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                      {teamFormStatus && (
+                        <p
+                          className={`rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
+                            ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                            : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                            }`}
+                        >
+                          {teamFormStatus.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {activeGlobalSettingsSection === "Branding / App" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Branding / App Settings</SectionTitle>
+                      <TextInput id="global-company-name" label="Company Name" value={appSettings.companyName} onChange={(value) => setAppSettings((prev) => ({ ...prev, companyName: value }))} disabled={!canManageEvents} />
+                      <TextInput id="global-app-name" label="App Name" value={appSettings.appName} onChange={(value) => setAppSettings((prev) => ({ ...prev, appName: value }))} disabled={!canManageEvents} />
+                      <TextInput id="global-logo-url" label="Logo/Branding Path" value={appSettings.logoUrl} onChange={(value) => setAppSettings((prev) => ({ ...prev, logoUrl: value }))} disabled={!canManageEvents} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <TextInput id="global-brand-color" label="Brand Color" value={appSettings.brandColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, brandColor: value }))} disabled={!canManageEvents} />
+                        <TextInput id="global-accent-color" label="Accent Color" value={appSettings.accentColor} onChange={(value) => setAppSettings((prev) => ({ ...prev, accentColor: value }))} disabled={!canManageEvents} />
+                      </div>
+                      <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
+                      <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
+                      <div className="rounded-xl border border-cyan-400/40 bg-cyan-50/90 p-3 text-xs font-medium leading-relaxed text-stone-800">
+                        Backup recommended while this remains a frontend-only prototype.
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <PrimaryButton
+                          onClick={exportBackupJson}
+                          disabled={!canManageEvents}
+                          className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100 disabled:opacity-50"
+                        >
+                          Export Backup JSON
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={triggerBackupFilePicker}
+                          disabled={!canManageEvents}
+                          className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                        >
+                          Import Backup JSON
+                        </PrimaryButton>
+                        <input
+                          ref={backupFileInputRef}
+                          type="file"
+                          accept="application/json,.json"
+                          onChange={importBackupJson}
+                          className="hidden"
+                        />
+                      </div>
+                      {backupStatus && (
+                        <p
+                          className={`rounded-xl px-3 py-2 text-xs ${backupStatus.kind === "success"
+                            ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                            : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                            }`}
+                        >
+                          {backupStatus.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </PremiumCard>
@@ -8637,11 +8626,10 @@ export default function Home() {
               </p>
               {teamFormStatus && (
                 <p
-                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${
-                    teamFormStatus.kind === "success"
-                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
-                      : "border border-rose-300/80 bg-rose-50 text-rose-950"
-                  }`}
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
+                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                    }`}
                 >
                   {teamFormStatus.message}
                 </p>
@@ -8670,11 +8658,10 @@ export default function Home() {
                         {member.notes && <p className="mt-1 text-xs text-stone-600">{member.notes}</p>}
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                          member.isActive
-                            ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
-                            : "border border-stone-200 bg-stone-100 text-stone-600"
-                        }`}
+                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
+                          ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
+                          : "border border-stone-200 bg-stone-100 text-stone-600"
+                          }`}
                       >
                         {member.isActive ? "Active" : "Inactive"}
                       </span>
@@ -8958,200 +8945,199 @@ export default function Home() {
                     </div>
                   </PremiumCard>
                 ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {allEventsFilteredAndSorted.map((evt) => {
-                  const isActive = evt.id === activeEventId;
-                  const cardProfile = resolveLayoutProfileForDisplay(
-                    evt.settings,
-                    appSettings.defaultEventType,
-                  );
-                  const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
-                  const cardEventType = evt.settings?.eventType || "Event";
-                  const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
-                  const cardEventDate = evt.settings?.weddingDate || evt.meta.date || "Date TBD";
-                  const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
-                  const cardProgress = approximatePlanningProgressPercent(evt);
-                  const cardCover = evt.settings?.coverPhotoDataUrl;
-                  const cardLifecycle: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
-                  const viewerBadge = viewerRoleBadgeForEvent(evt);
-                  return (
-                    <PremiumCard key={evt.id} className="overflow-hidden p-0">
-                      <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
-                        {cardCover ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={cardCover}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className={`absolute inset-0 ${eventCoverFallbackClasses(cardProfile)}`}
-                            aria-hidden
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-black/55" />
-                        <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${
-                              cardLifecycle === "archived"
-                                ? "bg-black/60 text-zinc-200"
-                                : cardLifecycle === "completed"
-                                  ? "bg-emerald-500/25 text-emerald-100"
-                                  : "bg-white/15 text-white"
-                            }`}
-                          >
-                            {cardLifecycle === "archived"
-                              ? "Archived"
-                              : cardLifecycle === "completed"
-                                ? "Completed"
-                                : "Planning"}
-                          </span>
-                          {viewerBadge ? (
-                            <span className="rounded-full bg-[#00D4FF]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#00D4FF]/35">
-                              {viewerBadge}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
-                          <p className="text-[10px] uppercase tracking-[0.15em] text-white/75">{cardEventType}</p>
-                          <p className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-white">
-                            {cardEventName}
-                          </p>
-                          <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
-                          {isActive ? (
-                            <span className="mt-2 inline-flex rounded-full bg-[#00D4FF]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#00D4FF]/40">
-                              Selected
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 p-4">
-                        <p className="line-clamp-2 text-xs text-stone-600">{cardVenue}</p>
-                        <p className="text-[11px] text-stone-600">
-                          {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
-                        </p>
-                        <div>
-                          <div className="mb-1 flex items-center justify-between text-[11px] text-stone-600">
-                            <span>Planning progress</span>
-                            <span className="font-semibold tabular-nums text-stone-800">{cardProgress}%</span>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {allEventsFilteredAndSorted.map((evt) => {
+                      const isActive = evt.id === activeEventId;
+                      const cardProfile = resolveLayoutProfileForDisplay(
+                        evt.settings,
+                        appSettings.defaultEventType,
+                      );
+                      const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
+                      const cardEventType = evt.settings?.eventType || "Event";
+                      const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
+                      const cardEventDate = evt.settings?.weddingDate || evt.meta.date || "Date TBD";
+                      const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
+                      const cardProgress = approximatePlanningProgressPercent(evt);
+                      const cardCover = evt.settings?.coverPhotoDataUrl;
+                      const cardLifecycle: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
+                      const viewerBadge = viewerRoleBadgeForEvent(evt);
+                      return (
+                        <PremiumCard key={evt.id} className="overflow-hidden p-0">
+                          <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
+                            {cardCover ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={cardCover}
+                                alt=""
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div
+                                className={`absolute inset-0 ${eventCoverFallbackClasses(cardProfile)}`}
+                                aria-hidden
+                              />
+                            )}
+                            <div className="absolute inset-0 bg-black/55" />
+                            <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${cardLifecycle === "archived"
+                                  ? "bg-black/60 text-zinc-200"
+                                  : cardLifecycle === "completed"
+                                    ? "bg-emerald-500/25 text-emerald-100"
+                                    : "bg-white/15 text-white"
+                                  }`}
+                              >
+                                {cardLifecycle === "archived"
+                                  ? "Archived"
+                                  : cardLifecycle === "completed"
+                                    ? "Completed"
+                                    : "Planning"}
+                              </span>
+                              {viewerBadge ? (
+                                <span className="rounded-full bg-[#00D4FF]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#00D4FF]/35">
+                                  {viewerBadge}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
+                              <p className="text-[10px] uppercase tracking-[0.15em] text-white/75">{cardEventType}</p>
+                              <p className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-white">
+                                {cardEventName}
+                              </p>
+                              <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
+                              {isActive ? (
+                                <span className="mt-2 inline-flex rounded-full bg-[#00D4FF]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#00D4FF]/40">
+                                  Selected
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
-                            <div
-                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
-                              style={{ width: `${cardProgress}%` }}
-                            />
-                          </div>
-                        </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <PrimaryButton
-                          onClick={() => {
-                            switchToEvent(evt.id);
-                          }}
-                          className={lightUiCyanPrimaryButtonClass}
-                        >
-                          Select
-                        </PrimaryButton>
-                        {canManageEvents ? (
-                          <PrimaryButton
-                            onClick={() => {
-                              setEventModalMode("edit");
-                              setEventEditingId(evt.id);
-                              const migratedProfile = migrateLegacyLayoutProfile(
-                                evt.settings?.eventLayoutProfile,
-                                evt.settings?.eventType || effectiveEventType,
-                              );
-                              setEventDraft({
-                                eventName: evt.settings?.eventName || evt.meta.couple,
-                                coupleNames: evt.settings?.coupleNames || evt.meta.couple,
-                                eventType: migratedProfile,
-                                eventLayoutProfile: migratedProfile,
-                                weddingDate: evt.settings?.weddingDate || evt.meta.date,
-                                venue: evt.settings?.venue || evt.meta.venue,
-                                ceremonyLocation: evt.settings?.ceremonyLocation || "",
-                                receptionLocation: evt.settings?.receptionLocation || "",
-                                assignedDj: evt.settings?.assignedDj || "",
-                                packageName: evt.settings?.packageName || "",
-                                plannerName: evt.settings?.plannerName || "",
-                                plannerEmail: evt.settings?.plannerEmail || "",
-                                internalNotes: evt.settings?.internalNotes || "",
-                              });
-                              setEventModalStatus(null);
-                              setEventModalOpen(true);
-                            }}
-                            className={lightUiSecondaryButtonClass}
-                          >
-                            Edit
-                          </PrimaryButton>
-                        ) : (
-                          <PrimaryButton
-                            onClick={() => switchToEvent(evt.id)}
-                            className={lightUiSecondaryButtonClass}
-                          >
-                            Open
-                          </PrimaryButton>
-                        )}
-                        {canManageEvents && (
-                          <PrimaryButton
-                            onClick={() => {
-                              const ok = window.confirm(
-                                `Delete "${evt.meta.couple || "this event"}"?`,
-                              );
-                              if (!ok) return;
-                              commitActiveEventPlanningToEventsState();
-                              setEvents((prev) => prev.filter((e) => e.id !== evt.id));
-                              if (evt.id === activeEventId) {
-                                const remaining = events.filter((e) => e.id !== evt.id);
-                                const next = remaining[0];
-                                if (next) {
-                                  setActiveEventId(next.id);
-                                  loadEventPlanningIntoWorkingState(next);
-                                  setAppMode("event");
-                                  setActiveScreen("Dashboard");
-                                } else {
-                                  setAppMode("events");
-                                  setActiveScreen("All Events");
-                                }
-                              }
-                            }}
-                            className={`col-span-2 ${lightUiDestructiveButtonClass}`}
-                          >
-                            Delete
-                          </PrimaryButton>
-                        )}
-                      </div>
-                      <div className="mt-2">
-                        <PrimaryButton
-                          onClick={async () => {
-                            const token = Math.random().toString(36).slice(2, 14);
-                            const link = `https://app.cutmastermusic.com/invite?event=${encodeURIComponent(evt.id)}&role=Couple&token=${token}`;
-                            try {
-                              await navigator.clipboard.writeText(link);
-                              setCopyStatus("copied");
-                              setTimeout(() => setCopyStatus(""), 1800);
-                            } catch {
-                              setCopyStatus("error");
-                              setTimeout(() => setCopyStatus(""), 2200);
-                            }
-                            setInviteAccessPreview({
-                              eventId: evt.id,
-                              role: "Couple",
-                              token,
-                              link,
-                            });
-                          }}
-                          className={`w-full ${lightUiCyanPrimaryButtonClass} py-2.5 text-[11px]`}
-                        >
-                          {COPY_INVITE_LINK_LABEL[cardProfile]}
-                        </PrimaryButton>
-                      </div>
-                      </div>
-                    </PremiumCard>
-                  );
-                })}
-              </div>
+                          <div className="space-y-3 p-4">
+                            <p className="line-clamp-2 text-xs text-stone-600">{cardVenue}</p>
+                            <p className="text-[11px] text-stone-600">
+                              {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
+                            </p>
+                            <div>
+                              <div className="mb-1 flex items-center justify-between text-[11px] text-stone-600">
+                                <span>Planning progress</span>
+                                <span className="font-semibold tabular-nums text-stone-800">{cardProgress}%</span>
+                              </div>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
+                                <div
+                                  className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
+                                  style={{ width: `${cardProgress}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <PrimaryButton
+                                onClick={() => {
+                                  switchToEvent(evt.id);
+                                }}
+                                className={lightUiCyanPrimaryButtonClass}
+                              >
+                                Select
+                              </PrimaryButton>
+                              {canManageEvents ? (
+                                <PrimaryButton
+                                  onClick={() => {
+                                    setEventModalMode("edit");
+                                    setEventEditingId(evt.id);
+                                    const migratedProfile = migrateLegacyLayoutProfile(
+                                      evt.settings?.eventLayoutProfile,
+                                      evt.settings?.eventType || effectiveEventType,
+                                    );
+                                    setEventDraft({
+                                      eventName: evt.settings?.eventName || evt.meta.couple,
+                                      coupleNames: evt.settings?.coupleNames || evt.meta.couple,
+                                      eventType: migratedProfile,
+                                      eventLayoutProfile: migratedProfile,
+                                      weddingDate: evt.settings?.weddingDate || evt.meta.date,
+                                      venue: evt.settings?.venue || evt.meta.venue,
+                                      ceremonyLocation: evt.settings?.ceremonyLocation || "",
+                                      receptionLocation: evt.settings?.receptionLocation || "",
+                                      assignedDj: evt.settings?.assignedDj || "",
+                                      packageName: evt.settings?.packageName || "",
+                                      plannerName: evt.settings?.plannerName || "",
+                                      plannerEmail: evt.settings?.plannerEmail || "",
+                                      internalNotes: evt.settings?.internalNotes || "",
+                                    });
+                                    setEventModalStatus(null);
+                                    setEventModalOpen(true);
+                                  }}
+                                  className={lightUiSecondaryButtonClass}
+                                >
+                                  Edit
+                                </PrimaryButton>
+                              ) : (
+                                <PrimaryButton
+                                  onClick={() => switchToEvent(evt.id)}
+                                  className={lightUiSecondaryButtonClass}
+                                >
+                                  Open
+                                </PrimaryButton>
+                              )}
+                              {canManageEvents && (
+                                <PrimaryButton
+                                  onClick={() => {
+                                    const ok = window.confirm(
+                                      `Delete "${evt.meta.couple || "this event"}"?`,
+                                    );
+                                    if (!ok) return;
+                                    commitActiveEventPlanningToEventsState();
+                                    setEvents((prev) => prev.filter((e) => e.id !== evt.id));
+                                    if (evt.id === activeEventId) {
+                                      const remaining = events.filter((e) => e.id !== evt.id);
+                                      const next = remaining[0];
+                                      if (next) {
+                                        setActiveEventId(next.id);
+                                        loadEventPlanningIntoWorkingState(next);
+                                        setAppMode("event");
+                                        setActiveScreen("Dashboard");
+                                      } else {
+                                        setAppMode("events");
+                                        setActiveScreen("All Events");
+                                      }
+                                    }
+                                  }}
+                                  className={`col-span-2 ${lightUiDestructiveButtonClass}`}
+                                >
+                                  Delete
+                                </PrimaryButton>
+                              )}
+                            </div>
+                            <div className="mt-2">
+                              <PrimaryButton
+                                onClick={async () => {
+                                  const token = Math.random().toString(36).slice(2, 14);
+                                  const link = `https://app.cutmastermusic.com/invite?event=${encodeURIComponent(evt.id)}&role=Couple&token=${token}`;
+                                  try {
+                                    await navigator.clipboard.writeText(link);
+                                    setCopyStatus("copied");
+                                    setTimeout(() => setCopyStatus(""), 1800);
+                                  } catch {
+                                    setCopyStatus("error");
+                                    setTimeout(() => setCopyStatus(""), 2200);
+                                  }
+                                  setInviteAccessPreview({
+                                    eventId: evt.id,
+                                    role: "Couple",
+                                    token,
+                                    link,
+                                  });
+                                }}
+                                className={`w-full ${lightUiCyanPrimaryButtonClass} py-2.5 text-[11px]`}
+                              >
+                                {COPY_INVITE_LINK_LABEL[cardProfile]}
+                              </PrimaryButton>
+                            </div>
+                          </div>
+                        </PremiumCard>
+                      );
+                    })}
+                  </div>
                 )}
               </>
             )}
@@ -9200,57 +9186,57 @@ export default function Home() {
                         appSettings.defaultEventType,
                       );
                       return (
-                      <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 shadow-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
-                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
-                              {PRIMARY_PARTY_SHORT_LABEL[cmdProfile]}:{" "}
-                              <span className="font-semibold text-stone-800">
-                                {evt.settings.coupleNames || evt.meta.couple || "TBD"}
-                              </span>
-                            </p>
-                            <p className="mt-1 text-xs text-stone-600">
-                              {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
-                            </p>
-                            <p className="mt-1 text-xs text-stone-600">
-                              DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
-                            </p>
+                        <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
+                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
+                                {PRIMARY_PARTY_SHORT_LABEL[cmdProfile]}:{" "}
+                                <span className="font-semibold text-stone-800">
+                                  {evt.settings.coupleNames || evt.meta.couple || "TBD"}
+                                </span>
+                              </p>
+                              <p className="mt-1 text-xs text-stone-600">
+                                {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
+                              </p>
+                              <p className="mt-1 text-xs text-stone-600">
+                                DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
+                              </p>
+                            </div>
+                            <PrimaryButton
+                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                              className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                            >
+                              View Event
+                            </PrimaryButton>
                           </div>
-                          <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                            className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-                          >
-                            View Event
-                          </PrimaryButton>
+                          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                            <PrimaryButton
+                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                            >
+                              View Event
+                            </PrimaryButton>
+                            <PrimaryButton
+                              onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
+                              className="rounded-lg border border-black bg-[#00D4FF] px-2 py-2 text-[11px] font-semibold text-black shadow-none hover:brightness-105"
+                            >
+                              Open Event Document
+                            </PrimaryButton>
+                            <PrimaryButton
+                              onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
+                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                            >
+                              Review Timeline
+                            </PrimaryButton>
+                            <PrimaryButton
+                              onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
+                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                            >
+                              Review Guest Requests
+                            </PrimaryButton>
+                          </div>
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                          <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                          >
-                            View Event
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
-                            className="rounded-lg border border-black bg-[#00D4FF] px-2 py-2 text-[11px] font-semibold text-black shadow-none hover:brightness-105"
-                          >
-                            Open Event Document
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
-                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                          >
-                            Review Timeline
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
-                            className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                          >
-                            Review Guest Requests
-                          </PrimaryButton>
-                        </div>
-                      </div>
                       );
                     })}
                     {commandCenterUpcomingEvents.length === 0 && (
@@ -9408,7 +9394,7 @@ export default function Home() {
                         : daysUntilWedding === 0
                           ? "It’s event day—breathe, you’ve got this"
                           : layoutProfileForActiveEvent === "Wedding" ||
-                              layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+                            layoutProfileForActiveEvent === "Gender-Neutral Wedding"
                             ? `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until you say “I do”`
                             : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
                     </p>
@@ -9570,306 +9556,272 @@ export default function Home() {
                 {coupleHomePlanningSections.map((section) => {
                   const isGuidedNext = section.screen === coupleGuidedNextScreen;
                   return (
-                  <button
-                    type="button"
-                    key={section.id}
-                    onClick={() => setActiveScreen(section.screen)}
-                    className={`group flex min-h-[10.5rem] flex-col rounded-2xl border bg-white px-5 py-5 text-left shadow-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
-                      isGuidedNext
+                    <button
+                      type="button"
+                      key={section.id}
+                      onClick={() => setActiveScreen(section.screen)}
+                      className={`group flex min-h-[10.5rem] flex-col rounded-2xl border bg-white px-5 py-5 text-left shadow-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${isGuidedNext
                         ? "border-stone-500 ring-2 ring-cyan-500/25 ring-offset-2 ring-offset-[var(--cm-canvas)] sm:shadow-[0_12px_32px_-14px_rgba(28,25,23,0.14)]"
                         : "border-stone-300 ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
-                            {section.kicker}
-                          </p>
-                          {isGuidedNext ? (
-                            <span className="rounded-full border border-cyan-500/35 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
-                              Next up
-                            </span>
-                          ) : null}
-                        </div>
-                        <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
-                          {section.title}
-                        </h3>
-                        <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
-                          {section.description}
-                        </p>
-                        {section.statLine || section.statSubline ? (
-                          <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
-                            {section.statLine ? (
-                              <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
-                            ) : null}
-                            {section.statSubline ? (
-                              <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
+                        }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
+                              {section.kicker}
+                            </p>
+                            {isGuidedNext ? (
+                              <span className="rounded-full border border-cyan-500/35 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
+                                Next up
+                              </span>
                             ) : null}
                           </div>
+                          <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                            {section.title}
+                          </h3>
+                          <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
+                            {section.description}
+                          </p>
+                          {section.statLine || section.statSubline ? (
+                            <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
+                              {section.statLine ? (
+                                <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
+                              ) : null}
+                              {section.statSubline ? (
+                                <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                        {section.pendingBadge ? (
+                          <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
+                            {section.pendingBadge}
+                          </span>
                         ) : null}
                       </div>
-                      {section.pendingBadge ? (
-                        <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
-                          {section.pendingBadge}
+                      <div className="mt-4">
+                        <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
+                          <span>{section.completionStatusLabel ?? "At-a-glance"}</span>
+                          <span className="tabular-nums font-semibold text-stone-700">{section.completion}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
+                          <div
+                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
+                            style={{ width: `${section.completion}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
+                        <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
+                          {section.ctaLabel} →
                         </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-4">
-                      <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
-                        <span>{section.completionStatusLabel ?? "At-a-glance"}</span>
-                        <span className="tabular-nums font-semibold text-stone-700">{section.completion}%</span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
-                        <div
-                          className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
-                          style={{ width: `${section.completion}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
-                      <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
-                        {section.ctaLabel} →
-                      </span>
-                    </div>
-                  </button>
-                );
+                    </button>
+                  );
                 })}
               </div>
 
             </section>
           ) : (
-          <>
-            <section className={workspaceSectionClass}>
-              <PremiumCard className="overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
-                <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
-                  {eventSettings.coverPhotoDataUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={eventSettings.coverPhotoDataUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
-                      aria-hidden
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/45" />
-                  <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">{primaryPartyShortLabel}</p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                      {eventDisplayName}
-                    </h2>
-                    <p className="mt-1 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
-                        {layoutProfileForActiveEvent}
-                      </span>
-                      <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left">
-                        <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
-                        <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
-                      </span>
-                      <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200">
-                        {eventVenueDisplay}
-                      </span>
-                    </div>
-                    <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
-                        <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
-                          <div
-                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
-                            style={{ width: `${completionPercent}%` }}
-                          />
-                        </div>
+            <>
+              <section className={workspaceSectionClass}>
+                <PremiumCard className="overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
+                  <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
+                    {eventSettings.coverPhotoDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={eventSettings.coverPhotoDataUrl}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
+                        aria-hidden
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-black/45" />
+                    <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">{primaryPartyShortLabel}</p>
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                        {eventDisplayName}
+                      </h2>
+                      <p className="mt-1 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
+                          {layoutProfileForActiveEvent}
+                        </span>
+                        <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left">
+                          <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
+                          <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
+                        </span>
+                        <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200">
+                          {eventVenueDisplay}
+                        </span>
                       </div>
-                      <p className="shrink-0 text-3xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
+                      <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
+                          <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
+                            <div
+                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
+                              style={{ width: `${completionPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                        <p className="shrink-0 text-3xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-4 border-t border-stone-300 bg-stone-50/70 p-5 sm:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b5420]">{dashboardEyebrowText}</p>
-                      <p className="mt-1 text-[11px] font-medium text-stone-600">
-                        Viewing as{" "}
-                        <span className="font-semibold text-stone-900">
-                          {perspectiveRoleLabel(currentRole ?? rolePreview)}
-                        </span>
+                  <div className="space-y-4 border-t border-stone-300 bg-stone-50/70 p-5 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b5420]">{dashboardEyebrowText}</p>
+                        <p className="mt-1 text-[11px] font-medium text-stone-600">
+                          Viewing as{" "}
+                          <span className="font-semibold text-stone-900">
+                            {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                          </span>
+                        </p>
+                      </div>
+                      {canEditEventCover ? (
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => setActiveScreen("Event Settings")}
+                          className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                        >
+                          Cover & details
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                    <p className="text-xs font-medium text-stone-600">
+                      Event team contacts:{" "}
+                      <span className="font-semibold text-stone-900">{vendors.length}</span>
+                    </p>
+                    <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5c4a12]">{eventCountdownLabel}</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">
+                        {daysUntilWedding === null
+                          ? "Add an event date to start your countdown"
+                          : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
                       </p>
                     </div>
-                    {canEditEventCover ? (
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => setActiveScreen("Event Settings")}
-                        className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
-                      >
-                        Cover & details
-                      </PrimaryButton>
-                    ) : null}
                   </div>
-                  <p className="text-xs font-medium text-stone-600">
-                    Event team contacts:{" "}
-                    <span className="font-semibold text-stone-900">{vendors.length}</span>
-                  </p>
-                  <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5c4a12]">{eventCountdownLabel}</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-900">
-                      {daysUntilWedding === null
-                        ? "Add an event date to start your countdown"
-                        : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
-                    </p>
-                  </div>
-                </div>
-                <div className="border-t border-white/10 px-5 pb-5 sm:px-6">
-                  <div className="mt-4">
-                  <SectionTitle>{staffDashboardSectionTitles.nextTasks}</SectionTitle>
-                  <div className="mt-2 space-y-2">
-                    {nextChecklistTasks.length > 0 ? (
-                      nextChecklistTasks.map((task) => (
-                        <button
+                  <div className="border-t border-white/10 px-5 pb-5 sm:px-6">
+                    <div className="mt-4">
+                      <SectionTitle>{staffDashboardSectionTitles.nextTasks}</SectionTitle>
+                      <div className="mt-2 space-y-2">
+                        {nextChecklistTasks.length > 0 ? (
+                          nextChecklistTasks.map((task) => (
+                            <button
+                              type="button"
+                              key={`next-${task.id}`}
+                              onClick={() => setActiveScreen(task.linkedSection)}
+                              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50"
+                            >
+                              <p className="font-semibold text-stone-900">{task.title}</p>
+                              <p className="mt-1 text-stone-600">{task.description}</p>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="rounded-xl border border-emerald-300/90 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-950">
+                            Beautiful work. Your checklist is complete and event-ready.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {staffHomeQuickActions.map((action, idx) => (
+                        <PrimaryButton
+                          key={`staff-quick-${idx}-${action.kind === "screen" ? action.screen : action.section}`}
                           type="button"
-                          key={`next-${task.id}`}
-                          onClick={() => setActiveScreen(task.linkedSection)}
-                          className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50"
+                          onClick={() => {
+                            if (action.kind === "screen") {
+                              setActiveScreen(action.screen);
+                              return;
+                            }
+                            commitActiveEventPlanningToEventsState();
+                            setAppMode("events");
+                            setActiveScreen("Settings");
+                            setActiveGlobalSettingsSection(action.section);
+                          }}
+                          className={
+                            action.kind === "workspace"
+                              ? darkUiWorkspaceJumpButtonClass
+                              : `${lightUiSecondaryButtonClass} text-[11px] hover:-translate-y-0.5 active:scale-[0.99]`
+                          }
                         >
-                          <p className="font-semibold text-stone-900">{task.title}</p>
-                          <p className="mt-1 text-stone-600">{task.description}</p>
-                        </button>
+                          {action.label}
+                        </PrimaryButton>
+                      ))}
+                    </div>
+                  </div>
+                </PremiumCard>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {roleDashboardMetricCards.map((card) => (
+                    <PremiumCard key={card.label}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-stone-700">{card.label}</p>
+                        <span className="text-sm font-semibold tabular-nums text-[#5c4a12]">{card.value}</span>
+                      </div>
+                      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
+                        <div
+                          className="h-full rounded-full bg-[#00D4FF]"
+                          style={{
+                            width: /\d+%$/.test(String(card.value)) ? String(card.value) : "100%",
+                            opacity: /\d+%$/.test(String(card.value)) ? 1 : 0.35,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs font-medium text-stone-600">{card.detail}</p>
+                    </PremiumCard>
+                  ))}
+                </div>
+              </section>
+
+              <section className={workspaceSectionClass}>
+                <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
+                    <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/22 px-2.5 py-1 text-xs font-semibold text-stone-950">
+                      {completionPercent}%
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {upcomingMilestones.length > 0 ? (
+                      upcomingMilestones.map((item) => (
+                        <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-stone-900">{item.title}</span>
+                            <span className="text-stone-600">{item.dueDate}</span>
+                          </div>
+                          <p className="mt-1 text-stone-600">{item.description}</p>
+                        </div>
                       ))
                     ) : (
-                      <p className="rounded-xl border border-emerald-300/90 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-950">
-                        Beautiful work. Your checklist is complete and event-ready.
-                      </p>
+                      planningChecklist.slice(0, 3).map((item) => (
+                        <div key={item.id} className="flex items-center justify-between rounded-xl border border-stone-100 bg-white px-3 py-2 text-xs shadow-sm">
+                          <span className="font-medium text-stone-800">{item.title}</span>
+                          <span className="text-stone-600">{item.dueDate || "Set date"}</span>
+                        </div>
+                      ))
                     )}
                   </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {staffHomeQuickActions.map((action, idx) => (
+                </PremiumCard>
+
+                <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.updates}</SectionTitle>
                     <PrimaryButton
-                      key={`staff-quick-${idx}-${action.kind === "screen" ? action.screen : action.section}`}
-                      type="button"
-                      onClick={() => {
-                        if (action.kind === "screen") {
-                          setActiveScreen(action.screen);
-                          return;
-                        }
-                        commitActiveEventPlanningToEventsState();
-                        setAppMode("events");
-                        setActiveScreen("Settings");
-                        setActiveGlobalSettingsSection(action.section);
-                      }}
-                      className={
-                        action.kind === "workspace"
-                          ? darkUiWorkspaceJumpButtonClass
-                          : `${lightUiSecondaryButtonClass} text-[11px] hover:-translate-y-0.5 active:scale-[0.99]`
-                      }
+                      onClick={() => setActiveScreen("Notification Center")}
+                      className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
                     >
-                      {action.label}
+                      View All
                     </PrimaryButton>
-                  ))}
-                </div>
-                </div>
-              </PremiumCard>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {roleDashboardMetricCards.map((card) => (
-                  <PremiumCard key={card.label}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-stone-700">{card.label}</p>
-                      <span className="text-sm font-semibold tabular-nums text-[#5c4a12]">{card.value}</span>
-                    </div>
-                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
-                      <div
-                        className="h-full rounded-full bg-[#00D4FF]"
-                        style={{
-                          width: /\d+%$/.test(String(card.value)) ? String(card.value) : "100%",
-                          opacity: /\d+%$/.test(String(card.value)) ? 1 : 0.35,
-                        }}
-                      />
-                    </div>
-                    <p className="mt-3 text-xs font-medium text-stone-600">{card.detail}</p>
-                  </PremiumCard>
-                ))}
-              </div>
-            </section>
-
-            <section className={workspaceSectionClass}>
-              <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
-                <div className="flex items-center justify-between">
-                  <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
-                  <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/22 px-2.5 py-1 text-xs font-semibold text-stone-950">
-                    {completionPercent}%
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {upcomingMilestones.length > 0 ? (
-                    upcomingMilestones.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-stone-900">{item.title}</span>
-                          <span className="text-stone-600">{item.dueDate}</span>
-                        </div>
-                        <p className="mt-1 text-stone-600">{item.description}</p>
-                      </div>
-                    ))
-                  ) : (
-                    planningChecklist.slice(0, 3).map((item) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-xl border border-stone-100 bg-white px-3 py-2 text-xs shadow-sm">
-                        <span className="font-medium text-stone-800">{item.title}</span>
-                        <span className="text-stone-600">{item.dueDate || "Set date"}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </PremiumCard>
-
-              <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
-                <div className="flex items-center justify-between">
-                  <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.updates}</SectionTitle>
-                  <PrimaryButton
-                    onClick={() => setActiveScreen("Notification Center")}
-                    className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
-                  >
-                    View All
-                  </PrimaryButton>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {recentActivityForActiveEvent.map((item) => (
-                    <div key={`recent-${item.id}`} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-xs">
-                      <p className="font-medium text-stone-900">
-                        <span className="mr-1">{activityTypeIcon(item.type)}</span>
-                        {item.summary}
-                      </p>
-                      <p className="mt-1 text-stone-600">
-                        {item.userRole} · {item.eventName} · {formatRelativeTime(item.timestamp)}
-                      </p>
-                    </div>
-                  ))}
-                  {recentActivityForActiveEvent.length === 0 && (
-                    <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
-                      Activity will appear here as planning updates happen.
-                    </p>
-                  )}
-                </div>
-              </PremiumCard>
-
-              <PremiumCard>
-                <div className="flex items-center justify-between">
-                  <SectionTitle className="text-stone-950">Recent Activity</SectionTitle>
-                  <PrimaryButton
-                    onClick={() => setActiveScreen("Notification Center")}
-                    className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
-                  >
-                    View All
-                  </PrimaryButton>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {activities
-                    .filter((item) => item.eventId === activeEventId)
-                    .slice(0, 4)
-                    .map((item) => (
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {recentActivityForActiveEvent.map((item) => (
                       <div key={`recent-${item.id}`} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-xs">
                         <p className="font-medium text-stone-900">
                           <span className="mr-1">{activityTypeIcon(item.type)}</span>
@@ -9880,46 +9832,79 @@ export default function Home() {
                         </p>
                       </div>
                     ))}
-                  {activities.filter((item) => item.eventId === activeEventId).length === 0 && (
-                    <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
-                      Activity will appear here as planning updates happen.
-                    </p>
-                  )}
-                </div>
-              </PremiumCard>
+                    {recentActivityForActiveEvent.length === 0 && (
+                      <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
+                        Activity will appear here as planning updates happen.
+                      </p>
+                    )}
+                  </div>
+                </PremiumCard>
 
-            </section>
+                <PremiumCard>
+                  <div className="flex items-center justify-between">
+                    <SectionTitle className="text-stone-950">Recent Activity</SectionTitle>
+                    <PrimaryButton
+                      onClick={() => setActiveScreen("Notification Center")}
+                      className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                    >
+                      View All
+                    </PrimaryButton>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {activities
+                      .filter((item) => item.eventId === activeEventId)
+                      .slice(0, 4)
+                      .map((item) => (
+                        <div key={`recent-${item.id}`} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-xs">
+                          <p className="font-medium text-stone-900">
+                            <span className="mr-1">{activityTypeIcon(item.type)}</span>
+                            {item.summary}
+                          </p>
+                          <p className="mt-1 text-stone-600">
+                            {item.userRole} · {item.eventName} · {formatRelativeTime(item.timestamp)}
+                          </p>
+                        </div>
+                      ))}
+                    {activities.filter((item) => item.eventId === activeEventId).length === 0 && (
+                      <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
+                        Activity will appear here as planning updates happen.
+                      </p>
+                    )}
+                  </div>
+                </PremiumCard>
 
-            <section className={workspaceSectionClass}>
-              <SectionTitle className="mb-1 font-semibold text-stone-700">
-                {staffDashboardSectionTitles.insightsIntro}
-              </SectionTitle>
-              <PremiumCard className="border-[#00D4FF]/45 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.08)]">
-                <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.assistant}</SectionTitle>
-                <p className="mt-1 text-xs font-medium text-stone-600">{staffDashboardSectionTitles.assistantHint}</p>
-                <div className="mt-3">
-                  <InsightStack
-                    insights={insightsForEventDashboard}
-                    emptyLabel="No assistant notes yet — your plan reads balanced."
-                  />
-                </div>
-                <div className="mt-4">
-                  <PrimaryButton
-                    onClick={handleResetDemoData}
-                    className="w-full rounded-xl border border-[#6f5353]/45 bg-[#6f5353]/15 px-3 py-2.5 text-sm font-semibold text-[#f2dede] hover:bg-[#6f5353]/25"
-                  >
-                    Reset demo data
-                  </PrimaryButton>
-                </div>
-              </PremiumCard>
-            </section>
+              </section>
 
-            <section className={workspaceSectionClass}>
-              <SectionTitle className="font-medium !text-stone-800">
-                {staffDashboardSectionTitles.allSections}
-              </SectionTitle>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                {prioritizedEventNavForDashboard.map((section) => (
+              <section className={workspaceSectionClass}>
+                <SectionTitle className="mb-1 font-semibold text-stone-700">
+                  {staffDashboardSectionTitles.insightsIntro}
+                </SectionTitle>
+                <PremiumCard className="border-[#00D4FF]/45 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.08)]">
+                  <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.assistant}</SectionTitle>
+                  <p className="mt-1 text-xs font-medium text-stone-600">{staffDashboardSectionTitles.assistantHint}</p>
+                  <div className="mt-3">
+                    <InsightStack
+                      insights={insightsForEventDashboard}
+                      emptyLabel="No assistant notes yet — your plan reads balanced."
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <PrimaryButton
+                      onClick={handleResetDemoData}
+                      className="w-full rounded-xl border border-[#6f5353]/45 bg-[#6f5353]/15 px-3 py-2.5 text-sm font-semibold text-[#f2dede] hover:bg-[#6f5353]/25"
+                    >
+                      Reset demo data
+                    </PrimaryButton>
+                  </div>
+                </PremiumCard>
+              </section>
+
+              <section className={workspaceSectionClass}>
+                <SectionTitle className="font-medium !text-stone-800">
+                  {staffDashboardSectionTitles.allSections}
+                </SectionTitle>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                  {prioritizedEventNavForDashboard.map((section) => (
                     <PrimaryButton
                       key={section}
                       onClick={() => setActiveScreen(section)}
@@ -9928,9 +9913,9 @@ export default function Home() {
                       {navLabel(section)}
                     </PrimaryButton>
                   ))}
-              </div>
-            </section>
-          </>
+                </div>
+              </section>
+            </>
           )
         )}
 
@@ -10157,11 +10142,10 @@ export default function Home() {
                           type="button"
                           disabled={!canManageMusic}
                           onClick={() => toggleMusicTasteChip("danceFloorStyles", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${
-                            on
-                              ? "border-black bg-[#00D4FF] text-black shadow-none"
-                              : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                          } disabled:opacity-45`}
+                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
+                            ? "border-black bg-[#00D4FF] text-black shadow-none"
+                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                            } disabled:opacity-45`}
                         >
                           {label}
                         </button>
@@ -10180,11 +10164,10 @@ export default function Home() {
                           type="button"
                           disabled={!canManageMusic}
                           onClick={() => toggleMusicTasteChip("crowdPreferences", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${
-                            on
-                              ? "border-black bg-[#00D4FF] text-black shadow-none"
-                              : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                          } disabled:opacity-45`}
+                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
+                            ? "border-black bg-[#00D4FF] text-black shadow-none"
+                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                            } disabled:opacity-45`}
                         >
                           {label}
                         </button>
@@ -10203,11 +10186,10 @@ export default function Home() {
                           type="button"
                           disabled={!canManageMusic}
                           onClick={() => toggleMusicTasteChip("musicBehavior", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${
-                            on
-                              ? "border-black bg-[#00D4FF] text-black shadow-none"
-                              : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                          } disabled:opacity-45`}
+                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
+                            ? "border-black bg-[#00D4FF] text-black shadow-none"
+                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                            } disabled:opacity-45`}
                         >
                           {label}
                         </button>
@@ -10246,11 +10228,10 @@ export default function Home() {
                       type="button"
                       disabled={!canManageMusic}
                       onClick={() => toggleGenreEraChip(label)}
-                      className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${
-                        on
-                          ? "border-black bg-[#00D4FF] text-black shadow-none"
-                          : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                      } disabled:opacity-45`}
+                      className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
+                        ? "border-black bg-[#00D4FF] text-black shadow-none"
+                        : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                        } disabled:opacity-45`}
                     >
                       {label}
                     </button>
@@ -10293,33 +10274,30 @@ export default function Home() {
                   <PrimaryButton
                     onClick={() => setNewSongListType("mustPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
-                      newSongListType === "mustPlay"
-                        ? "border-black bg-[#00D4FF] text-black"
-                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "mustPlay"
+                      ? "border-black bg-[#00D4FF] text-black"
+                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                      }`}
                   >
                     Must play
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => setNewSongListType("playIfPossible")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
-                      newSongListType === "playIfPossible"
-                        ? "border-emerald-700 bg-emerald-100 text-emerald-950"
-                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "playIfPossible"
+                      ? "border-emerald-700 bg-emerald-100 text-emerald-950"
+                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                      }`}
                   >
                     Play if possible
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => setNewSongListType("doNotPlay")}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
-                      newSongListType === "doNotPlay"
-                        ? "border-rose-600 bg-rose-100 text-rose-950"
-                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "doNotPlay"
+                      ? "border-rose-600 bg-rose-100 text-rose-950"
+                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                      }`}
                   >
                     Do not play
                   </PrimaryButton>
@@ -10327,11 +10305,10 @@ export default function Home() {
                 <PrimaryButton
                   onClick={() => setNewSongHighPriority((prev) => !prev)}
                   disabled={!canManageMusic}
-                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
-                    newSongHighPriority
-                      ? "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
-                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                  }`}
+                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${newSongHighPriority
+                    ? "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
+                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
                 >
                   {newSongHighPriority ? "High Priority Enabled" : "Mark as High Priority"}
                 </PrimaryButton>
@@ -10495,146 +10472,146 @@ export default function Home() {
                   </span>
                 </summary>
                 <div className="border-t border-stone-200 px-4 pb-4 pt-2 sm:px-5">
-              <div className="space-y-4">
-                <div className="px-1">
-                  <SectionTitle className="text-stone-950">Playlists by moment</SectionTitle>
-                  <p className="mt-1 text-xs text-stone-600">
-                    Each block is its own pocket—drag to reorder, or nudge with arrows.
-                  </p>
-                </div>
-                <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
-                  {PLAYLIST_BUCKET_IDS.map((bucketId) => {
-                    const lines = getPlaylistLines(bucketId);
-                    const usingDefaults = playlistVibeOverrides[bucketId] === undefined;
-                    return (
-                      <PremiumCard
-                        key={bucketId}
-                        className={`border ${MUSIC_HUB_BUCKET_SHELL[bucketId]}`}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <SectionTitle className="text-stone-950">
-                              {PLAYLIST_BUCKET_LABELS[bucketId]}
-                            </SectionTitle>
-                            <p className="mt-1 text-[11px] text-stone-600">
-                              {lines.length} song{lines.length === 1 ? "" : "s"}
-                              {usingDefaults ? " · Includes starter ideas" : " · Custom list"}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => resetPlaylistBucketToDefaults(bucketId)}
-                              disabled={!canManageMusic || usingDefaults}
-                              className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-40"
-                            >
-                              Reset
-                            </PrimaryButton>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                          <TextInput
-                            id={`playlist-draft-${bucketId}`}
-                            label="Add line (Song - Artist)"
-                            value={playlistAddDrafts[bucketId] ?? ""}
-                            onChange={(value) =>
-                              setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: value }))
-                            }
-                            placeholder="Levitating - Dua Lipa"
-                            disabled={!canManageMusic}
-                          />
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => {
-                              addPlaylistLineToBucket(bucketId, playlistAddDrafts[bucketId] ?? "");
-                              setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: "" }));
-                            }}
-                            disabled={!canManageMusic}
-                            className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                  <div className="space-y-4">
+                    <div className="px-1">
+                      <SectionTitle className="text-stone-950">Playlists by moment</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">
+                        Each block is its own pocket—drag to reorder, or nudge with arrows.
+                      </p>
+                    </div>
+                    <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
+                      {PLAYLIST_BUCKET_IDS.map((bucketId) => {
+                        const lines = getPlaylistLines(bucketId);
+                        const usingDefaults = playlistVibeOverrides[bucketId] === undefined;
+                        return (
+                          <PremiumCard
+                            key={bucketId}
+                            className={`border ${MUSIC_HUB_BUCKET_SHELL[bucketId]}`}
                           >
-                            Add
-                          </PrimaryButton>
-                        </div>
-
-                        <ul className="mt-3 space-y-2">
-                          {lines.length === 0 ? (
-                            <li className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-3 text-left">
-                              <p className="text-xs font-semibold text-stone-800">Empty for now</p>
-                              <p className="mt-1 text-[11px] leading-snug text-stone-600">
-                                Add a line above—pair energy with this part of the night.
-                              </p>
-                            </li>
-                          ) : null}
-                          {lines.map((line, index) => {
-                            const parsed = parsePlaylistSongLine(line);
-                            return (
-                              <li
-                                key={`${bucketId}-line-${index}`}
-                                draggable={canManageMusic}
-                                onDragStart={() => setPlaylistDrag({ id: bucketId, index })}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  if (!playlistDrag || playlistDrag.id !== bucketId) return;
-                                  reorderPlaylistLineInBucket(bucketId, playlistDrag.index, index);
-                                  setPlaylistDrag(null);
-                                }}
-                                className="flex items-start gap-2 rounded-xl border border-stone-200 bg-white px-2 py-2.5 text-xs shadow-sm"
-                              >
-                                <span
-                                  className="mt-0.5 cursor-grab select-none text-stone-500"
-                                  title="Drag to reorder"
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <SectionTitle className="text-stone-950">
+                                  {PLAYLIST_BUCKET_LABELS[bucketId]}
+                                </SectionTitle>
+                                <p className="mt-1 text-[11px] text-stone-600">
+                                  {lines.length} song{lines.length === 1 ? "" : "s"}
+                                  {usingDefaults ? " · Includes starter ideas" : " · Custom list"}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => resetPlaylistBucketToDefaults(bucketId)}
+                                  disabled={!canManageMusic || usingDefaults}
+                                  className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-40"
                                 >
-                                  ⋮⋮
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate font-semibold text-stone-900">
-                                    {parsed.song || line || "—"}
+                                  Reset
+                                </PrimaryButton>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                              <TextInput
+                                id={`playlist-draft-${bucketId}`}
+                                label="Add line (Song - Artist)"
+                                value={playlistAddDrafts[bucketId] ?? ""}
+                                onChange={(value) =>
+                                  setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: value }))
+                                }
+                                placeholder="Levitating - Dua Lipa"
+                                disabled={!canManageMusic}
+                              />
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                  addPlaylistLineToBucket(bucketId, playlistAddDrafts[bucketId] ?? "");
+                                  setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: "" }));
+                                }}
+                                disabled={!canManageMusic}
+                                className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                              >
+                                Add
+                              </PrimaryButton>
+                            </div>
+
+                            <ul className="mt-3 space-y-2">
+                              {lines.length === 0 ? (
+                                <li className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-3 text-left">
+                                  <p className="text-xs font-semibold text-stone-800">Empty for now</p>
+                                  <p className="mt-1 text-[11px] leading-snug text-stone-600">
+                                    Add a line above—pair energy with this part of the night.
                                   </p>
-                                  <p className="truncate text-[11px] font-medium text-stone-600">
-                                    {parsed.artist ? parsed.artist : "—"}
-                                  </p>
-                                </div>
-                                <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() =>
-                                      reorderPlaylistLineInBucket(bucketId, index, index - 1)
-                                    }
-                                    disabled={!canManageMusic || index === 0}
-                                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                </li>
+                              ) : null}
+                              {lines.map((line, index) => {
+                                const parsed = parsePlaylistSongLine(line);
+                                return (
+                                  <li
+                                    key={`${bucketId}-line-${index}`}
+                                    draggable={canManageMusic}
+                                    onDragStart={() => setPlaylistDrag({ id: bucketId, index })}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      if (!playlistDrag || playlistDrag.id !== bucketId) return;
+                                      reorderPlaylistLineInBucket(bucketId, playlistDrag.index, index);
+                                      setPlaylistDrag(null);
+                                    }}
+                                    className="flex items-start gap-2 rounded-xl border border-stone-200 bg-white px-2 py-2.5 text-xs shadow-sm"
                                   >
-                                    Up
-                                  </PrimaryButton>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() =>
-                                      reorderPlaylistLineInBucket(bucketId, index, index + 1)
-                                    }
-                                    disabled={!canManageMusic || index >= lines.length - 1}
-                                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                                  >
-                                    Down
-                                  </PrimaryButton>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => removePlaylistLineFromBucket(bucketId, index)}
-                                    disabled={!canManageMusic}
-                                    className="rounded-lg border border-rose-400 bg-white px-2 py-1 text-[10px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
-                                  >
-                                    Remove
-                                  </PrimaryButton>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </PremiumCard>
-                    );
-                  })}
-                </div>
-              </div>
+                                    <span
+                                      className="mt-0.5 cursor-grab select-none text-stone-500"
+                                      title="Drag to reorder"
+                                    >
+                                      ⋮⋮
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate font-semibold text-stone-900">
+                                        {parsed.song || line || "—"}
+                                      </p>
+                                      <p className="truncate text-[11px] font-medium text-stone-600">
+                                        {parsed.artist ? parsed.artist : "—"}
+                                      </p>
+                                    </div>
+                                    <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
+                                      <PrimaryButton
+                                        type="button"
+                                        onClick={() =>
+                                          reorderPlaylistLineInBucket(bucketId, index, index - 1)
+                                        }
+                                        disabled={!canManageMusic || index === 0}
+                                        className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                      >
+                                        Up
+                                      </PrimaryButton>
+                                      <PrimaryButton
+                                        type="button"
+                                        onClick={() =>
+                                          reorderPlaylistLineInBucket(bucketId, index, index + 1)
+                                        }
+                                        disabled={!canManageMusic || index >= lines.length - 1}
+                                        className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[10px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
+                                      >
+                                        Down
+                                      </PrimaryButton>
+                                      <PrimaryButton
+                                        type="button"
+                                        onClick={() => removePlaylistLineFromBucket(bucketId, index)}
+                                        disabled={!canManageMusic}
+                                        className="rounded-lg border border-rose-400 bg-white px-2 py-1 text-[10px] font-semibold text-rose-900 shadow-none hover:bg-rose-50"
+                                      >
+                                        Remove
+                                      </PrimaryButton>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </PremiumCard>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </details>
             )}
@@ -10799,871 +10776,864 @@ export default function Home() {
           appMode === "event" &&
           (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
           sectionReceptionTimelineEnabled && (
-          <section
-            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
-          >
-            <EventHomeNav
-              trail={
-                isCoupleView
-                  ? ["Timeline"]
-                  : activeScreen === "Reception Timeline"
-                    ? ["Reception timeline"]
-                    : ["Event timeline"]
-              }
-              onBack={() => setActiveScreen("Dashboard")}
-              primaryAction={{
-                label: "+ Add moment",
-                onClick: () => {
-                  resetTimelineForm();
-                  closeReceptionTimelineCardExpanded();
-                  setTimelineComposerOpen(true);
-                  window.setTimeout(() => {
-                    timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                  }, 50);
-                },
-                disabled: !canEditTimeline,
-              }}
-            />
-            {!canEditTimeline && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
-                <p className="text-xs font-medium text-amber-950">
-                  {effectiveRole} role can view timeline, but editing is limited in this prototype.
-                </p>
-              </PremiumCard>
-            )}
-            <div className="no-print flex min-w-0 flex-col gap-4">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
-                      {isCoupleView
-                        ? "Timeline"
-                        : activeScreen === "Reception Timeline"
-                          ? "Reception timeline"
-                          : "Event timeline"}
-                    </h2>
-                    <PersistEcho
-                      persistFeedback={persistFeedback}
-                      variant="light"
-                      className="pt-1 sm:pt-0.5"
-                    />
-                  </div>
-                  <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
-                    {showTimelinePresetOnboarding
-                      ? "Start with a suggested flow or add your own moments—everything stays editable."
-                      : "Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit."}
-                  </p>
-                </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                  {canEditTimeline ? (
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => {
-                        setTimelineImportOpen(true);
-                        setTimelineImportStep("paste");
-                        setTimelineImportParseError(null);
-                        setTimelineImportReplaceDanger(false);
-                      }}
-                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto sm:shrink-0"
-                    >
-                      Import Timeline
-                    </PrimaryButton>
-                  ) : null}
-                  {hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
-                    <details className="group w-full rounded-xl border border-stone-300 bg-white shadow-sm sm:w-auto sm:min-w-[220px]">
-                      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-900 sm:min-h-0 sm:text-[12px] [&::-webkit-details-marker]:hidden">
-                        <span>Preset tools</span>
-                        <span className="text-[10px] font-medium text-stone-500 transition-transform group-open:rotate-180">
-                          ▼
-                        </span>
-                      </summary>
-                      <div className="space-y-3 border-t border-stone-200 px-3 pb-3 pt-3">
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => applyTimelinePresetsForActiveEvent()}
-                          disabled={!canEditTimeline}
-                          className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[11px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
-                        >
-                          Apply preset again…
-                        </PrimaryButton>
-                        <div>
-                          <label
-                            htmlFor="timeline-preset-quick-add"
-                            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600"
-                          >
-                            Add suggested moment
-                          </label>
-                          <select
-                            id="timeline-preset-quick-add"
-                            defaultValue=""
-                            disabled={!canEditTimeline}
-                            onChange={(event) => {
-                              const id = event.target.value;
-                              if (!id) return;
-                              const preset = mainTimelinePresetsForActiveEvent.find((p) => p.id === id);
-                              if (preset) addReceptionPreset(preset);
-                              event.target.selectedIndex = 0;
-                            }}
-                            className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 disabled:opacity-45"
-                          >
-                            <option value="">Choose a moment…</option>
-                            {mainTimelinePresetsForActiveEvent.map((preset) => (
-                              <option key={`preset-opt-${preset.id}`} value={preset.id}>
-                                {preset.momentName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </details>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            {showTimelinePresetOnboarding && (
-              <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
-                <div className="p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-700">Get started</p>
-                <h3 className="mt-2 text-lg font-semibold text-stone-950">Build your run of show</h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                  Load the suggested {layoutProfileForActiveEvent} timeline (editable), or create your first moment from
-                  scratch.
-                </p>
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <PrimaryButton
-                    type="button"
-                    onClick={handleApplySuggestedTimelineSetup}
-                    disabled={
-                      !canEditTimeline ||
-                      !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
-                    }
-                    className="min-h-12 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
-                  >
-                    Apply suggested {layoutProfileForActiveEvent} timeline
-                  </PrimaryButton>
-                  <PrimaryButton
-                    type="button"
-                    onClick={() => {
-                      resetTimelineForm();
-                      closeReceptionTimelineCardExpanded();
-                      setTimelineComposerOpen(true);
-                      window.setTimeout(() => {
-                        timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                      }, 50);
-                    }}
-                    disabled={!canEditTimeline}
-                    className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
-                  >
-                    Start from scratch
-                  </PrimaryButton>
-                </div>
-                {!canEditTimeline ? (
-                  <p className="mt-4 text-xs text-stone-600">Editing presets isn&apos;t available for your role.</p>
-                ) : !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded) ? (
-                  <p className="mt-4 text-xs text-stone-600">
-                    No default moments are enabled for this event type in Global Settings → Timeline Presets.
-                  </p>
-                ) : (
-                  <p className="mt-4 text-xs text-stone-600">
-                    Tip: after your timeline has moments, preset shortcuts move under{" "}
-                    <span className="font-medium text-stone-700">Preset tools</span>.
-                  </p>
-                )}
-                </div>
-              </PremiumCard>
-            )}
-
-            {timelineComposerOpen && (
-              <PremiumCard variant="accent">
-                <div ref={timelineComposerRef}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <SectionTitle>New moment</SectionTitle>
-                      <p className="mt-1 text-xs text-stone-600">
-                        Lightweight capture—fine-tune anytime inline on the timeline.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetTimelineForm();
-                        setTimelineComposerOpen(false);
-                      }}
-                      className="rounded-lg px-2 py-1 text-[11px] text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <form
-                    className="mt-4 space-y-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      addOrUpdateTimelineItem();
-                    }}
-                  >
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <TextInput
-                        id="timeline-time"
-                        label="Time / order"
-                        value={timelineTime}
-                        onChange={setTimelineTime}
-                        placeholder="e.g. 6:30 PM (optional)"
-                        disabled={!canEditTimeline}
-                      />
-                      <div className="space-y-0">
-                        <TextInput
-                          id="timeline-title"
-                          label="Moment"
-                          value={timelineTitle}
-                          onChange={(value) => {
-                            setTimelineTitle(value);
-                            setTimelineComposerError(null);
-                          }}
-                          placeholder="Required — e.g. Dinner service begins"
-                          disabled={!canEditTimeline}
-                        />
-                        {timelineComposerError ? (
-                          <p className="mt-1.5 text-xs font-medium text-rose-700">{timelineComposerError}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <TextInput
-                        id="timeline-song-title"
-                        label="Song title"
-                        value={timelineSongTitle}
-                        onChange={setTimelineSongTitle}
-                        placeholder="Optional"
-                        disabled={!canEditTimeline}
-                      />
-                      <TextInput
-                        id="timeline-artist"
-                        label="Artist"
-                        value={timelineArtist}
-                        onChange={setTimelineArtist}
-                        placeholder="Optional"
-                        disabled={!canEditTimeline}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="timeline-category" className={lightUiFormLabelClass}>
-                        Category
-                      </label>
-                      <select
-                        id="timeline-category"
-                        value={timelineCategory}
-                        disabled={!canEditTimeline}
-                        onChange={(event) =>
-                          setTimelineCategory(event.target.value as TimelineCategory)
-                        }
-                        className={lightUiSelectClass}
-                      >
-                        {timelineCategories.map((category) => (
-                          <option key={category} value={category} className="bg-white text-stone-900">
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <TextArea
-                      id="timeline-notes"
-                      label="Notes / cues"
-                      value={timelineNotes}
-                      onChange={setTimelineNotes}
-                      placeholder="Production notes, MC guidance…"
-                      disabled={!canEditTimeline}
-                    />
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => setTimelineNeedsAttention((prev) => !prev)}
-                      disabled={!canEditTimeline}
-                      className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
-                        timelineNeedsAttention
-                          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
-                          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                      }`}
-                    >
-                      {timelineNeedsAttention
-                        ? "DJ/MC attention marked"
-                        : "Flag DJ/MC attention"}
-                    </PrimaryButton>
-                    <PrimaryButton
-                      type="submit"
-                      disabled={!canEditTimeline}
-                      className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
-                    >
-                      Add to timeline
-                    </PrimaryButton>
-                  </form>
-                </div>
-              </PremiumCard>
-            )}
-
-            {mergedTimelineItems.length > 0 && receptionTimelineClockOrderConflict ? (
-              <div className="no-print rounded-xl border border-stone-300 bg-stone-50/90 px-4 py-3 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-stone-900">
-                    Timeline order doesn&apos;t match entered times.
-                  </p>
-                  <p className="mt-1 text-xs leading-snug text-stone-600">
-                    Review timing or re-sort chronologically.
-                  </p>
-                </div>
-                <PrimaryButton
-                  type="button"
-                  disabled={!canEditTimeline}
-                  onClick={sortReceptionTimelineByEnteredTime}
-                  className="mt-3 w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:mt-0 sm:w-auto sm:shrink-0 sm:py-2"
-                >
-                  Sort by Time
-                </PrimaryButton>
-              </div>
-            ) : null}
-
-            <div
-              ref={timelineStreamRef}
-              className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
+            <section
+              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
             >
-            {mergedTimelineItems.length === 0 ? (
-              showTimelinePresetOnboarding ? null : (
-                <SectionEmptyState
-                  title="No reception moments yet"
-                  description="Build your run of show—each row is time, moment, music, then cues."
-                  primaryAction={{
-                    label: "+ Add moment",
-                    onClick: () => {
-                      resetTimelineForm();
-                      closeReceptionTimelineCardExpanded();
-                      setTimelineComposerOpen(true);
-                      window.setTimeout(() => {
-                        timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                      }, 50);
-                    },
-                    disabled: !canEditTimeline,
-                  }}
-                  secondaryAction={
-                    mainTimelinePresetsForActiveEvent.length > 0 &&
-                    timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
-                      ? {
-                          label: `Apply suggested ${layoutProfileForActiveEvent} timeline`,
-                          onClick: handleApplySuggestedTimelineSetup,
-                          disabled:
-                            !canEditTimeline || !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded),
-                        }
-                      : undefined
-                  }
-                />
-              )
-            ) : (
-              mergedTimelineItems.map((item, index) => {
-                const timelineRow = timelineItems.find((t) => t.id === item.id);
-                const rowExpanded = receptionTimelineExpandedId === item.id;
-                const songPreview =
-                  [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" · ") ||
-                  (item.notes?.trim()
-                    ? item.notes.trim().split(/\n/)[0].slice(0, 180)
-                    : "—");
-                const cueKind =
-                  (item.songTitle?.trim() || item.artist?.trim()) ? "Song" : "Cue";
-                const songArtistCompact = [item.songTitle?.trim(), item.artist?.trim()]
-                  .filter(Boolean)
-                  .join(" · ");
-                const recvInlineVals =
-                  receptionTimelineInlineEditDraft?.itemId === item.id
-                    ? receptionTimelineInlineEditDraft.values
-                    : null;
-                const recvTitle = recvInlineVals?.title ?? timelineRow?.title ?? item.title;
-                const recvTime = recvInlineVals?.time ?? timelineRow?.time ?? item.time;
-                const recvNotes = recvInlineVals?.notes ?? timelineRow?.notes ?? item.notes;
-                const recvSong = recvInlineVals?.songTitle ?? timelineRow?.songTitle ?? "";
-                const recvArtist = recvInlineVals?.artist ?? timelineRow?.artist ?? "";
-                const recvCategory = recvInlineVals?.category ?? timelineRow?.category ?? item.category;
-                const recvNeedsMc = recvInlineVals?.needsDjMcAttention ?? timelineRow?.needsDjMcAttention ?? false;
-                const recvFadeEarly = recvInlineVals?.fadeOutEarly ?? timelineRow?.fadeOutEarly ?? false;
-                const recvFadeTs = recvInlineVals?.fadeOutTimestamp ?? timelineRow?.fadeOutTimestamp ?? "";
-                const isDragging = draggingTimelineId === item.id;
-                const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
-                return (
-                <PremiumCard
-                  key={item.id}
-                  className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${
-                    index % 2 === 1 ? "bg-stone-50" : ""
-                  } ${
-                    isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
-                  } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
-                  onDragOver={(event) => {
-                    if (!canEditTimeline || !draggingTimelineId) return;
-                    event.preventDefault();
-                    if (draggingTimelineId !== item.id) {
-                      dropTargetTimelineIdRef.current = item.id;
-                      setDropTargetTimelineId(item.id);
-                    }
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (!canEditTimeline || !draggingTimelineId) return;
-                    reorderTimelineItemToTarget(draggingTimelineId, item.id);
-                    setDraggingTimelineId(null);
-                    setDropTargetTimelineId(null);
-                    dropTargetTimelineIdRef.current = null;
-                    touchDragTimelineSourceRef.current = null;
-                  }}
-                  onDragEnd={() => {
-                    setDraggingTimelineId(null);
-                    setDropTargetTimelineId(null);
-                    dropTargetTimelineIdRef.current = null;
-                    touchDragTimelineSourceRef.current = null;
-                  }}
-                  data-timeline-id={item.id}
-                >
-                  {isDropTarget && (
-                    <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
-                  )}
-                  {!rowExpanded && (
-                    <>
-                      <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
-                        <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2 lg:max-w-[40rem] lg:space-y-1 xl:max-w-[42rem]">
-                          <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere] md:text-xl md:font-semibold lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
-                            {item.title}
-                          </h3>
-                          <p className="font-mono text-base font-semibold tabular-nums text-stone-700 sm:text-sm md:text-lg md:font-semibold lg:mt-0.5 lg:text-sm lg:font-semibold lg:text-stone-600 xl:text-[0.9375rem]">
-                            {item.time?.trim() || "—"}
-                          </p>
-                          <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm md:text-base md:leading-relaxed [overflow-wrap:anywhere] lg:mt-1.5 lg:text-sm lg:leading-snug xl:text-[15px] xl:leading-snug">
-                            <span className="font-medium text-stone-500">{cueKind} · </span>
-                            {songPreview}
-                          </p>
-                          {item.notes?.trim() ? (
-                            <p className="line-clamp-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-sm md:leading-relaxed md:text-stone-600 lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs xl:text-stone-600">
-                              {item.notes}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
-                          <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-                            <span
-                              className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px] ${
-                                item.category === "Formalities"
-                                  ? "border-stone-500 bg-stone-200 text-stone-900"
-                                  : "border-stone-300 bg-white text-stone-700"
-                              }`}
-                            >
-                              {item.category}
-                            </span>
-                            {item.needsDjMcAttention ? (
-                              <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
-                                DJ/MC
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => {
-                                if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                              }}
-                              disabled={!canEditTimeline}
-                              className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
-                            >
-                              Edit
-                            </PrimaryButton>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                              disabled={!canEditTimeline}
-                              className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
-                            >
-                              + After
-                            </PrimaryButton>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => {
-                                const row = timelineItems.find((t) => t.id === item.id);
-                                if (row) duplicateTimelineItem(row);
-                              }}
-                              disabled={!canEditTimeline}
-                              className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
-                            >
-                              Duplicate
-                            </PrimaryButton>
-                            {canEditTimeline ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPendingTimelineDelete({
-                                    kind: "reception",
-                                    id: item.id,
-                                    label: item.title.trim() || "this moment",
-                                  })
-                                }
-                                className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
-                              >
-                                Delete
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-2 md:hidden">
-                        <div
-                          role="button"
-                          tabIndex={canEditTimeline ? 0 : -1}
-                          onClick={() => {
-                            if (!canEditTimeline) return;
-                            if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                          }}
-                          onKeyDown={(event) => {
-                            if (!canEditTimeline) return;
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                            }
-                          }}
-                          className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
-                            canEditTimeline
-                              ? "cursor-pointer active:scale-[0.995]"
-                              : "cursor-default opacity-80"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              {item.time?.trim() ? (
-                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
-                                  {item.time.trim()}
-                                </p>
-                              ) : null}
-                              <h3 className="mt-0.5 text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
-                                {item.title}
-                              </h3>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1.5">
-                              <span
-                                className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                  item.category === "Formalities"
-                                    ? "border-stone-500 bg-stone-200 text-stone-900"
-                                    : "border-stone-300 bg-white text-stone-700"
-                                }`}
-                              >
-                                {item.category}
-                              </span>
-                              {item.needsDjMcAttention ? (
-                                <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
-                                  DJ/MC
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                          {songArtistCompact ? (
-                            <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
-                              <span className="font-medium text-stone-500">{cueKind} · </span>
-                              {songArtistCompact}
-                            </p>
-                          ) : null}
-                          {item.notes?.trim() ? (
-                            <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
-                              {item.notes.trim()}
-                            </p>
-                          ) : null}
-                          {canEditTimeline ? (
-                            <p className="mt-2 text-xs font-semibold text-stone-500">
-                              Tap summary to expand · full edit
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
+              <EventHomeNav
+                trail={
+                  isCoupleView
+                    ? ["Timeline"]
+                    : activeScreen === "Reception Timeline"
+                      ? ["Reception timeline"]
+                      : ["Event timeline"]
+                }
+                onBack={() => setActiveScreen("Dashboard")}
+                primaryAction={{
+                  label: "+ Add moment",
+                  onClick: () => {
+                    resetTimelineForm();
+                    closeReceptionTimelineCardExpanded();
+                    setTimelineComposerOpen(true);
+                    window.setTimeout(() => {
+                      timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                    }, 50);
+                  },
+                  disabled: !canEditTimeline,
+                }}
+              />
+              {!canEditTimeline && (
+                <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                  <p className="text-xs font-medium text-amber-950">
+                    {effectiveRole} role can view timeline, but editing is limited in this prototype.
+                  </p>
+                </PremiumCard>
+              )}
+              <div className="no-print flex min-w-0 flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
+                        {isCoupleView
+                          ? "Timeline"
+                          : activeScreen === "Reception Timeline"
+                            ? "Reception timeline"
+                            : "Event timeline"}
+                      </h2>
+                      <PersistEcho
+                        persistFeedback={persistFeedback}
+                        variant="light"
+                        className="pt-1 sm:pt-0.5"
+                      />
+                    </div>
+                    <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
+                      {showTimelinePresetOnboarding
+                        ? "Start with a suggested flow or add your own moments—everything stays editable."
+                        : "Read top-to-bottom like the night itself—time, moment, music, then cues. Expand a row to edit."}
+                    </p>
+                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    {canEditTimeline ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          setTimelineImportOpen(true);
+                          setTimelineImportStep("paste");
+                          setTimelineImportParseError(null);
+                          setTimelineImportReplaceDanger(false);
+                        }}
+                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto sm:shrink-0"
+                      >
+                        Import Timeline
+                      </PrimaryButton>
+                    ) : null}
+                    {hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
+                      <details className="group w-full rounded-xl border border-stone-300 bg-white shadow-sm sm:w-auto sm:min-w-[220px]">
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-900 sm:min-h-0 sm:text-[12px] [&::-webkit-details-marker]:hidden">
+                          <span>Preset tools</span>
+                          <span className="text-[10px] font-medium text-stone-500 transition-transform group-open:rotate-180">
+                            ▼
+                          </span>
+                        </summary>
+                        <div className="space-y-3 border-t border-stone-200 px-3 pb-3 pt-3">
                           <PrimaryButton
                             type="button"
-                            onClick={() => {
-                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                            }}
+                            onClick={() => applyTimelinePresetsForActiveEvent()}
                             disabled={!canEditTimeline}
-                            className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                            className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[11px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
                           >
-                            Expand
+                            Apply preset again…
                           </PrimaryButton>
-                          {canEditTimeline ? (
-                            <>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
-                                disabled={!canEditTimeline}
-                                className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
-                              >
-                                + After
-                              </PrimaryButton>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => {
-                                  const row = timelineItems.find((t) => t.id === item.id);
-                                  if (row) duplicateTimelineItem(row);
-                                }}
-                                disabled={!canEditTimeline}
-                                className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
-                              >
-                                Duplicate
-                              </PrimaryButton>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPendingTimelineDelete({
-                                    kind: "reception",
-                                    id: item.id,
-                                    label: item.title.trim() || "this moment",
-                                  })
-                                }
-                                className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  {rowExpanded && (
-                    <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
-                        <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
-                          Edit moment
-                        </p>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {canEditTimeline ? (
-                            <>
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => {
-                                  const row = timelineItems.find((t) => t.id === item.id);
-                                  if (row) duplicateTimelineItem(row);
-                                }}
-                                disabled={!canEditTimeline}
-                                className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
-                              >
-                                Duplicate
-                              </PrimaryButton>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPendingTimelineDelete({
-                                    kind: "reception",
-                                    id: item.id,
-                                    label: item.title.trim() || "this moment",
-                                  })
-                                }
-                                className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          ) : null}
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => closeReceptionTimelineCardExpanded()}
-                            className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-5 md:text-[13px]"
-                          >
-                            Done
-                          </PrimaryButton>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 md:space-y-3.5">
-                        <TextInput
-                          id={`timeline-inline-title-${item.id}`}
-                          label="Moment"
-                          value={recvTitle}
-                          inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                          onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow ?? null)}
-                          disabled={!canEditTimeline}
-                        />
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                          <TextInput
-                            id={`timeline-inline-time-${item.id}`}
-                            label="Time"
-                            value={recvTime}
-                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)}
-                            disabled={!canEditTimeline}
-                          />
                           <div>
                             <label
-                              htmlFor={`timeline-inline-cat-${item.id}`}
-                              className={TIMELINE_DESKTOP_LABEL_CLASS}
+                              htmlFor="timeline-preset-quick-add"
+                              className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600"
                             >
-                              Category
+                              Add suggested moment
                             </label>
                             <select
-                              id={`timeline-inline-cat-${item.id}`}
-                              value={recvCategory}
+                              id="timeline-preset-quick-add"
+                              defaultValue=""
                               disabled={!canEditTimeline}
                               onChange={(event) => {
-                                const next = event.target.value as TimelineCategory;
-                                patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow ?? null);
+                                const id = event.target.value;
+                                if (!id) return;
+                                const preset = mainTimelinePresetsForActiveEvent.find((p) => p.id === id);
+                                if (preset) addReceptionPreset(preset);
+                                event.target.selectedIndex = 0;
                               }}
-                              className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 md:min-h-12 md:px-4 md:py-3 md:text-base"
+                              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 disabled:opacity-45"
                             >
-                              {timelineCategories.map((category) => (
-                                <option key={category} value={category}>
-                                  {category}
+                              <option value="">Choose a moment…</option>
+                              {mainTimelinePresetsForActiveEvent.map((preset) => (
+                                <option key={`preset-opt-${preset.id}`} value={preset.id}>
+                                  {preset.momentName}
                                 </option>
                               ))}
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                          <TextInput
-                            id={`timeline-inline-song-${item.id}`}
-                            label="Song"
-                            value={recvSong}
-                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)}
-                            placeholder="Song title"
-                            disabled={!canEditTimeline}
-                          />
-                          <TextInput
-                            id={`timeline-inline-song-artist-${item.id}`}
-                            label="Artist"
-                            value={recvArtist}
-                            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)}
-                            placeholder="Artist"
-                            disabled={!canEditTimeline}
-                          />
-                        </div>
-                        <TextArea
-                          id={`timeline-inline-notes-${item.id}`}
-                          label="Notes"
-                          value={recvNotes}
-                          textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
-                          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                          onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)}
-                          rows={2}
+                      </details>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {showTimelinePresetOnboarding && (
+                <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
+                  <div className="p-5 sm:p-6">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-700">Get started</p>
+                    <h3 className="mt-2 text-lg font-semibold text-stone-950">Build your run of show</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                      Load the suggested {layoutProfileForActiveEvent} timeline (editable), or create your first moment from
+                      scratch.
+                    </p>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <PrimaryButton
+                        type="button"
+                        onClick={handleApplySuggestedTimelineSetup}
+                        disabled={
+                          !canEditTimeline ||
+                          !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
+                        }
+                        className="min-h-12 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
+                      >
+                        Apply suggested {layoutProfileForActiveEvent} timeline
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          resetTimelineForm();
+                          closeReceptionTimelineCardExpanded();
+                          setTimelineComposerOpen(true);
+                          window.setTimeout(() => {
+                            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                          }, 50);
+                        }}
+                        disabled={!canEditTimeline}
+                        className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
+                      >
+                        Start from scratch
+                      </PrimaryButton>
+                    </div>
+                    {!canEditTimeline ? (
+                      <p className="mt-4 text-xs text-stone-600">Editing presets isn&apos;t available for your role.</p>
+                    ) : !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded) ? (
+                      <p className="mt-4 text-xs text-stone-600">
+                        No default moments are enabled for this event type in Global Settings → Timeline Presets.
+                      </p>
+                    ) : (
+                      <p className="mt-4 text-xs text-stone-600">
+                        Tip: after your timeline has moments, preset shortcuts move under{" "}
+                        <span className="font-medium text-stone-700">Preset tools</span>.
+                      </p>
+                    )}
+                  </div>
+                </PremiumCard>
+              )}
+
+              {timelineComposerOpen && (
+                <PremiumCard variant="accent">
+                  <div ref={timelineComposerRef}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <SectionTitle>New moment</SectionTitle>
+                        <p className="mt-1 text-xs text-stone-600">
+                          Lightweight capture—fine-tune anytime inline on the timeline.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetTimelineForm();
+                          setTimelineComposerOpen(false);
+                        }}
+                        className="rounded-lg px-2 py-1 text-[11px] text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <form
+                      className="mt-4 space-y-3"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        addOrUpdateTimelineItem();
+                      }}
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <TextInput
+                          id="timeline-time"
+                          label="Time / order"
+                          value={timelineTime}
+                          onChange={setTimelineTime}
+                          placeholder="e.g. 6:30 PM (optional)"
                           disabled={!canEditTimeline}
                         />
-                        <PrimaryButton
-                          type="button"
-                          onClick={() =>
-                            patchReceptionTimelineInlineDraft(
-                              item.id,
-                              { needsDjMcAttention: !recvNeedsMc },
-                              timelineRow ?? null,
-                            )
-                          }
+                        <div className="space-y-0">
+                          <TextInput
+                            id="timeline-title"
+                            label="Moment"
+                            value={timelineTitle}
+                            onChange={(value) => {
+                              setTimelineTitle(value);
+                              setTimelineComposerError(null);
+                            }}
+                            placeholder="Required — e.g. Dinner service begins"
+                            disabled={!canEditTimeline}
+                          />
+                          {timelineComposerError ? (
+                            <p className="mt-1.5 text-xs font-medium text-rose-700">{timelineComposerError}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <TextInput
+                          id="timeline-song-title"
+                          label="Song title"
+                          value={timelineSongTitle}
+                          onChange={setTimelineSongTitle}
+                          placeholder="Optional"
                           disabled={!canEditTimeline}
-                          className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${
-                            recvNeedsMc
-                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
-                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                          }`}
+                        />
+                        <TextInput
+                          id="timeline-artist"
+                          label="Artist"
+                          value={timelineArtist}
+                          onChange={setTimelineArtist}
+                          placeholder="Optional"
+                          disabled={!canEditTimeline}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="timeline-category" className={lightUiFormLabelClass}>
+                          Category
+                        </label>
+                        <select
+                          id="timeline-category"
+                          value={timelineCategory}
+                          disabled={!canEditTimeline}
+                          onChange={(event) =>
+                            setTimelineCategory(event.target.value as TimelineCategory)
+                          }
+                          className={lightUiSelectClass}
                         >
-                          {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
-                        </PrimaryButton>
+                          {timelineCategories.map((category) => (
+                            <option key={category} value={category} className="bg-white text-stone-900">
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <TextArea
+                        id="timeline-notes"
+                        label="Notes / cues"
+                        value={timelineNotes}
+                        onChange={setTimelineNotes}
+                        placeholder="Production notes, MC guidance…"
+                        disabled={!canEditTimeline}
+                      />
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => setTimelineNeedsAttention((prev) => !prev)}
+                        disabled={!canEditTimeline}
+                        className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${timelineNeedsAttention
+                          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+                          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                          }`}
+                      >
+                        {timelineNeedsAttention
+                          ? "DJ/MC attention marked"
+                          : "Flag DJ/MC attention"}
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="submit"
+                        disabled={!canEditTimeline}
+                        className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                      >
+                        Add to timeline
+                      </PrimaryButton>
+                    </form>
+                  </div>
+                </PremiumCard>
+              )}
 
-                        <details className="rounded-lg border border-stone-200 bg-stone-50">
-                          <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">
-                            Fade / advanced timing
-                          </summary>
-                          <div className="space-y-2 border-t border-stone-200 bg-white p-3 md:space-y-3 md:p-4">
-                            <p className="text-[10px] leading-relaxed text-stone-600 md:text-[11px] md:leading-relaxed">
-                              Optional cue — common for introductions and formalities.
-                            </p>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+              {mergedTimelineItems.length > 0 && receptionTimelineClockOrderConflict ? (
+                <div className="no-print rounded-xl border border-stone-300 bg-stone-50/90 px-4 py-3 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-stone-900">
+                      Timeline order doesn&apos;t match entered times.
+                    </p>
+                    <p className="mt-1 text-xs leading-snug text-stone-600">
+                      Review timing or re-sort chronologically.
+                    </p>
+                  </div>
+                  <PrimaryButton
+                    type="button"
+                    disabled={!canEditTimeline}
+                    onClick={sortReceptionTimelineByEnteredTime}
+                    className="mt-3 w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:mt-0 sm:w-auto sm:shrink-0 sm:py-2"
+                  >
+                    Sort by Time
+                  </PrimaryButton>
+                </div>
+              ) : null}
+
+              <div
+                ref={timelineStreamRef}
+                className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
+              >
+                {mergedTimelineItems.length === 0 ? (
+                  showTimelinePresetOnboarding ? null : (
+                    <SectionEmptyState
+                      title="No reception moments yet"
+                      description="Build your run of show—each row is time, moment, music, then cues."
+                      primaryAction={{
+                        label: "+ Add moment",
+                        onClick: () => {
+                          resetTimelineForm();
+                          closeReceptionTimelineCardExpanded();
+                          setTimelineComposerOpen(true);
+                          window.setTimeout(() => {
+                            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                          }, 50);
+                        },
+                        disabled: !canEditTimeline,
+                      }}
+                      secondaryAction={
+                        mainTimelinePresetsForActiveEvent.length > 0 &&
+                          timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
+                          ? {
+                            label: `Apply suggested ${layoutProfileForActiveEvent} timeline`,
+                            onClick: handleApplySuggestedTimelineSetup,
+                            disabled:
+                              !canEditTimeline || !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded),
+                          }
+                          : undefined
+                      }
+                    />
+                  )
+                ) : (
+                  mergedTimelineItems.map((item, index) => {
+                    const timelineRow = timelineItems.find((t) => t.id === item.id);
+                    const rowExpanded = receptionTimelineExpandedId === item.id;
+                    const songPreview =
+                      [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" · ") ||
+                      (item.notes?.trim()
+                        ? item.notes.trim().split(/\n/)[0].slice(0, 180)
+                        : "—");
+                    const cueKind =
+                      (item.songTitle?.trim() || item.artist?.trim()) ? "Song" : "Cue";
+                    const songArtistCompact = [item.songTitle?.trim(), item.artist?.trim()]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const recvInlineVals =
+                      receptionTimelineInlineEditDraft?.itemId === item.id
+                        ? receptionTimelineInlineEditDraft.values
+                        : null;
+                    const recvTitle = recvInlineVals?.title ?? timelineRow?.title ?? item.title;
+                    const recvTime = recvInlineVals?.time ?? timelineRow?.time ?? item.time;
+                    const recvNotes = recvInlineVals?.notes ?? timelineRow?.notes ?? item.notes;
+                    const recvSong = recvInlineVals?.songTitle ?? timelineRow?.songTitle ?? "";
+                    const recvArtist = recvInlineVals?.artist ?? timelineRow?.artist ?? "";
+                    const recvCategory = recvInlineVals?.category ?? timelineRow?.category ?? item.category;
+                    const recvNeedsMc = recvInlineVals?.needsDjMcAttention ?? timelineRow?.needsDjMcAttention ?? false;
+                    const recvFadeEarly = recvInlineVals?.fadeOutEarly ?? timelineRow?.fadeOutEarly ?? false;
+                    const recvFadeTs = recvInlineVals?.fadeOutTimestamp ?? timelineRow?.fadeOutTimestamp ?? "";
+                    const isDragging = draggingTimelineId === item.id;
+                    const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
+                    return (
+                      <PremiumCard
+                        key={item.id}
+                        className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${index % 2 === 1 ? "bg-stone-50" : ""
+                          } ${isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
+                          } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
+                        onDragOver={(event) => {
+                          if (!canEditTimeline || !draggingTimelineId) return;
+                          event.preventDefault();
+                          if (draggingTimelineId !== item.id) {
+                            dropTargetTimelineIdRef.current = item.id;
+                            setDropTargetTimelineId(item.id);
+                          }
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (!canEditTimeline || !draggingTimelineId) return;
+                          reorderTimelineItemToTarget(draggingTimelineId, item.id);
+                          setDraggingTimelineId(null);
+                          setDropTargetTimelineId(null);
+                          dropTargetTimelineIdRef.current = null;
+                          touchDragTimelineSourceRef.current = null;
+                        }}
+                        onDragEnd={() => {
+                          setDraggingTimelineId(null);
+                          setDropTargetTimelineId(null);
+                          dropTargetTimelineIdRef.current = null;
+                          touchDragTimelineSourceRef.current = null;
+                        }}
+                        data-timeline-id={item.id}
+                      >
+                        {isDropTarget && (
+                          <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
+                        )}
+                        {!rowExpanded && (
+                          <>
+                            <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
+                              <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2 lg:max-w-[40rem] lg:space-y-1 xl:max-w-[42rem]">
+                                <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere] md:text-xl md:font-semibold lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
+                                  {item.title}
+                                </h3>
+                                <p className="font-mono text-base font-semibold tabular-nums text-stone-700 sm:text-sm md:text-lg md:font-semibold lg:mt-0.5 lg:text-sm lg:font-semibold lg:text-stone-600 xl:text-[0.9375rem]">
+                                  {item.time?.trim() || "—"}
+                                </p>
+                                <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm md:text-base md:leading-relaxed [overflow-wrap:anywhere] lg:mt-1.5 lg:text-sm lg:leading-snug xl:text-[15px] xl:leading-snug">
+                                  <span className="font-medium text-stone-500">{cueKind} · </span>
+                                  {songPreview}
+                                </p>
+                                {item.notes?.trim() ? (
+                                  <p className="line-clamp-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-sm md:leading-relaxed md:text-stone-600 lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs xl:text-stone-600">
+                                    {item.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                                <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                                  <span
+                                    className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px] ${item.category === "Formalities"
+                                      ? "border-stone-500 bg-stone-200 text-stone-900"
+                                      : "border-stone-300 bg-white text-stone-700"
+                                      }`}
+                                  >
+                                    {item.category}
+                                  </span>
+                                  {item.needsDjMcAttention ? (
+                                    <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
+                                      DJ/MC
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => {
+                                      if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                    }}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                  >
+                                    Edit
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                  >
+                                    + After
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => {
+                                      const row = timelineItems.find((t) => t.id === item.id);
+                                      if (row) duplicateTimelineItem(row);
+                                    }}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                  >
+                                    Duplicate
+                                  </PrimaryButton>
+                                  {canEditTimeline ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPendingTimelineDelete({
+                                          kind: "reception",
+                                          id: item.id,
+                                          label: item.title.trim() || "this moment",
+                                        })
+                                      }
+                                      className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 md:hidden">
+                              <div
+                                role="button"
+                                tabIndex={canEditTimeline ? 0 : -1}
+                                onClick={() => {
+                                  if (!canEditTimeline) return;
+                                  if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (!canEditTimeline) return;
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                  }
+                                }}
+                                className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                                  ? "cursor-pointer active:scale-[0.995]"
+                                  : "cursor-default opacity-80"
+                                  }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    {item.time?.trim() ? (
+                                      <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
+                                        {item.time.trim()}
+                                      </p>
+                                    ) : null}
+                                    <h3 className="mt-0.5 text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
+                                      {item.title}
+                                    </h3>
+                                  </div>
+                                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                    <span
+                                      className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${item.category === "Formalities"
+                                        ? "border-stone-500 bg-stone-200 text-stone-900"
+                                        : "border-stone-300 bg-white text-stone-700"
+                                        }`}
+                                    >
+                                      {item.category}
+                                    </span>
+                                    {item.needsDjMcAttention ? (
+                                      <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                        DJ/MC
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                {songArtistCompact ? (
+                                  <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
+                                    <span className="font-medium text-stone-500">{cueKind} · </span>
+                                    {songArtistCompact}
+                                  </p>
+                                ) : null}
+                                {item.notes?.trim() ? (
+                                  <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
+                                    {item.notes.trim()}
+                                  </p>
+                                ) : null}
+                                {canEditTimeline ? (
+                                  <p className="mt-2 text-xs font-semibold text-stone-500">
+                                    Tap summary to expand · full edit
+                                  </p>
+                                ) : (
+                                  <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => {
+                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                  }}
+                                  disabled={!canEditTimeline}
+                                  className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                                >
+                                  Expand
+                                </PrimaryButton>
+                                {canEditTimeline ? (
+                                  <>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                                      disabled={!canEditTimeline}
+                                      className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                                    >
+                                      + After
+                                    </PrimaryButton>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => {
+                                        const row = timelineItems.find((t) => t.id === item.id);
+                                        if (row) duplicateTimelineItem(row);
+                                      }}
+                                      disabled={!canEditTimeline}
+                                      className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
+                                    >
+                                      Duplicate
+                                    </PrimaryButton>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPendingTimelineDelete({
+                                          kind: "reception",
+                                          id: item.id,
+                                          label: item.title.trim() || "this moment",
+                                        })
+                                      }
+                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {rowExpanded && (
+                          <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
+                              <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
+                                Edit moment
+                              </p>
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                {canEditTimeline ? (
+                                  <>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => {
+                                        const row = timelineItems.find((t) => t.id === item.id);
+                                        if (row) duplicateTimelineItem(row);
+                                      }}
+                                      disabled={!canEditTimeline}
+                                      className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                                    >
+                                      Duplicate
+                                    </PrimaryButton>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPendingTimelineDelete({
+                                          kind: "reception",
+                                          id: item.id,
+                                          label: item.title.trim() || "this moment",
+                                        })
+                                      }
+                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                ) : null}
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => closeReceptionTimelineCardExpanded()}
+                                  className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-5 md:text-[13px]"
+                                >
+                                  Done
+                                </PrimaryButton>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 md:space-y-3.5">
+                              <TextInput
+                                id={`timeline-inline-title-${item.id}`}
+                                label="Moment"
+                                value={recvTitle}
+                                inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow ?? null)}
+                                disabled={!canEditTimeline}
+                              />
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                                <TextInput
+                                  id={`timeline-inline-time-${item.id}`}
+                                  label="Time"
+                                  value={recvTime}
+                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)}
+                                  disabled={!canEditTimeline}
+                                />
+                                <div>
+                                  <label
+                                    htmlFor={`timeline-inline-cat-${item.id}`}
+                                    className={TIMELINE_DESKTOP_LABEL_CLASS}
+                                  >
+                                    Category
+                                  </label>
+                                  <select
+                                    id={`timeline-inline-cat-${item.id}`}
+                                    value={recvCategory}
+                                    disabled={!canEditTimeline}
+                                    onChange={(event) => {
+                                      const next = event.target.value as TimelineCategory;
+                                      patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow ?? null);
+                                    }}
+                                    className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 md:min-h-12 md:px-4 md:py-3 md:text-base"
+                                  >
+                                    {timelineCategories.map((category) => (
+                                      <option key={category} value={category}>
+                                        {category}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                                <TextInput
+                                  id={`timeline-inline-song-${item.id}`}
+                                  label="Song"
+                                  value={recvSong}
+                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)}
+                                  placeholder="Song title"
+                                  disabled={!canEditTimeline}
+                                />
+                                <TextInput
+                                  id={`timeline-inline-song-artist-${item.id}`}
+                                  label="Artist"
+                                  value={recvArtist}
+                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)}
+                                  placeholder="Artist"
+                                  disabled={!canEditTimeline}
+                                />
+                              </div>
+                              <TextArea
+                                id={`timeline-inline-notes-${item.id}`}
+                                label="Notes"
+                                value={recvNotes}
+                                textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)}
+                                rows={2}
+                                disabled={!canEditTimeline}
+                              />
                               <PrimaryButton
                                 type="button"
                                 onClick={() =>
                                   patchReceptionTimelineInlineDraft(
                                     item.id,
-                                    { fadeOutEarly: !recvFadeEarly },
+                                    { needsDjMcAttention: !recvNeedsMc },
                                     timelineRow ?? null,
                                   )
                                 }
                                 disabled={!canEditTimeline}
-                                className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${
-                                  recvFadeEarly
-                                    ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
-                                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                                }`}
+                                className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${recvNeedsMc
+                                  ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                  : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                  }`}
                               >
-                                {recvFadeEarly ? "Fade out early: On" : "Fade out early"}
+                                {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
                               </PrimaryButton>
-                              <TextInput
-                                id={`timeline-inline-fade-${item.id}`}
-                                label="Fade timestamp"
-                                value={recvFadeTs}
-                                inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                onChange={(value) =>
-                                  patchReceptionTimelineInlineDraft(item.id, { fadeOutTimestamp: value }, timelineRow ?? null)
-                                }
-                                placeholder="e.g. 1:20"
-                                disabled={!canEditTimeline}
-                              />
+
+                              <details className="rounded-lg border border-stone-200 bg-stone-50">
+                                <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">
+                                  Fade / advanced timing
+                                </summary>
+                                <div className="space-y-2 border-t border-stone-200 bg-white p-3 md:space-y-3 md:p-4">
+                                  <p className="text-[10px] leading-relaxed text-stone-600 md:text-[11px] md:leading-relaxed">
+                                    Optional cue — common for introductions and formalities.
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() =>
+                                        patchReceptionTimelineInlineDraft(
+                                          item.id,
+                                          { fadeOutEarly: !recvFadeEarly },
+                                          timelineRow ?? null,
+                                        )
+                                      }
+                                      disabled={!canEditTimeline}
+                                      className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${recvFadeEarly
+                                        ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                        }`}
+                                    >
+                                      {recvFadeEarly ? "Fade out early: On" : "Fade out early"}
+                                    </PrimaryButton>
+                                    <TextInput
+                                      id={`timeline-inline-fade-${item.id}`}
+                                      label="Fade timestamp"
+                                      value={recvFadeTs}
+                                      inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                                      labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                                      onChange={(value) =>
+                                        patchReceptionTimelineInlineDraft(item.id, { fadeOutTimestamp: value }, timelineRow ?? null)
+                                      }
+                                      placeholder="e.g. 1:20"
+                                      disabled={!canEditTimeline}
+                                    />
+                                  </div>
+                                </div>
+                              </details>
                             </div>
                           </div>
-                        </details>
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3 md:mt-6 md:gap-4 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
-                    <button
-                      type="button"
-                      draggable={canEditTimeline}
-                      onDragStart={(event) => {
-                        if (!canEditTimeline) return;
-                        touchDragTimelineSourceRef.current = null;
-                        event.dataTransfer.effectAllowed = "move";
-                        setDraggingTimelineId(item.id);
-                      }}
-                      onDragEnd={() => {
-                        setDraggingTimelineId(null);
-                        setDropTargetTimelineId(null);
-                        dropTargetTimelineIdRef.current = null;
-                        touchDragTimelineSourceRef.current = null;
-                      }}
-                      onTouchStart={() => {
-                        if (!canEditTimeline) return;
-                        touchDragTimelineSourceRef.current = item.id;
-                        setDraggingTimelineId(item.id);
-                      }}
-                      className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
-                      disabled={!canEditTimeline}
-                      aria-label={`Drag handle for ${item.title}`}
-                    >
-                      <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
-                      <span>Reorder</span>
-                    </button>
-                    <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
-                      {index + 1} / {mergedTimelineItems.length}
-                    </p>
+                        )}
+                        <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3 md:mt-6 md:gap-4 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
+                          <button
+                            type="button"
+                            draggable={canEditTimeline}
+                            onDragStart={(event) => {
+                              if (!canEditTimeline) return;
+                              touchDragTimelineSourceRef.current = null;
+                              event.dataTransfer.effectAllowed = "move";
+                              setDraggingTimelineId(item.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggingTimelineId(null);
+                              setDropTargetTimelineId(null);
+                              dropTargetTimelineIdRef.current = null;
+                              touchDragTimelineSourceRef.current = null;
+                            }}
+                            onTouchStart={() => {
+                              if (!canEditTimeline) return;
+                              touchDragTimelineSourceRef.current = item.id;
+                              setDraggingTimelineId(item.id);
+                            }}
+                            className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
+                            disabled={!canEditTimeline}
+                            aria-label={`Drag handle for ${item.title}`}
+                          >
+                            <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
+                            <span>Reorder</span>
+                          </button>
+                          <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
+                            {index + 1} / {mergedTimelineItems.length}
+                          </p>
+                        </div>
+                      </PremiumCard>
+                    )
+                  })
+                )}
+              </div>
+
+              {!isCoupleView && (
+                <PremiumCard variant="accent">
+                  <SectionTitle>Timeline Assistant</SectionTitle>
+                  <p className="mt-1 text-xs text-stone-600">
+                    Reception flow, spacing, and overlap checks.
+                  </p>
+                  <div className="mt-3">
+                    <InsightStack
+                      insights={planningInsights.filter((i) => i.section === "timeline")}
+                      emptyLabel="Timeline spacing reads smooth."
+                    />
                   </div>
                 </PremiumCard>
-              )})
-            )}
-            </div>
-
-            {!isCoupleView && (
-              <PremiumCard variant="accent">
-                <SectionTitle>Timeline Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-stone-600">
-                  Reception flow, spacing, and overlap checks.
-                </p>
-                <div className="mt-3">
-                  <InsightStack
-                    insights={planningInsights.filter((i) => i.section === "timeline")}
-                    emptyLabel="Timeline spacing reads smooth."
-                  />
-                </div>
-              </PremiumCard>
-            )}
-          </section>
-        )}
+              )}
+            </section>
+          )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Timeline Templates" && (
           <section className={workspaceSectionClass}>
@@ -11768,13 +11738,13 @@ export default function Home() {
               primaryAction={
                 guestRequestView === "admin" && coupleAttentionSummary.pendingGuestCount > 0
                   ? {
-                      label: "Review queue",
-                      onClick: () =>
-                        document.getElementById("guest-requests-queue-anchor")?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        }),
-                    }
+                    label: "Review queue",
+                    onClick: () =>
+                      document.getElementById("guest-requests-queue-anchor")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      }),
+                  }
                   : undefined
               }
             />
@@ -11791,21 +11761,19 @@ export default function Home() {
                 <div className="flex rounded-xl border border-stone-300 bg-stone-100 p-0.5">
                   <PrimaryButton
                     onClick={() => setGuestRequestView("admin")}
-                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${
-                      guestRequestView === "admin"
-                        ? "border border-black bg-[#00D4FF] text-black"
-                        : "bg-transparent text-stone-600 hover:text-stone-900"
-                    }`}
+                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${guestRequestView === "admin"
+                      ? "border border-black bg-[#00D4FF] text-black"
+                      : "bg-transparent text-stone-600 hover:text-stone-900"
+                      }`}
                   >
                     Couple / Admin
                   </PrimaryButton>
                   <PrimaryButton
                     onClick={() => setGuestRequestView("guest")}
-                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${
-                      guestRequestView === "guest"
-                        ? "border border-black bg-[#00D4FF] text-black"
-                        : "bg-transparent text-stone-600 hover:text-stone-900"
-                    }`}
+                    className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${guestRequestView === "guest"
+                      ? "border border-black bg-[#00D4FF] text-black"
+                      : "bg-transparent text-stone-600 hover:text-stone-900"
+                      }`}
                   >
                     Guest View
                   </PrimaryButton>
@@ -11842,105 +11810,105 @@ export default function Home() {
                 </PremiumCard>
 
                 <div id="guest-requests-queue-anchor">
-                <PremiumCard>
-                  <SectionTitle className="text-stone-950">Guest-Submitted Songs</SectionTitle>
-                  {guestRequests.length === 0 ? (
-                    <div className="mt-3">
-                      <SectionEmptyState
-                        wrapWithCard={false}
-                        title="No requests yet"
-                        description="Share the link above—submissions land here for review."
-                        secondaryAction={{
-                          label: "Preview guest view",
-                          onClick: () => setGuestRequestView("guest"),
-                        }}
-                      />
-                    </div>
-                  ) : (
-                  <div className="mt-3 space-y-3">
-                    {guestRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-stone-900">
-                              {request.songTitle}
-                              {request.artist ? (
-                                <span className="font-medium text-stone-600">
-                                  {" "}
-                                  - {request.artist}
-                                </span>
-                              ) : null}
-                            </p>
-                            <p className="mt-1 text-[11px] font-medium text-stone-600">
-                              Requested by {request.guestName}
-                            </p>
-                            {request.dedication ? (
-                              <p className="mt-2 text-xs italic text-stone-700">
-                                &ldquo;{request.dedication}&rdquo;
-                              </p>
-                            ) : null}
-                          </div>
-                          <span
-                            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide ${guestRequestStatusBadgeClass(request.status)}`}
-                          >
-                            {request.status}
-                          </span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <PrimaryButton
-                            onClick={() => setGuestRequestStatus(request.id, "Approved")}
-                            disabled={!canManageGuestRequests || request.status === "Approved"}
-                            className="flex-1 min-w-[6rem] rounded-lg border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Approve
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => setGuestRequestStatus(request.id, "Rejected")}
-                            disabled={!canManageGuestRequests || request.status === "Rejected"}
-                            className="flex-1 min-w-[6rem] rounded-lg border border-rose-400 bg-white px-3 py-2 text-xs font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Reject
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => setGuestRequestStatus(request.id, "Pending")}
-                            disabled={!canManageGuestRequests || request.status === "Pending"}
-                            className="flex-1 min-w-[6rem] rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Pending
-                          </PrimaryButton>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <PrimaryButton
-                            onClick={() => addGuestRequestToMustPlay(request)}
-                            disabled={
-                              !canManageGuestRequests ||
-                              request.addedToMustPlay ||
-                              request.status === "Rejected"
-                            }
-                            className="flex-1 min-w-[8rem] rounded-lg border border-[#00D4FF] bg-[#00D4FF]/12 px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-[#00D4FF]/22 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {request.addedToMustPlay ? "On Must Play" : "Add to Must Play"}
-                          </PrimaryButton>
-                          <PrimaryButton
-                            onClick={() => addGuestRequestToDoNotPlay(request)}
-                            disabled={
-                              !canManageGuestRequests ||
-                              request.addedToDoNotPlay ||
-                              request.status === "Rejected"
-                            }
-                            className="flex-1 min-w-[8rem] rounded-lg border border-[#7a5c5c]/40 bg-[#6f5353]/25 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/40 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {request.addedToDoNotPlay ? "On Do Not Play" : "Add to Do Not Play"}
-                          </PrimaryButton>
-                        </div>
+                  <PremiumCard>
+                    <SectionTitle className="text-stone-950">Guest-Submitted Songs</SectionTitle>
+                    {guestRequests.length === 0 ? (
+                      <div className="mt-3">
+                        <SectionEmptyState
+                          wrapWithCard={false}
+                          title="No requests yet"
+                          description="Share the link above—submissions land here for review."
+                          secondaryAction={{
+                            label: "Preview guest view",
+                            onClick: () => setGuestRequestView("guest"),
+                          }}
+                        />
                       </div>
-                    ))}
-                  </div>
-                  )}
-                </PremiumCard>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {guestRequests.map((request) => (
+                          <div
+                            key={request.id}
+                            className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-semibold text-stone-900">
+                                  {request.songTitle}
+                                  {request.artist ? (
+                                    <span className="font-medium text-stone-600">
+                                      {" "}
+                                      - {request.artist}
+                                    </span>
+                                  ) : null}
+                                </p>
+                                <p className="mt-1 text-[11px] font-medium text-stone-600">
+                                  Requested by {request.guestName}
+                                </p>
+                                {request.dedication ? (
+                                  <p className="mt-2 text-xs italic text-stone-700">
+                                    &ldquo;{request.dedication}&rdquo;
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide ${guestRequestStatusBadgeClass(request.status)}`}
+                              >
+                                {request.status}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <PrimaryButton
+                                onClick={() => setGuestRequestStatus(request.id, "Approved")}
+                                disabled={!canManageGuestRequests || request.status === "Approved"}
+                                className="flex-1 min-w-[6rem] rounded-lg border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Approve
+                              </PrimaryButton>
+                              <PrimaryButton
+                                onClick={() => setGuestRequestStatus(request.id, "Rejected")}
+                                disabled={!canManageGuestRequests || request.status === "Rejected"}
+                                className="flex-1 min-w-[6rem] rounded-lg border border-rose-400 bg-white px-3 py-2 text-xs font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Reject
+                              </PrimaryButton>
+                              <PrimaryButton
+                                onClick={() => setGuestRequestStatus(request.id, "Pending")}
+                                disabled={!canManageGuestRequests || request.status === "Pending"}
+                                className="flex-1 min-w-[6rem] rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-800 shadow-none hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Pending
+                              </PrimaryButton>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <PrimaryButton
+                                onClick={() => addGuestRequestToMustPlay(request)}
+                                disabled={
+                                  !canManageGuestRequests ||
+                                  request.addedToMustPlay ||
+                                  request.status === "Rejected"
+                                }
+                                className="flex-1 min-w-[8rem] rounded-lg border border-[#00D4FF] bg-[#00D4FF]/12 px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-[#00D4FF]/22 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {request.addedToMustPlay ? "On Must Play" : "Add to Must Play"}
+                              </PrimaryButton>
+                              <PrimaryButton
+                                onClick={() => addGuestRequestToDoNotPlay(request)}
+                                disabled={
+                                  !canManageGuestRequests ||
+                                  request.addedToDoNotPlay ||
+                                  request.status === "Rejected"
+                                }
+                                className="flex-1 min-w-[8rem] rounded-lg border border-[#7a5c5c]/40 bg-[#6f5353]/25 px-3 py-2 text-[11px] text-[#f2dede] hover:bg-[#6f5353]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {request.addedToDoNotPlay ? "On Do Not Play" : "Add to Do Not Play"}
+                              </PrimaryButton>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </PremiumCard>
                 </div>
               </>
             ) : (
@@ -12081,75 +12049,74 @@ export default function Home() {
                     </button>
                   </div>
                   <div className="mt-6 space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <TextInput
-                      id="ceremony-composer-time-order"
-                      label="Time / order"
-                      value={ceremonyTimelineDraftTimeOrOrder}
-                      onChange={setCeremonyTimelineDraftTimeOrOrder}
-                      placeholder="e.g. 3:30 PM or Prelude"
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <TextInput
+                        id="ceremony-composer-time-order"
+                        label="Time / order"
+                        value={ceremonyTimelineDraftTimeOrOrder}
+                        onChange={setCeremonyTimelineDraftTimeOrOrder}
+                        placeholder="e.g. 3:30 PM or Prelude"
+                        disabled={!canEditTimeline}
+                      />
+                      <TextInput
+                        id="ceremony-composer-moment"
+                        label="Moment"
+                        value={ceremonyTimelineDraftMoment}
+                        onChange={setCeremonyTimelineDraftMoment}
+                        placeholder="e.g. Processional"
+                        disabled={!canEditTimeline}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <TextInput
+                        id="ceremony-composer-song-title"
+                        label="Song title"
+                        value={ceremonyTimelineDraftSongTitle}
+                        onChange={setCeremonyTimelineDraftSongTitle}
+                        placeholder="Song title"
+                        disabled={!canEditTimeline}
+                      />
+                      <TextInput
+                        id="ceremony-composer-artist"
+                        label="Artist"
+                        value={ceremonyTimelineDraftArtist}
+                        onChange={setCeremonyTimelineDraftArtist}
+                        placeholder="Artist"
+                        disabled={!canEditTimeline}
+                      />
+                    </div>
+                    <div>
+                      <TextArea
+                        id="ceremony-composer-notes"
+                        label="Notes / cues"
+                        value={ceremonyTimelineDraftNotes}
+                        onChange={setCeremonyTimelineDraftNotes}
+                        placeholder="Cue notes, transitions, and callouts..."
+                        rows={3}
+                        disabled={!canEditTimeline}
+                      />
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
                       disabled={!canEditTimeline}
-                    />
-                    <TextInput
-                      id="ceremony-composer-moment"
-                      label="Moment"
-                      value={ceremonyTimelineDraftMoment}
-                      onChange={setCeremonyTimelineDraftMoment}
-                      placeholder="e.g. Processional"
-                      disabled={!canEditTimeline}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <TextInput
-                      id="ceremony-composer-song-title"
-                      label="Song title"
-                      value={ceremonyTimelineDraftSongTitle}
-                      onChange={setCeremonyTimelineDraftSongTitle}
-                      placeholder="Song title"
-                      disabled={!canEditTimeline}
-                    />
-                    <TextInput
-                      id="ceremony-composer-artist"
-                      label="Artist"
-                      value={ceremonyTimelineDraftArtist}
-                      onChange={setCeremonyTimelineDraftArtist}
-                      placeholder="Artist"
-                      disabled={!canEditTimeline}
-                    />
-                  </div>
-                  <div>
-                    <TextArea
-                      id="ceremony-composer-notes"
-                      label="Notes / cues"
-                      value={ceremonyTimelineDraftNotes}
-                      onChange={setCeremonyTimelineDraftNotes}
-                      placeholder="Cue notes, transitions, and callouts..."
-                      rows={3}
-                      disabled={!canEditTimeline}
-                    />
-                  </div>
-                  <PrimaryButton
-                    type="button"
-                    onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
-                    disabled={!canEditTimeline}
-                    className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${
-                      ceremonyTimelineDraftNeedsAttention
+                      className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${ceremonyTimelineDraftNeedsAttention
                         ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
                         : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                  >
-                    {ceremonyTimelineDraftNeedsAttention
-                      ? "DJ/MC attention marked"
-                      : "Flag DJ/MC attention"}
-                  </PrimaryButton>
-                  <PrimaryButton
-                    type="button"
-                    onClick={saveCeremonyTimelineComposerItem}
-                    disabled={!canEditTimeline}
-                    className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
-                  >
-                    Add to ceremony timeline
-                  </PrimaryButton>
+                        }`}
+                    >
+                      {ceremonyTimelineDraftNeedsAttention
+                        ? "DJ/MC attention marked"
+                        : "Flag DJ/MC attention"}
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      onClick={saveCeremonyTimelineComposerItem}
+                      disabled={!canEditTimeline}
+                      className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                    >
+                      Add to ceremony timeline
+                    </PrimaryButton>
                   </div>
                 </div>
               </PremiumCard>
@@ -12191,11 +12158,9 @@ export default function Home() {
                   return (
                     <PremiumCard
                       key={item.id}
-                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${
-                        index % 2 === 1 ? "bg-stone-50" : ""
-                      } transition-all duration-200 ${
-                        isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
-                      } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
+                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${index % 2 === 1 ? "bg-stone-50" : ""
+                        } transition-all duration-200 ${isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
+                        } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
                         if (!canEditTimeline || !draggingCeremonyTimelineId) return;
@@ -12319,11 +12284,10 @@ export default function Home() {
                                   openCeremonyTimelineCardExpanded(item);
                                 }
                               }}
-                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${
-                                canEditTimeline
-                                  ? "cursor-pointer active:scale-[0.995]"
-                                  : "cursor-default opacity-80"
-                              }`}
+                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                                ? "cursor-pointer active:scale-[0.995]"
+                                : "cursor-default opacity-80"
+                                }`}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
@@ -12520,11 +12484,10 @@ export default function Home() {
                               )
                             }
                             disabled={!canEditTimeline}
-                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${
-                              cerNeedsMc
-                                ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
-                                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                            }`}
+                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${cerNeedsMc
+                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                              }`}
                           >
                             {cerNeedsMc
                               ? "DJ/MC attention: On"
@@ -12711,11 +12674,10 @@ export default function Home() {
               </p>
               {vendorStatus && (
                 <p
-                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${
-                    vendorStatus.kind === "success"
-                      ? "border border-emerald-500/40 bg-emerald-950/35 text-emerald-50"
-                      : "border border-rose-500/40 bg-rose-950/35 text-rose-50"
-                  }`}
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${vendorStatus.kind === "success"
+                    ? "border border-emerald-500/40 bg-emerald-950/35 text-emerald-50"
+                    : "border border-rose-500/40 bg-rose-950/35 text-rose-50"
+                    }`}
                 >
                   {vendorStatus.message}
                 </p>
@@ -12763,11 +12725,10 @@ export default function Home() {
                         Access: {collab.role}
                       </span>
                       <span
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                          collab.status === "Accepted"
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                            : "border-violet-300 bg-violet-50 text-violet-950"
-                        }`}
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${collab.status === "Accepted"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                          : "border-violet-300 bg-violet-50 text-violet-950"
+                          }`}
                       >
                         {collab.status === "Accepted" ? "Can open app" : "Invite pending"}
                       </span>
@@ -13257,367 +13218,343 @@ export default function Home() {
             <div
               className={`-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 sm:mx-0 sm:max-w-none sm:overflow-visible sm:px-0 print:!m-0 print:!max-w-none print:!overflow-visible print:!p-0`}
             >
-            <div
-              className={`doc-sheet ${eventSettings.liveEventCompactMode ? "doc-mode-compact" : ""} ${eventSettings.liveEventLargePrintMode ? "doc-mode-large-print" : ""}`}
-            >
+              <div
+                className={`doc-sheet ${eventSettings.liveEventCompactMode ? "doc-mode-compact" : ""} ${eventSettings.liveEventLargePrintMode ? "doc-mode-large-print" : ""}`}
+              >
 
-              <div role="banner" className="doc-header print-break-avoid">
-                <div className="doc-header-main">
-                  <div className="doc-header-brand">
-                    <div className="doc-header-logo-wrap">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={resolvedDocLogoSrc}
-                        alt={appSettings.companyName}
-                        width={360}
-                        height={112}
-                        className="doc-header-logo-img"
-                      />
+                <div role="banner" className="doc-header print-break-avoid">
+                  <div className="doc-header-main">
+                    <div className="doc-header-brand">
+                      <div className="doc-header-logo-wrap">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={resolvedDocLogoSrc}
+                          alt={appSettings.companyName}
+                          width={360}
+                          height={112}
+                          className="doc-header-logo-img"
+                        />
+                      </div>
+                      <p className="doc-header-brand-tagline">Event Production Timeline</p>
                     </div>
-                    <p className="doc-header-brand-tagline">Event Production Timeline</p>
-                  </div>
-                  <div className="doc-header-event">
-                    <h1 className="doc-event-title">
-                      {eventSettings.eventName?.trim() || eventDisplayName || "Event"}
-                    </h1>
-                    {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
-                      <p className="doc-header-event-date">
-                        {eventSettings.weddingDate || weddingDetails.date}
-                      </p>
-                    ) : null}
-                    {(eventSettings.venue || weddingDetails.venue)?.trim() ? (
-                      <p className="doc-header-event-venue">{eventSettings.venue || weddingDetails.venue}</p>
-                    ) : null}
-                    {(effectiveEventType ?? "").trim() ? (
-                      <p className="doc-event-type-pill doc-header-event-type">{effectiveEventType}</p>
-                    ) : null}
-                    {!(
-                      (eventSettings.weddingDate || weddingDetails.date)?.trim() ||
-                      (eventSettings.venue || weddingDetails.venue)?.trim()
-                    ) ? (
-                      <p className="doc-header-event-placeholder">Date and venue — add in Event Settings</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <p className="doc-subtitle no-print mb-4 text-[11px] uppercase tracking-[0.14em] text-stone-600">
-                Live Event Mode · printable working packet
-              </p>
-
-              <div className="doc-section doc-section--lead print-break-avoid">
-                <h3>Event Overview</h3>
-                <table className="doc-table">
-                  <tbody>
-                    <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
-                    <tr><th>Date</th><td>{eventSettings.weddingDate || weddingDetails.date || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
-                    <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Event type</th><td>{effectiveEventType || "TBD"}</td></tr>
-                    <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {sectionCeremonyEnabled && (
-                <>
-                  <p className="doc-subtitle no-print">Print · ceremony follows overview on page 1</p>
-                  <div className="doc-section print-break-avoid">
-                    <h3>Ceremony Timeline</h3>
-                    <table className="doc-table">
-                      <tbody>
-                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                        <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
-                      </tbody>
-                    </table>
-                    <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
-                      <table className="doc-table doc-ceremony-timeline mt-2 min-w-[520px] sm:min-w-0">
-                        <thead>
-                          <tr>
-                            <th scope="col">Time / Order</th>
-                            <th scope="col">Moment</th>
-                            <th scope="col">Song</th>
-                            <th scope="col">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ceremonyTimelineRows.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
-                              >
-                                No ceremony moments yet — add them under Ceremony.
-                              </td>
-                            </tr>
-                          ) : (
-                            ceremonyTimelineRows.map((row) => (
-                              <tr key={`live-ceremony-row-${row.id}`}>
-                                <td>{row.order}</td>
-                                <td>{row.moment}</td>
-                                <td>{row.song}</td>
-                                <td>{row.notes}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                    <div className="doc-header-event">
+                      <h1 className="doc-event-title">
+                        {eventSettings.eventName?.trim() || eventDisplayName || "Event"}
+                      </h1>
+                      {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
+                        <p className="doc-header-event-date">
+                          {eventSettings.weddingDate || weddingDetails.date}
+                        </p>
+                      ) : null}
+                      {(eventSettings.venue || weddingDetails.venue)?.trim() ? (
+                        <p className="doc-header-event-venue">{eventSettings.venue || weddingDetails.venue}</p>
+                      ) : null}
+                      {(effectiveEventType ?? "").trim() ? (
+                        <p className="doc-event-type-pill doc-header-event-type">{effectiveEventType}</p>
+                      ) : null}
+                      {!(
+                        (eventSettings.weddingDate || weddingDetails.date)?.trim() ||
+                        (eventSettings.venue || weddingDetails.venue)?.trim()
+                      ) ? (
+                        <p className="doc-header-event-placeholder">Date and venue — add in Event Settings</p>
+                      ) : null}
                     </div>
                   </div>
-                </>
-              )}
-              {sectionReceptionTimelineEnabled && (
-              <>
-              <p className="doc-subtitle no-print">
-                Print · reception / main timeline begins on the next page
-              </p>
-              <div className="doc-section live-reception-page-break print-break-avoid">
-                <h3>{eventPrepReceptionHeading}</h3>
-                <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
-                  <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
-                  <thead>
-                    <tr>
-                      <th scope="col">Time</th>
-                      <th scope="col">Moment</th>
-                      <th scope="col">Song</th>
-                      <th scope="col">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mergedTimelineItems.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
-                        >
-                          No reception moments yet — add them under Timeline / Reception.
-                        </td>
-                      </tr>
-                    ) : (
-                      mergedTimelineItems.map((item) => {
-                        const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
-                          .filter(Boolean)
-                          .join(" - ");
-                        const fadeSuffix = item.fadeOutEarly
-                          ? item.fadeOutTimestamp?.trim()
-                            ? ` (Fade ${item.fadeOutTimestamp.trim()})`
-                            : " (Fade early)"
-                          : "";
-                        const songCell = `${songLabel}${fadeSuffix}`.trim();
-                        const notesLabel = [item.notes?.trim() || "", item.needsDjMcAttention ? "MC/DJ Attention" : ""]
-                          .filter(Boolean)
-                          .join(" · ");
-                        return (
-                          <tr key={`live-timeline-${item.id}`}>
-                            <td>{item.time?.trim() ?? ""}</td>
-                            <td>{item.title}</td>
-                            <td>{songCell}</td>
-                            <td>{notesLabel}</td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                  </table>
                 </div>
-              </div>
-              </>
-              )}
-              {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
-                <div className="doc-section print-break-avoid">
-                  <h3>Planning Notes / Key Answers</h3>
+
+                <p className="doc-subtitle no-print mb-4 text-[11px] uppercase tracking-[0.14em] text-stone-600">
+                  Live Event Mode · printable working packet
+                </p>
+
+                <div className="doc-section doc-section--lead print-break-avoid">
+                  <h3>Event Overview</h3>
                   <table className="doc-table">
                     <tbody>
-                      {planningQuestionsForEvent
-                        .filter((q) => q.showInLiveEventMode)
-                        .map((q) => (
-                        <tr key={`live-planned-q-${q.id}`}>
-                          <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
-                          <td>{(eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}</td>
-                        </tr>
-                      ))}
+                      <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
+                      <tr><th>Date</th><td>{eventSettings.weddingDate || weddingDetails.date || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
+                      <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Event type</th><td>{effectiveEventType || "TBD"}</td></tr>
+                      <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
                     </tbody>
                   </table>
                 </div>
-              )}
-              {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
-                <div className="doc-section">
-                  <h3>Music Notes</h3>
-                  {layoutProfileForActiveEvent === "School Dance" ? (
-                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
-                      Clean edits and school-appropriate selections.
-                    </p>
-                  ) : null}
-                  <p className="doc-note mb-1 font-medium text-zinc-700 print:text-black">Overall vibe</p>
-                  <p className="mb-3">{generalDjNotes || "None"}</p>
-                  {musicGenreEraSelections.length > 0 ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">Genre / era picks: </span>
-                      {musicGenreEraSelections.join(", ")}
-                    </p>
-                  ) : null}
-                  {musicTasteProfileHasSelections(musicTasteProfile) ? (
-                    <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3 print:border-black print:bg-white">
-                      <p className="doc-note mb-2 font-medium text-zinc-700 print:text-black">
-                        Music taste profile
-                      </p>
-                      {musicTasteProfile.danceFloorStyles.length > 0 ? (
-                        <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                          <span className="font-medium text-zinc-700 print:text-black">Dance floor: </span>
-                          {musicTasteProfile.danceFloorStyles.join(", ")}
-                        </p>
-                      ) : null}
-                      {musicTasteProfile.crowdPreferences.length > 0 ? (
-                        <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                          <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
-                          {musicTasteProfile.crowdPreferences.join(", ")}
-                        </p>
-                      ) : null}
-                      {musicTasteProfile.musicBehavior.length > 0 ? (
-                        <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                          <span className="font-medium text-zinc-700 print:text-black">Behavior: </span>
-                          {musicTasteProfile.musicBehavior.join(", ")}
-                        </p>
-                      ) : null}
-                      {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
-                        <p className="mt-2 text-sm text-zinc-800 print:text-black">
-                          <span className="font-medium text-zinc-700 print:text-black">Ideal dance floor vibe: </span>
-                          {musicTasteProfile.danceFloorVibeNotes}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {(musicVibeDetail.genres ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">Extra genre notes: </span>
-                      {musicVibeDetail.genres}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.energy ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">Energy: </span>
-                      {musicVibeDetail.energy}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.crowdNotes ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
-                      {musicVibeDetail.crowdNotes}
-                    </p>
-                  ) : null}
-                  {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
-                    <p className="mb-2">
-                      <span className="font-medium text-zinc-700 print:text-black">
-                        {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
-                      </span>
-                      {musicVibeDetail.cleanMusicPrefs}
-                    </p>
-                  ) : null}
-                  {musicPlaylistLinks.length > 0 ? (
-                    <>
-                      <p className="doc-note mb-2 mt-4 font-medium text-zinc-700 print:text-black">
-                        Client playlist links
-                      </p>
+
+                {sectionCeremonyEnabled && (
+                  <>
+                    <p className="doc-subtitle no-print">Print · ceremony follows overview on page 1</p>
+                    <div className="doc-section print-break-avoid">
+                      <h3>Ceremony Timeline</h3>
                       <table className="doc-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Label</th>
-                            <th>URL</th>
-                            <th>Notes</th>
-                          </tr>
-                        </thead>
                         <tbody>
-                          {musicPlaylistLinks.map((link, index) => (
-                            <tr key={`doc-plink-${link.id}`}>
-                              <td>{index + 1}</td>
-                              <td>{link.label?.trim() || "—"}</td>
-                              <td className="max-w-[40%] break-all">{link.url}</td>
-                              <td>{link.notes?.trim() || ""}</td>
+                          <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
+                          <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                          <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
+                        </tbody>
+                      </table>
+                      <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
+                        <table className="doc-table doc-ceremony-timeline mt-2 min-w-[520px] sm:min-w-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">Time / Order</th>
+                              <th scope="col">Moment</th>
+                              <th scope="col">Song</th>
+                              <th scope="col">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ceremonyTimelineRows.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
+                                >
+                                  No ceremony moments yet — add them under Ceremony.
+                                </td>
+                              </tr>
+                            ) : (
+                              ceremonyTimelineRows.map((row) => (
+                                <tr key={`live-ceremony-row-${row.id}`}>
+                                  <td>{row.order}</td>
+                                  <td>{row.moment}</td>
+                                  <td>{row.song}</td>
+                                  <td>{row.notes}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {sectionReceptionTimelineEnabled && (
+                  <>
+                    <p className="doc-subtitle no-print">
+                      Print · reception / main timeline begins on the next page
+                    </p>
+                    <div className="doc-section live-reception-page-break print-break-avoid">
+                      <h3>{eventPrepReceptionHeading}</h3>
+                      <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
+                        <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">Time</th>
+                              <th scope="col">Moment</th>
+                              <th scope="col">Song</th>
+                              <th scope="col">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mergedTimelineItems.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
+                                >
+                                  No reception moments yet — add them under Timeline / Reception.
+                                </td>
+                              </tr>
+                            ) : (
+                              mergedTimelineItems.map((item) => {
+                                const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+                                  .filter(Boolean)
+                                  .join(" - ");
+                                const fadeSuffix = item.fadeOutEarly
+                                  ? item.fadeOutTimestamp?.trim()
+                                    ? ` (Fade ${item.fadeOutTimestamp.trim()})`
+                                    : " (Fade early)"
+                                  : "";
+                                const songCell = `${songLabel}${fadeSuffix}`.trim();
+                                const notesLabel = [item.notes?.trim() || "", item.needsDjMcAttention ? "MC/DJ Attention" : ""]
+                                  .filter(Boolean)
+                                  .join(" · ");
+                                return (
+                                  <tr key={`live-timeline-${item.id}`}>
+                                    <td>{item.time?.trim() ?? ""}</td>
+                                    <td>{item.title}</td>
+                                    <td>{songCell}</td>
+                                    <td>{notesLabel}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Planning Notes / Key Answers</h3>
+                    <table className="doc-table">
+                      <tbody>
+                        {planningQuestionsForEvent
+                          .filter((q) => q.showInLiveEventMode)
+                          .map((q) => (
+                            <tr key={`live-planned-q-${q.id}`}>
+                              <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
+                              <td>{(eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}</td>
                             </tr>
                           ))}
-                        </tbody>
-                      </table>
-                    </>
-                  ) : null}
-                </div>
-              )}
-              {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
-                <div className="doc-section">
-                  <h3>Do Not Play</h3>
-                  <ul>
-                    {doNotPlaySongs.map((song) => (
-                      <li key={`live-dnp-${song.id}`}>
-                        {song.title}
-                        {song.artist ? ` - ${song.artist}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && (
-                <div className="doc-playlists-page-start">
-                  <p className="doc-subtitle no-print">
-                    Print · playlists & must-play start after timeline sections on a new page
-                  </p>
-                  {PLAYLIST_BUCKET_IDS.map((bucketId) => (
-                    <div key={`doc-pl-${bucketId}`} className="doc-section">
-                      <h3>{PLAYLIST_BUCKET_LABELS[bucketId]}</h3>
-                      <table className="doc-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Song</th>
-                            <th>Artist</th>
-                            <th>Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {getPlaylistLines(bucketId).map((line, index) => {
-                            const parsed = parsePlaylistSongLine(line);
-                            return (
-                              <tr key={`playlist-${bucketId}-${index}-${line}`}>
-                                <td>{index + 1}</td>
-                                <td>{parsed.song || "-"}</td>
-                                <td>{parsed.artist}</td>
-                                <td />
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ))}
-                  <div className="doc-section">
-                    <h3>Must Play</h3>
-                    <table className="doc-table">
-                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                      <tbody>
-                        {(sectionMustPlayEnabled ? mustPlaySongs : []).map((song, index) => (
-                          <tr key={`playlist-must-${song.id}`}>
-                            <td>{index + 1}</td>
-                            <td>{song.title || "-"}</td>
-                            <td>{song.artist || ""}</td>
-                            <td>{song.notes || ""}</td>
-                          </tr>
-                        ))}
                       </tbody>
                     </table>
                   </div>
-                  {sectionMustPlayEnabled && playIfPossibleSongs.length > 0 ? (
+                )}
+                {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
+                  <div className="doc-section">
+                    <h3>Music Notes</h3>
+                    {layoutProfileForActiveEvent === "School Dance" ? (
+                      <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
+                        Clean edits and school-appropriate selections.
+                      </p>
+                    ) : null}
+                    <p className="doc-note mb-1 font-medium text-zinc-700 print:text-black">Overall vibe</p>
+                    <p className="mb-3">{generalDjNotes || "None"}</p>
+                    {musicGenreEraSelections.length > 0 ? (
+                      <p className="mb-2">
+                        <span className="font-medium text-zinc-700 print:text-black">Genre / era picks: </span>
+                        {musicGenreEraSelections.join(", ")}
+                      </p>
+                    ) : null}
+                    {musicTasteProfileHasSelections(musicTasteProfile) ? (
+                      <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3 print:border-black print:bg-white">
+                        <p className="doc-note mb-2 font-medium text-zinc-700 print:text-black">
+                          Music taste profile
+                        </p>
+                        {musicTasteProfile.danceFloorStyles.length > 0 ? (
+                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
+                            <span className="font-medium text-zinc-700 print:text-black">Dance floor: </span>
+                            {musicTasteProfile.danceFloorStyles.join(", ")}
+                          </p>
+                        ) : null}
+                        {musicTasteProfile.crowdPreferences.length > 0 ? (
+                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
+                            <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
+                            {musicTasteProfile.crowdPreferences.join(", ")}
+                          </p>
+                        ) : null}
+                        {musicTasteProfile.musicBehavior.length > 0 ? (
+                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
+                            <span className="font-medium text-zinc-700 print:text-black">Behavior: </span>
+                            {musicTasteProfile.musicBehavior.join(", ")}
+                          </p>
+                        ) : null}
+                        {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
+                          <p className="mt-2 text-sm text-zinc-800 print:text-black">
+                            <span className="font-medium text-zinc-700 print:text-black">Ideal dance floor vibe: </span>
+                            {musicTasteProfile.danceFloorVibeNotes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {(musicVibeDetail.genres ?? "").trim() ? (
+                      <p className="mb-2">
+                        <span className="font-medium text-zinc-700 print:text-black">Extra genre notes: </span>
+                        {musicVibeDetail.genres}
+                      </p>
+                    ) : null}
+                    {(musicVibeDetail.energy ?? "").trim() ? (
+                      <p className="mb-2">
+                        <span className="font-medium text-zinc-700 print:text-black">Energy: </span>
+                        {musicVibeDetail.energy}
+                      </p>
+                    ) : null}
+                    {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                      <p className="mb-2">
+                        <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
+                        {musicVibeDetail.crowdNotes}
+                      </p>
+                    ) : null}
+                    {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                      <p className="mb-2">
+                        <span className="font-medium text-zinc-700 print:text-black">
+                          {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
+                        </span>
+                        {musicVibeDetail.cleanMusicPrefs}
+                      </p>
+                    ) : null}
+                    {musicPlaylistLinks.length > 0 ? (
+                      <>
+                        <p className="doc-note mb-2 mt-4 font-medium text-zinc-700 print:text-black">
+                          Client playlist links
+                        </p>
+                        <table className="doc-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Label</th>
+                              <th>URL</th>
+                              <th>Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {musicPlaylistLinks.map((link, index) => (
+                              <tr key={`doc-plink-${link.id}`}>
+                                <td>{index + 1}</td>
+                                <td>{link.label?.trim() || "—"}</td>
+                                <td className="max-w-[40%] break-all">{link.url}</td>
+                                <td>{link.notes?.trim() || ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+                {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
+                  <div className="doc-section">
+                    <h3>Do Not Play</h3>
+                    <ul>
+                      {doNotPlaySongs.map((song) => (
+                        <li key={`live-dnp-${song.id}`}>
+                          {song.title}
+                          {song.artist ? ` - ${song.artist}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && (
+                  <div className="doc-playlists-page-start">
+                    <p className="doc-subtitle no-print">
+                      Print · playlists & must-play start after timeline sections on a new page
+                    </p>
+                    {PLAYLIST_BUCKET_IDS.map((bucketId) => (
+                      <div key={`doc-pl-${bucketId}`} className="doc-section">
+                        <h3>{PLAYLIST_BUCKET_LABELS[bucketId]}</h3>
+                        <table className="doc-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Song</th>
+                              <th>Artist</th>
+                              <th>Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getPlaylistLines(bucketId).map((line, index) => {
+                              const parsed = parsePlaylistSongLine(line);
+                              return (
+                                <tr key={`playlist-${bucketId}-${index}-${line}`}>
+                                  <td>{index + 1}</td>
+                                  <td>{parsed.song || "-"}</td>
+                                  <td>{parsed.artist}</td>
+                                  <td />
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
                     <div className="doc-section">
-                      <h3>Play If Possible</h3>
+                      <h3>Must Play</h3>
                       <table className="doc-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Song</th>
-                            <th>Artist</th>
-                            <th>Notes</th>
-                          </tr>
-                        </thead>
+                        <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
                         <tbody>
-                          {playIfPossibleSongs.map((song, index) => (
-                            <tr key={`playlist-pip-${song.id}`}>
+                          {(sectionMustPlayEnabled ? mustPlaySongs : []).map((song, index) => (
+                            <tr key={`playlist-must-${song.id}`}>
                               <td>{index + 1}</td>
                               <td>{song.title || "-"}</td>
                               <td>{song.artist || ""}</td>
@@ -13627,134 +13564,158 @@ export default function Home() {
                         </tbody>
                       </table>
                     </div>
-                  ) : null}
-                  {!eventSettings.liveEventShowGuestRequests ? (
-                  <div className="doc-section">
-                    <h3>Guest Approved Requests</h3>
-                    <table className="doc-table">
-                      <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                      <tbody>
-                        {(sectionGuestRequestsEnabled ? guestRequests : [])
-                          .filter((request) => request.status === "Approved")
-                          .map((request, index) => (
-                            <tr key={`playlist-approved-${request.id}`}>
-                              <td>{index + 1}</td>
-                              <td>{request.songTitle || "-"}</td>
-                              <td>{request.artist || ""}</td>
-                              <td>{request.dedication || ""}</td>
+                    {sectionMustPlayEnabled && playIfPossibleSongs.length > 0 ? (
+                      <div className="doc-section">
+                        <h3>Play If Possible</h3>
+                        <table className="doc-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Song</th>
+                              <th>Artist</th>
+                              <th>Notes</th>
                             </tr>
-                          ))}
+                          </thead>
+                          <tbody>
+                            {playIfPossibleSongs.map((song, index) => (
+                              <tr key={`playlist-pip-${song.id}`}>
+                                <td>{index + 1}</td>
+                                <td>{song.title || "-"}</td>
+                                <td>{song.artist || ""}</td>
+                                <td>{song.notes || ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                    {!eventSettings.liveEventShowGuestRequests ? (
+                      <div className="doc-section">
+                        <h3>Guest Approved Requests</h3>
+                        <table className="doc-table">
+                          <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
+                          <tbody>
+                            {(sectionGuestRequestsEnabled ? guestRequests : [])
+                              .filter((request) => request.status === "Approved")
+                              .map((request, index) => (
+                                <tr key={`playlist-approved-${request.id}`}>
+                                  <td>{index + 1}</td>
+                                  <td>{request.songTitle || "-"}</td>
+                                  <td>{request.artist || ""}</td>
+                                  <td>{request.dedication || ""}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                {sectionVendorContactsEnabled &&
+                  eventSettings.liveEventShowVendorContacts &&
+                  vendors.length > 0 && (
+                    <div className="doc-section print-break-avoid">
+                      <h3>Event Team</h3>
+                      <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
+                        Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
+                        are prioritized at the top for fast scanning.
+                      </p>
+                      <div className="space-y-3">
+                        {sortVendorsForEventDocument(vendors).map((vendor) => {
+                          const headline =
+                            vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
+                          const companyLine =
+                            vendor.contactName.trim() && vendor.companyName.trim()
+                              ? vendor.companyName.trim()
+                              : null;
+                          return (
+                            <div
+                              key={`live-vendor-${vendor.id}`}
+                              className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
+                                <div className="min-w-0">
+                                  <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
+                                    {headline}
+                                  </p>
+                                  {companyLine ? (
+                                    <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
+                                  ) : null}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
+                                    {vendorTypeLabel(vendor.vendorType)}
+                                  </p>
+                                  {isCutmasterEventTeam(vendor) ? (
+                                    <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
+                                      Cutmaster event team
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
+                                {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
+                                {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
+                                {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
+                                {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
+                                {vendor.arrivalTime.trim() ? (
+                                  <li>Arrival: {vendor.arrivalTime.trim()}</li>
+                                ) : null}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
+                  <div className="doc-section">
+                    <h3>{eventPrepMcHeading}</h3>
+                    <p>{mcAnnouncements || "None"}</p>
+                  </div>
+                )}
+                {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Guest Requests</h3>
+                    <table className="doc-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Guest</th>
+                          <th>Song</th>
+                          <th>Artist</th>
+                          <th>Status</th>
+                          <th>Dedication</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {guestRequests.map((request, index) => (
+                          <tr key={`live-guest-doc-${request.id}`}>
+                            <td>{index + 1}</td>
+                            <td>{request.guestName}</td>
+                            <td>{request.songTitle || "—"}</td>
+                            <td>{request.artist || "—"}</td>
+                            <td>{request.status}</td>
+                            <td>{request.dedication || "—"}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
-                  ) : null}
-                </div>
-              )}
-              {sectionVendorContactsEnabled &&
-                eventSettings.liveEventShowVendorContacts &&
-                vendors.length > 0 && (
-                  <div className="doc-section print-break-avoid">
-                    <h3>Event Team</h3>
-                    <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
-                      Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
-                      are prioritized at the top for fast scanning.
-                    </p>
-                    <div className="space-y-3">
-                      {sortVendorsForEventDocument(vendors).map((vendor) => {
-                        const headline =
-                          vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
-                        const companyLine =
-                          vendor.contactName.trim() && vendor.companyName.trim()
-                            ? vendor.companyName.trim()
-                            : null;
-                        return (
-                          <div
-                            key={`live-vendor-${vendor.id}`}
-                            className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
-                              <div className="min-w-0">
-                                <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
-                                  {headline}
-                                </p>
-                                {companyLine ? (
-                                  <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
-                                ) : null}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
-                                  {vendorTypeLabel(vendor.vendorType)}
-                                </p>
-                                {isCutmasterEventTeam(vendor) ? (
-                                  <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
-                                    Cutmaster event team
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                            <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
-                              {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
-                              {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
-                              {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
-                              {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
-                              {vendor.arrivalTime.trim() ? (
-                                <li>Arrival: {vendor.arrivalTime.trim()}</li>
-                              ) : null}
-                            </ul>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
                 )}
-              {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
-                <div className="doc-section">
-                  <h3>{eventPrepMcHeading}</h3>
-                  <p>{mcAnnouncements || "None"}</p>
-                </div>
-              )}
-              {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
-                <div className="doc-section print-break-avoid">
-                  <h3>Guest Requests</h3>
-                  <table className="doc-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Guest</th>
-                        <th>Song</th>
-                        <th>Artist</th>
-                        <th>Status</th>
-                        <th>Dedication</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {guestRequests.map((request, index) => (
-                        <tr key={`live-guest-doc-${request.id}`}>
-                          <td>{index + 1}</td>
-                          <td>{request.guestName}</td>
-                          <td>{request.songTitle || "—"}</td>
-                          <td>{request.artist || "—"}</td>
-                          <td>{request.status}</td>
-                          <td>{request.dedication || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
-              {(eventSettings.clientFacingNotes ?? "").trim() ? (
-                <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
-              ) : null}
-              <div className="doc-section"><h3>Document footer</h3><p>{effectivePrepSheetFooter}</p></div>
-              <footer className="doc-footer-brand print-break-avoid" aria-label="Producer">
-                <p className="doc-footer-brand-line">
-                  Prepared by{" "}
-                  <span className="doc-footer-brand-name">{appSettings.companyName}</span>
-                </p>
-                <p className="doc-footer-brand-url">cutmastermusic.com</p>
-              </footer>
-            </div>
+                <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
+                {(eventSettings.clientFacingNotes ?? "").trim() ? (
+                  <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
+                ) : null}
+                <div className="doc-section"><h3>Document footer</h3><p>{effectivePrepSheetFooter}</p></div>
+                <footer className="doc-footer-brand print-break-avoid" aria-label="Producer">
+                  <p className="doc-footer-brand-line">
+                    Prepared by{" "}
+                    <span className="doc-footer-brand-name">{appSettings.companyName}</span>
+                  </p>
+                  <p className="doc-footer-brand-url">cutmastermusic.com</p>
+                </footer>
+              </div>
             </div>
           </section>
         )}
@@ -13942,11 +13903,10 @@ export default function Home() {
                               ),
                           }))
                         }
-                        className={`w-full ${
-                          enabled
-                            ? "rounded-xl bg-[#00D4FF] text-[11px] font-semibold leading-snug text-stone-950 shadow-sm hover:brightness-105 sm:text-xs"
-                            : `${lightUiSecondaryButtonClass} text-[11px] leading-snug sm:text-xs`
-                        }`}
+                        className={`w-full ${enabled
+                          ? "rounded-xl bg-[#00D4FF] text-[11px] font-semibold leading-snug text-stone-950 shadow-sm hover:brightness-105 sm:text-xs"
+                          : `${lightUiSecondaryButtonClass} text-[11px] leading-snug sm:text-xs`
+                          }`}
                       >
                         {enabled ? `Hide ${item.label}` : `Show ${item.label}`}
                       </PrimaryButton>
@@ -14216,13 +14176,12 @@ export default function Home() {
                     <p className="mt-1 text-xs text-stone-600">{task.description}</p>
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                      task.status === "Complete"
-                        ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
-                        : task.status === "In Progress"
-                          ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
-                          : "border border-stone-300 bg-stone-100 text-stone-700"
-                    }`}
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
+                      ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
+                      : task.status === "In Progress"
+                        ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
+                        : "border border-stone-300 bg-stone-100 text-stone-700"
+                      }`}
                   >
                     {task.status}
                   </span>
@@ -14292,13 +14251,13 @@ export default function Home() {
           appMode === "event" &&
           activeScreen === "Planning Questions" &&
           sectionPlanningQuestionsEnabled && (
-          <section className={workspaceSectionLooseClass}>
-            <EventHomeNav
-              trail={["Planning Questions"]}
-              onBack={() => setActiveScreen("Dashboard")}
-              primaryAction={
-                coupleAttentionSummary.unansweredPlanningQuestionCount > 0
-                  ? {
+            <section className={workspaceSectionLooseClass}>
+              <EventHomeNav
+                trail={["Planning Questions"]}
+                onBack={() => setActiveScreen("Dashboard")}
+                primaryAction={
+                  coupleAttentionSummary.unansweredPlanningQuestionCount > 0
+                    ? {
                       label: "Review questions",
                       onClick: () =>
                         document.getElementById("planning-questions-anchor")?.scrollIntoView({
@@ -14306,97 +14265,97 @@ export default function Home() {
                           block: "start",
                         }),
                     }
-                  : undefined
-              }
-            />
-            <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle>Planning Questions</SectionTitle>
-                <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on.
-              </p>
-              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                Event Type · {layoutProfileForActiveEvent}
-              </p>
-            </PremiumCard>
-            {planningQuestionsForEvent.length === 0 ? (
-              <SectionEmptyState
-                title="No prompts for this profile"
-                description="Questions follow your event type—adjust layout or profile in Event Settings if needed."
-                primaryAction={{
-                  label: "Open Event Settings",
-                  onClick: () => setActiveScreen("Event Settings"),
-                }}
-                cardClassName="border-dashed border-stone-300 bg-stone-50/80"
+                    : undefined
+                }
               />
-            ) : (
-              <div id="planning-questions-anchor" className="space-y-5">
-                {planningQuestionsGroupedBySection.map((row) => {
-                  const pct = computePlanningQuestionGroupCompletion(
-                    row.questions,
-                    eventSettings.planningQuestionAnswers,
-                  );
-                  const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
-                  return (
-                    <PremiumCard key={`pq-group-${row.group.id}`} className={premiumFormSectionCardClass}>
-                      <button
-                        type="button"
-                        className="flex w-full items-start gap-3 rounded-lg px-0.5 py-2.5 text-left transition hover:bg-stone-50 sm:items-center sm:justify-between sm:py-3"
-                        onClick={() =>
-                          setExpandedPlanningQuestionGroups((p) => ({
-                            ...p,
-                            [row.group.id]: !(p[row.group.id] ?? true),
-                          }))
-                        }
-                      >
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
-                          <p className="text-[11px] font-medium leading-relaxed text-stone-600">
-                            {pct}% answered · {row.questions.length}{" "}
-                            {row.questions.length === 1 ? "question" : "questions"}
-                          </p>
-                          <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
-                            <div
-                              className="h-full rounded-full bg-[var(--cm-accent)]"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-500" aria-hidden>
-                          {isExpanded ? "▼" : "▶"}
-                        </span>
-                      </button>
-                      {isExpanded ? (
-                        <div className="mt-6 border-t border-stone-200 pt-6">
-                          <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
-                            {row.questions.map((q) => (
-                              <PlanningQuestionAnswerEditor
-                                key={q.id}
-                                q={q}
-                                value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                                onChange={(next) =>
-                                  setEventSettings((prev) => ({
-                                    ...prev,
-                                    planningQuestionAnswers: {
-                                      ...(prev.planningQuestionAnswers ?? {}),
-                                      [q.id]: next,
-                                    },
-                                  }))
-                                }
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <SectionTitle>Planning Questions</SectionTitle>
+                  <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                  Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on.
+                </p>
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                  Event Type · {layoutProfileForActiveEvent}
+                </p>
+              </PremiumCard>
+              {planningQuestionsForEvent.length === 0 ? (
+                <SectionEmptyState
+                  title="No prompts for this profile"
+                  description="Questions follow your event type—adjust layout or profile in Event Settings if needed."
+                  primaryAction={{
+                    label: "Open Event Settings",
+                    onClick: () => setActiveScreen("Event Settings"),
+                  }}
+                  cardClassName="border-dashed border-stone-300 bg-stone-50/80"
+                />
+              ) : (
+                <div id="planning-questions-anchor" className="space-y-5">
+                  {planningQuestionsGroupedBySection.map((row) => {
+                    const pct = computePlanningQuestionGroupCompletion(
+                      row.questions,
+                      eventSettings.planningQuestionAnswers,
+                    );
+                    const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
+                    return (
+                      <PremiumCard key={`pq-group-${row.group.id}`} className={premiumFormSectionCardClass}>
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-3 rounded-lg px-0.5 py-2.5 text-left transition hover:bg-stone-50 sm:items-center sm:justify-between sm:py-3"
+                          onClick={() =>
+                            setExpandedPlanningQuestionGroups((p) => ({
+                              ...p,
+                              [row.group.id]: !(p[row.group.id] ?? true),
+                            }))
+                          }
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
+                            <p className="text-[11px] font-medium leading-relaxed text-stone-600">
+                              {pct}% answered · {row.questions.length}{" "}
+                              {row.questions.length === 1 ? "question" : "questions"}
+                            </p>
+                            <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
+                              <div
+                                className="h-full rounded-full bg-[var(--cm-accent)]"
+                                style={{ width: `${pct}%` }}
                               />
-                            ))}
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
-                    </PremiumCard>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
+                          <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-500" aria-hidden>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                        </button>
+                        {isExpanded ? (
+                          <div className="mt-6 border-t border-stone-200 pt-6">
+                            <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
+                              {row.questions.map((q) => (
+                                <PlanningQuestionAnswerEditor
+                                  key={q.id}
+                                  q={q}
+                                  value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                                  onChange={(next) =>
+                                    setEventSettings((prev) => ({
+                                      ...prev,
+                                      planningQuestionAnswers: {
+                                        ...(prev.planningQuestionAnswers ?? {}),
+                                        [q.id]: next,
+                                      },
+                                    }))
+                                  }
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </PremiumCard>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
         {authStage === "app" && activeScreen === "Notification Center" && (
           <section className={workspaceSectionClass}>
@@ -14513,17 +14472,15 @@ export default function Home() {
         <>
           <div
             onClick={() => setQuickActionsOpen(false)}
-            className={`fixed inset-0 z-40 bg-black/45 transition-opacity duration-200 lg:hidden ${
-              quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-            }`}
+            className={`fixed inset-0 z-40 bg-black/45 transition-opacity duration-200 lg:hidden ${quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+              }`}
           />
           <div className="fixed bottom-24 right-4 z-50 flex w-[calc(100%-2rem)] max-w-[260px] flex-col items-end gap-2 lg:hidden">
             <div
-              className={`w-full space-y-2 transition-all duration-200 ${
-                quickActionsOpen
-                  ? "pointer-events-auto translate-y-0 opacity-100"
-                  : "pointer-events-none translate-y-2 opacity-0"
-              }`}
+              className={`w-full space-y-2 transition-all duration-200 ${quickActionsOpen
+                ? "pointer-events-auto translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-2 opacity-0"
+                }`}
             >
               {quickActions.slice(0, 6).map((action) => (
                 <PrimaryButton
@@ -14540,9 +14497,8 @@ export default function Home() {
             </div>
             <PrimaryButton
               onClick={() => setQuickActionsOpen((prev) => !prev)}
-              className={`rounded-2xl border border-[#00D4FF]/35 bg-[#00D4FF] px-4 text-sm font-semibold text-black shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${
-                quickActionsOpen ? "rotate-45" : ""
-              }`}
+              className={`rounded-2xl border border-[#00D4FF]/35 bg-[#00D4FF] px-4 text-sm font-semibold text-black shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${quickActionsOpen ? "rotate-45" : ""
+                }`}
             >
               +
             </PrimaryButton>
@@ -14623,11 +14579,10 @@ export default function Home() {
                 <PrimaryButton
                   onClick={() => setTeamActiveDraft((prev) => !prev)}
                   disabled={!canManageEvents}
-                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${
-                    teamActiveDraft
-                      ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
-                      : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
-                  }`}
+                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${teamActiveDraft
+                    ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
+                    : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
+                    }`}
                 >
                   {teamActiveDraft ? "Active Member" : "Inactive Member"}
                 </PrimaryButton>
@@ -14699,1344 +14654,1302 @@ export default function Home() {
                 </select>
               </div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <PrimaryButton
-                onClick={() => setInviteModalOpen(false)}
-                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-              >
-                Cancel
-              </PrimaryButton>
-              <PrimaryButton
-                onClick={handleInviteCollaborator}
-                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-              >
-                Send Invite
-              </PrimaryButton>
-            </div>
           </div>
-        </div>
-      )}
-
-      {templateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
-            <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-stone-950">
-                {templateModalMode === "new" ? "Save Template" : "Edit Template"}
-              </SectionTitle>
-              <PrimaryButton
-                onClick={() => {
-                  setTemplateModalOpen(false);
-                  setTemplateEditingId(null);
-                }}
-                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-              >
-                Close
-              </PrimaryButton>
-            </div>
-            <div className="mt-4 space-y-3">
-              <TextInput
-                id="template-name"
-                label="Template Name"
-                value={templateDraftName}
-                onChange={setTemplateDraftName}
-                placeholder="e.g. Summer Garden Wedding"
-              />
-              <p className="text-xs text-stone-600">
-                Saves current reception timeline and planning suggestions.
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <PrimaryButton
-                onClick={() => {
-                  setTemplateModalOpen(false);
-                  setTemplateEditingId(null);
-                }}
-                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-              >
-                Cancel
-              </PrimaryButton>
-              <PrimaryButton
-                onClick={handleSaveTemplateModal}
-                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-              >
-                {templateModalMode === "new" ? "Save" : "Update"}
-              </PrimaryButton>
-            </div>
           </div>
-        </div>
-      )}
-
-{authStage === "app" && canManageEvents && eventModalOpen && (
-  <EventModal
-    title={eventModalMode === "new" ? "Create Event" : "Edit Event"}
-    onClose={() => {
-      setEventModalOpen(false);
-      setEventEditingId(null);
-      setEventModalStatus(null);
-    }}
-  >
-    
-            
-
-            <EventModalForm
-              onSubmit={(event) => {
-                event.preventDefault();
-                handleSaveEventModal();
+        )}
               
-              }}
-  >
-  
-  <TextInput
-                id="event-name"
-                label="Event Name"
-                value={eventDraft.eventName}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, eventName: value }))
-                }
-                placeholder="e.g. Jordan Graduation Celebration"
-              />
-              <TextInput
-                id="event-couple-names"
-                label={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
-                value={eventDraft.coupleNames}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, coupleNames: value }))
-                }
-                placeholder="e.g. Jordan Vega"
-              />
-              <EventTypeSection>
-                <label htmlFor="event-type" className={lightUiFormLabelClass}>
-                  Event Type
-                </label>
-                <select
-                  id="event-type"
-                  value={eventDraft.eventLayoutProfile}
-                  onChange={(event) =>
-                    setEventDraft((prev) => ({
-                      ...prev,
-                      eventLayoutProfile: event.target.value as EventLayoutProfile,
-                      eventType: event.target.value as EventLayoutProfile,
-                    }))
-                  }
-                  className={lightUiSelectClass}
-                >
-                  {EVENT_TYPES.map((profile) => (
-                    <option key={`draft-layout-${profile}`} value={profile} className="bg-white text-stone-900">
-                      {profile}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs leading-relaxed text-stone-600">
-                  {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
-                </p>
-                <div className="rounded-xl border border-stone-200 bg-white p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
-                    Event Type Preview
-                  </p>
-                  <p className="mt-2 text-xs text-stone-700">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
-                  <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">Enabled Sections</p>
-                    <p className="mt-1 text-xs text-stone-700">
-                      {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
-                    </p>
-                  </div>
-                  <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                      Default Planning Questions
-                    </p>
-                    <p className="mt-1 text-xs text-stone-700">
-                      {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
-                        .map((q) => q.label)
-                        .slice(0, 4)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                  <div className="mt-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                      Event Document Default Sections
-                    </p>
-                    <p className="mt-1 text-xs text-stone-700">
-                      {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                    Sections enabled by default
-                  </p>
-                  <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
-                    {getEnabledLayoutSectionLabels(
-                      getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
-                    ).map((label) => (
-                      <li key={`draft-section-${label}`} className="flex gap-2">
-                        <span className="text-[#00D4FF]" aria-hidden>
-                          ✓
-                        </span>
-                        <span>{label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </EventTypeSection>
-              <TextInput
-                id="event-date"
-                label={
-                  eventDraft.eventLayoutProfile === "Wedding" ||
-                  eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
-                    ? "Wedding Date"
-                    : "Event Date"
-                }
-                value={eventDraft.weddingDate}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, weddingDate: value }))
-                }
-                placeholder="e.g. Saturday, September 21, 2026"
-              />
-              <TextInput
-                id="event-venue"
-                label="Venue"
-                value={eventDraft.venue}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, venue: value }))
-                }
-                placeholder="e.g. The Grand Willow Estate"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <TextInput
-                  id="event-ceremony-location"
-                  label="Ceremony Location"
-                  value={eventDraft.ceremonyLocation}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, ceremonyLocation: value }))
-                  }
-                  placeholder="e.g. Garden Lawn"
-                />
-                <TextInput
-                  id="event-reception-location"
-                  label="Reception Location"
-                  value={eventDraft.receptionLocation}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, receptionLocation: value }))
-                  }
-                  placeholder="e.g. Main Ballroom"
-                />
-              </div>
-              <div>
-                <label htmlFor="event-assigned-dj" className={lightUiFormLabelClass}>
-                  Assigned DJ
-                </label>
-                <select
-                  id="event-assigned-dj"
-                  value={eventDraft.assignedDj}
-                  onChange={(event) =>
-                    setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
-                  }
-                  className={lightUiSelectClass}
-                >
-                  <option value="" className="bg-white text-stone-900">
-                    Select a DJ
-                  </option>
-                  {activeDjTeamMembers.map((member) => (
-                    <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-white text-stone-900">
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <TextInput
-                id="event-package"
-                label="Package"
-                value={eventDraft.packageName}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, packageName: value }))
-                }
-                placeholder="e.g. Signature Wedding Experience"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <TextInput
-                  id="event-planner-name"
-                  label="Planner Name"
-                  value={eventDraft.plannerName}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, plannerName: value }))
-                  }
-                />
-                <TextInput
-                  id="event-planner-email"
-                  label="Planner Email"
-                  value={eventDraft.plannerEmail}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
-                  }
-                />
-              </div>
-              <TextArea
-                id="event-internal-notes"
-                label="Internal Notes"
-                value={eventDraft.internalNotes}
-                onChange={(value) =>
-                  setEventDraft((prev) => ({ ...prev, internalNotes: value }))
-                }
-                rows={3}
-              />
-              {eventModalStatus && (
-                <p
-                  className={`rounded-xl px-3 py-2 text-xs ${
-                    eventModalStatus.kind === "success"
-                      ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
-                      : "border border-rose-200 bg-rose-50 text-rose-950"
-                  }`}
-                >
-                  {eventModalStatus.message}
-                </p>
-              )}
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <PrimaryButton
-                type="button"
-                onClick={() => {
-                  setEventModalOpen(false);
-                  setEventEditingId(null);
-                  setEventModalStatus(null);
-                }}
-                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-              >
-                Cancel
-              </PrimaryButton>
-              <PrimaryButton
-                type="submit"
-                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-              >
-                {eventModalMode === "new" ? "Create Event" : "Save Changes"}
-              </PrimaryButton>
-            </div>
-            </EventModalForm>
-        </EventModal>
-      )}
-
-      {vendorModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
-          <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
-            <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <SectionTitle className="text-stone-950">
-                  {vendorEditingId ? "Edit team member" : "Add team member"}
-                </SectionTitle>
-                <PrimaryButton
-                  onClick={closeVendorModal}
-                  className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-                >
-                  Close
-                </PrimaryButton>
-              </div>
-            </div>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                saveVendor();
-              }}
-              className="flex min-h-0 flex-1 flex-col"
-            >
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
-                <div>
-                  <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
-                    On this event
-                  </label>
-                  <select
-                    id="vendor-affiliation"
-                    value={vendorAffiliationDraft}
-                    onChange={(event) =>
-                      setVendorAffiliationDraft(event.target.value as VendorAffiliation)
-                    }
-                    className={lightUiSelectClass}
-                  >
-                    <option value="event_partner" className="bg-white text-stone-900">
-                      Event partner (external vendor)
-                    </option>
-                    <option value="cutmaster_event_team" className="bg-white text-stone-900">
-                      Cutmaster event team
-                    </option>
-                  </select>
-                  <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
-                    Cutmaster team appears in its own block; partners group by category below.
-                  </p>
-                </div>
-                <div>
-                  <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
-                    Role / category
-                  </label>
-                  <select
-                    id="vendor-type"
-                    value={vendorTypeDraft}
-                    onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
-                    className={lightUiSelectClass}
-                  >
-                    {VENDOR_TYPES_ORDERED.map((type) => (
-                      <option key={`vendor-type-option-${type}`} value={type} className="bg-white text-stone-900">
-                        {vendorTypeLabel(type)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <TextInput id="vendor-company" label="Company Name" value={vendorCompanyDraft} onChange={setVendorCompanyDraft} />
-                <TextInput id="vendor-contact" label="Contact Name" value={vendorContactDraft} onChange={setVendorContactDraft} />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput id="vendor-email" label="Email" value={vendorEmailDraft} onChange={setVendorEmailDraft} />
-                  <TextInput id="vendor-phone" label="Phone" value={vendorPhoneDraft} onChange={setVendorPhoneDraft} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput id="vendor-website" label="Website" value={vendorWebsiteDraft} onChange={setVendorWebsiteDraft} />
-                  <TextInput id="vendor-instagram" label="Instagram" value={vendorInstagramDraft} onChange={setVendorInstagramDraft} />
-                </div>
-                <TextInput id="vendor-arrival-time" label="Arrival Time" value={vendorArrivalDraft} onChange={setVendorArrivalDraft} placeholder="e.g. 2:00 PM" />
-                <TextArea id="vendor-notes" label="Notes" value={vendorNotesDraft} onChange={setVendorNotesDraft} rows={2} />
-                <TextArea
-                  id="vendor-coordination"
-                  label="Special Coordination Notes"
-                  value={vendorCoordinationDraft}
-                  onChange={setVendorCoordinationDraft}
-                  rows={3}
-                />
-              </div>
-
-              <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] sm:pb-3">
-                <div className="grid grid-cols-2 gap-2">
+          {templateModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+              <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
+                <div className="flex items-center justify-between gap-3">
+                  <SectionTitle className="text-stone-950">
+                    {templateModalMode === "new" ? "Save Template" : "Edit Template"}
+                  </SectionTitle>
                   <PrimaryButton
-                    type="button"
-                    onClick={closeVendorModal}
+                    onClick={() => {
+                      setTemplateModalOpen(false);
+                      setTemplateEditingId(null);
+                    }}
                     className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                  >
+                    Close
+                  </PrimaryButton>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <TextInput
+                    id="template-name"
+                    label="Template Name"
+                    value={templateDraftName}
+                    onChange={setTemplateDraftName}
+                    placeholder="e.g. Summer Garden Wedding"
+                  />
+                  <p className="text-xs text-stone-600">
+                    Saves current reception timeline and planning suggestions.
+                  </p>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <PrimaryButton
+                    onClick={() => {
+                      setTemplateModalOpen(false);
+                      setTemplateEditingId(null);
+                    }}
+                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
                   >
                     Cancel
                   </PrimaryButton>
                   <PrimaryButton
-                    type="submit"
-                    className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
+                    onClick={handleSaveTemplateModal}
+                    className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
                   >
-                    Save team member
+                    {templateModalMode === "new" ? "Save" : "Update"}
                   </PrimaryButton>
                 </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {authStage === "app" &&
-        appMode === "event" &&
-        activeScreen === "Event Prep" &&
-        canAccessRunOfShow &&
-        runOfShowOpen && (
-          <div
-            className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
-            role="dialog"
-            aria-label="Run of show"
-          >
-            <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
-                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
-                  <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
-                    {runOfShowHeadline}
-                  </h2>
-                  <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
-                    {runOfShowSubline}
+          {authStage === "app" && canManageEvents && eventModalOpen && (
+            <EventModal
+              title={eventModalMode === "new" ? "Create Event" : "Edit Event"}
+              onClose={() => {
+                setEventModalOpen(false);
+                setEventEditingId(null);
+                setEventModalStatus(null);
+              }}
+            >
+              <EventModalForm
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleSaveEventModal();
+
+                }}
+              >
+
+                <TextInput
+                  id="event-name"
+                  label="Event Name"
+                  value={eventDraft.eventName}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, eventName: value }))
+                  }
+                  placeholder="e.g. Jordan Graduation Celebration"
+                />
+                <TextInput
+                  id="event-couple-names"
+                  label={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
+                  value={eventDraft.coupleNames}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, coupleNames: value }))
+                  }
+                  placeholder="e.g. Jordan Vega"
+                />
+                <EventTypeSection>
+                  <label htmlFor="event-type" className={lightUiFormLabelClass}>
+                    Event Type
+                  </label>
+                  <select
+                    id="event-type"
+                    value={eventDraft.eventLayoutProfile}
+                    onChange={(event) =>
+                      setEventDraft((prev) => ({
+                        ...prev,
+                        eventLayoutProfile: event.target.value as EventLayoutProfile,
+                        eventType: event.target.value as EventLayoutProfile,
+                      }))
+                    }
+                    className={lightUiSelectClass}
+                  >
+                    {EVENT_TYPES.map((profile) => (
+                      <option key={`draft-layout-${profile}`} value={profile} className="bg-white text-stone-900">
+                        {profile}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs leading-relaxed text-stone-600">
+                    {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
                   </p>
-                  {runOfShowUpNextMeta.banner === "upNext" ? (
-                    <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
-                      Up Next:{" "}
-                      <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
+                  <div className="rounded-xl border border-stone-200 bg-white p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                      Event Type Preview
                     </p>
-                  ) : runOfShowUpNextMeta.banner === "complete" ? (
-                    <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
-                      Run Of Show complete
+                    <p className="mt-2 text-xs text-stone-700">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">Enabled Sections</p>
+                      <p className="mt-1 text-xs text-stone-700">
+                        {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
+                      </p>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                        Default Planning Questions
+                      </p>
+                      <p className="mt-1 text-xs text-stone-700">
+                        {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
+                          .map((q) => q.label)
+                          .slice(0, 4)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                        Event Document Default Sections
+                      </p>
+                      <p className="mt-1 text-xs text-stone-700">
+                        {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                      Sections enabled by default
                     </p>
-                  ) : null}
+                    <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
+                      {getEnabledLayoutSectionLabels(
+                        getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
+                      ).map((label) => (
+                        <li key={`draft-section-${label}`} className="flex gap-2">
+                          <span className="text-[#00D4FF]" aria-hidden>
+                            ✓
+                          </span>
+                          <span>{label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </EventTypeSection>
+                <TextInput
+                  id="event-date"
+                  label={
+                    eventDraft.eventLayoutProfile === "Wedding" ||
+                      eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
+                      ? "Wedding Date"
+                      : "Event Date"
+                  }
+                  value={eventDraft.weddingDate}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, weddingDate: value }))
+                  }
+                  placeholder="e.g. Saturday, September 21, 2026"
+                />
+                <TextInput
+                  id="event-venue"
+                  label="Venue"
+                  value={eventDraft.venue}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, venue: value }))
+                  }
+                  placeholder="e.g. The Grand Willow Estate"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput
+                    id="event-ceremony-location"
+                    label="Ceremony Location"
+                    value={eventDraft.ceremonyLocation}
+                    onChange={(value) =>
+                      setEventDraft((prev) => ({ ...prev, ceremonyLocation: value }))
+                    }
+                    placeholder="e.g. Garden Lawn"
+                  />
+                  <TextInput
+                    id="event-reception-location"
+                    label="Reception Location"
+                    value={eventDraft.receptionLocation}
+                    onChange={(value) =>
+                      setEventDraft((prev) => ({ ...prev, receptionLocation: value }))
+                    }
+                    placeholder="e.g. Main Ballroom"
+                  />
                 </div>
-                <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
-                  {/*
+                <div>
+                  <label htmlFor="event-assigned-dj" className={lightUiFormLabelClass}>
+                    Assigned DJ
+                  </label>
+                  <select
+                    id="event-assigned-dj"
+                    value={eventDraft.assignedDj}
+                    onChange={(event) =>
+                      setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
+                    }
+                    className={lightUiSelectClass}
+                  >
+                    <option value="" className="bg-white text-stone-900">
+                      Select a DJ
+                    </option>
+                    {activeDjTeamMembers.map((member) => (
+                      <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-white text-stone-900">
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <TextInput
+                  id="event-package"
+                  label="Package"
+                  value={eventDraft.packageName}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, packageName: value }))
+                  }
+                  placeholder="e.g. Signature Wedding Experience"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput
+                    id="event-planner-name"
+                    label="Planner Name"
+                    value={eventDraft.plannerName}
+                    onChange={(value) =>
+                      setEventDraft((prev) => ({ ...prev, plannerName: value }))
+                    }
+                  />
+                  <TextInput
+                    id="event-planner-email"
+                    label="Planner Email"
+                    value={eventDraft.plannerEmail}
+                    onChange={(value) =>
+                      setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
+                    }
+                  />
+                </div>
+                <TextArea
+                  id="event-internal-notes"
+                  label="Internal Notes"
+                  value={eventDraft.internalNotes}
+                  onChange={(value) =>
+                    setEventDraft((prev) => ({ ...prev, internalNotes: value }))
+                  }
+                  rows={3}
+                />
+                {eventModalStatus && (
+                  <p
+                    className={`rounded-xl px-3 py-2 text-xs ${eventModalStatus.kind === "success"
+                      ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+                      : "border border-rose-200 bg-rose-50 text-rose-950"
+                      }`}
+                  >
+                    {eventModalStatus.message}
+                  </p>
+                )}
+
+                <EventModalActions
+                  mode={eventModalMode}
+                  onCancel={() => {
+                    setEventModalOpen(false);
+                    setEventEditingId(null);
+                    setEventModalStatus(null);
+                  }}
+                />
+              </EventModalForm>
+            </EventModal>
+          )}
+
+          {vendorModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
+              <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
+                <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle className="text-stone-950">
+                      {vendorEditingId ? "Edit team member" : "Add team member"}
+                    </SectionTitle>
+                    <PrimaryButton
+                      onClick={closeVendorModal}
+                      className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                    >
+                      Close
+                    </PrimaryButton>
+                  </div>
+                </div>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    saveVendor();
+                  }}
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
+                    <div>
+                      <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
+                        On this event
+                      </label>
+                      <select
+                        id="vendor-affiliation"
+                        value={vendorAffiliationDraft}
+                        onChange={(event) =>
+                          setVendorAffiliationDraft(event.target.value as VendorAffiliation)
+                        }
+                        className={lightUiSelectClass}
+                      >
+                        <option value="event_partner" className="bg-white text-stone-900">
+                          Event partner (external vendor)
+                        </option>
+                        <option value="cutmaster_event_team" className="bg-white text-stone-900">
+                          Cutmaster event team
+                        </option>
+                      </select>
+                      <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
+                        Cutmaster team appears in its own block; partners group by category below.
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
+                        Role / category
+                      </label>
+                      <select
+                        id="vendor-type"
+                        value={vendorTypeDraft}
+                        onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
+                        className={lightUiSelectClass}
+                      >
+                        {VENDOR_TYPES_ORDERED.map((type) => (
+                          <option key={`vendor-type-option-${type}`} value={type} className="bg-white text-stone-900">
+                            {vendorTypeLabel(type)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <TextInput id="vendor-company" label="Company Name" value={vendorCompanyDraft} onChange={setVendorCompanyDraft} />
+                    <TextInput id="vendor-contact" label="Contact Name" value={vendorContactDraft} onChange={setVendorContactDraft} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <TextInput id="vendor-email" label="Email" value={vendorEmailDraft} onChange={setVendorEmailDraft} />
+                      <TextInput id="vendor-phone" label="Phone" value={vendorPhoneDraft} onChange={setVendorPhoneDraft} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <TextInput id="vendor-website" label="Website" value={vendorWebsiteDraft} onChange={setVendorWebsiteDraft} />
+                      <TextInput id="vendor-instagram" label="Instagram" value={vendorInstagramDraft} onChange={setVendorInstagramDraft} />
+                    </div>
+                    <TextInput id="vendor-arrival-time" label="Arrival Time" value={vendorArrivalDraft} onChange={setVendorArrivalDraft} placeholder="e.g. 2:00 PM" />
+                    <TextArea id="vendor-notes" label="Notes" value={vendorNotesDraft} onChange={setVendorNotesDraft} rows={2} />
+                    <TextArea
+                      id="vendor-coordination"
+                      label="Special Coordination Notes"
+                      value={vendorCoordinationDraft}
+                      onChange={setVendorCoordinationDraft}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] sm:pb-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <PrimaryButton
+                        type="button"
+                        onClick={closeVendorModal}
+                        className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                      >
+                        Cancel
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="submit"
+                        className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
+                      >
+                        Save team member
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {authStage === "app" &&
+            appMode === "event" &&
+            activeScreen === "Event Prep" &&
+            canAccessRunOfShow &&
+            runOfShowOpen && (
+              <div
+                className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
+                role="dialog"
+                aria-label="Run of show"
+              >
+                <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
+                    <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
+                      <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
+                        {runOfShowHeadline}
+                      </h2>
+                      <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
+                        {runOfShowSubline}
+                      </p>
+                      {runOfShowUpNextMeta.banner === "upNext" ? (
+                        <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
+                          Up Next:{" "}
+                          <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
+                        </p>
+                      ) : runOfShowUpNextMeta.banner === "complete" ? (
+                        <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
+                          Run Of Show complete
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
+                      {/*
                     White-label: this block is the Run Of Show brand slot — replace `runOfShowHeaderBrand`
                     (or source from tenant config) so logo, companyName, and brandAccentColor stay swappable.
                   */}
-                  <div
-                    className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
-                    style={{
-                      borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={runOfShowHeaderBrand.logoSrc}
-                      alt=""
-                      className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
-                    />
-                    <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
-                      {runOfShowHeaderBrand.companyName}
-                    </p>
-                    <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
-                      {runOfShowHeaderBrand.companyName}
-                    </p>
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => setRunOfShowAnnotateMode((v) => !v)}
-                      className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${
-                        runOfShowAnnotateMode
-                          ? "border-stone-800 bg-stone-900 text-white shadow-sm"
-                          : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                      }`}
-                      aria-pressed={runOfShowAnnotateMode}
-                    >
-                      {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
-                    </button>
-                    {runOfShowAnnotateMode ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={clearRunOfShowAnnotations}
-                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
-                        >
-                          Clear
-                        </button>
-                        <button
-                          type="button"
-                          onClick={undoLastRunOfShowAnnotation}
-                          disabled={runOfShowAnnotationStrokes.length === 0}
-                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Undo
-                        </button>
-                      </>
-                    ) : null}
-                    {typeof document !== "undefined" && document.fullscreenEnabled ? (
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => void toggleRunOfShowFullscreen()}
-                        className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                      <div
+                        className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
+                        style={{
+                          borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
+                        }}
                       >
-                        {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                      </PrimaryButton>
-                    ) : null}
-                    <PrimaryButton
-                      type="button"
-                      onClick={closeRunOfShow}
-                      className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
-                    >
-                      Exit Run Of Show
-                    </PrimaryButton>
-                    <button
-                      type="button"
-                      onClick={resetRunOfShowDone}
-                      className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
-                    >
-                      Reset Run Of Show
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </header>
-
-            <main
-              ref={runOfShowScrollRef}
-              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
-            >
-              <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
-                {sectionCeremonyEnabled ? (
-                  <section className="mb-14 sm:mb-16">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Ceremony
-                    </h3>
-                    <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
-                      <p>
-                        <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
-                        {ceremonyStartTime || "—"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-stone-900">Guest arrival</span>{" "}
-                        {ceremonyGuestArrivalTime || "—"}
-                      </p>
-                      <p className="sm:col-span-2">
-                        <span className="font-semibold text-stone-900">Location</span>{" "}
-                        {eventSettings.ceremonyLocation?.trim() ||
-                          eventSettings.venue?.trim() ||
-                          weddingDetails.venue?.trim() ||
-                          "—"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-stone-900">Officiant</span>{" "}
-                        {officiantName?.trim() || "—"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-stone-900">Microphones</span>{" "}
-                        {microphoneNeeds?.trim() || "—"}
-                      </p>
-                      {ceremonyNotes?.trim() ? (
-                        <p className="sm:col-span-2">
-                          <span className="font-semibold text-stone-900">Ceremony notes</span> {ceremonyNotes}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={runOfShowHeaderBrand.logoSrc}
+                          alt=""
+                          className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
+                        />
+                        <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
+                          {runOfShowHeaderBrand.companyName}
                         </p>
-                      ) : null}
-                    </div>
-                    <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
-                      {ceremonyTimelineRows.length === 0 ? (
-                        <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
-                      ) : runOfShowCeremonyAllMomentsDone &&
-                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                        <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
+                          {runOfShowHeaderBrand.companyName}
+                        </p>
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
                         <button
                           type="button"
-                          onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
-                          className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
-                          aria-expanded="false"
+                          onClick={() => setRunOfShowAnnotateMode((v) => !v)}
+                          className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${runOfShowAnnotateMode
+                            ? "border-stone-800 bg-stone-900 text-white shadow-sm"
+                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                            }`}
+                          aria-pressed={runOfShowAnnotateMode}
                         >
-                          <span
-                            className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
-                            aria-hidden
-                          >
-                            ▸
-                          </span>
-                          <span className="shrink-0 text-base text-stone-500" aria-hidden>
-                            ✓
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                              Summary · list hidden
-                            </p>
-                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
-                              Ceremony <span className="font-medium text-stone-600">complete</span>
-                              <span className="font-normal text-stone-400"> · </span>
-                              <span className="font-medium text-stone-600">
-                                {ceremonyTimelineRows.length}{" "}
-                                {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
-                              </span>
-                            </p>
-                            <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                              Tap to show the full ceremony moment list
-                            </p>
-                          </div>
+                          {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
                         </button>
-                      ) : (
-                        <>
-                          {runOfShowCeremonyAllMomentsDone &&
-                          runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
-                            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                              <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                  Full list visible
-                                </p>
-                                <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                  Ceremony moments · all marked done
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
-                                }
-                                className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
-                              >
-                                Collapse list
-                              </button>
-                            </div>
-                          ) : null}
-                          {ceremonyTimelineRows.map((row) => {
-                          const doneKey = `c:${row.id}`;
-                          const done = runOfShowDoneKeys.has(doneKey);
-                          const isUpNext =
-                            runOfShowUpNextMeta.banner === "upNext" &&
-                            runOfShowUpNextMeta.upNextKey === doneKey;
-                          const rowSurface = done
-                            ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
-                            : isUpNext
-                              ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                              : "py-8 sm:py-10";
-                          return (
-                            <article
-                              key={`ros-ceremony-${row.id}`}
-                              {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                              className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                        {runOfShowAnnotateMode ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={clearRunOfShowAnnotations}
+                              className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
                             >
-                              <div className="shrink-0 pt-0.5 sm:pt-1">
-                                <button
-                                  type="button"
-                                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${
-                                    done
-                                      ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
-                                      : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                  }`}
-                                  aria-pressed={done}
-                                  aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
-                                  onClick={() => toggleRunOfShowDoneKey(doneKey)}
-                                >
-                                  {done ? (
-                                    <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
-                                      ✓
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="h-6 w-6 rounded-full border-2 border-stone-400"
-                                      aria-hidden
-                                    />
-                                  )}
-                                </button>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                {isUpNext && !done ? (
-                                  <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
-                                    Up next
-                                  </p>
-                                ) : null}
-                                <p
-                                  className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${
-                                    done ? "text-stone-500" : "text-stone-900"
-                                  }`}
-                                >
-                                  {row.order.trim() ? row.order : "—"}
-                                </p>
-                                <h4
-                                  className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${
-                                    done
-                                      ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                      : "text-stone-950"
-                                  }`}
-                                >
-                                  {row.moment}
-                                </h4>
-                                {row.song ? (
-                                  <p
-                                    className={`mt-5 text-lg leading-snug sm:text-xl ${
-                                      done ? "text-stone-500" : "text-stone-800"
-                                    }`}
-                                  >
-                                    {row.song}
-                                  </p>
-                                ) : null}
-                                {row.notes ? (
-                                  <p
-                                    className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${
-                                      done ? "text-stone-500" : "text-stone-600"
-                                    }`}
-                                  >
-                                    {row.notes}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </article>
-                          );
-                        })}
-                        </>
-                      )}
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              onClick={undoLastRunOfShowAnnotation}
+                              disabled={runOfShowAnnotationStrokes.length === 0}
+                              className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Undo
+                            </button>
+                          </>
+                        ) : null}
+                        {typeof document !== "undefined" && document.fullscreenEnabled ? (
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => void toggleRunOfShowFullscreen()}
+                            className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                          >
+                            {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                          </PrimaryButton>
+                        ) : null}
+                        <PrimaryButton
+                          type="button"
+                          onClick={closeRunOfShow}
+                          className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                        >
+                          Exit Run Of Show
+                        </PrimaryButton>
+                        <button
+                          type="button"
+                          onClick={resetRunOfShowDone}
+                          className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
+                        >
+                          Reset Run Of Show
+                        </button>
+                      </div>
                     </div>
-                  </section>
-                ) : null}
+                  </div>
+                </header>
 
-                {sectionReceptionTimelineEnabled ? (
-                  <section className="mb-14 sm:mb-16">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      {eventPrepReceptionHeading}
-                    </h3>
-                    <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
-                      {mergedTimelineItems.length === 0 ? (
-                        <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
-                      ) : (
-                        runOfShowReceptionPhaseGroups.map((phase) => {
-                          const phaseCount = phase.items.length;
-                          const phaseAllDone =
-                            phaseCount > 0 &&
-                            phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
-                          const phaseCollapsed =
-                            phaseAllDone &&
-                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
-                          return (
-                            <div key={phase.id} className="contents">
-                              {phaseCollapsed ? (
-                                <button
-                                  type="button"
-                                  onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
-                                  className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
-                                  aria-expanded="false"
-                                >
-                                  <span
-                                    className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
-                                    aria-hidden
-                                  >
-                                    ▸
+                <main
+                  ref={runOfShowScrollRef}
+                  className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
+                >
+                  <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
+                    {sectionCeremonyEnabled ? (
+                      <section className="mb-14 sm:mb-16">
+                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                          Ceremony
+                        </h3>
+                        <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
+                          <p>
+                            <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
+                            {ceremonyStartTime || "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-stone-900">Guest arrival</span>{" "}
+                            {ceremonyGuestArrivalTime || "—"}
+                          </p>
+                          <p className="sm:col-span-2">
+                            <span className="font-semibold text-stone-900">Location</span>{" "}
+                            {eventSettings.ceremonyLocation?.trim() ||
+                              eventSettings.venue?.trim() ||
+                              weddingDetails.venue?.trim() ||
+                              "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-stone-900">Officiant</span>{" "}
+                            {officiantName?.trim() || "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-stone-900">Microphones</span>{" "}
+                            {microphoneNeeds?.trim() || "—"}
+                          </p>
+                          {ceremonyNotes?.trim() ? (
+                            <p className="sm:col-span-2">
+                              <span className="font-semibold text-stone-900">Ceremony notes</span> {ceremonyNotes}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                          {ceremonyTimelineRows.length === 0 ? (
+                            <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
+                          ) : runOfShowCeremonyAllMomentsDone &&
+                            !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                            <button
+                              type="button"
+                              onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
+                              className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                              aria-expanded="false"
+                            >
+                              <span
+                                className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                                aria-hidden
+                              >
+                                ▸
+                              </span>
+                              <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                                ✓
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Summary · list hidden
+                                </p>
+                                <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                                  Ceremony <span className="font-medium text-stone-600">complete</span>
+                                  <span className="font-normal text-stone-400"> · </span>
+                                  <span className="font-medium text-stone-600">
+                                    {ceremonyTimelineRows.length}{" "}
+                                    {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
                                   </span>
-                                  <span className="shrink-0 text-base text-stone-500" aria-hidden>
-                                    ✓
-                                  </span>
-                                  <div className="min-w-0 flex-1">
+                                </p>
+                                <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                                  Tap to show the full ceremony moment list
+                                </p>
+                              </div>
+                            </button>
+                          ) : (
+                            <>
+                              {runOfShowCeremonyAllMomentsDone &&
+                                runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                  <div className="min-w-0">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                      Summary · list hidden
+                                      Full list visible
                                     </p>
-                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
-                                      {phase.category}{" "}
-                                      <span className="font-medium text-stone-600">complete</span>
-                                      <span className="font-normal text-stone-400"> · </span>
-                                      <span className="font-medium text-stone-600">
-                                        {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
-                                      </span>
-                                    </p>
-                                    <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                                      Tap to show every moment in this block
+                                    <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                      Ceremony moments · all marked done
                                     </p>
                                   </div>
-                                </button>
-                              ) : (
-                                <>
-                                  {phaseAllDone &&
-                                  runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
-                                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                      <div className="min-w-0">
-                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                          Full list visible
-                                        </p>
-                                        <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                          {phase.category} moments · all marked done
-                                        </p>
-                                      </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
+                                    }
+                                    className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                  >
+                                    Collapse list
+                                  </button>
+                                </div>
+                              ) : null}
+                              {ceremonyTimelineRows.map((row) => {
+                                const doneKey = `c:${row.id}`;
+                                const done = runOfShowDoneKeys.has(doneKey);
+                                const isUpNext =
+                                  runOfShowUpNextMeta.banner === "upNext" &&
+                                  runOfShowUpNextMeta.upNextKey === doneKey;
+                                const rowSurface = done
+                                  ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                                  : isUpNext
+                                    ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                                    : "py-8 sm:py-10";
+                                return (
+                                  <article
+                                    key={`ros-ceremony-${row.id}`}
+                                    {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                    className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                  >
+                                    <div className="shrink-0 pt-0.5 sm:pt-1">
                                       <button
                                         type="button"
-                                        onClick={() => collapseRunOfShowCompletedSection(phase.id)}
-                                        className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                          ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                          : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                          }`}
+                                        aria-pressed={done}
+                                        aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
+                                        onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                       >
-                                        Collapse list
+                                        {done ? (
+                                          <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
+                                            ✓
+                                          </span>
+                                        ) : (
+                                          <span
+                                            className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                            aria-hidden
+                                          />
+                                        )}
                                       </button>
                                     </div>
-                                  ) : null}
-                                  {phase.items.map((item) => {
-                                  const doneKey = `r:${item.id}`;
-                                  const done = runOfShowDoneKeys.has(doneKey);
-                                  const isUpNext =
-                                    runOfShowUpNextMeta.banner === "upNext" &&
-                                    runOfShowUpNextMeta.upNextKey === doneKey;
-                                  const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
-                                    .filter(Boolean)
-                                    .join(" - ");
-                                  const fadeSuffix = item.fadeOutEarly
-                                    ? item.fadeOutTimestamp?.trim()
-                                      ? ` (Fade ${item.fadeOutTimestamp.trim()})`
-                                      : " (Fade early)"
-                                    : "";
-                                  const songCell = `${songLabel}${fadeSuffix}`.trim();
-                                  const notesLabel = [
-                                    item.notes?.trim() || "",
-                                    item.needsDjMcAttention ? "MC/DJ attention" : "",
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" · ");
-                                  const rowSurface = done
-                                    ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
-                                    : isUpNext
-                                      ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                                      : "py-8 sm:py-10";
-                                  return (
-                                    <article
-                                      key={`ros-recv-${item.id}`}
-                                      {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                      className={`flex gap-4 sm:gap-6 ${rowSurface}`}
-                                    >
-                                      <div className="shrink-0 pt-1 sm:pt-1.5">
-                                        <button
-                                          type="button"
-                                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${
-                                            done
-                                              ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
-                                              : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                          }`}
-                                          aria-pressed={done}
-                                          aria-label={
-                                            done ? "Mark moment as not done" : "Mark moment as done"
-                                          }
-                                          onClick={() => toggleRunOfShowDoneKey(doneKey)}
-                                        >
-                                          {done ? (
-                                            <span
-                                              className="text-xl font-semibold leading-none text-stone-600"
-                                              aria-hidden
-                                            >
-                                              ✓
-                                            </span>
-                                          ) : (
-                                            <span
-                                              className="h-6 w-6 rounded-full border-2 border-stone-400"
-                                              aria-hidden
-                                            />
-                                          )}
-                                        </button>
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        {isUpNext && !done ? (
-                                          <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
-                                            Up next
-                                          </p>
-                                        ) : null}
-                                        <p
-                                          className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${
-                                            done ? "text-stone-500" : "text-stone-900"
-                                          }`}
-                                        >
-                                          {item.time?.trim() ? item.time.trim() : "—"}
+                                    <div className="min-w-0 flex-1">
+                                      {isUpNext && !done ? (
+                                        <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                          Up next
                                         </p>
-                                        <h4
-                                          className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${
-                                            done
-                                              ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                              : "text-stone-950"
+                                      ) : null}
+                                      <p
+                                        className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${done ? "text-stone-500" : "text-stone-900"
                                           }`}
-                                        >
-                                          {item.title}
-                                        </h4>
+                                      >
+                                        {row.order.trim() ? row.order : "—"}
+                                      </p>
+                                      <h4
+                                        className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                          ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                          : "text-stone-950"
+                                          }`}
+                                      >
+                                        {row.moment}
+                                      </h4>
+                                      {row.song ? (
                                         <p
-                                          className={`mt-2 text-xs font-semibold uppercase tracking-wide ${
-                                            done ? "text-stone-400" : "text-stone-500"
-                                          }`}
+                                          className={`mt-5 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
+                                            }`}
                                         >
-                                          {item.category}
+                                          {row.song}
                                         </p>
-                                        {songCell ? (
-                                          <p
-                                            className={`mt-6 text-lg leading-snug sm:text-xl ${
-                                              done ? "text-stone-500" : "text-stone-800"
+                                      ) : null}
+                                      {row.notes ? (
+                                        <p
+                                          className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
                                             }`}
-                                          >
-                                            {songCell}
-                                          </p>
-                                        ) : null}
-                                        {notesLabel ? (
-                                          <p
-                                            className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${
-                                              done ? "text-stone-500" : "text-stone-600"
-                                            }`}
-                                          >
-                                            {notesLabel}
-                                          </p>
-                                        ) : null}
-                                      </div>
-                                    </article>
-                                  );
-                                })}
-                                </>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </section>
-                ) : null}
+                                        >
+                                          {row.notes}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                            </>
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
 
-                {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
-                  <section className="mb-8 border-t border-stone-200 pt-12">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Music notes
-                    </h3>
-                    <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
-                      {layoutProfileForActiveEvent === "School Dance" ? (
-                        <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
-                      ) : null}
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Overall vibe</p>
-                        <p className="mt-2">{generalDjNotes?.trim() ? generalDjNotes : "—"}</p>
-                      </div>
-                      {musicGenreEraSelections.length > 0 ? (
-                        <p>
-                          <span className="font-semibold text-stone-900">Genre / era picks · </span>
-                          {musicGenreEraSelections.join(", ")}
-                        </p>
-                      ) : null}
-                      {musicTasteProfileHasSelections(musicTasteProfile) ? (
-                        <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                            Music taste profile
-                          </p>
-                          {musicTasteProfile.danceFloorStyles.length > 0 ? (
-                            <p className="mt-2">
-                              <span className="font-semibold text-stone-900">Dance floor · </span>
-                              {musicTasteProfile.danceFloorStyles.join(", ")}
+                    {sectionReceptionTimelineEnabled ? (
+                      <section className="mb-14 sm:mb-16">
+                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                          {eventPrepReceptionHeading}
+                        </h3>
+                        <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                          {mergedTimelineItems.length === 0 ? (
+                            <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
+                          ) : (
+                            runOfShowReceptionPhaseGroups.map((phase) => {
+                              const phaseCount = phase.items.length;
+                              const phaseAllDone =
+                                phaseCount > 0 &&
+                                phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
+                              const phaseCollapsed =
+                                phaseAllDone &&
+                                !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
+                              return (
+                                <div key={phase.id} className="contents">
+                                  {phaseCollapsed ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
+                                      className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                                      aria-expanded="false"
+                                    >
+                                      <span
+                                        className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                                        aria-hidden
+                                      >
+                                        ▸
+                                      </span>
+                                      <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                                        ✓
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                          Summary · list hidden
+                                        </p>
+                                        <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                                          {phase.category}{" "}
+                                          <span className="font-medium text-stone-600">complete</span>
+                                          <span className="font-normal text-stone-400"> · </span>
+                                          <span className="font-medium text-stone-600">
+                                            {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
+                                          </span>
+                                        </p>
+                                        <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                                          Tap to show every moment in this block
+                                        </p>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <>
+                                      {phaseAllDone &&
+                                        runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
+                                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                          <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                              Full list visible
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                              {phase.category} moments · all marked done
+                                            </p>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => collapseRunOfShowCompletedSection(phase.id)}
+                                            className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                          >
+                                            Collapse list
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                      {phase.items.map((item) => {
+                                        const doneKey = `r:${item.id}`;
+                                        const done = runOfShowDoneKeys.has(doneKey);
+                                        const isUpNext =
+                                          runOfShowUpNextMeta.banner === "upNext" &&
+                                          runOfShowUpNextMeta.upNextKey === doneKey;
+                                        const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+                                          .filter(Boolean)
+                                          .join(" - ");
+                                        const fadeSuffix = item.fadeOutEarly
+                                          ? item.fadeOutTimestamp?.trim()
+                                            ? ` (Fade ${item.fadeOutTimestamp.trim()})`
+                                            : " (Fade early)"
+                                          : "";
+                                        const songCell = `${songLabel}${fadeSuffix}`.trim();
+                                        const notesLabel = [
+                                          item.notes?.trim() || "",
+                                          item.needsDjMcAttention ? "MC/DJ attention" : "",
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" · ");
+                                        const rowSurface = done
+                                          ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                                          : isUpNext
+                                            ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                                            : "py-8 sm:py-10";
+                                        return (
+                                          <article
+                                            key={`ros-recv-${item.id}`}
+                                            {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                            className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                          >
+                                            <div className="shrink-0 pt-1 sm:pt-1.5">
+                                              <button
+                                                type="button"
+                                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                                  ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                                  : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                                  }`}
+                                                aria-pressed={done}
+                                                aria-label={
+                                                  done ? "Mark moment as not done" : "Mark moment as done"
+                                                }
+                                                onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                              >
+                                                {done ? (
+                                                  <span
+                                                    className="text-xl font-semibold leading-none text-stone-600"
+                                                    aria-hidden
+                                                  >
+                                                    ✓
+                                                  </span>
+                                                ) : (
+                                                  <span
+                                                    className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                                    aria-hidden
+                                                  />
+                                                )}
+                                              </button>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                              {isUpNext && !done ? (
+                                                <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                                  Up next
+                                                </p>
+                                              ) : null}
+                                              <p
+                                                className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${done ? "text-stone-500" : "text-stone-900"
+                                                  }`}
+                                              >
+                                                {item.time?.trim() ? item.time.trim() : "—"}
+                                              </p>
+                                              <h4
+                                                className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                                  ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                                  : "text-stone-950"
+                                                  }`}
+                                              >
+                                                {item.title}
+                                              </h4>
+                                              <p
+                                                className={`mt-2 text-xs font-semibold uppercase tracking-wide ${done ? "text-stone-400" : "text-stone-500"
+                                                  }`}
+                                              >
+                                                {item.category}
+                                              </p>
+                                              {songCell ? (
+                                                <p
+                                                  className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
+                                                    }`}
+                                                >
+                                                  {songCell}
+                                                </p>
+                                              ) : null}
+                                              {notesLabel ? (
+                                                <p
+                                                  className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
+                                                    }`}
+                                                >
+                                                  {notesLabel}
+                                                </p>
+                                              ) : null}
+                                            </div>
+                                          </article>
+                                        );
+                                      })}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
+                      <section className="mb-8 border-t border-stone-200 pt-12">
+                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                          Music notes
+                        </h3>
+                        <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
+                          {layoutProfileForActiveEvent === "School Dance" ? (
+                            <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
+                          ) : null}
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Overall vibe</p>
+                            <p className="mt-2">{generalDjNotes?.trim() ? generalDjNotes : "—"}</p>
+                          </div>
+                          {musicGenreEraSelections.length > 0 ? (
+                            <p>
+                              <span className="font-semibold text-stone-900">Genre / era picks · </span>
+                              {musicGenreEraSelections.join(", ")}
                             </p>
                           ) : null}
-                          {musicTasteProfile.crowdPreferences.length > 0 ? (
-                            <p className="mt-2">
+                          {musicTasteProfileHasSelections(musicTasteProfile) ? (
+                            <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                                Music taste profile
+                              </p>
+                              {musicTasteProfile.danceFloorStyles.length > 0 ? (
+                                <p className="mt-2">
+                                  <span className="font-semibold text-stone-900">Dance floor · </span>
+                                  {musicTasteProfile.danceFloorStyles.join(", ")}
+                                </p>
+                              ) : null}
+                              {musicTasteProfile.crowdPreferences.length > 0 ? (
+                                <p className="mt-2">
+                                  <span className="font-semibold text-stone-900">Crowd · </span>
+                                  {musicTasteProfile.crowdPreferences.join(", ")}
+                                </p>
+                              ) : null}
+                              {musicTasteProfile.musicBehavior.length > 0 ? (
+                                <p className="mt-2">
+                                  <span className="font-semibold text-stone-900">Behavior · </span>
+                                  {musicTasteProfile.musicBehavior.join(", ")}
+                                </p>
+                              ) : null}
+                              {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
+                                <p className="mt-2">
+                                  <span className="font-semibold text-stone-900">Ideal dance floor vibe · </span>
+                                  {musicTasteProfile.danceFloorVibeNotes}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {(musicVibeDetail.genres ?? "").trim() ? (
+                            <p>
+                              <span className="font-semibold text-stone-900">Genres / eras · </span>
+                              {musicVibeDetail.genres}
+                            </p>
+                          ) : null}
+                          {(musicVibeDetail.energy ?? "").trim() ? (
+                            <p>
+                              <span className="font-semibold text-stone-900">Energy · </span>
+                              {musicVibeDetail.energy}
+                            </p>
+                          ) : null}
+                          {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                            <p>
                               <span className="font-semibold text-stone-900">Crowd · </span>
-                              {musicTasteProfile.crowdPreferences.join(", ")}
+                              {musicVibeDetail.crowdNotes}
                             </p>
                           ) : null}
-                          {musicTasteProfile.musicBehavior.length > 0 ? (
-                            <p className="mt-2">
-                              <span className="font-semibold text-stone-900">Behavior · </span>
-                              {musicTasteProfile.musicBehavior.join(", ")}
-                            </p>
-                          ) : null}
-                          {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
-                            <p className="mt-2">
-                              <span className="font-semibold text-stone-900">Ideal dance floor vibe · </span>
-                              {musicTasteProfile.danceFloorVibeNotes}
+                          {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                            <p>
+                              <span className="font-semibold text-stone-900">
+                                {layoutProfileForActiveEvent === "School Dance"
+                                  ? "Clean selections · "
+                                  : "Clean / content · "}
+                              </span>
+                              {musicVibeDetail.cleanMusicPrefs}
                             </p>
                           ) : null}
                         </div>
-                      ) : null}
-                      {(musicVibeDetail.genres ?? "").trim() ? (
-                        <p>
-                          <span className="font-semibold text-stone-900">Genres / eras · </span>
-                          {musicVibeDetail.genres}
-                        </p>
-                      ) : null}
-                      {(musicVibeDetail.energy ?? "").trim() ? (
-                        <p>
-                          <span className="font-semibold text-stone-900">Energy · </span>
-                          {musicVibeDetail.energy}
-                        </p>
-                      ) : null}
-                      {(musicVibeDetail.crowdNotes ?? "").trim() ? (
-                        <p>
-                          <span className="font-semibold text-stone-900">Crowd · </span>
-                          {musicVibeDetail.crowdNotes}
-                        </p>
-                      ) : null}
-                      {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
-                        <p>
-                          <span className="font-semibold text-stone-900">
-                            {layoutProfileForActiveEvent === "School Dance"
-                              ? "Clean selections · "
-                              : "Clean / content · "}
-                          </span>
-                          {musicVibeDetail.cleanMusicPrefs}
-                        </p>
-                      ) : null}
-                    </div>
-                  </section>
-                ) : null}
+                      </section>
+                    ) : null}
 
-                {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
-                  <p className="py-12 text-center text-base text-stone-600">
-                    No ceremony or reception timeline is enabled for this event.
-                  </p>
+                    {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
+                      <p className="py-12 text-center text-base text-stone-600">
+                        No ceremony or reception timeline is enabled for this event.
+                      </p>
+                    ) : null}
+                  </div>
+                  {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
+                    runOfShowAnnotationCanvasSize.w > 0 &&
+                    runOfShowAnnotationCanvasSize.h > 0 ? (
+                    <canvas
+                      ref={runOfShowAnnotationCanvasRef}
+                      className={`absolute left-0 top-0 z-[6] ${runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
+                        }`}
+                      style={{
+                        width: runOfShowAnnotationCanvasSize.w,
+                        height: runOfShowAnnotationCanvasSize.h,
+                      }}
+                      aria-hidden={!runOfShowAnnotateMode}
+                    />
+                  ) : null}
+                </main>
+
+                {runOfShowOverlayActive &&
+                  runOfShowUpNextMeta.banner === "upNext" &&
+                  runOfShowUpNextCueDetail ? (
+                  <button
+                    type="button"
+                    onClick={scrollRunOfShowToUpNext}
+                    tabIndex={runOfShowUpNextRowInView ? -1 : 0}
+                    aria-hidden={runOfShowUpNextRowInView}
+                    aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
+                    className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${runOfShowUpNextRowInView
+                      ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
+                      : "translate-y-0 opacity-100"
+                      }`}
+                    style={{
+                      bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
+                      right: "max(1rem, env(safe-area-inset-right, 0px))",
+                    }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
+                      {runOfShowUpNextCueDetail.title}
+                    </p>
+                    {runOfShowUpNextCueDetail.subline ? (
+                      <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
+                        {runOfShowUpNextCueDetail.subline}
+                      </p>
+                    ) : null}
+                  </button>
                 ) : null}
               </div>
-              {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
-              runOfShowAnnotationCanvasSize.w > 0 &&
-              runOfShowAnnotationCanvasSize.h > 0 ? (
-                <canvas
-                  ref={runOfShowAnnotationCanvasRef}
-                  className={`absolute left-0 top-0 z-[6] ${
-                    runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
-                  }`}
-                  style={{
-                    width: runOfShowAnnotationCanvasSize.w,
-                    height: runOfShowAnnotationCanvasSize.h,
-                  }}
-                  aria-hidden={!runOfShowAnnotateMode}
-                />
-              ) : null}
-            </main>
+            )}
 
-            {runOfShowOverlayActive &&
-            runOfShowUpNextMeta.banner === "upNext" &&
-            runOfShowUpNextCueDetail ? (
-              <button
-                type="button"
-                onClick={scrollRunOfShowToUpNext}
-                tabIndex={runOfShowUpNextRowInView ? -1 : 0}
-                aria-hidden={runOfShowUpNextRowInView}
-                aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
-                className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${
-                  runOfShowUpNextRowInView
-                    ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
-                    : "translate-y-0 opacity-100"
-                }`}
-                style={{
-                  bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
-                  right: "max(1rem, env(safe-area-inset-right, 0px))",
-                }}
+          {timelineImportOpen ? (
+            <div
+              className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+              role="presentation"
+              onClick={closeTimelineImport}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="timeline-import-title"
+                className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col rounded-2xl border border-stone-200 bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
-                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
-                  {runOfShowUpNextCueDetail.title}
-                </p>
-                {runOfShowUpNextCueDetail.subline ? (
-                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
-                    {runOfShowUpNextCueDetail.subline}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+                  <p id="timeline-import-title" className="text-base font-semibold text-stone-900">
+                    Import Timeline
                   </p>
-                ) : null}
-              </button>
-            ) : null}
-          </div>
-        )}
-
-      {timelineImportOpen ? (
-        <div
-          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
-          role="presentation"
-          onClick={closeTimelineImport}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="timeline-import-title"
-            className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col rounded-2xl border border-stone-200 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
-              <p id="timeline-import-title" className="text-base font-semibold text-stone-900">
-                Import Timeline
-              </p>
-              <p className="mt-1.5 text-sm leading-snug text-stone-600">
-                Paste a planner list. We&apos;ll suggest moments—you choose whether to add or replace.
-              </p>
-
-              {timelineImportStep === "paste" ? (
-                <div className="mt-5 space-y-4">
-                  <TextArea
-                    id="timeline-import-paste"
-                    label="Paste timeline text"
-                    value={timelineImportRaw}
-                    onChange={setTimelineImportRaw}
-                    placeholder={"4:30 Ceremony begins\n6:15 Grand entrance — Song: Signed, Sealed, Delivered\n7:30 Toasts — Best man and maid of honor"}
-                    rows={8}
-                    disabled={!canEditTimeline}
-                  />
-                  {timelineImportParseError ? (
-                    <p className="text-sm text-rose-700">{timelineImportParseError}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="mt-5 space-y-4">
-                  <p className="text-sm text-stone-700">
-                    Review {timelineImportDrafts.length}{" "}
-                    {timelineImportDrafts.length === 1 ? "moment" : "moments"} before adding.
+                  <p className="mt-1.5 text-sm leading-snug text-stone-600">
+                    Paste a planner list. We&apos;ll suggest moments—you choose whether to add or replace.
                   </p>
-                  {timelineImportReplaceDanger ? (
-                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
-                      Replacing clears your current timeline. Confirm below, or tap Add to Timeline instead.
+
+                  {timelineImportStep === "paste" ? (
+                    <div className="mt-5 space-y-4">
+                      <TextArea
+                        id="timeline-import-paste"
+                        label="Paste timeline text"
+                        value={timelineImportRaw}
+                        onChange={setTimelineImportRaw}
+                        placeholder={"4:30 Ceremony begins\n6:15 Grand entrance — Song: Signed, Sealed, Delivered\n7:30 Toasts — Best man and maid of honor"}
+                        rows={8}
+                        disabled={!canEditTimeline}
+                      />
+                      {timelineImportParseError ? (
+                        <p className="text-sm text-rose-700">{timelineImportParseError}</p>
+                      ) : null}
                     </div>
-                  ) : null}
-                  <div className="space-y-3">
-                    {timelineImportDrafts.map((draft) => (
-                      <div
-                        key={draft.key}
-                        className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
-                            Moment
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => removeTimelineImportDraft(draft.key)}
-                            className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-rose-800 hover:bg-rose-100"
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      <p className="text-sm text-stone-700">
+                        Review {timelineImportDrafts.length}{" "}
+                        {timelineImportDrafts.length === 1 ? "moment" : "moments"} before adding.
+                      </p>
+                      {timelineImportReplaceDanger ? (
+                        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+                          Replacing clears your current timeline. Confirm below, or tap Add to Timeline instead.
+                        </div>
+                      ) : null}
+                      <div className="space-y-3">
+                        {timelineImportDrafts.map((draft) => (
+                          <div
+                            key={draft.key}
+                            className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
                           >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                          <TextInput
-                            id={`ti-time-${draft.key}`}
-                            label="Time"
-                            value={draft.time}
-                            onChange={(v) => updateTimelineImportDraft(draft.key, { time: v })}
-                            placeholder="e.g. 6:30 PM"
-                          />
-                          <TextInput
-                            id={`ti-title-${draft.key}`}
-                            label="Moment"
-                            value={draft.title}
-                            onChange={(v) => updateTimelineImportDraft(draft.key, { title: v })}
-                            placeholder="Title"
-                          />
-                          <TextInput
-                            id={`ti-song-${draft.key}`}
-                            label="Song"
-                            value={draft.songTitle ?? ""}
-                            onChange={(v) =>
-                              updateTimelineImportDraft(draft.key, {
-                                songTitle: v.trim() ? v : undefined,
-                              })
-                            }
-                            placeholder="Optional"
-                          />
-                          <TextInput
-                            id={`ti-artist-${draft.key}`}
-                            label="Artist"
-                            value={draft.artist ?? ""}
-                            onChange={(v) =>
-                              updateTimelineImportDraft(draft.key, { artist: v.trim() ? v : undefined })
-                            }
-                            placeholder="Optional"
-                          />
-                        </div>
-                        <div className="mt-3">
-                          <TextArea
-                            id={`ti-notes-${draft.key}`}
-                            label="Notes"
-                            value={draft.notes}
-                            onChange={(v) => updateTimelineImportDraft(draft.key, { notes: v })}
-                            rows={2}
-                            placeholder="Optional"
-                          />
-                        </div>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                                Moment
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => removeTimelineImportDraft(draft.key)}
+                                className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-rose-800 hover:bg-rose-100"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                              <TextInput
+                                id={`ti-time-${draft.key}`}
+                                label="Time"
+                                value={draft.time}
+                                onChange={(v) => updateTimelineImportDraft(draft.key, { time: v })}
+                                placeholder="e.g. 6:30 PM"
+                              />
+                              <TextInput
+                                id={`ti-title-${draft.key}`}
+                                label="Moment"
+                                value={draft.title}
+                                onChange={(v) => updateTimelineImportDraft(draft.key, { title: v })}
+                                placeholder="Title"
+                              />
+                              <TextInput
+                                id={`ti-song-${draft.key}`}
+                                label="Song"
+                                value={draft.songTitle ?? ""}
+                                onChange={(v) =>
+                                  updateTimelineImportDraft(draft.key, {
+                                    songTitle: v.trim() ? v : undefined,
+                                  })
+                                }
+                                placeholder="Optional"
+                              />
+                              <TextInput
+                                id={`ti-artist-${draft.key}`}
+                                label="Artist"
+                                value={draft.artist ?? ""}
+                                onChange={(v) =>
+                                  updateTimelineImportDraft(draft.key, { artist: v.trim() ? v : undefined })
+                                }
+                                placeholder="Optional"
+                              />
+                            </div>
+                            <div className="mt-3">
+                              <TextArea
+                                id={`ti-notes-${draft.key}`}
+                                label="Notes"
+                                value={draft.notes}
+                                onChange={(v) => updateTimelineImportDraft(draft.key, { notes: v })}
+                                rows={2}
+                                placeholder="Optional"
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  {timelineImportDrafts.length === 0 ? (
-                    <p className="text-sm text-stone-600">All rows removed. Go back to paste or cancel.</p>
-                  ) : null}
+                      {timelineImportDrafts.length === 0 ? (
+                        <p className="text-sm text-stone-600">All rows removed. Go back to paste or cancel.</p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="shrink-0 border-t border-stone-200 bg-white p-4 sm:p-5">
-              {timelineImportStep === "paste" ? (
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                <div className="shrink-0 border-t border-stone-200 bg-white p-4 sm:p-5">
+                  {timelineImportStep === "paste" ? (
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                      <PrimaryButton
+                        type="button"
+                        onClick={closeTimelineImport}
+                        className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                      >
+                        Cancel
+                      </PrimaryButton>
+                      <PrimaryButton
+                        type="button"
+                        onClick={handleParseTimelineImport}
+                        disabled={!canEditTimeline || !timelineImportRaw.trim()}
+                        className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
+                      >
+                        Parse Timeline
+                      </PrimaryButton>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                        <PrimaryButton
+                          type="button"
+                          onClick={closeTimelineImport}
+                          className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                        >
+                          Cancel
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => {
+                            setTimelineImportStep("paste");
+                            setTimelineImportReplaceDanger(false);
+                          }}
+                          className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                        >
+                          Back
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                          onClick={() => {
+                            setTimelineImportReplaceDanger(false);
+                            applyTimelineImport("add");
+                          }}
+                          className="w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto"
+                        >
+                          Add to Timeline
+                        </PrimaryButton>
+                        {timelineImportReplaceDanger ? (
+                          <PrimaryButton
+                            type="button"
+                            disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                            onClick={() => applyTimelineImport("replace")}
+                            className="w-full rounded-lg border border-rose-500 bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-rose-700 disabled:opacity-45 sm:w-auto"
+                          >
+                            Confirm Replace Timeline
+                          </PrimaryButton>
+                        ) : (
+                          <PrimaryButton
+                            type="button"
+                            disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                            onClick={() => setTimelineImportReplaceDanger(true)}
+                            className="w-full rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45 sm:w-auto"
+                          >
+                            Replace Timeline
+                          </PrimaryButton>
+                        )}
+                      </div>
+                      {timelineImportReplaceDanger ? (
+                        <button
+                          type="button"
+                          onClick={() => setTimelineImportReplaceDanger(false)}
+                          className="w-full text-center text-[13px] font-medium text-stone-600 underline-offset-2 hover:underline sm:text-right"
+                        >
+                          Never mind — keep reviewing
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {pendingTimelineDelete ? (
+            <div
+              className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+              role="presentation"
+              onClick={() => setPendingTimelineDelete(null)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="timeline-delete-title"
+                className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p id="timeline-delete-title" className="text-base font-semibold text-stone-900">
+                  Delete this timeline item?
+                </p>
+                <p className="mt-2 line-clamp-3 text-sm leading-snug text-stone-600">
+                  {pendingTimelineDelete.label}
+                </p>
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                   <PrimaryButton
                     type="button"
-                    onClick={closeTimelineImport}
+                    onClick={() => setPendingTimelineDelete(null)}
                     className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
                   >
                     Cancel
                   </PrimaryButton>
                   <PrimaryButton
                     type="button"
-                    onClick={handleParseTimelineImport}
-                    disabled={!canEditTimeline || !timelineImportRaw.trim()}
-                    className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
+                    onClick={() => {
+                      if (!pendingTimelineDelete) return;
+                      if (pendingTimelineDelete.kind === "reception") {
+                        deleteTimelineItem(pendingTimelineDelete.id);
+                      } else {
+                        deleteCeremonyTimelineItem(pendingTimelineDelete.id);
+                      }
+                      setPendingTimelineDelete(null);
+                    }}
+                    className="w-full rounded-lg border border-rose-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:w-auto"
                   >
-                    Parse Timeline
+                    Delete
                   </PrimaryButton>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
-                    <PrimaryButton
-                      type="button"
-                      onClick={closeTimelineImport}
-                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
-                    >
-                      Cancel
-                    </PrimaryButton>
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => {
-                        setTimelineImportStep("paste");
-                        setTimelineImportReplaceDanger(false);
-                      }}
-                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
-                    >
-                      Back
-                    </PrimaryButton>
-                    <PrimaryButton
-                      type="button"
-                      disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                      onClick={() => {
-                        setTimelineImportReplaceDanger(false);
-                        applyTimelineImport("add");
-                      }}
-                      className="w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto"
-                    >
-                      Add to Timeline
-                    </PrimaryButton>
-                    {timelineImportReplaceDanger ? (
-                      <PrimaryButton
-                        type="button"
-                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                        onClick={() => applyTimelineImport("replace")}
-                        className="w-full rounded-lg border border-rose-500 bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-rose-700 disabled:opacity-45 sm:w-auto"
-                      >
-                        Confirm Replace Timeline
-                      </PrimaryButton>
-                    ) : (
-                      <PrimaryButton
-                        type="button"
-                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                        onClick={() => setTimelineImportReplaceDanger(true)}
-                        className="w-full rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45 sm:w-auto"
-                      >
-                        Replace Timeline
-                      </PrimaryButton>
-                    )}
-                  </div>
-                  {timelineImportReplaceDanger ? (
-                    <button
-                      type="button"
-                      onClick={() => setTimelineImportReplaceDanger(false)}
-                      className="w-full text-center text-[13px] font-medium text-stone-600 underline-offset-2 hover:underline sm:text-right"
-                    >
-                      Never mind — keep reviewing
-                    </button>
-                  ) : null}
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
 
-      {pendingTimelineDelete ? (
-        <div
-          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
-          role="presentation"
-          onClick={() => setPendingTimelineDelete(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="timeline-delete-title"
-            className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="timeline-delete-title" className="text-base font-semibold text-stone-900">
-              Delete this timeline item?
-            </p>
-            <p className="mt-2 line-clamp-3 text-sm leading-snug text-stone-600">
-              {pendingTimelineDelete.label}
-            </p>
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-              <PrimaryButton
-                type="button"
-                onClick={() => setPendingTimelineDelete(null)}
-                className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+          {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
+            <div
+              className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
+              style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <span
+                className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
+                aria-live="polite"
               >
-                Cancel
-              </PrimaryButton>
-              <PrimaryButton
-                type="button"
-                onClick={() => {
-                  if (!pendingTimelineDelete) return;
-                  if (pendingTimelineDelete.kind === "reception") {
-                    deleteTimelineItem(pendingTimelineDelete.id);
-                  } else {
-                    deleteCeremonyTimelineItem(pendingTimelineDelete.id);
-                  }
-                  setPendingTimelineDelete(null);
-                }}
-                className="w-full rounded-lg border border-rose-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:w-auto"
-              >
-                Delete
-              </PrimaryButton>
+                {persistPhase === "pending" ? "Saving…" : "Saved just now"}
+              </span>
             </div>
-          </div>
-        </div>
-      ) : null}
+          )}
 
-      {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
-        <div
-          className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
-          style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <span
-            className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
-            aria-live="polite"
-          >
-            {persistPhase === "pending" ? "Saving…" : "Saved just now"}
-          </span>
+          {authStage === "app" && (
+            <BottomNav
+              items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
+              activeScreen={shellNavActiveScreen}
+              onSelect={setActiveScreen}
+            />
+          )}
         </div>
-      )}
-
-      {authStage === "app" && (
-        <BottomNav
-          items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
-          activeScreen={shellNavActiveScreen}
-          onSelect={setActiveScreen}
-        />
-      )}
-    </div>
-  );
+      );
 }
