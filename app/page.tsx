@@ -1,5 +1,7 @@
 "use client";
 
+import { EventModalForm } from "@/components/events/EventModalForm";
+
 import { EventModal } from "@/components/events/EventModal";
 
 import {
@@ -14774,14 +14776,15 @@ export default function Home() {
     
             
 
-            <form
+            <EventModalForm
               onSubmit={(event) => {
                 event.preventDefault();
                 handleSaveEventModal();
+              
               }}
-              className="mt-4 space-y-4"
-            >
-              <TextInput
+  >
+  
+  <TextInput
                 id="event-name"
                 label="Event Name"
                 value={eventDraft.eventName}
@@ -15005,7 +15008,7 @@ export default function Home() {
                 {eventModalMode === "new" ? "Create Event" : "Save Changes"}
               </PrimaryButton>
             </div>
-            </form>
+            </EventModalForm>
         </EventModal>
       )}
 
