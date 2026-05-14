@@ -14762,23 +14762,16 @@ export default function Home() {
         </div>
       )}
 
-      {authStage === "app" && canManageEvents && eventModalOpen && (
-        <EventModal>
-         <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-stone-950">
-                {eventModalMode === "new" ? "Create Event" : "Edit Event"}
-              </SectionTitle>
-              <PrimaryButton
-                onClick={() => {
-                  setEventModalOpen(false);
-                  setEventEditingId(null);
-                  setEventModalStatus(null);
-                }}
-                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-              >
-                Close
-              </PrimaryButton>
-            </div>
+{authStage === "app" && canManageEvents && eventModalOpen && (
+  <EventModal
+    title={eventModalMode === "new" ? "Create Event" : "Edit Event"}
+    onClose={() => {
+      setEventModalOpen(false);
+      setEventEditingId(null);
+      setEventModalStatus(null);
+    }}
+  >
+    
             
 
             <form
