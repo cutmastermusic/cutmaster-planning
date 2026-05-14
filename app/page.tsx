@@ -1,5 +1,8 @@
 "use client";
 
+
+import { EventTypeSection } from "@/components/events/EventTypeSection";
+
 import { EventModalForm } from "@/components/events/EventModalForm";
 
 import { EventModal } from "@/components/events/EventModal";
@@ -14802,7 +14805,7 @@ export default function Home() {
                 }
                 placeholder="e.g. Jordan Vega"
               />
-              <div className="space-y-2 rounded-2xl border border-stone-200 bg-stone-50/90 px-3 py-3">
+              <EventTypeSection>
                 <label htmlFor="event-type" className={lightUiFormLabelClass}>
                   Event Type
                 </label>
@@ -14875,7 +14878,7 @@ export default function Home() {
                     ))}
                   </ul>
                 </div>
-              </div>
+              </EventTypeSection>
               <TextInput
                 id="event-date"
                 label={
