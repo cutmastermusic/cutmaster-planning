@@ -1,5 +1,6 @@
 "use client";
 
+import { EventAssignedDjField } from "@/components/events/EventAssignedDjField";
 import { EventPlannerFields } from "@/components/events/EventPlannerFields";
 import { EventModalStatus } from "@/components/events/EventModalStatus";
 import { EventModalActions } from "@/components/events/EventModalActions";
@@ -14863,28 +14864,15 @@ export default function Home() {
                     placeholder="e.g. Main Ballroom"
                   />
                 </div>
-                <div>
-                  <label htmlFor="event-assigned-dj" className={lightUiFormLabelClass}>
-                    Assigned DJ
-                  </label>
-                  <select
-                    id="event-assigned-dj"
-                    value={eventDraft.assignedDj}
-                    onChange={(event) =>
-                      setEventDraft((prev) => ({ ...prev, assignedDj: event.target.value }))
-                    }
-                    className={lightUiSelectClass}
-                  >
-                    <option value="" className="bg-white text-stone-900">
-                      Select a DJ
-                    </option>
-                    {activeDjTeamMembers.map((member) => (
-                      <option key={`event-modal-dj-${member.id}`} value={member.id} className="bg-white text-stone-900">
-                        {member.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <EventAssignedDjField
+  value={eventDraft.assignedDj}
+  onChange={(value) =>
+    setEventDraft((prev) => ({ ...prev, assignedDj: value }))
+  }
+  teamMembers={activeDjTeamMembers}
+  labelClassName={lightUiFormLabelClass}
+  selectClassName={lightUiSelectClass}
+/>
                 <TextInput
                   id="event-package"
                   label="Package"
@@ -14894,24 +14882,17 @@ export default function Home() {
                   }
                   placeholder="e.g. Signature Wedding Experience"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput
-                    id="event-planner-name"
-                    label="Planner Name"
-                    value={eventDraft.plannerName}
-                    onChange={(value) =>
-                      setEventDraft((prev) => ({ ...prev, plannerName: value }))
-                    }
-                  />
-                  <TextInput
-                    id="event-planner-email"
-                    label="Planner Email"
-                    value={eventDraft.plannerEmail}
-                    onChange={(value) =>
-                      setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
-                    }
-                  />
-                </div>
+                <EventPlannerFields
+  plannerName={eventDraft.plannerName}
+  plannerEmail={eventDraft.plannerEmail}
+  onPlannerNameChange={(value) =>
+    setEventDraft((prev) => ({ ...prev, plannerName: value }))
+  }
+  onPlannerEmailChange={(value) =>
+    setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
+  }
+  TextInputComponent={TextInput}
+/>
                 <TextArea
                   id="event-internal-notes"
                   label="Internal Notes"
