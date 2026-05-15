@@ -1,5 +1,7 @@
 "use client";
 
+import { EventPlannerFields } from "@/components/events/EventPlannerFields";
+import { EventModalStatus } from "@/components/events/EventModalStatus";
 import { EventModalActions } from "@/components/events/EventModalActions";
 import { EventTypeSection } from "@/components/events/EventTypeSection";
 import { EventModalForm } from "@/components/events/EventModalForm";
@@ -14919,16 +14921,8 @@ export default function Home() {
                   }
                   rows={3}
                 />
-                {eventModalStatus && (
-                  <p
-                    className={`rounded-xl px-3 py-2 text-xs ${eventModalStatus.kind === "success"
-                      ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
-                      : "border border-rose-200 bg-rose-50 text-rose-950"
-                      }`}
-                  >
-                    {eventModalStatus.message}
-                  </p>
-                )}
+                <EventModalStatus status={eventModalStatus} />
+                
 
                 <EventModalActions
                   mode={eventModalMode}
