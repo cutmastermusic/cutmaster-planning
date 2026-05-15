@@ -1,5 +1,7 @@
 "use client";
 
+import { EventInternalNotesField } from "@/components/events/EventInternalNotesField";
+import { EventBasicDetailsFields } from "@/components/events/EventBasicDetailsFields";
 import { EventLocationsFields } from "@/components/events/EventLocationsFields";
 import { EventAssignedDjField } from "@/components/events/EventAssignedDjField";
 import { EventPlannerFields } from "@/components/events/EventPlannerFields";
@@ -14659,1273 +14661,1255 @@ export default function Home() {
               </div>
             </div>
           </div>
-          </div>
-        )}
-              
+        </div>
+      )}
 
-          {templateModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
-              <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
-                <div className="flex items-center justify-between gap-3">
-                  <SectionTitle className="text-stone-950">
-                    {templateModalMode === "new" ? "Save Template" : "Edit Template"}
-                  </SectionTitle>
-                  <PrimaryButton
-                    onClick={() => {
-                      setTemplateModalOpen(false);
-                      setTemplateEditingId(null);
-                    }}
-                    className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-                  >
-                    Close
-                  </PrimaryButton>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <TextInput
-                    id="template-name"
-                    label="Template Name"
-                    value={templateDraftName}
-                    onChange={setTemplateDraftName}
-                    placeholder="e.g. Summer Garden Wedding"
-                  />
-                  <p className="text-xs text-stone-600">
-                    Saves current reception timeline and planning suggestions.
+
+      {templateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
+            <div className="flex items-center justify-between gap-3">
+              <SectionTitle className="text-stone-950">
+                {templateModalMode === "new" ? "Save Template" : "Edit Template"}
+              </SectionTitle>
+              <PrimaryButton
+                onClick={() => {
+                  setTemplateModalOpen(false);
+                  setTemplateEditingId(null);
+                }}
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+              >
+                Close
+              </PrimaryButton>
+            </div>
+            <div className="mt-4 space-y-3">
+              <TextInput
+                id="template-name"
+                label="Template Name"
+                value={templateDraftName}
+                onChange={setTemplateDraftName}
+                placeholder="e.g. Summer Garden Wedding"
+              />
+              <p className="text-xs text-stone-600">
+                Saves current reception timeline and planning suggestions.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <PrimaryButton
+                onClick={() => {
+                  setTemplateModalOpen(false);
+                  setTemplateEditingId(null);
+                }}
+                className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+              >
+                Cancel
+              </PrimaryButton>
+              <PrimaryButton
+                onClick={handleSaveTemplateModal}
+                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+              >
+                {templateModalMode === "new" ? "Save" : "Update"}
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {authStage === "app" && canManageEvents && eventModalOpen && (
+        <EventModal
+          title={eventModalMode === "new" ? "Create Event" : "Edit Event"}
+          onClose={() => {
+            setEventModalOpen(false);
+            setEventEditingId(null);
+            setEventModalStatus(null);
+          }}
+        >
+          <EventModalForm
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSaveEventModal();
+
+            }}
+          >
+
+            <EventBasicDetailsFields
+              eventName={eventDraft.eventName}
+              coupleNames={eventDraft.coupleNames}
+              weddingDate={eventDraft.weddingDate}
+              venue={eventDraft.venue}
+              packageName={eventDraft.packageName}
+              primaryPartyLabel={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
+              dateLabel={
+                eventDraft.eventLayoutProfile === "Wedding" ||
+                  eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
+                  ? "Wedding Date"
+                  : "Event Date"
+              }
+              onEventNameChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, eventName: value }))
+              }
+              onCoupleNamesChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, coupleNames: value }))
+              }
+              onWeddingDateChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, weddingDate: value }))
+              }
+              onVenueChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, venue: value }))
+              }
+              onPackageNameChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, packageName: value }))
+              }
+              TextInputComponent={TextInput}
+            />
+
+
+
+            <EventTypeSection>
+              <label htmlFor="event-type" className={lightUiFormLabelClass}>
+                Event Type
+              </label>
+              <select
+                id="event-type"
+                value={eventDraft.eventLayoutProfile}
+                onChange={(event) =>
+                  setEventDraft((prev) => ({
+                    ...prev,
+                    eventLayoutProfile: event.target.value as EventLayoutProfile,
+                    eventType: event.target.value as EventLayoutProfile,
+                  }))
+                }
+                className={lightUiSelectClass}
+              >
+                {EVENT_TYPES.map((profile) => (
+                  <option key={`draft-layout-${profile}`} value={profile} className="bg-white text-stone-900">
+                    {profile}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs leading-relaxed text-stone-600">
+                {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
+              </p>
+              <div className="rounded-xl border border-stone-200 bg-white p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                  Event Type Preview
+                </p>
+                <p className="mt-2 text-xs text-stone-700">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
+                <div className="mt-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">Enabled Sections</p>
+                  <p className="mt-1 text-xs text-stone-700">
+                    {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
                   </p>
                 </div>
-                <div className="mt-5 grid grid-cols-2 gap-2">
-                  <PrimaryButton
-                    onClick={() => {
-                      setTemplateModalOpen(false);
-                      setTemplateEditingId(null);
-                    }}
-                    className="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-                  >
-                    Cancel
-                  </PrimaryButton>
-                  <PrimaryButton
-                    onClick={handleSaveTemplateModal}
-                    className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
-                  >
-                    {templateModalMode === "new" ? "Save" : "Update"}
-                  </PrimaryButton>
+                <div className="mt-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                    Default Planning Questions
+                  </p>
+                  <p className="mt-1 text-xs text-stone-700">
+                    {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
+                      .map((q) => q.label)
+                      .slice(0, 4)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                    Event Document Default Sections
+                  </p>
+                  <p className="mt-1 text-xs text-stone-700">
+                    {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
+                  </p>
                 </div>
               </div>
-            </div>
-          )}
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
+                  Sections enabled by default
+                </p>
+                <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
+                  {getEnabledLayoutSectionLabels(
+                    getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
+                  ).map((label) => (
+                    <li key={`draft-section-${label}`} className="flex gap-2">
+                      <span className="text-[#00D4FF]" aria-hidden>
+                        ✓
+                      </span>
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </EventTypeSection>
 
-          {authStage === "app" && canManageEvents && eventModalOpen && (
-            <EventModal
-              title={eventModalMode === "new" ? "Create Event" : "Edit Event"}
-              onClose={() => {
+            <EventLocationsFields
+              ceremonyLocation={eventDraft.ceremonyLocation}
+              receptionLocation={eventDraft.receptionLocation}
+              onCeremonyLocationChange={(value) =>
+                setEventDraft((prev) => ({
+                  ...prev,
+                  ceremonyLocation: value,
+                }))
+              }
+              onReceptionLocationChange={(value) =>
+                setEventDraft((prev) => ({
+                  ...prev,
+                  receptionLocation: value,
+                }))
+              }
+              TextInputComponent={TextInput}
+            />
+            <EventAssignedDjField
+              value={eventDraft.assignedDj}
+              onChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, assignedDj: value }))
+              }
+              teamMembers={activeDjTeamMembers}
+              labelClassName={lightUiFormLabelClass}
+              selectClassName={lightUiSelectClass}
+            />
+
+            <EventPlannerFields
+              plannerName={eventDraft.plannerName}
+              plannerEmail={eventDraft.plannerEmail}
+              onPlannerNameChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, plannerName: value }))
+              }
+              onPlannerEmailChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
+              }
+              TextInputComponent={TextInput}
+            />
+            <TextArea
+              id="event-internal-notes"
+              label="Internal Notes"
+              value={eventDraft.internalNotes}
+              onChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, internalNotes: value }))
+              }
+              rows={3}
+            />
+            <EventModalStatus status={eventModalStatus} />
+
+
+            <EventModalActions
+              mode={eventModalMode}
+              onCancel={() => {
                 setEventModalOpen(false);
                 setEventEditingId(null);
                 setEventModalStatus(null);
               }}
+            />
+          </EventModalForm>
+        </EventModal>
+      )}
+
+      {vendorModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
+          <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
+            <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle className="text-stone-950">
+                  {vendorEditingId ? "Edit team member" : "Add team member"}
+                </SectionTitle>
+                <PrimaryButton
+                  onClick={closeVendorModal}
+                  className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                >
+                  Close
+                </PrimaryButton>
+              </div>
+            </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveVendor();
+              }}
+              className="flex min-h-0 flex-1 flex-col"
             >
-              <EventModalForm
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  handleSaveEventModal();
-
-                }}
-              >
-
-                <TextInput
-                  id="event-name"
-                  label="Event Name"
-                  value={eventDraft.eventName}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, eventName: value }))
-                  }
-                  placeholder="e.g. Jordan Graduation Celebration"
-                />
-                <TextInput
-                  id="event-couple-names"
-                  label={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
-                  value={eventDraft.coupleNames}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, coupleNames: value }))
-                  }
-                  placeholder="e.g. Jordan Vega"
-                />
-                <EventTypeSection>
-                  <label htmlFor="event-type" className={lightUiFormLabelClass}>
-                    Event Type
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
+                <div>
+                  <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
+                    On this event
                   </label>
                   <select
-                    id="event-type"
-                    value={eventDraft.eventLayoutProfile}
+                    id="vendor-affiliation"
+                    value={vendorAffiliationDraft}
                     onChange={(event) =>
-                      setEventDraft((prev) => ({
-                        ...prev,
-                        eventLayoutProfile: event.target.value as EventLayoutProfile,
-                        eventType: event.target.value as EventLayoutProfile,
-                      }))
+                      setVendorAffiliationDraft(event.target.value as VendorAffiliation)
                     }
                     className={lightUiSelectClass}
                   >
-                    {EVENT_TYPES.map((profile) => (
-                      <option key={`draft-layout-${profile}`} value={profile} className="bg-white text-stone-900">
-                        {profile}
+                    <option value="event_partner" className="bg-white text-stone-900">
+                      Event partner (external vendor)
+                    </option>
+                    <option value="cutmaster_event_team" className="bg-white text-stone-900">
+                      Cutmaster event team
+                    </option>
+                  </select>
+                  <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
+                    Cutmaster team appears in its own block; partners group by category below.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
+                    Role / category
+                  </label>
+                  <select
+                    id="vendor-type"
+                    value={vendorTypeDraft}
+                    onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
+                    className={lightUiSelectClass}
+                  >
+                    {VENDOR_TYPES_ORDERED.map((type) => (
+                      <option key={`vendor-type-option-${type}`} value={type} className="bg-white text-stone-900">
+                        {vendorTypeLabel(type)}
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs leading-relaxed text-stone-600">
-                    {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
-                  </p>
-                  <div className="rounded-xl border border-stone-200 bg-white p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
-                      Event Type Preview
-                    </p>
-                    <p className="mt-2 text-xs text-stone-700">{EVENT_TYPE_USE_CASE[eventDraft.eventLayoutProfile]}</p>
-                    <div className="mt-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">Enabled Sections</p>
-                      <p className="mt-1 text-xs text-stone-700">
-                        {getEnabledLayoutSectionLabels(getLayoutProfileDefaults(eventDraft.eventLayoutProfile)).join(" · ")}
-                      </p>
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                        Default Planning Questions
-                      </p>
-                      <p className="mt-1 text-xs text-stone-700">
-                        {getPlanningQuestionsForProfile(eventDraft.eventLayoutProfile)
-                          .map((q) => q.label)
-                          .slice(0, 4)
-                          .join(" · ")}
-                      </p>
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                        Event Document Default Sections
-                      </p>
-                      <p className="mt-1 text-xs text-stone-700">
-                        {getDefaultLiveEventSectionLabels(eventDraft.eventLayoutProfile).join(" · ")}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                      Sections enabled by default
-                    </p>
-                    <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
-                      {getEnabledLayoutSectionLabels(
-                        getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
-                      ).map((label) => (
-                        <li key={`draft-section-${label}`} className="flex gap-2">
-                          <span className="text-[#00D4FF]" aria-hidden>
-                            ✓
-                          </span>
-                          <span>{label}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </EventTypeSection>
-                <TextInput
-                  id="event-date"
-                  label={
-                    eventDraft.eventLayoutProfile === "Wedding" ||
-                      eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
-                      ? "Wedding Date"
-                      : "Event Date"
-                  }
-                  value={eventDraft.weddingDate}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, weddingDate: value }))
-                  }
-                  placeholder="e.g. Saturday, September 21, 2026"
-                />
-                <TextInput
-                  id="event-venue"
-                  label="Venue"
-                  value={eventDraft.venue}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, venue: value }))
-                  }
-                  placeholder="e.g. The Grand Willow Estate"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput
-                    id="event-ceremony-location"
-                    label="Ceremony Location"
-                    value={eventDraft.ceremonyLocation}
-                    onChange={(value) =>
-                      setEventDraft((prev) => ({ ...prev, ceremonyLocation: value }))
-                    }
-                    placeholder="e.g. Garden Lawn"
-                  />
-                  <TextInput
-                    id="event-reception-location"
-                    label="Reception Location"
-                    value={eventDraft.receptionLocation}
-                    onChange={(value) =>
-                      setEventDraft((prev) => ({ ...prev, receptionLocation: value }))
-                    }
-                    placeholder="e.g. Main Ballroom"
-                  />
                 </div>
-                <EventAssignedDjField
-  value={eventDraft.assignedDj}
-  onChange={(value) =>
-    setEventDraft((prev) => ({ ...prev, assignedDj: value }))
-  }
-  teamMembers={activeDjTeamMembers}
-  labelClassName={lightUiFormLabelClass}
-  selectClassName={lightUiSelectClass}
-/>
-                <TextInput
-                  id="event-package"
-                  label="Package"
-                  value={eventDraft.packageName}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, packageName: value }))
-                  }
-                  placeholder="e.g. Signature Wedding Experience"
-                />
-                <EventPlannerFields
-  plannerName={eventDraft.plannerName}
-  plannerEmail={eventDraft.plannerEmail}
-  onPlannerNameChange={(value) =>
-    setEventDraft((prev) => ({ ...prev, plannerName: value }))
-  }
-  onPlannerEmailChange={(value) =>
-    setEventDraft((prev) => ({ ...prev, plannerEmail: value }))
-  }
-  TextInputComponent={TextInput}
-/>
+                <TextInput id="vendor-company" label="Company Name" value={vendorCompanyDraft} onChange={setVendorCompanyDraft} />
+                <TextInput id="vendor-contact" label="Contact Name" value={vendorContactDraft} onChange={setVendorContactDraft} />
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput id="vendor-email" label="Email" value={vendorEmailDraft} onChange={setVendorEmailDraft} />
+                  <TextInput id="vendor-phone" label="Phone" value={vendorPhoneDraft} onChange={setVendorPhoneDraft} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TextInput id="vendor-website" label="Website" value={vendorWebsiteDraft} onChange={setVendorWebsiteDraft} />
+                  <TextInput id="vendor-instagram" label="Instagram" value={vendorInstagramDraft} onChange={setVendorInstagramDraft} />
+                </div>
+                <TextInput id="vendor-arrival-time" label="Arrival Time" value={vendorArrivalDraft} onChange={setVendorArrivalDraft} placeholder="e.g. 2:00 PM" />
+                <TextArea id="vendor-notes" label="Notes" value={vendorNotesDraft} onChange={setVendorNotesDraft} rows={2} />
                 <TextArea
-                  id="event-internal-notes"
-                  label="Internal Notes"
-                  value={eventDraft.internalNotes}
-                  onChange={(value) =>
-                    setEventDraft((prev) => ({ ...prev, internalNotes: value }))
-                  }
+                  id="vendor-coordination"
+                  label="Special Coordination Notes"
+                  value={vendorCoordinationDraft}
+                  onChange={setVendorCoordinationDraft}
                   rows={3}
                 />
-                <EventModalStatus status={eventModalStatus} />
-                
-
-                <EventModalActions
-                  mode={eventModalMode}
-                  onCancel={() => {
-                    setEventModalOpen(false);
-                    setEventEditingId(null);
-                    setEventModalStatus(null);
-                  }}
-                />
-              </EventModalForm>
-            </EventModal>
-          )}
-
-          {vendorModalOpen && (
-            <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
-              <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
-                <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <SectionTitle className="text-stone-950">
-                      {vendorEditingId ? "Edit team member" : "Add team member"}
-                    </SectionTitle>
-                    <PrimaryButton
-                      onClick={closeVendorModal}
-                      className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-                    >
-                      Close
-                    </PrimaryButton>
-                  </div>
-                </div>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    saveVendor();
-                  }}
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
-                    <div>
-                      <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
-                        On this event
-                      </label>
-                      <select
-                        id="vendor-affiliation"
-                        value={vendorAffiliationDraft}
-                        onChange={(event) =>
-                          setVendorAffiliationDraft(event.target.value as VendorAffiliation)
-                        }
-                        className={lightUiSelectClass}
-                      >
-                        <option value="event_partner" className="bg-white text-stone-900">
-                          Event partner (external vendor)
-                        </option>
-                        <option value="cutmaster_event_team" className="bg-white text-stone-900">
-                          Cutmaster event team
-                        </option>
-                      </select>
-                      <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
-                        Cutmaster team appears in its own block; partners group by category below.
-                      </p>
-                    </div>
-                    <div>
-                      <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
-                        Role / category
-                      </label>
-                      <select
-                        id="vendor-type"
-                        value={vendorTypeDraft}
-                        onChange={(event) => setVendorTypeDraft(event.target.value as VendorType)}
-                        className={lightUiSelectClass}
-                      >
-                        {VENDOR_TYPES_ORDERED.map((type) => (
-                          <option key={`vendor-type-option-${type}`} value={type} className="bg-white text-stone-900">
-                            {vendorTypeLabel(type)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <TextInput id="vendor-company" label="Company Name" value={vendorCompanyDraft} onChange={setVendorCompanyDraft} />
-                    <TextInput id="vendor-contact" label="Contact Name" value={vendorContactDraft} onChange={setVendorContactDraft} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <TextInput id="vendor-email" label="Email" value={vendorEmailDraft} onChange={setVendorEmailDraft} />
-                      <TextInput id="vendor-phone" label="Phone" value={vendorPhoneDraft} onChange={setVendorPhoneDraft} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <TextInput id="vendor-website" label="Website" value={vendorWebsiteDraft} onChange={setVendorWebsiteDraft} />
-                      <TextInput id="vendor-instagram" label="Instagram" value={vendorInstagramDraft} onChange={setVendorInstagramDraft} />
-                    </div>
-                    <TextInput id="vendor-arrival-time" label="Arrival Time" value={vendorArrivalDraft} onChange={setVendorArrivalDraft} placeholder="e.g. 2:00 PM" />
-                    <TextArea id="vendor-notes" label="Notes" value={vendorNotesDraft} onChange={setVendorNotesDraft} rows={2} />
-                    <TextArea
-                      id="vendor-coordination"
-                      label="Special Coordination Notes"
-                      value={vendorCoordinationDraft}
-                      onChange={setVendorCoordinationDraft}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] sm:pb-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <PrimaryButton
-                        type="button"
-                        onClick={closeVendorModal}
-                        className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
-                      >
-                        Cancel
-                      </PrimaryButton>
-                      <PrimaryButton
-                        type="submit"
-                        className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
-                      >
-                        Save team member
-                      </PrimaryButton>
-                    </div>
-                  </div>
-                </form>
               </div>
-            </div>
-          )}
 
-          {authStage === "app" &&
-            appMode === "event" &&
-            activeScreen === "Event Prep" &&
-            canAccessRunOfShow &&
-            runOfShowOpen && (
-              <div
-                className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
-                role="dialog"
-                aria-label="Run of show"
-              >
-                <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
-                    <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
-                      <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
-                        {runOfShowHeadline}
-                      </h2>
-                      <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
-                        {runOfShowSubline}
-                      </p>
-                      {runOfShowUpNextMeta.banner === "upNext" ? (
-                        <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
-                          Up Next:{" "}
-                          <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
-                        </p>
-                      ) : runOfShowUpNextMeta.banner === "complete" ? (
-                        <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
-                          Run Of Show complete
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
-                      {/*
+              <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] sm:pb-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <PrimaryButton
+                    type="button"
+                    onClick={closeVendorModal}
+                    className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                  >
+                    Cancel
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="submit"
+                    className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
+                  >
+                    Save team member
+                  </PrimaryButton>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {authStage === "app" &&
+        appMode === "event" &&
+        activeScreen === "Event Prep" &&
+        canAccessRunOfShow &&
+        runOfShowOpen && (
+          <div
+            className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
+            role="dialog"
+            aria-label="Run of show"
+          >
+            <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
+                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
+                  <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
+                    {runOfShowHeadline}
+                  </h2>
+                  <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
+                    {runOfShowSubline}
+                  </p>
+                  {runOfShowUpNextMeta.banner === "upNext" ? (
+                    <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
+                      Up Next:{" "}
+                      <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
+                    </p>
+                  ) : runOfShowUpNextMeta.banner === "complete" ? (
+                    <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
+                      Run Of Show complete
+                    </p>
+                  ) : null}
+                </div>
+                <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
+                  {/*
                     White-label: this block is the Run Of Show brand slot — replace `runOfShowHeaderBrand`
                     (or source from tenant config) so logo, companyName, and brandAccentColor stay swappable.
                   */}
-                      <div
-                        className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
-                        style={{
-                          borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={runOfShowHeaderBrand.logoSrc}
-                          alt=""
-                          className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
-                        />
-                        <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
-                          {runOfShowHeaderBrand.companyName}
-                        </p>
-                        <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
-                          {runOfShowHeaderBrand.companyName}
-                        </p>
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setRunOfShowAnnotateMode((v) => !v)}
-                          className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${runOfShowAnnotateMode
-                            ? "border-stone-800 bg-stone-900 text-white shadow-sm"
-                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                            }`}
-                          aria-pressed={runOfShowAnnotateMode}
-                        >
-                          {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
-                        </button>
-                        {runOfShowAnnotateMode ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={clearRunOfShowAnnotations}
-                              className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
-                            >
-                              Clear
-                            </button>
-                            <button
-                              type="button"
-                              onClick={undoLastRunOfShowAnnotation}
-                              disabled={runOfShowAnnotationStrokes.length === 0}
-                              className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Undo
-                            </button>
-                          </>
-                        ) : null}
-                        {typeof document !== "undefined" && document.fullscreenEnabled ? (
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => void toggleRunOfShowFullscreen()}
-                            className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
-                          >
-                            {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                          </PrimaryButton>
-                        ) : null}
-                        <PrimaryButton
-                          type="button"
-                          onClick={closeRunOfShow}
-                          className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
-                        >
-                          Exit Run Of Show
-                        </PrimaryButton>
-                        <button
-                          type="button"
-                          onClick={resetRunOfShowDone}
-                          className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
-                        >
-                          Reset Run Of Show
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </header>
-
-                <main
-                  ref={runOfShowScrollRef}
-                  className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
-                >
-                  <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
-                    {sectionCeremonyEnabled ? (
-                      <section className="mb-14 sm:mb-16">
-                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                          Ceremony
-                        </h3>
-                        <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
-                          <p>
-                            <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
-                            {ceremonyStartTime || "—"}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-stone-900">Guest arrival</span>{" "}
-                            {ceremonyGuestArrivalTime || "—"}
-                          </p>
-                          <p className="sm:col-span-2">
-                            <span className="font-semibold text-stone-900">Location</span>{" "}
-                            {eventSettings.ceremonyLocation?.trim() ||
-                              eventSettings.venue?.trim() ||
-                              weddingDetails.venue?.trim() ||
-                              "—"}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-stone-900">Officiant</span>{" "}
-                            {officiantName?.trim() || "—"}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-stone-900">Microphones</span>{" "}
-                            {microphoneNeeds?.trim() || "—"}
-                          </p>
-                          {ceremonyNotes?.trim() ? (
-                            <p className="sm:col-span-2">
-                              <span className="font-semibold text-stone-900">Ceremony notes</span> {ceremonyNotes}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
-                          {ceremonyTimelineRows.length === 0 ? (
-                            <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
-                          ) : runOfShowCeremonyAllMomentsDone &&
-                            !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
-                            <button
-                              type="button"
-                              onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
-                              className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
-                              aria-expanded="false"
-                            >
-                              <span
-                                className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
-                                aria-hidden
-                              >
-                                ▸
-                              </span>
-                              <span className="shrink-0 text-base text-stone-500" aria-hidden>
-                                ✓
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                  Summary · list hidden
-                                </p>
-                                <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
-                                  Ceremony <span className="font-medium text-stone-600">complete</span>
-                                  <span className="font-normal text-stone-400"> · </span>
-                                  <span className="font-medium text-stone-600">
-                                    {ceremonyTimelineRows.length}{" "}
-                                    {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
-                                  </span>
-                                </p>
-                                <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                                  Tap to show the full ceremony moment list
-                                </p>
-                              </div>
-                            </button>
-                          ) : (
-                            <>
-                              {runOfShowCeremonyAllMomentsDone &&
-                                runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
-                                <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                  <div className="min-w-0">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                      Full list visible
-                                    </p>
-                                    <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                      Ceremony moments · all marked done
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
-                                    }
-                                    className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
-                                  >
-                                    Collapse list
-                                  </button>
-                                </div>
-                              ) : null}
-                              {ceremonyTimelineRows.map((row) => {
-                                const doneKey = `c:${row.id}`;
-                                const done = runOfShowDoneKeys.has(doneKey);
-                                const isUpNext =
-                                  runOfShowUpNextMeta.banner === "upNext" &&
-                                  runOfShowUpNextMeta.upNextKey === doneKey;
-                                const rowSurface = done
-                                  ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
-                                  : isUpNext
-                                    ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                                    : "py-8 sm:py-10";
-                                return (
-                                  <article
-                                    key={`ros-ceremony-${row.id}`}
-                                    {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                    className={`flex gap-4 sm:gap-6 ${rowSurface}`}
-                                  >
-                                    <div className="shrink-0 pt-0.5 sm:pt-1">
-                                      <button
-                                        type="button"
-                                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
-                                          ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
-                                          : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                          }`}
-                                        aria-pressed={done}
-                                        aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
-                                        onClick={() => toggleRunOfShowDoneKey(doneKey)}
-                                      >
-                                        {done ? (
-                                          <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
-                                            ✓
-                                          </span>
-                                        ) : (
-                                          <span
-                                            className="h-6 w-6 rounded-full border-2 border-stone-400"
-                                            aria-hidden
-                                          />
-                                        )}
-                                      </button>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      {isUpNext && !done ? (
-                                        <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
-                                          Up next
-                                        </p>
-                                      ) : null}
-                                      <p
-                                        className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${done ? "text-stone-500" : "text-stone-900"
-                                          }`}
-                                      >
-                                        {row.order.trim() ? row.order : "—"}
-                                      </p>
-                                      <h4
-                                        className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
-                                          ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                          : "text-stone-950"
-                                          }`}
-                                      >
-                                        {row.moment}
-                                      </h4>
-                                      {row.song ? (
-                                        <p
-                                          className={`mt-5 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
-                                            }`}
-                                        >
-                                          {row.song}
-                                        </p>
-                                      ) : null}
-                                      {row.notes ? (
-                                        <p
-                                          className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                            }`}
-                                        >
-                                          {row.notes}
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                  </article>
-                                );
-                              })}
-                            </>
-                          )}
-                        </div>
-                      </section>
-                    ) : null}
-
-                    {sectionReceptionTimelineEnabled ? (
-                      <section className="mb-14 sm:mb-16">
-                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                          {eventPrepReceptionHeading}
-                        </h3>
-                        <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
-                          {mergedTimelineItems.length === 0 ? (
-                            <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
-                          ) : (
-                            runOfShowReceptionPhaseGroups.map((phase) => {
-                              const phaseCount = phase.items.length;
-                              const phaseAllDone =
-                                phaseCount > 0 &&
-                                phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
-                              const phaseCollapsed =
-                                phaseAllDone &&
-                                !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
-                              return (
-                                <div key={phase.id} className="contents">
-                                  {phaseCollapsed ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
-                                      className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
-                                      aria-expanded="false"
-                                    >
-                                      <span
-                                        className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
-                                        aria-hidden
-                                      >
-                                        ▸
-                                      </span>
-                                      <span className="shrink-0 text-base text-stone-500" aria-hidden>
-                                        ✓
-                                      </span>
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                          Summary · list hidden
-                                        </p>
-                                        <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
-                                          {phase.category}{" "}
-                                          <span className="font-medium text-stone-600">complete</span>
-                                          <span className="font-normal text-stone-400"> · </span>
-                                          <span className="font-medium text-stone-600">
-                                            {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
-                                          </span>
-                                        </p>
-                                        <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                                          Tap to show every moment in this block
-                                        </p>
-                                      </div>
-                                    </button>
-                                  ) : (
-                                    <>
-                                      {phaseAllDone &&
-                                        runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
-                                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                          <div className="min-w-0">
-                                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                              Full list visible
-                                            </p>
-                                            <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                              {phase.category} moments · all marked done
-                                            </p>
-                                          </div>
-                                          <button
-                                            type="button"
-                                            onClick={() => collapseRunOfShowCompletedSection(phase.id)}
-                                            className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
-                                          >
-                                            Collapse list
-                                          </button>
-                                        </div>
-                                      ) : null}
-                                      {phase.items.map((item) => {
-                                        const doneKey = `r:${item.id}`;
-                                        const done = runOfShowDoneKeys.has(doneKey);
-                                        const isUpNext =
-                                          runOfShowUpNextMeta.banner === "upNext" &&
-                                          runOfShowUpNextMeta.upNextKey === doneKey;
-                                        const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
-                                          .filter(Boolean)
-                                          .join(" - ");
-                                        const fadeSuffix = item.fadeOutEarly
-                                          ? item.fadeOutTimestamp?.trim()
-                                            ? ` (Fade ${item.fadeOutTimestamp.trim()})`
-                                            : " (Fade early)"
-                                          : "";
-                                        const songCell = `${songLabel}${fadeSuffix}`.trim();
-                                        const notesLabel = [
-                                          item.notes?.trim() || "",
-                                          item.needsDjMcAttention ? "MC/DJ attention" : "",
-                                        ]
-                                          .filter(Boolean)
-                                          .join(" · ");
-                                        const rowSurface = done
-                                          ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
-                                          : isUpNext
-                                            ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                                            : "py-8 sm:py-10";
-                                        return (
-                                          <article
-                                            key={`ros-recv-${item.id}`}
-                                            {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                            className={`flex gap-4 sm:gap-6 ${rowSurface}`}
-                                          >
-                                            <div className="shrink-0 pt-1 sm:pt-1.5">
-                                              <button
-                                                type="button"
-                                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
-                                                  ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
-                                                  : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                                  }`}
-                                                aria-pressed={done}
-                                                aria-label={
-                                                  done ? "Mark moment as not done" : "Mark moment as done"
-                                                }
-                                                onClick={() => toggleRunOfShowDoneKey(doneKey)}
-                                              >
-                                                {done ? (
-                                                  <span
-                                                    className="text-xl font-semibold leading-none text-stone-600"
-                                                    aria-hidden
-                                                  >
-                                                    ✓
-                                                  </span>
-                                                ) : (
-                                                  <span
-                                                    className="h-6 w-6 rounded-full border-2 border-stone-400"
-                                                    aria-hidden
-                                                  />
-                                                )}
-                                              </button>
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                              {isUpNext && !done ? (
-                                                <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
-                                                  Up next
-                                                </p>
-                                              ) : null}
-                                              <p
-                                                className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${done ? "text-stone-500" : "text-stone-900"
-                                                  }`}
-                                              >
-                                                {item.time?.trim() ? item.time.trim() : "—"}
-                                              </p>
-                                              <h4
-                                                className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
-                                                  ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                                  : "text-stone-950"
-                                                  }`}
-                                              >
-                                                {item.title}
-                                              </h4>
-                                              <p
-                                                className={`mt-2 text-xs font-semibold uppercase tracking-wide ${done ? "text-stone-400" : "text-stone-500"
-                                                  }`}
-                                              >
-                                                {item.category}
-                                              </p>
-                                              {songCell ? (
-                                                <p
-                                                  className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
-                                                    }`}
-                                                >
-                                                  {songCell}
-                                                </p>
-                                              ) : null}
-                                              {notesLabel ? (
-                                                <p
-                                                  className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                                    }`}
-                                                >
-                                                  {notesLabel}
-                                                </p>
-                                              ) : null}
-                                            </div>
-                                          </article>
-                                        );
-                                      })}
-                                    </>
-                                  )}
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </section>
-                    ) : null}
-
-                    {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
-                      <section className="mb-8 border-t border-stone-200 pt-12">
-                        <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                          Music notes
-                        </h3>
-                        <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
-                          {layoutProfileForActiveEvent === "School Dance" ? (
-                            <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
-                          ) : null}
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Overall vibe</p>
-                            <p className="mt-2">{generalDjNotes?.trim() ? generalDjNotes : "—"}</p>
-                          </div>
-                          {musicGenreEraSelections.length > 0 ? (
-                            <p>
-                              <span className="font-semibold text-stone-900">Genre / era picks · </span>
-                              {musicGenreEraSelections.join(", ")}
-                            </p>
-                          ) : null}
-                          {musicTasteProfileHasSelections(musicTasteProfile) ? (
-                            <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                                Music taste profile
-                              </p>
-                              {musicTasteProfile.danceFloorStyles.length > 0 ? (
-                                <p className="mt-2">
-                                  <span className="font-semibold text-stone-900">Dance floor · </span>
-                                  {musicTasteProfile.danceFloorStyles.join(", ")}
-                                </p>
-                              ) : null}
-                              {musicTasteProfile.crowdPreferences.length > 0 ? (
-                                <p className="mt-2">
-                                  <span className="font-semibold text-stone-900">Crowd · </span>
-                                  {musicTasteProfile.crowdPreferences.join(", ")}
-                                </p>
-                              ) : null}
-                              {musicTasteProfile.musicBehavior.length > 0 ? (
-                                <p className="mt-2">
-                                  <span className="font-semibold text-stone-900">Behavior · </span>
-                                  {musicTasteProfile.musicBehavior.join(", ")}
-                                </p>
-                              ) : null}
-                              {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
-                                <p className="mt-2">
-                                  <span className="font-semibold text-stone-900">Ideal dance floor vibe · </span>
-                                  {musicTasteProfile.danceFloorVibeNotes}
-                                </p>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          {(musicVibeDetail.genres ?? "").trim() ? (
-                            <p>
-                              <span className="font-semibold text-stone-900">Genres / eras · </span>
-                              {musicVibeDetail.genres}
-                            </p>
-                          ) : null}
-                          {(musicVibeDetail.energy ?? "").trim() ? (
-                            <p>
-                              <span className="font-semibold text-stone-900">Energy · </span>
-                              {musicVibeDetail.energy}
-                            </p>
-                          ) : null}
-                          {(musicVibeDetail.crowdNotes ?? "").trim() ? (
-                            <p>
-                              <span className="font-semibold text-stone-900">Crowd · </span>
-                              {musicVibeDetail.crowdNotes}
-                            </p>
-                          ) : null}
-                          {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
-                            <p>
-                              <span className="font-semibold text-stone-900">
-                                {layoutProfileForActiveEvent === "School Dance"
-                                  ? "Clean selections · "
-                                  : "Clean / content · "}
-                              </span>
-                              {musicVibeDetail.cleanMusicPrefs}
-                            </p>
-                          ) : null}
-                        </div>
-                      </section>
-                    ) : null}
-
-                    {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
-                      <p className="py-12 text-center text-base text-stone-600">
-                        No ceremony or reception timeline is enabled for this event.
-                      </p>
-                    ) : null}
-                  </div>
-                  {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
-                    runOfShowAnnotationCanvasSize.w > 0 &&
-                    runOfShowAnnotationCanvasSize.h > 0 ? (
-                    <canvas
-                      ref={runOfShowAnnotationCanvasRef}
-                      className={`absolute left-0 top-0 z-[6] ${runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
-                        }`}
-                      style={{
-                        width: runOfShowAnnotationCanvasSize.w,
-                        height: runOfShowAnnotationCanvasSize.h,
-                      }}
-                      aria-hidden={!runOfShowAnnotateMode}
-                    />
-                  ) : null}
-                </main>
-
-                {runOfShowOverlayActive &&
-                  runOfShowUpNextMeta.banner === "upNext" &&
-                  runOfShowUpNextCueDetail ? (
-                  <button
-                    type="button"
-                    onClick={scrollRunOfShowToUpNext}
-                    tabIndex={runOfShowUpNextRowInView ? -1 : 0}
-                    aria-hidden={runOfShowUpNextRowInView}
-                    aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
-                    className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${runOfShowUpNextRowInView
-                      ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
-                      : "translate-y-0 opacity-100"
-                      }`}
+                  <div
+                    className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
                     style={{
-                      bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
-                      right: "max(1rem, env(safe-area-inset-right, 0px))",
+                      borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
                     }}
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
-                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
-                      {runOfShowUpNextCueDetail.title}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={runOfShowHeaderBrand.logoSrc}
+                      alt=""
+                      className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
+                    />
+                    <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
+                      {runOfShowHeaderBrand.companyName}
                     </p>
-                    {runOfShowUpNextCueDetail.subline ? (
-                      <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
-                        {runOfShowUpNextCueDetail.subline}
-                      </p>
-                    ) : null}
-                  </button>
-                ) : null}
-              </div>
-            )}
-
-          {timelineImportOpen ? (
-            <div
-              className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
-              role="presentation"
-              onClick={closeTimelineImport}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="timeline-import-title"
-                className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col rounded-2xl border border-stone-200 bg-white shadow-xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
-                  <p id="timeline-import-title" className="text-base font-semibold text-stone-900">
-                    Import Timeline
-                  </p>
-                  <p className="mt-1.5 text-sm leading-snug text-stone-600">
-                    Paste a planner list. We&apos;ll suggest moments—you choose whether to add or replace.
-                  </p>
-
-                  {timelineImportStep === "paste" ? (
-                    <div className="mt-5 space-y-4">
-                      <TextArea
-                        id="timeline-import-paste"
-                        label="Paste timeline text"
-                        value={timelineImportRaw}
-                        onChange={setTimelineImportRaw}
-                        placeholder={"4:30 Ceremony begins\n6:15 Grand entrance — Song: Signed, Sealed, Delivered\n7:30 Toasts — Best man and maid of honor"}
-                        rows={8}
-                        disabled={!canEditTimeline}
-                      />
-                      {timelineImportParseError ? (
-                        <p className="text-sm text-rose-700">{timelineImportParseError}</p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="mt-5 space-y-4">
-                      <p className="text-sm text-stone-700">
-                        Review {timelineImportDrafts.length}{" "}
-                        {timelineImportDrafts.length === 1 ? "moment" : "moments"} before adding.
-                      </p>
-                      {timelineImportReplaceDanger ? (
-                        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
-                          Replacing clears your current timeline. Confirm below, or tap Add to Timeline instead.
-                        </div>
-                      ) : null}
-                      <div className="space-y-3">
-                        {timelineImportDrafts.map((draft) => (
-                          <div
-                            key={draft.key}
-                            className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
-                                Moment
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => removeTimelineImportDraft(draft.key)}
-                                className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-rose-800 hover:bg-rose-100"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                              <TextInput
-                                id={`ti-time-${draft.key}`}
-                                label="Time"
-                                value={draft.time}
-                                onChange={(v) => updateTimelineImportDraft(draft.key, { time: v })}
-                                placeholder="e.g. 6:30 PM"
-                              />
-                              <TextInput
-                                id={`ti-title-${draft.key}`}
-                                label="Moment"
-                                value={draft.title}
-                                onChange={(v) => updateTimelineImportDraft(draft.key, { title: v })}
-                                placeholder="Title"
-                              />
-                              <TextInput
-                                id={`ti-song-${draft.key}`}
-                                label="Song"
-                                value={draft.songTitle ?? ""}
-                                onChange={(v) =>
-                                  updateTimelineImportDraft(draft.key, {
-                                    songTitle: v.trim() ? v : undefined,
-                                  })
-                                }
-                                placeholder="Optional"
-                              />
-                              <TextInput
-                                id={`ti-artist-${draft.key}`}
-                                label="Artist"
-                                value={draft.artist ?? ""}
-                                onChange={(v) =>
-                                  updateTimelineImportDraft(draft.key, { artist: v.trim() ? v : undefined })
-                                }
-                                placeholder="Optional"
-                              />
-                            </div>
-                            <div className="mt-3">
-                              <TextArea
-                                id={`ti-notes-${draft.key}`}
-                                label="Notes"
-                                value={draft.notes}
-                                onChange={(v) => updateTimelineImportDraft(draft.key, { notes: v })}
-                                rows={2}
-                                placeholder="Optional"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {timelineImportDrafts.length === 0 ? (
-                        <p className="text-sm text-stone-600">All rows removed. Go back to paste or cancel.</p>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-
-                <div className="shrink-0 border-t border-stone-200 bg-white p-4 sm:p-5">
-                  {timelineImportStep === "paste" ? (
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
-                      <PrimaryButton
-                        type="button"
-                        onClick={closeTimelineImport}
-                        className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
-                      >
-                        Cancel
-                      </PrimaryButton>
-                      <PrimaryButton
-                        type="button"
-                        onClick={handleParseTimelineImport}
-                        disabled={!canEditTimeline || !timelineImportRaw.trim()}
-                        className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
-                      >
-                        Parse Timeline
-                      </PrimaryButton>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
-                        <PrimaryButton
-                          type="button"
-                          onClick={closeTimelineImport}
-                          className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
-                        >
-                          Cancel
-                        </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => {
-                            setTimelineImportStep("paste");
-                            setTimelineImportReplaceDanger(false);
-                          }}
-                          className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
-                        >
-                          Back
-                        </PrimaryButton>
-                        <PrimaryButton
-                          type="button"
-                          disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                          onClick={() => {
-                            setTimelineImportReplaceDanger(false);
-                            applyTimelineImport("add");
-                          }}
-                          className="w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto"
-                        >
-                          Add to Timeline
-                        </PrimaryButton>
-                        {timelineImportReplaceDanger ? (
-                          <PrimaryButton
-                            type="button"
-                            disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                            onClick={() => applyTimelineImport("replace")}
-                            className="w-full rounded-lg border border-rose-500 bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-rose-700 disabled:opacity-45 sm:w-auto"
-                          >
-                            Confirm Replace Timeline
-                          </PrimaryButton>
-                        ) : (
-                          <PrimaryButton
-                            type="button"
-                            disabled={!canEditTimeline || timelineImportDrafts.length === 0}
-                            onClick={() => setTimelineImportReplaceDanger(true)}
-                            className="w-full rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45 sm:w-auto"
-                          >
-                            Replace Timeline
-                          </PrimaryButton>
-                        )}
-                      </div>
-                      {timelineImportReplaceDanger ? (
+                    <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
+                      {runOfShowHeaderBrand.companyName}
+                    </p>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setRunOfShowAnnotateMode((v) => !v)}
+                      className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${runOfShowAnnotateMode
+                        ? "border-stone-800 bg-stone-900 text-white shadow-sm"
+                        : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                        }`}
+                      aria-pressed={runOfShowAnnotateMode}
+                    >
+                      {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
+                    </button>
+                    {runOfShowAnnotateMode ? (
+                      <>
                         <button
                           type="button"
-                          onClick={() => setTimelineImportReplaceDanger(false)}
-                          className="w-full text-center text-[13px] font-medium text-stone-600 underline-offset-2 hover:underline sm:text-right"
+                          onClick={clearRunOfShowAnnotations}
+                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
                         >
-                          Never mind — keep reviewing
+                          Clear
                         </button>
-                      ) : null}
-                    </div>
-                  )}
+                        <button
+                          type="button"
+                          onClick={undoLastRunOfShowAnnotation}
+                          disabled={runOfShowAnnotationStrokes.length === 0}
+                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Undo
+                        </button>
+                      </>
+                    ) : null}
+                    {typeof document !== "undefined" && document.fullscreenEnabled ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => void toggleRunOfShowFullscreen()}
+                        className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                      >
+                        {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                      </PrimaryButton>
+                    ) : null}
+                    <PrimaryButton
+                      type="button"
+                      onClick={closeRunOfShow}
+                      className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                    >
+                      Exit Run Of Show
+                    </PrimaryButton>
+                    <button
+                      type="button"
+                      onClick={resetRunOfShowDone}
+                      className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
+                    >
+                      Reset Run Of Show
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            </header>
 
-          {pendingTimelineDelete ? (
-            <div
-              className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
-              role="presentation"
-              onClick={() => setPendingTimelineDelete(null)}
+            <main
+              ref={runOfShowScrollRef}
+              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
             >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="timeline-delete-title"
-                className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
-                onClick={(e) => e.stopPropagation()}
+              <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
+                {sectionCeremonyEnabled ? (
+                  <section className="mb-14 sm:mb-16">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Ceremony
+                    </h3>
+                    <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
+                      <p>
+                        <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
+                        {ceremonyStartTime || "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Guest arrival</span>{" "}
+                        {ceremonyGuestArrivalTime || "—"}
+                      </p>
+                      <p className="sm:col-span-2">
+                        <span className="font-semibold text-stone-900">Location</span>{" "}
+                        {eventSettings.ceremonyLocation?.trim() ||
+                          eventSettings.venue?.trim() ||
+                          weddingDetails.venue?.trim() ||
+                          "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Officiant</span>{" "}
+                        {officiantName?.trim() || "—"}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-stone-900">Microphones</span>{" "}
+                        {microphoneNeeds?.trim() || "—"}
+                      </p>
+                      {ceremonyNotes?.trim() ? (
+                        <p className="sm:col-span-2">
+                          <span className="font-semibold text-stone-900">Ceremony notes</span> {ceremonyNotes}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                      {ceremonyTimelineRows.length === 0 ? (
+                        <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
+                      ) : runOfShowCeremonyAllMomentsDone &&
+                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                        <button
+                          type="button"
+                          onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
+                          className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                          aria-expanded="false"
+                        >
+                          <span
+                            className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                            aria-hidden
+                          >
+                            ▸
+                          </span>
+                          <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                            ✓
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                              Summary · list hidden
+                            </p>
+                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                              Ceremony <span className="font-medium text-stone-600">complete</span>
+                              <span className="font-normal text-stone-400"> · </span>
+                              <span className="font-medium text-stone-600">
+                                {ceremonyTimelineRows.length}{" "}
+                                {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
+                              </span>
+                            </p>
+                            <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                              Tap to show the full ceremony moment list
+                            </p>
+                          </div>
+                        </button>
+                      ) : (
+                        <>
+                          {runOfShowCeremonyAllMomentsDone &&
+                            runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Full list visible
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                  Ceremony moments · all marked done
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
+                                }
+                                className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                              >
+                                Collapse list
+                              </button>
+                            </div>
+                          ) : null}
+                          {ceremonyTimelineRows.map((row) => {
+                            const doneKey = `c:${row.id}`;
+                            const done = runOfShowDoneKeys.has(doneKey);
+                            const isUpNext =
+                              runOfShowUpNextMeta.banner === "upNext" &&
+                              runOfShowUpNextMeta.upNextKey === doneKey;
+                            const rowSurface = done
+                              ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                              : isUpNext
+                                ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                                : "py-8 sm:py-10";
+                            return (
+                              <article
+                                key={`ros-ceremony-${row.id}`}
+                                {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                              >
+                                <div className="shrink-0 pt-0.5 sm:pt-1">
+                                  <button
+                                    type="button"
+                                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                      ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                      : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                      }`}
+                                    aria-pressed={done}
+                                    aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
+                                    onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                  >
+                                    {done ? (
+                                      <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
+                                        ✓
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                        aria-hidden
+                                      />
+                                    )}
+                                  </button>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  {isUpNext && !done ? (
+                                    <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                      Up next
+                                    </p>
+                                  ) : null}
+                                  <p
+                                    className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${done ? "text-stone-500" : "text-stone-900"
+                                      }`}
+                                  >
+                                    {row.order.trim() ? row.order : "—"}
+                                  </p>
+                                  <h4
+                                    className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                      ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                      : "text-stone-950"
+                                      }`}
+                                  >
+                                    {row.moment}
+                                  </h4>
+                                  {row.song ? (
+                                    <p
+                                      className={`mt-5 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
+                                        }`}
+                                    >
+                                      {row.song}
+                                    </p>
+                                  ) : null}
+                                  {row.notes ? (
+                                    <p
+                                      className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
+                                        }`}
+                                    >
+                                      {row.notes}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {sectionReceptionTimelineEnabled ? (
+                  <section className="mb-14 sm:mb-16">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      {eventPrepReceptionHeading}
+                    </h3>
+                    <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
+                      {mergedTimelineItems.length === 0 ? (
+                        <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
+                      ) : (
+                        runOfShowReceptionPhaseGroups.map((phase) => {
+                          const phaseCount = phase.items.length;
+                          const phaseAllDone =
+                            phaseCount > 0 &&
+                            phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
+                          const phaseCollapsed =
+                            phaseAllDone &&
+                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
+                          return (
+                            <div key={phase.id} className="contents">
+                              {phaseCollapsed ? (
+                                <button
+                                  type="button"
+                                  onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
+                                  className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                                  aria-expanded="false"
+                                >
+                                  <span
+                                    className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                                    aria-hidden
+                                  >
+                                    ▸
+                                  </span>
+                                  <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                                    ✓
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                      Summary · list hidden
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                                      {phase.category}{" "}
+                                      <span className="font-medium text-stone-600">complete</span>
+                                      <span className="font-normal text-stone-400"> · </span>
+                                      <span className="font-medium text-stone-600">
+                                        {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
+                                      </span>
+                                    </p>
+                                    <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
+                                      Tap to show every moment in this block
+                                    </p>
+                                  </div>
+                                </button>
+                              ) : (
+                                <>
+                                  {phaseAllDone &&
+                                    runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
+                                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                          Full list visible
+                                        </p>
+                                        <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                                          {phase.category} moments · all marked done
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => collapseRunOfShowCompletedSection(phase.id)}
+                                        className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                      >
+                                        Collapse list
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                  {phase.items.map((item) => {
+                                    const doneKey = `r:${item.id}`;
+                                    const done = runOfShowDoneKeys.has(doneKey);
+                                    const isUpNext =
+                                      runOfShowUpNextMeta.banner === "upNext" &&
+                                      runOfShowUpNextMeta.upNextKey === doneKey;
+                                    const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+                                      .filter(Boolean)
+                                      .join(" - ");
+                                    const fadeSuffix = item.fadeOutEarly
+                                      ? item.fadeOutTimestamp?.trim()
+                                        ? ` (Fade ${item.fadeOutTimestamp.trim()})`
+                                        : " (Fade early)"
+                                      : "";
+                                    const songCell = `${songLabel}${fadeSuffix}`.trim();
+                                    const notesLabel = [
+                                      item.notes?.trim() || "",
+                                      item.needsDjMcAttention ? "MC/DJ attention" : "",
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ");
+                                    const rowSurface = done
+                                      ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                                      : isUpNext
+                                        ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
+                                        : "py-8 sm:py-10";
+                                    return (
+                                      <article
+                                        key={`ros-recv-${item.id}`}
+                                        {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                        className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                      >
+                                        <div className="shrink-0 pt-1 sm:pt-1.5">
+                                          <button
+                                            type="button"
+                                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                              ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                              : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
+                                              }`}
+                                            aria-pressed={done}
+                                            aria-label={
+                                              done ? "Mark moment as not done" : "Mark moment as done"
+                                            }
+                                            onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                          >
+                                            {done ? (
+                                              <span
+                                                className="text-xl font-semibold leading-none text-stone-600"
+                                                aria-hidden
+                                              >
+                                                ✓
+                                              </span>
+                                            ) : (
+                                              <span
+                                                className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                                aria-hidden
+                                              />
+                                            )}
+                                          </button>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          {isUpNext && !done ? (
+                                            <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                              Up next
+                                            </p>
+                                          ) : null}
+                                          <p
+                                            className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${done ? "text-stone-500" : "text-stone-900"
+                                              }`}
+                                          >
+                                            {item.time?.trim() ? item.time.trim() : "—"}
+                                          </p>
+                                          <h4
+                                            className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                              ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
+                                              : "text-stone-950"
+                                              }`}
+                                          >
+                                            {item.title}
+                                          </h4>
+                                          <p
+                                            className={`mt-2 text-xs font-semibold uppercase tracking-wide ${done ? "text-stone-400" : "text-stone-500"
+                                              }`}
+                                          >
+                                            {item.category}
+                                          </p>
+                                          {songCell ? (
+                                            <p
+                                              className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
+                                                }`}
+                                            >
+                                              {songCell}
+                                            </p>
+                                          ) : null}
+                                          {notesLabel ? (
+                                            <p
+                                              className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
+                                                }`}
+                                            >
+                                              {notesLabel}
+                                            </p>
+                                          ) : null}
+                                        </div>
+                                      </article>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
+                  <section className="mb-8 border-t border-stone-200 pt-12">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Music notes
+                    </h3>
+                    <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
+                      {layoutProfileForActiveEvent === "School Dance" ? (
+                        <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
+                      ) : null}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Overall vibe</p>
+                        <p className="mt-2">{generalDjNotes?.trim() ? generalDjNotes : "—"}</p>
+                      </div>
+                      {musicGenreEraSelections.length > 0 ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Genre / era picks · </span>
+                          {musicGenreEraSelections.join(", ")}
+                        </p>
+                      ) : null}
+                      {musicTasteProfileHasSelections(musicTasteProfile) ? (
+                        <div className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                            Music taste profile
+                          </p>
+                          {musicTasteProfile.danceFloorStyles.length > 0 ? (
+                            <p className="mt-2">
+                              <span className="font-semibold text-stone-900">Dance floor · </span>
+                              {musicTasteProfile.danceFloorStyles.join(", ")}
+                            </p>
+                          ) : null}
+                          {musicTasteProfile.crowdPreferences.length > 0 ? (
+                            <p className="mt-2">
+                              <span className="font-semibold text-stone-900">Crowd · </span>
+                              {musicTasteProfile.crowdPreferences.join(", ")}
+                            </p>
+                          ) : null}
+                          {musicTasteProfile.musicBehavior.length > 0 ? (
+                            <p className="mt-2">
+                              <span className="font-semibold text-stone-900">Behavior · </span>
+                              {musicTasteProfile.musicBehavior.join(", ")}
+                            </p>
+                          ) : null}
+                          {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
+                            <p className="mt-2">
+                              <span className="font-semibold text-stone-900">Ideal dance floor vibe · </span>
+                              {musicTasteProfile.danceFloorVibeNotes}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {(musicVibeDetail.genres ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Genres / eras · </span>
+                          {musicVibeDetail.genres}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.energy ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Energy · </span>
+                          {musicVibeDetail.energy}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.crowdNotes ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">Crowd · </span>
+                          {musicVibeDetail.crowdNotes}
+                        </p>
+                      ) : null}
+                      {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
+                        <p>
+                          <span className="font-semibold text-stone-900">
+                            {layoutProfileForActiveEvent === "School Dance"
+                              ? "Clean selections · "
+                              : "Clean / content · "}
+                          </span>
+                          {musicVibeDetail.cleanMusicPrefs}
+                        </p>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
+                {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
+                  <p className="py-12 text-center text-base text-stone-600">
+                    No ceremony or reception timeline is enabled for this event.
+                  </p>
+                ) : null}
+              </div>
+              {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
+                runOfShowAnnotationCanvasSize.w > 0 &&
+                runOfShowAnnotationCanvasSize.h > 0 ? (
+                <canvas
+                  ref={runOfShowAnnotationCanvasRef}
+                  className={`absolute left-0 top-0 z-[6] ${runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
+                    }`}
+                  style={{
+                    width: runOfShowAnnotationCanvasSize.w,
+                    height: runOfShowAnnotationCanvasSize.h,
+                  }}
+                  aria-hidden={!runOfShowAnnotateMode}
+                />
+              ) : null}
+            </main>
+
+            {runOfShowOverlayActive &&
+              runOfShowUpNextMeta.banner === "upNext" &&
+              runOfShowUpNextCueDetail ? (
+              <button
+                type="button"
+                onClick={scrollRunOfShowToUpNext}
+                tabIndex={runOfShowUpNextRowInView ? -1 : 0}
+                aria-hidden={runOfShowUpNextRowInView}
+                aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
+                className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${runOfShowUpNextRowInView
+                  ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
+                  : "translate-y-0 opacity-100"
+                  }`}
+                style={{
+                  bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
+                  right: "max(1rem, env(safe-area-inset-right, 0px))",
+                }}
               >
-                <p id="timeline-delete-title" className="text-base font-semibold text-stone-900">
-                  Delete this timeline item?
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
+                  {runOfShowUpNextCueDetail.title}
                 </p>
-                <p className="mt-2 line-clamp-3 text-sm leading-snug text-stone-600">
-                  {pendingTimelineDelete.label}
-                </p>
-                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                {runOfShowUpNextCueDetail.subline ? (
+                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
+                    {runOfShowUpNextCueDetail.subline}
+                  </p>
+                ) : null}
+              </button>
+            ) : null}
+          </div>
+        )}
+
+      {timelineImportOpen ? (
+        <div
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          role="presentation"
+          onClick={closeTimelineImport}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-import-title"
+            className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col rounded-2xl border border-stone-200 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+              <p id="timeline-import-title" className="text-base font-semibold text-stone-900">
+                Import Timeline
+              </p>
+              <p className="mt-1.5 text-sm leading-snug text-stone-600">
+                Paste a planner list. We&apos;ll suggest moments—you choose whether to add or replace.
+              </p>
+
+              {timelineImportStep === "paste" ? (
+                <div className="mt-5 space-y-4">
+                  <TextArea
+                    id="timeline-import-paste"
+                    label="Paste timeline text"
+                    value={timelineImportRaw}
+                    onChange={setTimelineImportRaw}
+                    placeholder={"4:30 Ceremony begins\n6:15 Grand entrance — Song: Signed, Sealed, Delivered\n7:30 Toasts — Best man and maid of honor"}
+                    rows={8}
+                    disabled={!canEditTimeline}
+                  />
+                  {timelineImportParseError ? (
+                    <p className="text-sm text-rose-700">{timelineImportParseError}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  <p className="text-sm text-stone-700">
+                    Review {timelineImportDrafts.length}{" "}
+                    {timelineImportDrafts.length === 1 ? "moment" : "moments"} before adding.
+                  </p>
+                  {timelineImportReplaceDanger ? (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+                      Replacing clears your current timeline. Confirm below, or tap Add to Timeline instead.
+                    </div>
+                  ) : null}
+                  <div className="space-y-3">
+                    {timelineImportDrafts.map((draft) => (
+                      <div
+                        key={draft.key}
+                        className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                            Moment
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => removeTimelineImportDraft(draft.key)}
+                            className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-rose-800 hover:bg-rose-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          <TextInput
+                            id={`ti-time-${draft.key}`}
+                            label="Time"
+                            value={draft.time}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { time: v })}
+                            placeholder="e.g. 6:30 PM"
+                          />
+                          <TextInput
+                            id={`ti-title-${draft.key}`}
+                            label="Moment"
+                            value={draft.title}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { title: v })}
+                            placeholder="Title"
+                          />
+                          <TextInput
+                            id={`ti-song-${draft.key}`}
+                            label="Song"
+                            value={draft.songTitle ?? ""}
+                            onChange={(v) =>
+                              updateTimelineImportDraft(draft.key, {
+                                songTitle: v.trim() ? v : undefined,
+                              })
+                            }
+                            placeholder="Optional"
+                          />
+                          <TextInput
+                            id={`ti-artist-${draft.key}`}
+                            label="Artist"
+                            value={draft.artist ?? ""}
+                            onChange={(v) =>
+                              updateTimelineImportDraft(draft.key, { artist: v.trim() ? v : undefined })
+                            }
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <TextArea
+                            id={`ti-notes-${draft.key}`}
+                            label="Notes"
+                            value={draft.notes}
+                            onChange={(v) => updateTimelineImportDraft(draft.key, { notes: v })}
+                            rows={2}
+                            placeholder="Optional"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {timelineImportDrafts.length === 0 ? (
+                    <p className="text-sm text-stone-600">All rows removed. Go back to paste or cancel.</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="shrink-0 border-t border-stone-200 bg-white p-4 sm:p-5">
+              {timelineImportStep === "paste" ? (
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
                   <PrimaryButton
                     type="button"
-                    onClick={() => setPendingTimelineDelete(null)}
+                    onClick={closeTimelineImport}
                     className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
                   >
                     Cancel
                   </PrimaryButton>
                   <PrimaryButton
                     type="button"
-                    onClick={() => {
-                      if (!pendingTimelineDelete) return;
-                      if (pendingTimelineDelete.kind === "reception") {
-                        deleteTimelineItem(pendingTimelineDelete.id);
-                      } else {
-                        deleteCeremonyTimelineItem(pendingTimelineDelete.id);
-                      }
-                      setPendingTimelineDelete(null);
-                    }}
-                    className="w-full rounded-lg border border-rose-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:w-auto"
+                    onClick={handleParseTimelineImport}
+                    disabled={!canEditTimeline || !timelineImportRaw.trim()}
+                    className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
                   >
-                    Delete
+                    Parse Timeline
                   </PrimaryButton>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+                    <PrimaryButton
+                      type="button"
+                      onClick={closeTimelineImport}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                    >
+                      Cancel
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => {
+                        setTimelineImportStep("paste");
+                        setTimelineImportReplaceDanger(false);
+                      }}
+                      className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+                    >
+                      Back
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                      onClick={() => {
+                        setTimelineImportReplaceDanger(false);
+                        applyTimelineImport("add");
+                      }}
+                      className="w-full rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto"
+                    >
+                      Add to Timeline
+                    </PrimaryButton>
+                    {timelineImportReplaceDanger ? (
+                      <PrimaryButton
+                        type="button"
+                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                        onClick={() => applyTimelineImport("replace")}
+                        className="w-full rounded-lg border border-rose-500 bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-rose-700 disabled:opacity-45 sm:w-auto"
+                      >
+                        Confirm Replace Timeline
+                      </PrimaryButton>
+                    ) : (
+                      <PrimaryButton
+                        type="button"
+                        disabled={!canEditTimeline || timelineImportDrafts.length === 0}
+                        onClick={() => setTimelineImportReplaceDanger(true)}
+                        className="w-full rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 disabled:opacity-45 sm:w-auto"
+                      >
+                        Replace Timeline
+                      </PrimaryButton>
+                    )}
+                  </div>
+                  {timelineImportReplaceDanger ? (
+                    <button
+                      type="button"
+                      onClick={() => setTimelineImportReplaceDanger(false)}
+                      className="w-full text-center text-[13px] font-medium text-stone-600 underline-offset-2 hover:underline sm:text-right"
+                    >
+                      Never mind — keep reviewing
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
-          ) : null}
-
-          {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
-            <div
-              className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
-              style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
-            >
-              <span
-                className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
-                aria-live="polite"
-              >
-                {persistPhase === "pending" ? "Saving…" : "Saved just now"}
-              </span>
-            </div>
-          )}
-
-          {authStage === "app" && (
-            <BottomNav
-              items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
-              activeScreen={shellNavActiveScreen}
-              onSelect={setActiveScreen}
-            />
-          )}
+          </div>
         </div>
-      );
+      ) : null}
+
+      {pendingTimelineDelete ? (
+        <div
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          role="presentation"
+          onClick={() => setPendingTimelineDelete(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-delete-title"
+            className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p id="timeline-delete-title" className="text-base font-semibold text-stone-900">
+              Delete this timeline item?
+            </p>
+            <p className="mt-2 line-clamp-3 text-sm leading-snug text-stone-600">
+              {pendingTimelineDelete.label}
+            </p>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <PrimaryButton
+                type="button"
+                onClick={() => setPendingTimelineDelete(null)}
+                className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:w-auto"
+              >
+                Cancel
+              </PrimaryButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  if (!pendingTimelineDelete) return;
+                  if (pendingTimelineDelete.kind === "reception") {
+                    deleteTimelineItem(pendingTimelineDelete.id);
+                  } else {
+                    deleteCeremonyTimelineItem(pendingTimelineDelete.id);
+                  }
+                  setPendingTimelineDelete(null);
+                }}
+                className="w-full rounded-lg border border-rose-400 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-900 shadow-none hover:bg-rose-50 sm:w-auto"
+              >
+                Delete
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
+        <div
+          className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
+          style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <span
+            className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
+            aria-live="polite"
+          >
+            {persistPhase === "pending" ? "Saving…" : "Saved just now"}
+          </span>
+        </div>
+      )}
+
+      {authStage === "app" && (
+        <BottomNav
+          items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
+          activeScreen={shellNavActiveScreen}
+          onSelect={setActiveScreen}
+        />
+      )}
+    </div>
+  );
 }
