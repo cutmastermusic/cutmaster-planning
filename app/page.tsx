@@ -1,5 +1,6 @@
 "use client";
 
+import { EventLocationsFields } from "@/components/events/EventLocationsFields";
 import { EventAssignedDjField } from "@/components/events/EventAssignedDjField";
 import { EventPlannerFields } from "@/components/events/EventPlannerFields";
 import { EventModalStatus } from "@/components/events/EventModalStatus";
