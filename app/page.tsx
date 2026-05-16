@@ -1,5 +1,6 @@
 "use client";
 
+import { EventModalContent } from "@/components/events/EventModalContent";
 import { EventModalBody } from "@/components/events/EventModalBody";
 import { EventInternalNotesField } from "@/components/events/EventInternalNotesField";
 import { EventBasicDetailsFields } from "@/components/events/EventBasicDetailsFields";
@@ -14732,6 +14733,7 @@ export default function Home() {
 
             }}
           >
+            <EventModalBody>
 
             <EventBasicDetailsFields
               eventName={eventDraft.eventName}
@@ -14897,6 +14899,7 @@ export default function Home() {
                 setEventModalStatus(null);
               }}
             />
+          </EventModalBody>
           </EventModalForm>
         </EventModal>
       )}
