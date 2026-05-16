@@ -1,5 +1,6 @@
 "use client";
 
+import { EventModalBody } from "@/components/events/EventModalBody";
 import { EventInternalNotesField } from "@/components/events/EventInternalNotesField";
 import { EventBasicDetailsFields } from "@/components/events/EventBasicDetailsFields";
 import { EventLocationsFields } from "@/components/events/EventLocationsFields";
@@ -14878,15 +14879,13 @@ export default function Home() {
               }
               TextInputComponent={TextInput}
             />
-            <TextArea
-              id="event-internal-notes"
-              label="Internal Notes"
-              value={eventDraft.internalNotes}
-              onChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, internalNotes: value }))
-              }
-              rows={3}
-            />
+            <EventInternalNotesField
+  value={eventDraft.internalNotes}
+  onChange={(value) =>
+    setEventDraft((prev) => ({ ...prev, internalNotes: value }))
+  }
+  TextAreaComponent={TextArea}
+/>
             <EventModalStatus status={eventModalStatus} />
 
 
