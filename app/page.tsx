@@ -16,6 +16,8 @@ import {
   createEvent as createDatabaseEvent,
   getEvents as getDatabaseEvents,
   updateEvent as updateDatabaseEvent,
+  replaceMainTimelineItems,
+  replaceCeremonyTimelineItems,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -1826,6 +1828,35 @@ export default function Home() {
             receptionLocation: eventSettings.receptionLocation,
             internalNotes: eventSettings.internalNotes,
           });
+          await replaceMainTimelineItems(
+            activeEventId,
+            timelinePayload.map((item, index) => ({
+              time: item.time,
+              title: item.title,
+              category: item.category,
+              notes: item.notes,
+              needsDjMcAttention: item.needsDjMcAttention,
+              songTitle: item.songTitle,
+              artist: item.artist,
+              fadeOutEarly: item.fadeOutEarly,
+              fadeOutTimestamp: item.fadeOutTimestamp,
+              order: index,
+            })),
+          );
+          await replaceCeremonyTimelineItems(
+            activeEventId,
+            ceremonyPayload.map((item, index) => ({
+              time: item.timeOrOrder,
+              title: item.moment,
+              category: "ceremony",
+              notes: item.notes,
+              needsDjMcAttention: item.needsDjMcAttention,
+              songTitle: item.songTitle,
+              artist: item.artist,
+              order: index,
+            })),
+          );
+
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }

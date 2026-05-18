@@ -86,3 +86,106 @@ export async function updateEvent(id: string, data: EventData) {
     },
   });
 }
+export async function replaceMainTimelineItems(
+  eventId: string,
+  items: Array<{
+    time?: string | null;
+    title: string;
+    category?: string | null;
+    notes?: string | null;
+    needsDjMcAttention?: boolean;
+    songTitle?: string | null;
+    artist?: string | null;
+    fadeOutEarly?: boolean;
+    fadeOutTimestamp?: string | null;
+    order: number;
+  }>,
+) {
+  const timeline = await prisma.timeline.upsert({
+    where: {
+      eventId_title: {
+        eventId,
+        title: "Main Timeline",
+      },
+    },
+    update: {},
+    create: {
+      eventId,
+      title: "Main Timeline",
+    },
+  });
+
+  await prisma.timelineItem.deleteMany({
+    where: {
+      timelineId: timeline.id,
+    },
+  });
+
+  await prisma.timelineItem.createMany({
+    data: items.map((item) => ({
+      timelineId: timeline.id,
+      time: item.time,
+      title: item.title,
+      category: item.category,
+      notes: item.notes,
+      needsDjMcAttention: item.needsDjMcAttention ?? false,
+      songTitle: item.songTitle,
+      artist: item.artist,
+      fadeOutEarly: item.fadeOutEarly ?? false,
+      fadeOutTimestamp: item.fadeOutTimestamp,
+      order: item.order,
+    })),
+  });
+}
+
+export async function replaceCeremonyTimelineItems(
+  eventId: string,
+  items: Array<{
+    time?: string | null;
+    title: string;
+    category?: string | null;
+    notes?: string | null;
+    needsDjMcAttention?: boolean;
+    songTitle?: string | null;
+    artist?: string | null;
+    fadeOutEarly?: boolean;
+    fadeOutTimestamp?: string | null;
+    order: number;
+  }>,
+) {
+  const timeline = await prisma.timeline.upsert({
+    where: {
+      eventId_title: {
+        eventId,
+        title: "Ceremony Timeline",
+      },
+    },
+    update: {},
+    create: {
+      eventId,
+      title: "Ceremony Timeline",
+    },
+  });
+
+  await prisma.timelineItem.deleteMany({
+    where: {
+      timelineId: timeline.id,
+    },
+  });
+
+  await prisma.timelineItem.createMany({
+    data: items.map((item) => ({
+      timelineId: timeline.id,
+      time: item.time,
+      title: item.title,
+      category: item.category,
+      notes: item.notes,
+      needsDjMcAttention: item.needsDjMcAttention ?? false,
+      songTitle: item.songTitle,
+      artist: item.artist,
+      fadeOutEarly: item.fadeOutEarly ?? false,
+      fadeOutTimestamp: item.fadeOutTimestamp,
+      order: item.order,
+    })),
+  });
+}

@@ -47,13 +47,26 @@ model Timeline {
   event   Event @relation(fields: [eventId], references: [id])
 
   items TimelineItem[]
+
+  @@unique([eventId, title])
 }
 
 model TimelineItem {
   id    String @id @default(cuid())
-  time  String?
-  title String
-  notes String?
+
+  time     String?
+  title    String
+  category String?
+  notes    String?
+
+  needsDjMcAttention Boolean @default(false)
+
+  songTitle String?
+  artist    String?
+
+  fadeOutEarly     Boolean @default(false)
+  fadeOutTimestamp String?
+
   order Int
 
   timelineId String
