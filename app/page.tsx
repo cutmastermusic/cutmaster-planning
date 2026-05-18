@@ -15,6 +15,7 @@ import { EventModal } from "@/components/events/EventModal";
 import {
   createEvent as createDatabaseEvent,
   getEvents as getDatabaseEvents,
+  updateEvent as updateDatabaseEvent,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -1793,7 +1794,7 @@ export default function Home() {
     };
   }, [flushCeremonyTimelineInlineEditDraftIntoTimeline, flushReceptionTimelineInlineEditDraftIntoTimeline]);
 
-  const commitActiveEventPlanningToEventsState = useCallback(() => {
+  const commitActiveEventPlanningToEventsState = useCallback(async () => {
     const recvDraft = receptionTimelineInlineEditDraftRef.current;
     const timelinePayload =
       recvDraft === null
@@ -1808,6 +1809,26 @@ export default function Home() {
         : ceremonyTimelineItems.map((t) =>
           t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
         );
+
+        try {
+          await updateDatabaseEvent(activeEventId, {
+            title: eventSettings.eventName,
+            date: eventSettings.weddingDate
+              ? new Date(eventSettings.weddingDate)
+              : null,
+            type: eventSettings.eventType,
+            venue: eventSettings.venue,
+            assignedDj: eventSettings.assignedDj,
+            packageName: eventSettings.packageName,
+            plannerName: eventSettings.plannerName,
+            plannerEmail: eventSettings.plannerEmail,
+            ceremonyLocation: eventSettings.ceremonyLocation,
+            receptionLocation: eventSettings.receptionLocation,
+            internalNotes: eventSettings.internalNotes,
+          });
+        } catch (error) {
+          console.error("Failed to persist event settings:", error);
+        }
 
     setEvents((prev) =>
       prev.map((evt) =>
@@ -2322,27 +2343,29 @@ export default function Home() {
         .map((item) =>
           mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
         );
-      try {
-        await createDatabaseEvent({
-          title: eventName,
-          date: date ? new Date(date) : null,
-          type: draft.eventType || newEvent.settings.eventType,
-          venue,
-          assignedDj: draft.assignedDj,
-          packageName: draft.packageName.trim(),
-          plannerName: draft.plannerName.trim(),
-          plannerEmail: draft.plannerEmail.trim(),
-          ceremonyLocation: draft.ceremonyLocation.trim(),
-          receptionLocation: draft.receptionLocation.trim(),
-          internalNotes: draft.internalNotes.trim(),
-        });
-      } catch (error) {
-        console.error("Failed to save event to database:", error);
-        setEventModalStatus({
-          kind: "error",
-          message: "Event was created locally, but failed to save to the database.",
-        });
-      }
+        try {
+          const savedDatabaseEvent = await createDatabaseEvent({
+            title: eventName,
+            date: date ? new Date(date) : null,
+            type: draft.eventType || newEvent.settings.eventType,
+            venue,
+            assignedDj: draft.assignedDj,
+            packageName: draft.packageName.trim(),
+            plannerName: draft.plannerName.trim(),
+            plannerEmail: draft.plannerEmail.trim(),
+            ceremonyLocation: draft.ceremonyLocation.trim(),
+            receptionLocation: draft.receptionLocation.trim(),
+            internalNotes: draft.internalNotes.trim(),
+          });
+        
+          newEvent.id = savedDatabaseEvent.id;
+        } catch (error) {
+          console.error("Failed to save event to database:", error);
+          setEventModalStatus({
+            kind: "error",
+            message: "Event was created locally, but failed to save to the database.",
+          });
+        }
 
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
@@ -2357,6 +2380,28 @@ export default function Home() {
     }
 
     if (eventEditingId) {
+      console.log("Updating database event:", eventEditingId);
+      try {
+        await updateDatabaseEvent(eventEditingId, {
+          title: eventName,
+          date: date ? new Date(date) : null,
+          type: draft.eventType,
+          venue,
+          assignedDj: draft.assignedDj,
+          packageName: draft.packageName.trim(),
+          plannerName: draft.plannerName.trim(),
+          plannerEmail: draft.plannerEmail.trim(),
+          ceremonyLocation: draft.ceremonyLocation.trim(),
+          receptionLocation: draft.receptionLocation.trim(),
+          internalNotes: draft.internalNotes.trim(),
+        });
+      } catch (error) {
+        console.error("Failed to update event in database:", error);
+        setEventModalStatus({
+          kind: "error",
+          message: "Event was updated locally, but failed to save to the database.",
+        });
+      }
       setEvents((prev) =>
         prev.map((evt) =>
           evt.id === eventEditingId
@@ -4677,6 +4722,10 @@ export default function Home() {
 
           seededEvent.settings = {
             ...seededEvent.settings,
+            eventLayoutProfile: migrateLegacyLayoutProfile(
+              dbEvent.type,
+              dbEvent.type || "Wedding",
+            ),
             eventName: dbEvent.title,
             coupleNames: dbEvent.title,
             eventType: dbEvent.type || "Wedding",
