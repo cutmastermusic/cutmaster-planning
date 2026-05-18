@@ -23,6 +23,14 @@ model Event {
   type      String?
   venue     String?
 
+  assignedDj        String?
+  packageName       String?
+  plannerName       String?
+  plannerEmail      String?
+  ceremonyLocation  String?
+  receptionLocation String?
+  internalNotes     String?
+
   ownerId String
   owner   User @relation(fields: [ownerId], references: [id])
 

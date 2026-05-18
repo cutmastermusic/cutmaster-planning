@@ -2328,6 +2328,13 @@ export default function Home() {
           date: date ? new Date(date) : null,
           type: draft.eventType || newEvent.settings.eventType,
           venue,
+          assignedDj: draft.assignedDj,
+          packageName: draft.packageName.trim(),
+          plannerName: draft.plannerName.trim(),
+          plannerEmail: draft.plannerEmail.trim(),
+          ceremonyLocation: draft.ceremonyLocation.trim(),
+          receptionLocation: draft.receptionLocation.trim(),
+          internalNotes: draft.internalNotes.trim(),
         });
       } catch (error) {
         console.error("Failed to save event to database:", error);
@@ -4674,6 +4681,13 @@ export default function Home() {
             coupleNames: dbEvent.title,
             eventType: dbEvent.type || "Wedding",
             venue: dbEvent.venue || "",
+            assignedDj: dbEvent.assignedDj || "",
+            packageName: dbEvent.packageName || "",
+            plannerName: dbEvent.plannerName || "",
+            plannerEmail: dbEvent.plannerEmail || "",
+            ceremonyLocation: dbEvent.ceremonyLocation || "",
+            receptionLocation: dbEvent.receptionLocation || "",
+            internalNotes: dbEvent.internalNotes || "",
             weddingDate: dbEvent.date
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
@@ -14734,7 +14748,7 @@ export default function Home() {
             }}
           >
             <EventModalBody>
-
+            <EventModalContent>
             <EventBasicDetailsFields
               eventName={eventDraft.eventName}
               coupleNames={eventDraft.coupleNames}
@@ -14899,6 +14913,7 @@ export default function Home() {
                 setEventModalStatus(null);
               }}
             />
+          </EventModalContent>
           </EventModalBody>
           </EventModalForm>
         </EventModal>

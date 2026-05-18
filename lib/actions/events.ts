@@ -22,6 +22,13 @@ export async function createEvent(data: {
   date?: Date | null;
   type?: string | null;
   venue?: string | null;
+  assignedDj?: string | null;
+  packageName?: string | null;
+  plannerName?: string | null;
+  plannerEmail?: string | null;
+  ceremonyLocation?: string | null;
+  receptionLocation?: string | null;
+  internalNotes?: string | null;
 }) {
   const demoUser = await prisma.user.upsert({
     where: {
@@ -40,6 +47,13 @@ export async function createEvent(data: {
       date: data.date,
       type: data.type,
       venue: data.venue,
+      assignedDj: data.assignedDj,
+      packageName: data.packageName,
+      plannerName: data.plannerName,
+      plannerEmail: data.plannerEmail,
+      ceremonyLocation: data.ceremonyLocation,
+      receptionLocation: data.receptionLocation,
+      internalNotes: data.internalNotes,
       ownerId: demoUser.id,
       timelines: {
         create: {
