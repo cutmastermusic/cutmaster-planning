@@ -37,6 +37,7 @@ model Event {
   timelines Timeline[]
   songs EventSong[]
   guestRequests GuestRequest[]
+  eventTeamMembers EventTeamMember[]
 
   createdAt DateTime @default(now())
 }
@@ -111,4 +112,34 @@ model GuestRequest {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model EventTeamMember {
+  id String @id @default(cuid())
+
+  name    String
+  role    String
+  company String?
+  email   String?
+  phone   String?
+  notes   String?
+
+  website                  String?
+  instagram                String?
+  arrivalTime              String?
+  specialCoordinationNotes String?
+
+  isActive       Boolean @default(true)
+  isCollaborator Boolean @default(false)
+  permissions    Json?
+
+  order Int
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
 }

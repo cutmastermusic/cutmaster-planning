@@ -168,13 +168,38 @@ export type Vendor = {
   affiliation?: VendorAffiliation;
 };
 
+/**
+ * Internal Cutmaster staff roles. Kept as a literal union for permission
+ * checks (e.g. "Admin" gates most settings UIs) and for legacy data that
+ * predates the unified Event Team concept.
+ */
+export type InternalTeamRole = "Admin" | "DJ" | "Planner";
+
+/**
+ * Any role that can appear on the unified Event Team. Includes the three
+ * internal roles plus every {@link VendorType} so a single roster can
+ * hold both internal staff and external vendors (venue, photographer,
+ * catering, entertainment, etc.).
+ */
+export type TeamMemberRole = InternalTeamRole | VendorType;
+
 export type TeamMember = {
   id: string;
   name: string;
-  role: "Admin" | "DJ" | "Planner";
+  role: TeamMemberRole;
   email: string;
   phone: string;
   notes: string;
+  /** Vendor company name (blank for internal staff). */
+  company?: string;
+  /** Optional vendor URL. */
+  website?: string;
+  /** Optional vendor social handle (Instagram). */
+  instagram?: string;
+  /** Day-of arrival/load-in time as free-form text. */
+  arrivalTime?: string;
+  /** Special coordination notes (parking, power, ceremony cues, etc.). */
+  specialCoordinationNotes?: string;
   isActive: boolean;
 };
 

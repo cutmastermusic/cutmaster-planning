@@ -1,4 +1,10 @@
-import type { Vendor, VendorAffiliation, VendorType } from "@/types/planning";
+import type {
+  InternalTeamRole,
+  TeamMemberRole,
+  Vendor,
+  VendorAffiliation,
+  VendorType,
+} from "@/types/planning";
 
 /** Ordered list for add/edit vendor dropdown (aligned with event-team UX categories). */
 export const VENDOR_TYPES_ORDERED: VendorType[] = [
@@ -102,6 +108,61 @@ export function normalizeVendorsArray(vendors: unknown): Vendor[] {
 
 export function vendorTypeLabel(type: VendorType): string {
   return VENDOR_TYPE_LABELS[type] ?? type;
+}
+
+/**
+ * Roles available on the unified Event Team dropdown. Internal Cutmaster
+ * staff first (Admin/DJ/Planner), then every external {@link VendorType}.
+ * "Planner" appears only under Internal team to avoid an ambiguous
+ * duplicate; an external coordinator should use "Planner / Coordinator"
+ * via the same option.
+ */
+export const INTERNAL_TEAM_ROLES: InternalTeamRole[] = ["Admin", "DJ", "Planner"];
+
+export type TeamRoleGroup = { label: string; roles: TeamMemberRole[] };
+
+export const EVENT_TEAM_ROLE_GROUPS: TeamRoleGroup[] = [
+  { label: "Internal team", roles: ["Admin", "DJ", "Planner"] },
+  {
+    label: "Event partners",
+    roles: [
+      "Photographer",
+      "Videographer",
+      "Venue",
+      "DJ/Entertainment",
+      "Caterer",
+      "Bar",
+      "Florist",
+      "Hair/Makeup",
+      "Transportation",
+      "Photo Booth",
+      "Officiant",
+      "Content Creator",
+      "Other",
+    ],
+  },
+];
+
+const TEAM_ROLE_LABEL_OVERRIDES: Partial<Record<TeamMemberRole, string>> = {
+  Admin: "Admin",
+  DJ: "DJ (internal)",
+  Planner: "Planner / Coordinator",
+};
+
+/** Human-readable label for any unified Event Team role. */
+export function teamMemberRoleLabel(role: TeamMemberRole | string): string {
+  if (role in TEAM_ROLE_LABEL_OVERRIDES) {
+    return TEAM_ROLE_LABEL_OVERRIDES[role as TeamMemberRole] ?? role;
+  }
+  if ((VENDOR_TYPE_LABELS as Record<string, string>)[role]) {
+    return VENDOR_TYPE_LABELS[role as VendorType];
+  }
+  return role;
+}
+
+/** True if the role represents internal Cutmaster staff. */
+export function isInternalTeamRole(role: TeamMemberRole | string): boolean {
+  return role === "Admin" || role === "DJ" || role === "Planner";
 }
 
 export function filterVendorsByTypes(list: Vendor[], types: VendorType[]): Vendor[] {

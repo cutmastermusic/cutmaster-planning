@@ -17,6 +17,7 @@ import {
   getEvents as getDatabaseEvents,
   updateEvent as updateDatabaseEvent,
   replaceGuestRequests,
+  replaceEventTeamMembers,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -128,6 +129,7 @@ import type {
   TimelinePresetItem,
   TimelineTemplate,
   TeamMember,
+  TeamMemberRole,
   UserRole,
   Vendor,
   VendorAffiliation,
@@ -140,14 +142,17 @@ import type {
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
 import {
+  EVENT_TEAM_ROLE_GROUPS,
   VENDOR_TYPES_ORDERED,
   VENDOR_UI_SECTIONS,
   filterVendorsByTypes,
   formatVendorContactLines,
   isCutmasterEventTeam,
+  isInternalTeamRole,
   normalizeVendorsArray,
   smsHref,
   sortVendorsForEventDocument,
+  teamMemberRoleLabel,
   vendorTypeLabel,
 } from "@/utils/vendors";
 import {
@@ -1544,6 +1549,10 @@ export default function Home() {
 
   const [appMode, setAppMode] = useState<AppMode>("events");
   const [activeEventId, setActiveEventId] = useState<string>("evt-1");
+  // Tracks event ids that exist in the Postgres database. Server actions like
+  // `replaceEventTeamMembers` require a real DB event id (FK constraint), so
+  // we use this set to avoid hitting Postgres with seed/local ids like "evt-1".
+  const databaseEventIdsRef = useRef<Set<string>>(new Set<string>());
 
   const [events, setEvents] = useState<EventRecord[]>(() =>
     buildSeedEvents({
@@ -1616,12 +1625,18 @@ export default function Home() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
   const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
   const [teamNameDraft, setTeamNameDraft] = useState("");
-  const [teamRoleDraft, setTeamRoleDraft] = useState<"Admin" | "DJ" | "Planner">("DJ");
+  const [teamRoleDraft, setTeamRoleDraft] = useState<TeamMemberRole>("DJ");
+  const [teamCompanyDraft, setTeamCompanyDraft] = useState("");
   const [teamEmailDraft, setTeamEmailDraft] = useState("");
   const [teamPhoneDraft, setTeamPhoneDraft] = useState("");
   const [teamNotesDraft, setTeamNotesDraft] = useState("");
+  const [teamWebsiteDraft, setTeamWebsiteDraft] = useState("");
+  const [teamInstagramDraft, setTeamInstagramDraft] = useState("");
+  const [teamArrivalDraft, setTeamArrivalDraft] = useState("");
+  const [teamCoordinationDraft, setTeamCoordinationDraft] = useState("");
   const [teamActiveDraft, setTeamActiveDraft] = useState(true);
   const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [teamSaving, setTeamSaving] = useState(false);
   const [teamFormStatus, setTeamFormStatus] = useState<{
     kind: "success" | "error";
     message: string;
@@ -1841,6 +1856,25 @@ export default function Home() {
               order: index,
             })),
           );
+
+          console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers", {
+            activeEventId,
+            count: teamMembers.length,
+            dbEventIds: Array.from(databaseEventIdsRef.current),
+          });
+          await replaceEventTeamMembers(
+            activeEventId,
+            teamMembers.map((member, index) => ({
+              name: member.name,
+              role: member.role,
+              email: member.email || null,
+              phone: member.phone || null,
+              notes: member.notes || null,
+              isActive: member.isActive,
+              order: index,
+            })),
+          );
+          console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -1920,6 +1954,7 @@ export default function Home() {
     plannerNotes,
     playlistVibeOverrides,
     recessionalSong,
+    teamMembers,
     timelineItems,
     unityCeremonySong,
     vendors,
@@ -1948,6 +1983,29 @@ export default function Home() {
     setPlannerNotes(cloneJson(evt.plannerNotes));
     setVendors(cloneJson(normalized.vendors ?? []));
     setGuestRequests(cloneJson(evt.guestRequests));
+    // Team members are per-event (DB-backed via EventTeamMember rows). Drive
+    // the global `teamMembers` working state from the event we're entering so
+    // the Event Team UI reflects the selected event, not whatever set was
+    // last loaded for another event. We ALWAYS reset from the active event's
+    // shadow field — defaulting to [] when it is missing — so per-event
+    // scoping is definitive. Previously we only updated when the shadow was
+    // an array, which left stale state when the shadow was undefined (legacy
+    // localStorage record, race with DB hydration, etc.).
+    const evtTeamMembers = (evt as EventRecord & {
+      eventTeamMembers?: TeamMember[];
+    }).eventTeamMembers;
+    const nextTeamMembers = Array.isArray(evtTeamMembers)
+      ? cloneJson(evtTeamMembers)
+      : [];
+    console.log("[HYDRATE-DEBUG] loadEventPlanningIntoWorkingState →", {
+      evtId: evt.id,
+      hasShadow: Array.isArray(evtTeamMembers),
+      shadowLength: Array.isArray(evtTeamMembers)
+        ? evtTeamMembers.length
+        : null,
+      nextTeamMembers,
+    });
+    setTeamMembers(nextTeamMembers);
     setGeneralDjNotes(evt.generalDjNotes);
     setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
     setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
@@ -2023,11 +2081,30 @@ export default function Home() {
   };
 
   const switchToEvent = (nextEventId: string) => {
-    const next = events.find((e) => e.id === nextEventId);
-    if (!next) return;
+    // Locate the full hydrated event by id from the live events state.
+    // This is the canonical record: it carries the DB-backed per-event
+    // shadow fields (e.g. `eventTeamMembers`) populated by the DB hydration
+    // effect. We must NOT rebuild it from template/seed data here, or we
+    // strip those shadow fields and lose persisted per-event data on the
+    // very next render.
+    const fullEvent = events.find((e) => e.id === nextEventId) as
+      | (EventRecord & { eventTeamMembers?: TeamMember[] })
+      | undefined;
+    if (!fullEvent) return;
 
-    commitActiveEventPlanningToEventsState();
-    loadEventPlanningIntoWorkingState(next);
+    // Only flush working state back to the previously-active event when we
+    // are actually transitioning BETWEEN two events (`appMode === "event"`).
+    // When opening an event from the All Events list (`appMode === "events"`),
+    // there is no "from" event being edited — the global working state may
+    // simply be stale/empty after refresh, and committing it would issue a
+    // destructive `replaceEventTeamMembers` (deleteMany+createMany) with
+    // that stale payload, wiping the persisted roster for the event we're
+    // about to open.
+    if (appMode === "event" && activeEventId !== nextEventId) {
+      commitActiveEventPlanningToEventsState();
+    }
+
+    loadEventPlanningIntoWorkingState(fullEvent);
     setActiveEventId(nextEventId);
     setActiveScreen("Dashboard");
     setAppMode("event");
@@ -2374,6 +2451,7 @@ export default function Home() {
           });
         
           newEvent.id = savedDatabaseEvent.id;
+          databaseEventIdsRef.current.add(savedDatabaseEvent.id);
         } catch (error) {
           console.error("Failed to save event to database:", error);
           setEventModalStatus({
@@ -2381,6 +2459,10 @@ export default function Home() {
             message: "Event was created locally, but failed to save to the database.",
           });
         }
+
+      // Initialize the per-event team-member shadow field so this event has a
+      // consistent shape across selection, hydration, and persistence cycles.
+      (newEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers = [];
 
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
@@ -3477,9 +3559,14 @@ export default function Home() {
     setTeamEditingId(null);
     setTeamNameDraft("");
     setTeamRoleDraft("DJ");
+    setTeamCompanyDraft("");
     setTeamEmailDraft("");
     setTeamPhoneDraft("");
     setTeamNotesDraft("");
+    setTeamWebsiteDraft("");
+    setTeamInstagramDraft("");
+    setTeamArrivalDraft("");
+    setTeamCoordinationDraft("");
     setTeamActiveDraft(true);
   };
 
@@ -3487,9 +3574,14 @@ export default function Home() {
     setTeamEditingId(member.id);
     setTeamNameDraft(member.name);
     setTeamRoleDraft(member.role);
+    setTeamCompanyDraft(member.company ?? "");
     setTeamEmailDraft(member.email);
     setTeamPhoneDraft(member.phone);
     setTeamNotesDraft(member.notes);
+    setTeamWebsiteDraft(member.website ?? "");
+    setTeamInstagramDraft(member.instagram ?? "");
+    setTeamArrivalDraft(member.arrivalTime ?? "");
+    setTeamCoordinationDraft(member.specialCoordinationNotes ?? "");
     setTeamActiveDraft(member.isActive);
     setTeamFormStatus({ kind: "success", message: `Editing ${member.name}.` });
     setTeamModalOpen(true);
@@ -3506,7 +3598,109 @@ export default function Home() {
     resetTeamMemberDraft();
   };
 
-  const saveTeamMember = () => {
+  // Persist the new roster to the database. Returns a result object so the
+  // caller can branch on success/failure (keep the modal open on failure,
+  // close on success). No silent skips: if there's no active event id we
+  // return ok:false so the caller can surface that to the user. If the
+  // server action throws, we return ok:false with the error.
+  const writeTeamMembersToDatabase = async (
+    nextTeamMembers: TeamMember[],
+  ): Promise<
+    | { ok: true; rows: Awaited<ReturnType<typeof replaceEventTeamMembers>> }
+    | { ok: false; error: unknown }
+  > => {
+    if (!activeEventId) {
+      const error = new Error("No active event id; cannot persist team members.");
+      console.warn(
+        "writeTeamMembersToDatabase: skipping — no activeEventId",
+      );
+      return { ok: false, error };
+    }
+    // Optimistic shadow update so the in-memory event keeps the new roster
+    // even before the server roundtrip completes.
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? ({
+              ...evt,
+              eventTeamMembers: cloneJson(nextTeamMembers),
+            } as EventRecord)
+          : evt,
+      ),
+    );
+
+    try {
+      console.log("CALLING replaceEventTeamMembers", {
+        activeEventId,
+        count: nextTeamMembers.length,
+        names: nextTeamMembers.map((m) => m.name),
+      });
+      const savedRows = await replaceEventTeamMembers(
+        activeEventId,
+        nextTeamMembers.map((member, index) => ({
+          name: member.name,
+          role: member.role,
+          company: member.company || null,
+          email: member.email || null,
+          phone: member.phone || null,
+          notes: member.notes || null,
+          website: member.website || null,
+          instagram: member.instagram || null,
+          arrivalTime: member.arrivalTime || null,
+          specialCoordinationNotes: member.specialCoordinationNotes || null,
+          isActive: member.isActive,
+          order: index,
+        })),
+      );
+      console.log("replaceEventTeamMembers returned", {
+        activeEventId,
+        rowsReturned: Array.isArray(savedRows) ? savedRows.length : null,
+        savedRows,
+      });
+
+      if (
+        Array.isArray(savedRows) &&
+        savedRows.length === nextTeamMembers.length
+      ) {
+        const reconciled = savedRows
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((row, index) => ({
+            ...nextTeamMembers[index],
+            id: row.id,
+            isActive: row.isActive,
+          }));
+        setTeamMembers(reconciled);
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? ({
+                  ...evt,
+                  eventTeamMembers: reconciled,
+                } as EventRecord)
+              : evt,
+          ),
+        );
+      } else if (Array.isArray(savedRows) && savedRows.length === 0) {
+        // The server returned an empty result — typically because the event
+        // id didn't exist in the DB (server-side findUnique safety check).
+        // Surface that to the caller so the modal can keep itself open and
+        // show an error.
+        const error = new Error(
+          `Server returned no rows for event "${activeEventId}". The event may not exist in the database yet.`,
+        );
+        return { ok: false, error };
+      }
+      return { ok: true, rows: savedRows };
+    } catch (error) {
+      console.error("replaceEventTeamMembers threw", error);
+      return { ok: false, error };
+    }
+  };
+
+  const saveTeamMember = async () => {
+    console.log("SAVE TEAM MEMBER CLICKED");
+
     const name = teamNameDraft.trim();
     const email = teamEmailDraft.trim();
     if (!name) {
@@ -3517,43 +3711,178 @@ export default function Home() {
       setTeamFormStatus({ kind: "error", message: "Team member role is required." });
       return;
     }
-    if (!teamEditingId) {
-      const newMember: TeamMember = {
-        id: `tm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name,
-        role: teamRoleDraft,
-        email,
-        phone: teamPhoneDraft.trim(),
-        notes: teamNotesDraft.trim(),
-        isActive: teamActiveDraft,
-      };
-      setTeamMembers((prev) => [newMember, ...prev]);
-      logActivity("team_member_added", `Added team member: ${name}`);
-      setTeamFormStatus({ kind: "success", message: `Added ${name} to the team.` });
-      closeTeamMemberModal();
+
+    const company = teamCompanyDraft.trim();
+    const phone = teamPhoneDraft.trim();
+    const notes = teamNotesDraft.trim();
+    const website = teamWebsiteDraft.trim();
+    const instagram = teamInstagramDraft.trim();
+    const arrivalTime = teamArrivalDraft.trim();
+    const specialCoordinationNotes = teamCoordinationDraft.trim();
+
+    // Build the next roster up front so we can log it and pass it directly
+    // to `replaceEventTeamMembers`. Add path prepends a fresh member; edit
+    // path patches the matching entry in place.
+    const newMember: TeamMember | null = teamEditingId
+      ? null
+      : {
+          id: `tm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name,
+          role: teamRoleDraft,
+          company,
+          email,
+          phone,
+          notes,
+          website,
+          instagram,
+          arrivalTime,
+          specialCoordinationNotes,
+          isActive: teamActiveDraft,
+        };
+
+    const nextTeamMembers: TeamMember[] = newMember
+      ? [newMember, ...teamMembers]
+      : teamMembers.map((member) =>
+          member.id === teamEditingId
+            ? {
+                ...member,
+                name,
+                role: teamRoleDraft,
+                company,
+                email,
+                phone,
+                notes,
+                website,
+                instagram,
+                arrivalTime,
+                specialCoordinationNotes,
+                isActive: teamActiveDraft,
+              }
+            : member,
+        );
+
+    console.log("activeEventId", activeEventId);
+    console.log("nextTeamMembers", nextTeamMembers);
+
+    if (!activeEventId) {
+      setTeamFormStatus({
+        kind: "error",
+        message:
+          "Cannot save: no active event id. Open or create an event first.",
+      });
       return;
     }
-    setTeamMembers((prev) =>
-      prev.map((member) =>
-        member.id === teamEditingId
-          ? {
-            ...member,
-            name,
-            role: teamRoleDraft,
-            email,
-            phone: teamPhoneDraft.trim(),
-            notes: teamNotesDraft.trim(),
-            isActive: teamActiveDraft,
-          }
-          : member,
-      ),
-    );
-    logActivity("team_member_added", `Updated team member: ${name}`);
-    setTeamFormStatus({ kind: "success", message: `Saved updates for ${name}.` });
-    closeTeamMemberModal();
+
+    setTeamSaving(true);
+    setTeamFormStatus({ kind: "success", message: "Saving…" });
+
+    try {
+      // Optimistic UI: render the new roster immediately so the modal's
+      // status banner and the list under it reflect what we're attempting
+      // to save. The DB write happens next, awaited.
+      setTeamMembers(nextTeamMembers);
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? ({
+                ...evt,
+                eventTeamMembers: cloneJson(nextTeamMembers),
+              } as EventRecord)
+            : evt,
+        ),
+      );
+
+      // *** The single, direct DB call the user asked for. ***
+      const savedRows = await replaceEventTeamMembers(
+        activeEventId,
+        nextTeamMembers.map((member, index) => ({
+          name: member.name,
+          role: member.role,
+          company: member.company || null,
+          email: member.email || null,
+          phone: member.phone || null,
+          notes: member.notes || null,
+          website: member.website || null,
+          instagram: member.instagram || null,
+          arrivalTime: member.arrivalTime || null,
+          specialCoordinationNotes: member.specialCoordinationNotes || null,
+          isActive: member.isActive,
+          order: index,
+        })),
+      );
+      console.log("replaceEventTeamMembers returned", {
+        activeEventId,
+        rowsReturned: Array.isArray(savedRows) ? savedRows.length : null,
+        savedRows,
+      });
+
+      // If the server returned 0 rows for a non-empty payload, that means
+      // the event id isn't in the DB (server-side safety check). Surface
+      // that and keep the modal open.
+      if (
+        nextTeamMembers.length > 0 &&
+        Array.isArray(savedRows) &&
+        savedRows.length === 0
+      ) {
+        setTeamFormStatus({
+          kind: "error",
+          message: `Save failed: event "${activeEventId}" does not exist in the database. Open or create a DB-backed event.`,
+        });
+        return;
+      }
+
+      // Reconcile local cuids with what Prisma just assigned so subsequent
+      // edits/deletes target the right rows.
+      if (
+        Array.isArray(savedRows) &&
+        savedRows.length === nextTeamMembers.length
+      ) {
+        const reconciled = savedRows
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((row, index) => ({
+            ...nextTeamMembers[index],
+            id: row.id,
+            isActive: row.isActive,
+          }));
+        setTeamMembers(reconciled);
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? ({
+                  ...evt,
+                  eventTeamMembers: reconciled,
+                } as EventRecord)
+              : evt,
+          ),
+        );
+      }
+
+      logActivity(
+        "team_member_added",
+        teamEditingId ? `Updated team member: ${name}` : `Added team member: ${name}`,
+      );
+      setTeamFormStatus({
+        kind: "success",
+        message: teamEditingId
+          ? `Saved updates for ${name}.`
+          : `Added ${name} to the team.`,
+      });
+      closeTeamMemberModal();
+    } catch (error) {
+      console.error("replaceEventTeamMembers threw", error);
+      setTeamFormStatus({
+        kind: "error",
+        message: `Save failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      });
+    } finally {
+      setTeamSaving(false);
+    }
   };
 
-  const deleteTeamMember = (teamMemberId: string) => {
+  const deleteTeamMember = async (teamMemberId: string) => {
     const target = teamMembers.find((member) => member.id === teamMemberId);
     const ok =
       typeof window === "undefined"
@@ -3562,7 +3891,15 @@ export default function Home() {
           `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
         );
     if (!ok) return;
-    setTeamMembers((prev) => prev.filter((member) => member.id !== teamMemberId));
+    const nextMembers = teamMembers.filter((member) => member.id !== teamMemberId);
+    console.log("DELETE TEAM MEMBER nextTeamMembers", {
+      activeEventId,
+      appMode,
+      teamMemberId,
+      names: nextMembers.map((m) => m.name),
+      nextMembers,
+    });
+    setTeamMembers(nextMembers);
     setEvents((prev) =>
       prev.map((evt) =>
         evt.settings.assignedDj === teamMemberId
@@ -3581,6 +3918,17 @@ export default function Home() {
     );
     if (teamEditingId === teamMemberId) {
       closeTeamMemberModal();
+    }
+    const result = await writeTeamMembersToDatabase(nextMembers);
+    if (!result.ok) {
+      setTeamFormStatus({
+        kind: "error",
+        message: `Delete failed: ${
+          result.error instanceof Error
+            ? result.error.message
+            : "Unknown error"
+        }`,
+      });
     }
   };
 
@@ -4701,19 +5049,30 @@ export default function Home() {
       ) ?? null
     );
   }, [activeEventId, eventSettings.plannerEmail, eventSettings.plannerName, teamMembers]);
-  const cutmasterTeamVendors = useMemo(
-    () => vendors.filter((v) => isCutmasterEventTeam(v)),
-    [vendors],
-  );
-  const partnerVendors = useMemo(
-    () => vendors.filter((v) => !isCutmasterEventTeam(v)),
-    [vendors],
-  );
-
   useEffect(() => {
     const loadDatabaseEvents = async () => {
       try {
         const databaseEvents = await getDatabaseEvents();
+
+        // Always populate the DB-event-id set, even when the database is empty,
+        // so any per-event-id guards consult an accurate snapshot.
+        databaseEventIdsRef.current = new Set(databaseEvents.map((evt) => evt.id));
+
+        console.log(
+          "[HYDRATE-DEBUG] DB hydration → events from server:",
+          databaseEvents.map((evt) => ({
+            id: evt.id,
+            title: evt.title,
+            teamMemberCount: evt.eventTeamMembers?.length ?? 0,
+            teamMembers: evt.eventTeamMembers?.map((m) => ({
+              id: m.id,
+              name: m.name,
+              role: m.role,
+              order: m.order,
+              isActive: m.isActive,
+            })),
+          })),
+        );
 
         if (!databaseEvents.length) {
           return;
@@ -4779,10 +5138,58 @@ export default function Home() {
               addedToDoNotPlay: request.addedToDoNotPlay,
             }));
 
+          (seededEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers =
+            (dbEvent.eventTeamMembers ?? [])
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((member) => ({
+                id: member.id,
+                name: member.name,
+                role: (member.role as TeamMember["role"]) ?? "DJ",
+                company: member.company ?? "",
+                email: member.email ?? "",
+                phone: member.phone ?? "",
+                notes: member.notes ?? "",
+                website: member.website ?? "",
+                instagram: member.instagram ?? "",
+                arrivalTime: member.arrivalTime ?? "",
+                specialCoordinationNotes: member.specialCoordinationNotes ?? "",
+                isActive: member.isActive,
+              }));
+
           return seededEvent;
         });
 
         setEvents(hydratedEvents);
+
+        if (hydratedEvents.length > 0) {
+          // Reconcile activeEventId to a real DB id and drive teamMembers from
+          // that event's persisted team. This is what makes "Add team member ->
+          // back to All Events -> refresh -> reopen event" round-trip cleanly,
+          // because team membership is scoped to the active event.
+          setActiveEventId((prev) => {
+            const resolvedId = databaseEventIdsRef.current.has(prev)
+              ? prev
+              : hydratedEvents[0].id;
+            const resolvedEvent =
+              hydratedEvents.find((evt) => evt.id === resolvedId) ??
+              hydratedEvents[0];
+            const evtTeam = (resolvedEvent as EventRecord & {
+              eventTeamMembers?: TeamMember[];
+            }).eventTeamMembers;
+            const nextTeam = Array.isArray(evtTeam) ? cloneJson(evtTeam) : [];
+            console.log("[HYDRATE-DEBUG] DB hydration → setTeamMembers", {
+              prevActiveEventId: prev,
+              resolvedId,
+              resolvedEventTitle: resolvedEvent.meta?.couple,
+              hasShadow: Array.isArray(evtTeam),
+              teamMemberCount: nextTeam.length,
+              nextTeam,
+            });
+            setTeamMembers(nextTeam);
+            return resolvedId;
+          });
+        }
       } catch (error) {
         console.error("Failed to load database events:", error);
       }
@@ -5517,7 +5924,30 @@ export default function Home() {
         }))
         : [],
     );
-    setTeamMembers(Array.isArray(payload.teamMembers) ? payload.teamMembers : []);
+    const restoredTeamMembers = Array.isArray(payload.teamMembers)
+      ? payload.teamMembers
+      : [];
+    setTeamMembers(restoredTeamMembers);
+    if (databaseEventIdsRef.current.has(nextActiveId)) {
+      void replaceEventTeamMembers(
+        nextActiveId,
+        restoredTeamMembers.map((member, index) => ({
+          name: member.name,
+          role: member.role,
+          email: member.email || null,
+          phone: member.phone || null,
+          notes: member.notes || null,
+          isActive: member.isActive,
+          order: index,
+        })),
+      ).catch((error) => {
+        console.error("Failed to persist restored team members:", error);
+      });
+    } else {
+      console.warn(
+        `Skipping team-member persistence on backup restore: event "${nextActiveId}" is not a database event yet.`,
+      );
+    }
     setActivities(Array.isArray(payload.activities) ? payload.activities : []);
     setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
     setAppSettings({ ...defaultAppSettings, ...payload.appSettings });
@@ -5689,7 +6119,7 @@ export default function Home() {
     );
   };
 
-  const roleBadgeClass = (role: UserRole) => {
+  const roleBadgeClass = (role: UserRole | TeamMemberRole | string) => {
     if (role === "Admin") return "border border-stone-400 bg-stone-100 font-semibold text-stone-950";
     if (role === "DJ") return "border border-violet-400 bg-violet-50 font-semibold text-violet-950";
     if (role === "Planner") return "border border-sky-400 bg-sky-50 font-semibold text-sky-950";
@@ -12756,8 +13186,8 @@ export default function Home() {
               trail={["Event Team"]}
               onBack={() => setActiveScreen("Dashboard")}
               primaryAction={
-                sectionVendorContactsEnabled
-                  ? { label: "Add team member", onClick: openAddVendorModal }
+                canManageEvents
+                  ? { label: "Add team member", onClick: openAddTeamMemberModal }
                   : canInviteCollaborators
                     ? { label: "Invite to app", onClick: () => setInviteModalOpen(true) }
                     : undefined
@@ -12798,6 +13228,147 @@ export default function Home() {
                   Pending invite:{" "}
                   <span className="font-semibold tabular-nums text-stone-950">{pendingCollaborators.length}</span>
                 </div>
+              </div>
+              {canInviteCollaborators && (
+                <div className="mt-3">
+                  <PrimaryButton
+                    onClick={() => setInviteModalOpen(true)}
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+                  >
+                    Invite to app
+                  </PrimaryButton>
+                </div>
+              )}
+            </PremiumCard>
+
+            <PremiumCard>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <SectionTitle className="text-stone-950">Team Members</SectionTitle>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                    Everyone on this event — internal Cutmaster staff (Admin / DJ / Planner) plus
+                    external partners (venue, photo, catering, entertainment, etc.). Saved per event.
+                  </p>
+                </div>
+                <PrimaryButton
+                  onClick={openAddTeamMemberModal}
+                  disabled={!canManageEvents}
+                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                >
+                  Add Team Member
+                </PrimaryButton>
+              </div>
+              {teamFormStatus && (
+                <p
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
+                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                    }`}
+                >
+                  {teamFormStatus.message}
+                </p>
+              )}
+              <div className="mt-3 space-y-2">
+                {teamMembers.map((member) => (
+                  <div
+                    key={`event-team-member-${member.id}`}
+                    className="rounded-xl border border-stone-200 bg-stone-50 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-stone-950 [overflow-wrap:anywhere]">
+                          {member.name}
+                          {member.company ? (
+                            <span className="ml-1 font-normal text-stone-600">
+                              · {member.company}
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
+                          <span className="font-medium text-stone-800">
+                            {teamMemberRoleLabel(member.role)}
+                          </span>
+                          {member.email ? (
+                            <>
+                              {" · "}
+                              <span className="break-all">{member.email}</span>
+                            </>
+                          ) : null}
+                          {member.phone ? (
+                            <>
+                              {" · "}
+                              <span>{member.phone}</span>
+                            </>
+                          ) : null}
+                        </p>
+                        {(member.website || member.instagram || member.arrivalTime) && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
+                            {member.website ? (
+                              <span className="break-all">Web: {member.website}</span>
+                            ) : null}
+                            {member.website && (member.instagram || member.arrivalTime) ? " · " : null}
+                            {member.instagram ? (
+                              <span className="break-all">Social: {member.instagram}</span>
+                            ) : null}
+                            {member.instagram && member.arrivalTime ? " · " : null}
+                            {member.arrivalTime ? (
+                              <span>Arrival: {member.arrivalTime}</span>
+                            ) : null}
+                          </p>
+                        )}
+                        {member.specialCoordinationNotes && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-stone-700 [overflow-wrap:anywhere]">
+                            <span className="font-semibold text-stone-800">Coordination:</span>{" "}
+                            {member.specialCoordinationNotes}
+                          </p>
+                        )}
+                        {member.notes && (
+                          <p className="mt-1 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
+                            {member.notes}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
+                          ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
+                          : "border border-stone-200 bg-stone-100 text-stone-600"
+                          }`}
+                      >
+                        {member.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <PrimaryButton
+                        onClick={() => startEditingTeamMember(member)}
+                        disabled={!canManageEvents}
+                        className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
+                      >
+                        Edit
+                      </PrimaryButton>
+                      <PrimaryButton
+                        onClick={() => deleteTeamMember(member.id)}
+                        disabled={!canManageEvents}
+                        className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
+                      >
+                        Delete from Team
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                ))}
+                {teamMembers.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center">
+                    <p className="text-xs leading-relaxed text-stone-600">
+                      No team members yet.
+                    </p>
+                    <PrimaryButton
+                      onClick={openAddTeamMemberModal}
+                      disabled={!canManageEvents}
+                      className="mt-3 w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto"
+                    >
+                      Add Team Member
+                    </PrimaryButton>
+                  </div>
+                )}
               </div>
             </PremiumCard>
 
@@ -12934,34 +13505,11 @@ export default function Home() {
               <SectionEmptyState
                 title="No day-of contacts yet"
                 description="Add planners, venue, photo + video, catering, and entertainment so calls and texts stay in one place—not buried in threads."
-                primaryAction={{ label: "Add team member", onClick: openAddVendorModal }}
+                primaryAction={{ label: "Add day-of contact", onClick: openAddVendorModal }}
                 cardClassName="border-dashed border-stone-300 bg-stone-50"
               />
             ) : (
               <>
-                {cutmasterTeamVendors.length > 0 ? (
-                  <PremiumCard variant="accent">
-                    <div className="min-w-0">
-                      <SectionTitle>Cutmaster event team</SectionTitle>
-                      <p className="mt-1 text-sm leading-snug text-stone-600">
-                        Internal production and coordination on this event—distinct from external partners below.
-                      </p>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {cutmasterTeamVendors.map((vendor) => (
-                        <VendorEventCard
-                          key={vendor.id}
-                          vendor={vendor}
-                          variant="cutmaster"
-                          onEdit={openEditVendorModal}
-                          onDelete={deleteVendor}
-                          onCopy={copyVendorContactInfo}
-                        />
-                      ))}
-                    </div>
-                  </PremiumCard>
-                ) : null}
-
                 <PremiumCard>
                   <SectionTitle className="text-stone-950">Arrival & load-in</SectionTitle>
                   <p className={lightUiSectionCaptionClass}>
@@ -13014,7 +13562,7 @@ export default function Home() {
                 </PremiumCard>
 
                 {VENDOR_UI_SECTIONS.map((section) => {
-                  const inSection = filterVendorsByTypes(partnerVendors, section.types);
+                  const inSection = filterVendorsByTypes(vendors, section.types);
                   if (inSection.length === 0) return null;
                   return (
                     <PremiumCard key={`vendor-section-${section.id}`}>
@@ -14613,12 +15161,20 @@ export default function Home() {
           aria-modal="true"
           aria-label={teamEditingId ? "Edit team member" : "Add team member"}
         >
-          <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-h-none lg:max-w-lg lg:rounded-3xl">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              console.log("REAL SAVE FORM SUBMIT");
+              void saveTeamMember();
+            }}
+            className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-h-none lg:max-w-lg lg:rounded-3xl"
+          >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
               <SectionTitle className="text-stone-950">
                 {teamEditingId ? "Edit Team Member" : "Add Team Member"}
               </SectionTitle>
               <PrimaryButton
+                type="button"
                 onClick={closeTeamMemberModal}
                 className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
               >
@@ -14627,13 +15183,6 @@ export default function Home() {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
               <div className="space-y-3">
-                <TextInput
-                  id="team-member-name"
-                  label="Name"
-                  value={teamNameDraft}
-                  onChange={setTeamNameDraft}
-                  disabled={!canManageEvents}
-                />
                 <div>
                   <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
                     Role
@@ -14642,16 +15191,47 @@ export default function Home() {
                     id="team-member-role"
                     value={teamRoleDraft}
                     disabled={!canManageEvents}
-                    onChange={(event) => setTeamRoleDraft(event.target.value as "Admin" | "DJ" | "Planner")}
+                    onChange={(event) =>
+                      setTeamRoleDraft(event.target.value as TeamMemberRole)
+                    }
                     className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
                   >
-                    {(["Admin", "DJ", "Planner"] as const).map((role) => (
-                      <option key={`team-role-${role}`} value={role} className="bg-white text-stone-900">
-                        {role}
-                      </option>
+                    {EVENT_TEAM_ROLE_GROUPS.map((group) => (
+                      <optgroup key={`team-role-group-${group.label}`} label={group.label}>
+                        {group.roles.map((role) => (
+                          <option
+                            key={`team-role-${role}`}
+                            value={role}
+                            className="bg-white text-stone-900"
+                          >
+                            {teamMemberRoleLabel(role)}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
+                  <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
+                    {isInternalTeamRole(teamRoleDraft)
+                      ? "Internal Cutmaster staff. Admin/DJ/Planner can also sign in to the app via the Invite to app flow."
+                      : "External event partner. Company, contact info, arrival, and coordination notes appear in day-of exports."}
+                  </p>
                 </div>
+                <TextInput
+                  id="team-member-name"
+                  label={isInternalTeamRole(teamRoleDraft) ? "Name" : "Primary contact name"}
+                  value={teamNameDraft}
+                  onChange={setTeamNameDraft}
+                  disabled={!canManageEvents}
+                />
+                {!isInternalTeamRole(teamRoleDraft) && (
+                  <TextInput
+                    id="team-member-company"
+                    label="Company / business name"
+                    value={teamCompanyDraft}
+                    onChange={setTeamCompanyDraft}
+                    disabled={!canManageEvents}
+                  />
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput
                     id="team-member-email"
@@ -14668,6 +15248,41 @@ export default function Home() {
                     disabled={!canManageEvents}
                   />
                 </div>
+                {!isInternalTeamRole(teamRoleDraft) && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <TextInput
+                        id="team-member-website"
+                        label="Website"
+                        value={teamWebsiteDraft}
+                        onChange={setTeamWebsiteDraft}
+                        disabled={!canManageEvents}
+                      />
+                      <TextInput
+                        id="team-member-instagram"
+                        label="Instagram"
+                        value={teamInstagramDraft}
+                        onChange={setTeamInstagramDraft}
+                        disabled={!canManageEvents}
+                      />
+                    </div>
+                    <TextInput
+                      id="team-member-arrival"
+                      label="Arrival / load-in time"
+                      value={teamArrivalDraft}
+                      onChange={setTeamArrivalDraft}
+                      disabled={!canManageEvents}
+                    />
+                    <TextArea
+                      id="team-member-coordination"
+                      label="Special coordination notes"
+                      value={teamCoordinationDraft}
+                      onChange={setTeamCoordinationDraft}
+                      rows={2}
+                      disabled={!canManageEvents}
+                    />
+                  </>
+                )}
                 <TextArea
                   id="team-member-notes"
                   label="Notes"
@@ -14677,6 +15292,7 @@ export default function Home() {
                   disabled={!canManageEvents}
                 />
                 <PrimaryButton
+                  type="button"
                   onClick={() => setTeamActiveDraft((prev) => !prev)}
                   disabled={!canManageEvents}
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${teamActiveDraft
@@ -14684,28 +15300,47 @@ export default function Home() {
                     : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
                     }`}
                 >
-                  {teamActiveDraft ? "Active Member" : "Inactive Member"}
+                  {teamActiveDraft ? "Active on this event" : "Inactive on this event"}
                 </PrimaryButton>
+                {teamFormStatus && (
+                  <p
+                    className={`rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
+                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                      : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                      }`}
+                  >
+                    {teamFormStatus.message}
+                  </p>
+                )}
               </div>
             </div>
             <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] lg:pb-3">
               <div className="grid grid-cols-2 gap-2">
                 <PrimaryButton
+                  type="button"
                   onClick={closeTeamMemberModal}
-                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                  disabled={teamSaving}
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:opacity-60"
                 >
-                  {teamEditingId ? "Cancel Edit" : "Cancel"}
+                  Cancel
                 </PrimaryButton>
                 <PrimaryButton
-                  onClick={saveTeamMember}
-                  disabled={!canManageEvents}
+                  type="submit"
+                  onClick={() => {
+                    console.log("REAL SAVE BUTTON CLICKED");
+                  }}
+                  disabled={teamSaving}
                   className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
                 >
-                  {teamEditingId ? "Save Changes" : "Add Team Member"}
+                  {teamSaving
+                    ? "Saving…"
+                    : teamEditingId
+                      ? "Save Changes"
+                      : "Save Team Member"}
                 </PrimaryButton>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
@@ -15003,7 +15638,7 @@ export default function Home() {
             <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle className="text-stone-950">
-                  {vendorEditingId ? "Edit team member" : "Add team member"}
+                  {vendorEditingId ? "Edit day-of contact" : "Add day-of contact"}
                 </SectionTitle>
                 <PrimaryButton
                   onClick={closeVendorModal}
@@ -15021,29 +15656,6 @@ export default function Home() {
               className="flex min-h-0 flex-1 flex-col"
             >
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
-                <div>
-                  <label htmlFor="vendor-affiliation" className={lightUiFormLabelClass}>
-                    On this event
-                  </label>
-                  <select
-                    id="vendor-affiliation"
-                    value={vendorAffiliationDraft}
-                    onChange={(event) =>
-                      setVendorAffiliationDraft(event.target.value as VendorAffiliation)
-                    }
-                    className={lightUiSelectClass}
-                  >
-                    <option value="event_partner" className="bg-white text-stone-900">
-                      Event partner (external vendor)
-                    </option>
-                    <option value="cutmaster_event_team" className="bg-white text-stone-900">
-                      Cutmaster event team
-                    </option>
-                  </select>
-                  <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
-                    Cutmaster team appears in its own block; partners group by category below.
-                  </p>
-                </div>
                 <div>
                   <label htmlFor="vendor-type" className={lightUiFormLabelClass}>
                     Role / category
