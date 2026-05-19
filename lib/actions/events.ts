@@ -25,8 +25,9 @@ export async function getEvents() {
       timelines: {
         include: {
           items: true,
-        },
+        }, 
       },
+      songs: true,
     },
   });
 }
@@ -186,6 +187,37 @@ export async function replaceCeremonyTimelineItems(
       fadeOutEarly: item.fadeOutEarly ?? false,
       fadeOutTimestamp: item.fadeOutTimestamp,
       order: item.order,
+    })),
+  });
+}
+
+export async function replaceEventSongs(
+  eventId: string,
+  listType: string,
+  songs: Array<{
+    title: string;
+    artist?: string | null;
+    notes?: string | null;
+    highPriority?: boolean;
+    order: number;
+  }>,
+) {
+  await prisma.eventSong.deleteMany({
+    where: {
+      eventId,
+      listType,
+    },
+  });
+
+  await prisma.eventSong.createMany({
+    data: songs.map((song) => ({
+      eventId,
+      listType,
+      title: song.title,
+      artist: song.artist,
+      notes: song.notes,
+      highPriority: song.highPriority ?? false,
+      order: song.order,
     })),
   });
 }

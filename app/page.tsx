@@ -18,6 +18,7 @@ import {
   updateEvent as updateDatabaseEvent,
   replaceMainTimelineItems,
   replaceCeremonyTimelineItems,
+  replaceEventSongs,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -1853,6 +1854,42 @@ export default function Home() {
               needsDjMcAttention: item.needsDjMcAttention,
               songTitle: item.songTitle,
               artist: item.artist,
+              order: index,
+            })),
+          );
+
+          await replaceEventSongs(
+            activeEventId,
+            "mustPlay",
+            mustPlaySongs.map((song, index) => ({
+              title: song.title,
+              artist: song.artist,
+              notes: song.notes,
+              highPriority: song.highPriority,
+              order: index,
+            })),
+          );
+          
+          await replaceEventSongs(
+            activeEventId,
+            "doNotPlay",
+            doNotPlaySongs.map((song, index) => ({
+              title: song.title,
+              artist: song.artist,
+              notes: song.notes,
+              highPriority: song.highPriority,
+              order: index,
+            })),
+          );
+          
+          await replaceEventSongs(
+            activeEventId,
+            "playIfPossible",
+            playIfPossibleSongs.map((song, index) => ({
+              title: song.title,
+              artist: song.artist,
+              notes: song.notes,
+              highPriority: song.highPriority,
               order: index,
             })),
           );
@@ -4772,6 +4809,39 @@ export default function Home() {
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
           };
+
+          seededEvent.mustPlaySongs = (dbEvent.songs || [])
+  .filter((song) => song.listType === "mustPlay")
+  .sort((a, b) => a.order - b.order)
+  .map((song) => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist || "",
+    notes: song.notes || "",
+    highPriority: song.highPriority,
+  }));
+
+seededEvent.doNotPlaySongs = (dbEvent.songs || [])
+  .filter((song) => song.listType === "doNotPlay")
+  .sort((a, b) => a.order - b.order)
+  .map((song) => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist || "",
+    notes: song.notes || "",
+    highPriority: song.highPriority,
+  }));
+
+seededEvent.playIfPossibleSongs = (dbEvent.songs || [])
+  .filter((song) => song.listType === "playIfPossible")
+  .sort((a, b) => a.order - b.order)
+  .map((song) => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist || "",
+    notes: song.notes || "",
+    highPriority: song.highPriority,
+  }));
 
           seededEvent.meta = {
             couple: dbEvent.title,

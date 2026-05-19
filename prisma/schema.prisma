@@ -35,6 +35,7 @@ model Event {
   owner   User @relation(fields: [ownerId], references: [id])
 
   timelines Timeline[]
+  songs EventSong[]
 
   createdAt DateTime @default(now())
 }
@@ -71,4 +72,21 @@ model TimelineItem {
 
   timelineId String
   timeline   Timeline @relation(fields: [timelineId], references: [id])
+}
+
+model EventSong {
+  id String @id @default(cuid())
+
+  listType String
+
+  title  String
+  artist String?
+  notes  String?
+
+  highPriority Boolean @default(false)
+
+  order Int
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id])
 }
