@@ -36,6 +36,7 @@ model Event {
 
   timelines Timeline[]
   songs EventSong[]
+  guestRequests GuestRequest[]
 
   createdAt DateTime @default(now())
 }
@@ -89,4 +90,25 @@ model EventSong {
 
   eventId String
   event   Event @relation(fields: [eventId], references: [id])
+}
+
+model GuestRequest {
+  id String @id @default(cuid())
+
+  guestName  String
+  songTitle  String
+  artist     String
+  dedication String
+  status     String
+
+  addedToMustPlay  Boolean @default(false)
+  addedToDoNotPlay Boolean @default(false)
+
+  order Int
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -28,6 +28,7 @@ export async function getEvents() {
         }, 
       },
       songs: true,
+      guestRequests: true,
     },
   });
 }
@@ -218,6 +219,40 @@ export async function replaceEventSongs(
       notes: song.notes,
       highPriority: song.highPriority ?? false,
       order: song.order,
+    })),
+  });
+}
+
+export async function replaceGuestRequests(
+  eventId: string,
+  guestRequests: Array<{
+    guestName: string;
+    songTitle: string;
+    artist: string;
+    dedication: string;
+    status: string;
+    addedToMustPlay?: boolean;
+    addedToDoNotPlay?: boolean;
+    order: number;
+  }>,
+) {
+  await prisma.guestRequest.deleteMany({
+    where: {
+      eventId,
+    },
+  });
+
+  await prisma.guestRequest.createMany({
+    data: guestRequests.map((request) => ({
+      eventId,
+      guestName: request.guestName,
+      songTitle: request.songTitle,
+      artist: request.artist,
+      dedication: request.dedication,
+      status: request.status,
+      addedToMustPlay: request.addedToMustPlay ?? false,
+      addedToDoNotPlay: request.addedToDoNotPlay ?? false,
+      order: request.order,
     })),
   });
 }

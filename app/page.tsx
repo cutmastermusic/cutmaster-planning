@@ -16,9 +16,7 @@ import {
   createEvent as createDatabaseEvent,
   getEvents as getDatabaseEvents,
   updateEvent as updateDatabaseEvent,
-  replaceMainTimelineItems,
-  replaceCeremonyTimelineItems,
-  replaceEventSongs,
+  replaceGuestRequests,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -1829,71 +1827,20 @@ export default function Home() {
             receptionLocation: eventSettings.receptionLocation,
             internalNotes: eventSettings.internalNotes,
           });
-          await replaceMainTimelineItems(
-            activeEventId,
-            timelinePayload.map((item, index) => ({
-              time: item.time,
-              title: item.title,
-              category: item.category,
-              notes: item.notes,
-              needsDjMcAttention: item.needsDjMcAttention,
-              songTitle: item.songTitle,
-              artist: item.artist,
-              fadeOutEarly: item.fadeOutEarly,
-              fadeOutTimestamp: item.fadeOutTimestamp,
-              order: index,
-            })),
-          );
-          await replaceCeremonyTimelineItems(
-            activeEventId,
-            ceremonyPayload.map((item, index) => ({
-              time: item.timeOrOrder,
-              title: item.moment,
-              category: "ceremony",
-              notes: item.notes,
-              needsDjMcAttention: item.needsDjMcAttention,
-              songTitle: item.songTitle,
-              artist: item.artist,
-              order: index,
-            })),
-          );
 
-          await replaceEventSongs(
+          await replaceGuestRequests(
             activeEventId,
-            "mustPlay",
-            mustPlaySongs.map((song, index) => ({
-              title: song.title,
-              artist: song.artist,
-              notes: song.notes,
-              highPriority: song.highPriority,
+            guestRequests.map((request, index) => ({
+              guestName: request.guestName,
+              songTitle: request.songTitle,
+              artist: request.artist,
+              dedication: request.dedication,
+              status: request.status,
+              addedToMustPlay: request.addedToMustPlay,
+              addedToDoNotPlay: request.addedToDoNotPlay,
               order: index,
             })),
           );
-          
-          await replaceEventSongs(
-            activeEventId,
-            "doNotPlay",
-            doNotPlaySongs.map((song, index) => ({
-              title: song.title,
-              artist: song.artist,
-              notes: song.notes,
-              highPriority: song.highPriority,
-              order: index,
-            })),
-          );
-          
-          await replaceEventSongs(
-            activeEventId,
-            "playIfPossible",
-            playIfPossibleSongs.map((song, index) => ({
-              title: song.title,
-              artist: song.artist,
-              notes: song.notes,
-              highPriority: song.highPriority,
-              order: index,
-            })),
-          );
-
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -4810,39 +4757,6 @@ export default function Home() {
               : "",
           };
 
-          seededEvent.mustPlaySongs = (dbEvent.songs || [])
-  .filter((song) => song.listType === "mustPlay")
-  .sort((a, b) => a.order - b.order)
-  .map((song) => ({
-    id: song.id,
-    title: song.title,
-    artist: song.artist || "",
-    notes: song.notes || "",
-    highPriority: song.highPriority,
-  }));
-
-seededEvent.doNotPlaySongs = (dbEvent.songs || [])
-  .filter((song) => song.listType === "doNotPlay")
-  .sort((a, b) => a.order - b.order)
-  .map((song) => ({
-    id: song.id,
-    title: song.title,
-    artist: song.artist || "",
-    notes: song.notes || "",
-    highPriority: song.highPriority,
-  }));
-
-seededEvent.playIfPossibleSongs = (dbEvent.songs || [])
-  .filter((song) => song.listType === "playIfPossible")
-  .sort((a, b) => a.order - b.order)
-  .map((song) => ({
-    id: song.id,
-    title: song.title,
-    artist: song.artist || "",
-    notes: song.notes || "",
-    highPriority: song.highPriority,
-  }));
-
           seededEvent.meta = {
             couple: dbEvent.title,
             date: dbEvent.date
@@ -4850,6 +4764,20 @@ seededEvent.playIfPossibleSongs = (dbEvent.songs || [])
               : "",
             venue: dbEvent.venue || "",
           };
+
+          seededEvent.guestRequests = (dbEvent.guestRequests ?? [])
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((request) => ({
+              id: request.id,
+              guestName: request.guestName,
+              songTitle: request.songTitle,
+              artist: request.artist,
+              dedication: request.dedication,
+              status: request.status as GuestRequestStatus,
+              addedToMustPlay: request.addedToMustPlay,
+              addedToDoNotPlay: request.addedToDoNotPlay,
+            }));
 
           return seededEvent;
         });
