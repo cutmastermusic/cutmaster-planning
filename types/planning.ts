@@ -183,6 +183,15 @@ export type InternalTeamRole = "Admin" | "DJ" | "Planner";
  */
 export type TeamMemberRole = InternalTeamRole | VendorType;
 
+/** Persisted per-event note (DB-backed via EventNote). */
+export type EventNote = {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  isPinned: boolean;
+};
+
 export type TeamMember = {
   id: string;
   name: string;

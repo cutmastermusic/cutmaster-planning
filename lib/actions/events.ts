@@ -33,6 +33,9 @@ export async function getEvents() {
       eventTeamMembers: {
         orderBy: { order: "asc" },
       },
+      eventNotes: {
+        orderBy: { order: "asc" },
+      },
     },
   });
 
@@ -385,4 +388,55 @@ export async function replaceEventTeamMembers(
     rowsReturned: rows.length,
   });
   return rows;
+}
+
+export async function replaceEventNotes(
+  eventId: string,
+  notes: Array<{
+    category?: string;
+    title?: string | null;
+    body: string;
+    isPinned?: boolean;
+    order: number;
+  }>,
+) {
+  const eventExists = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true },
+  });
+
+  if (!eventExists) {
+    console.warn(
+      "[EVENT-NOTES] replaceEventNotes: event not found in DB; aborting to avoid FK error",
+      { eventId },
+    );
+    return [];
+  }
+
+  await prisma.eventNote.deleteMany({
+    where: { eventId },
+  });
+
+  if (notes.length === 0) {
+    return prisma.eventNote.findMany({
+      where: { eventId },
+      orderBy: { order: "asc" },
+    });
+  }
+
+  await prisma.eventNote.createMany({
+    data: notes.map((note) => ({
+      eventId,
+      category: note.category?.trim() || "General",
+      title: note.title?.trim() || null,
+      body: note.body,
+      isPinned: note.isPinned ?? false,
+      order: note.order,
+    })),
+  });
+
+  return prisma.eventNote.findMany({
+    where: { eventId },
+    orderBy: { order: "asc" },
+  });
 }

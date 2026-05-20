@@ -18,6 +18,7 @@ import {
   updateEvent as updateDatabaseEvent,
   replaceGuestRequests,
   replaceEventTeamMembers,
+  replaceEventNotes,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -128,6 +129,7 @@ import type {
   TimelineItem,
   TimelinePresetItem,
   TimelineTemplate,
+  EventNote,
   TeamMember,
   TeamMemberRole,
   UserRole,
@@ -1326,6 +1328,16 @@ const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-12 md:px-4 m
 const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)] md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
 const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
 
+const EVENT_NOTE_CATEGORIES = [
+  "General",
+  "Planning",
+  "Music",
+  "Timeline",
+  "Vendor",
+  "Day-of",
+  "Internal",
+] as const;
+
 export default function Home() {
   const timelineComposerRef = useRef<HTMLDivElement | null>(null);
   const timelineStreamRef = useRef<HTMLDivElement | null>(null);
@@ -1638,6 +1650,18 @@ export default function Home() {
   const [teamModalOpen, setTeamModalOpen] = useState(false);
   const [teamSaving, setTeamSaving] = useState(false);
   const [teamFormStatus, setTeamFormStatus] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [eventNotes, setEventNotes] = useState<EventNote[]>([]);
+  const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
+  const [noteCategoryDraft, setNoteCategoryDraft] = useState<string>("General");
+  const [noteTitleDraft, setNoteTitleDraft] = useState("");
+  const [noteBodyDraft, setNoteBodyDraft] = useState("");
+  const [notePinnedDraft, setNotePinnedDraft] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteFormStatus, setNoteFormStatus] = useState<{
     kind: "success" | "error";
     message: string;
   } | null>(null);
@@ -2006,6 +2030,8 @@ export default function Home() {
       nextTeamMembers,
     });
     setTeamMembers(nextTeamMembers);
+    const evtNotes = (evt as EventRecord & { eventNotes?: EventNote[] }).eventNotes;
+    setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
     setGeneralDjNotes(evt.generalDjNotes);
     setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
     setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
@@ -2463,6 +2489,7 @@ export default function Home() {
       // Initialize the per-event team-member shadow field so this event has a
       // consistent shape across selection, hydration, and persistence cycles.
       (newEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers = [];
+      (newEvent as EventRecord & { eventNotes: EventNote[] }).eventNotes = [];
 
       setEvents((prev) => [...prev, newEvent]);
       setActiveEventId(newEvent.id);
@@ -3932,6 +3959,208 @@ export default function Home() {
     }
   };
 
+  const resetEventNoteDraft = () => {
+    setNoteEditingId(null);
+    setNoteCategoryDraft("General");
+    setNoteTitleDraft("");
+    setNoteBodyDraft("");
+    setNotePinnedDraft(false);
+  };
+
+  const openAddEventNoteModal = () => {
+    resetEventNoteDraft();
+    setNoteFormStatus(null);
+    setNoteModalOpen(true);
+  };
+
+  const startEditingEventNote = (note: EventNote) => {
+    setNoteEditingId(note.id);
+    setNoteCategoryDraft(note.category || "General");
+    setNoteTitleDraft(note.title);
+    setNoteBodyDraft(note.body);
+    setNotePinnedDraft(note.isPinned);
+    setNoteFormStatus(null);
+    setNoteModalOpen(true);
+  };
+
+  const closeEventNoteModal = () => {
+    setNoteModalOpen(false);
+    resetEventNoteDraft();
+  };
+
+  const sortEventNotesForDisplay = (notes: EventNote[]) =>
+    notes
+      .slice()
+      .sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        return 0;
+      });
+
+  const persistEventNotesToDatabase = async (
+    nextNotes: EventNote[],
+  ): Promise<
+    | { ok: true; rows: Awaited<ReturnType<typeof replaceEventNotes>> }
+    | { ok: false; error: unknown }
+  > => {
+    if (!activeEventId) {
+      return { ok: false, error: new Error("No active event id; cannot persist notes.") };
+    }
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? ({ ...evt, eventNotes: cloneJson(nextNotes) } as EventRecord)
+          : evt,
+      ),
+    );
+    try {
+      const savedRows = await replaceEventNotes(
+        activeEventId,
+        nextNotes.map((note, index) => ({
+          category: note.category || "General",
+          title: note.title?.trim() || null,
+          body: note.body,
+          isPinned: note.isPinned,
+          order: index,
+        })),
+      );
+      if (nextNotes.length > 0 && Array.isArray(savedRows) && savedRows.length === 0) {
+        return {
+          ok: false,
+          error: new Error(
+            `Server returned no rows for event "${activeEventId}". The event may not exist in the database yet.`,
+          ),
+        };
+      }
+      if (Array.isArray(savedRows) && savedRows.length === nextNotes.length) {
+        const reconciled = savedRows
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((row, index) => ({
+            ...nextNotes[index],
+            id: row.id,
+            category: row.category,
+            title: row.title ?? "",
+            body: row.body,
+            isPinned: row.isPinned,
+          }));
+        setEventNotes(reconciled);
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? ({ ...evt, eventNotes: reconciled } as EventRecord)
+              : evt,
+          ),
+        );
+      }
+      return { ok: true, rows: savedRows };
+    } catch (error) {
+      console.error("replaceEventNotes threw", error);
+      return { ok: false, error };
+    }
+  };
+
+  const saveEventNote = async () => {
+    const body = noteBodyDraft.trim();
+    if (!body) {
+      setNoteFormStatus({ kind: "error", message: "Note body is required." });
+      return;
+    }
+    if (!activeEventId) {
+      setNoteFormStatus({
+        kind: "error",
+        message: "Cannot save: no active event id. Open or create an event first.",
+      });
+      return;
+    }
+    if (noteSaving) return;
+
+    const category = noteCategoryDraft.trim() || "General";
+    const title = noteTitleDraft.trim();
+    const newNote: EventNote | null = noteEditingId
+      ? null
+      : {
+          id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          category,
+          title,
+          body,
+          isPinned: notePinnedDraft,
+        };
+
+    const nextNotes: EventNote[] = newNote
+      ? [newNote, ...eventNotes]
+      : eventNotes.map((note) =>
+          note.id === noteEditingId
+            ? { ...note, category, title, body, isPinned: notePinnedDraft }
+            : note,
+        );
+
+    setNoteSaving(true);
+    setNoteFormStatus({ kind: "success", message: "Saving…" });
+    setEventNotes(nextNotes);
+
+    const result = await persistEventNotesToDatabase(nextNotes);
+    if (!result.ok) {
+      setNoteFormStatus({
+        kind: "error",
+        message: `Save failed: ${
+          result.error instanceof Error ? result.error.message : "Unknown error"
+        }`,
+      });
+      setNoteSaving(false);
+      return;
+    }
+
+    setNoteFormStatus({
+      kind: "success",
+      message: noteEditingId ? "Saved note." : "Added note.",
+    });
+    closeEventNoteModal();
+    setNoteSaving(false);
+  };
+
+  const deleteEventNote = async (noteId: string) => {
+    const target = eventNotes.find((note) => note.id === noteId);
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(`Delete note "${target?.title?.trim() || "this note"}"?`);
+    if (!ok) return;
+    const nextNotes = eventNotes.filter((note) => note.id !== noteId);
+    if (noteEditingId === noteId) closeEventNoteModal();
+    setEventNotes(nextNotes);
+    const result = await persistEventNotesToDatabase(nextNotes);
+    if (!result.ok) {
+      setNoteFormStatus({
+        kind: "error",
+        message: `Delete failed: ${
+          result.error instanceof Error ? result.error.message : "Unknown error"
+        }`,
+      });
+    }
+  };
+
+  const toggleEventNotePinned = async (noteId: string) => {
+    if (!canEditNotes || !activeEventId) return;
+    const nextNotes = eventNotes.map((note) =>
+      note.id === noteId ? { ...note, isPinned: !note.isPinned } : note,
+    );
+    setEventNotes(nextNotes);
+    const result = await persistEventNotesToDatabase(nextNotes);
+    if (!result.ok) {
+      setNoteFormStatus({
+        kind: "error",
+        message: `Pin update failed: ${
+          result.error instanceof Error ? result.error.message : "Unknown error"
+        }`,
+      });
+    }
+  };
+
+  const displayedEventNotes = useMemo(
+    () => sortEventNotesForDisplay(eventNotes),
+    [eventNotes],
+  );
+
   const isTeamMemberAssignedToActiveEvent = useCallback(
     (member: TeamMember) => {
       if (!activeEventId) return false;
@@ -5157,6 +5386,18 @@ export default function Home() {
                 isActive: member.isActive,
               }));
 
+          (seededEvent as EventRecord & { eventNotes: EventNote[] }).eventNotes =
+            (dbEvent.eventNotes ?? [])
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((note) => ({
+                id: note.id,
+                category: note.category || "General",
+                title: note.title ?? "",
+                body: note.body,
+                isPinned: note.isPinned,
+              }));
+
           return seededEvent;
         });
 
@@ -5187,6 +5428,10 @@ export default function Home() {
               nextTeam,
             });
             setTeamMembers(nextTeam);
+            const evtNotes = (resolvedEvent as EventRecord & {
+              eventNotes?: EventNote[];
+            }).eventNotes;
+            setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
             return resolvedId;
           });
         }
@@ -13146,7 +13391,15 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Notes" && !isCoupleView && (
           <section className={workspaceSectionClass}>
-            <EventHomeNav trail={["Planning notes"]} onBack={() => setActiveScreen("Dashboard")} />
+            <EventHomeNav
+              trail={["Event notes"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={
+                canEditNotes
+                  ? { label: "Add note", onClick: openAddEventNoteModal }
+                  : undefined
+              }
+            />
             {!canEditNotes && (
               <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
                 <p className="text-xs font-medium text-amber-950">
@@ -13154,9 +13407,113 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
+            <PremiumCard variant="accent">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <SectionTitle className="text-stone-950">Event Notes</SectionTitle>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                    Saved per event in the database. Click Save Note in the modal to persist—nothing
+                    auto-saves.
+                  </p>
+                </div>
+                <PrimaryButton
+                  onClick={openAddEventNoteModal}
+                  disabled={!canEditNotes}
+                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                >
+                  Add Note
+                </PrimaryButton>
+              </div>
+              {noteFormStatus && !noteModalOpen && (
+                <p
+                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${noteFormStatus.kind === "success"
+                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                    }`}
+                >
+                  {noteFormStatus.message}
+                </p>
+              )}
+              <div className="mt-3 space-y-2">
+                {displayedEventNotes.map((note) => (
+                  <div
+                    key={`event-note-${note.id}`}
+                    className={`rounded-xl border p-3 ${note.isPinned
+                      ? "border-cyan-300/80 bg-cyan-50/60"
+                      : "border-stone-200 bg-stone-50"
+                      }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
+                            {note.category || "General"}
+                          </span>
+                          {note.isPinned ? (
+                            <span className="rounded-full border border-cyan-400/80 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-950">
+                              Pinned
+                            </span>
+                          ) : null}
+                        </div>
+                        {note.title ? (
+                          <p className="mt-2 text-sm font-semibold text-stone-950 [overflow-wrap:anywhere]">
+                            {note.title}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-stone-700 [overflow-wrap:anywhere]">
+                          {note.body}
+                        </p>
+                      </div>
+                    </div>
+                    {canEditNotes ? (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => toggleEventNotePinned(note.id)}
+                          className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
+                        >
+                          {note.isPinned ? "Unpin" : "Pin"}
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => startEditingEventNote(note)}
+                          className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
+                        >
+                          Edit
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => deleteEventNote(note.id)}
+                          className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
+                        >
+                          Delete
+                        </PrimaryButton>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+                {displayedEventNotes.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center">
+                    <p className="text-xs leading-relaxed text-stone-600">No event notes yet.</p>
+                    {canEditNotes ? (
+                      <PrimaryButton
+                        onClick={openAddEventNoteModal}
+                        className="mt-3 w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto"
+                      >
+                        Add Note
+                      </PrimaryButton>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </PremiumCard>
             <PremiumCard className={premiumFormSectionCardClass}>
-              <SectionTitle className="text-stone-950">Planner Notes</SectionTitle>
-              <div className="mt-6 space-y-4">
+              <SectionTitle className="text-stone-950">Planner scratchpad</SectionTitle>
+              <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                Quick local lines (not saved to EventNote yet). Use Event Notes above for persisted
+                records.
+              </p>
+              <div className="mt-4 space-y-4">
                 <TextArea
                   id="planner-notes-editor"
                   label="One note per line"
@@ -15152,6 +15509,114 @@ export default function Home() {
             </PrimaryButton>
           </div>
         </>
+      )}
+
+      {noteModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label={noteEditingId ? "Edit event note" : "Add event note"}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveEventNote();
+            }}
+            className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-h-none lg:max-w-lg lg:rounded-3xl"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
+              <SectionTitle className="text-stone-950">
+                {noteEditingId ? "Edit Note" : "Add Note"}
+              </SectionTitle>
+              <PrimaryButton
+                type="button"
+                onClick={closeEventNoteModal}
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+              >
+                Close
+              </PrimaryButton>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="event-note-category" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
+                    Category
+                  </label>
+                  <select
+                    id="event-note-category"
+                    value={noteCategoryDraft}
+                    disabled={!canEditNotes}
+                    onChange={(event) => setNoteCategoryDraft(event.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                  >
+                    {EVENT_NOTE_CATEGORIES.map((category) => (
+                      <option key={`note-cat-${category}`} value={category} className="bg-white text-stone-900">
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <TextInput
+                  id="event-note-title"
+                  label="Title (optional)"
+                  value={noteTitleDraft}
+                  onChange={setNoteTitleDraft}
+                  disabled={!canEditNotes}
+                />
+                <TextArea
+                  id="event-note-body"
+                  label="Note"
+                  value={noteBodyDraft}
+                  onChange={setNoteBodyDraft}
+                  rows={6}
+                  disabled={!canEditNotes}
+                  placeholder="Write the note body…"
+                />
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setNotePinnedDraft((prev) => !prev)}
+                  disabled={!canEditNotes}
+                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${notePinnedDraft
+                    ? "border-cyan-400/90 bg-cyan-50 text-cyan-950 shadow-sm hover:bg-cyan-100/80"
+                    : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
+                    }`}
+                >
+                  {notePinnedDraft ? "Pinned to top" : "Not pinned"}
+                </PrimaryButton>
+                {noteFormStatus && (
+                  <p
+                    className={`rounded-xl px-3 py-2 text-xs ${noteFormStatus.kind === "success"
+                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                      : "border border-rose-300/80 bg-rose-50 text-rose-950"
+                      }`}
+                  >
+                    {noteFormStatus.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] lg:pb-3">
+              <div className="grid grid-cols-2 gap-2">
+                <PrimaryButton
+                  type="button"
+                  onClick={closeEventNoteModal}
+                  disabled={noteSaving}
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:opacity-60"
+                >
+                  Cancel
+                </PrimaryButton>
+                <PrimaryButton
+                  type="submit"
+                  disabled={!canEditNotes || noteSaving}
+                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
+                >
+                  {noteSaving ? "Saving…" : noteEditingId ? "Save Changes" : "Save Note"}
+                </PrimaryButton>
+              </div>
+            </div>
+          </form>
+        </div>
       )}
 
       {teamModalOpen && (
