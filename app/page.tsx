@@ -16192,21 +16192,29 @@ export default function Home() {
             aria-label="Run of show"
           >
             <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-3.5 sm:gap-x-6 sm:px-8 sm:py-4">
-                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,42rem)]">
-                  <h2 className="text-[1.35rem] font-semibold leading-[1.2] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2rem]">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-4 sm:gap-x-6 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10">
+                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,44rem)] lg:max-w-[min(100%,48rem)]">
+                  <h2 className="text-[1.5rem] font-semibold leading-[1.15] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2.125rem] lg:text-[2.375rem]">
                     {runOfShowHeadline}
                   </h2>
-                  <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-500 sm:text-[13px]">
+                  <p className="mt-2 max-w-3xl text-[13px] font-medium leading-snug text-stone-600 sm:text-sm md:text-[15px]">
                     {runOfShowSubline}
                   </p>
                   {runOfShowUpNextMeta.banner === "upNext" ? (
-                    <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-snug text-stone-800 sm:text-[13px]">
-                      Up Next:{" "}
-                      <span className="font-semibold text-stone-950">{runOfShowUpNextMeta.upNextTitle}</span>
-                    </p>
+                    <div
+                      className="mt-3 max-w-3xl rounded-xl border border-cyan-300/80 bg-gradient-to-r from-cyan-50/95 to-white px-4 py-3 shadow-[inset_3px_0_0_0_var(--cm-cyan)] sm:mt-3.5 md:mt-4 md:px-5 md:py-4"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-900/80 md:text-xs">
+                        Up next
+                      </p>
+                      <p className="mt-1 text-base font-semibold leading-snug text-stone-950 md:text-lg md:leading-tight">
+                        {runOfShowUpNextMeta.upNextTitle}
+                      </p>
+                    </div>
                   ) : runOfShowUpNextMeta.banner === "complete" ? (
-                    <p className="mt-2 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px]">
+                    <p className="mt-3 max-w-3xl rounded-lg border border-emerald-200/90 bg-emerald-50/80 px-4 py-2.5 text-sm font-medium leading-snug text-emerald-950 md:mt-4 md:py-3">
                       Run Of Show complete
                     </p>
                   ) : null}
@@ -16235,60 +16243,64 @@ export default function Home() {
                       {runOfShowHeaderBrand.companyName}
                     </p>
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap items-stretch justify-end gap-2 sm:flex-none sm:flex-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => setRunOfShowAnnotateMode((v) => !v)}
-                      className={`min-h-10 shrink-0 rounded-xl border px-3 py-2 text-[12px] font-semibold transition sm:min-h-10 ${runOfShowAnnotateMode
-                        ? "border-stone-800 bg-stone-900 text-white shadow-sm"
-                        : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                        }`}
-                      aria-pressed={runOfShowAnnotateMode}
-                    >
-                      {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
-                    </button>
-                    {runOfShowAnnotateMode ? (
-                      <>
-                        <button
+                  <div className="flex min-w-0 w-full flex-col gap-2.5 sm:w-auto sm:flex-none sm:items-end">
+                    <div className="flex w-full flex-wrap items-stretch justify-end gap-2 sm:flex-nowrap">
+                      {typeof document !== "undefined" && document.fullscreenEnabled ? (
+                        <PrimaryButton
                           type="button"
-                          onClick={clearRunOfShowAnnotations}
-                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100"
+                          onClick={() => void toggleRunOfShowFullscreen()}
+                          className="min-h-11 flex-1 touch-manipulation rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none md:min-h-12 md:px-5 md:text-[15px]"
                         >
-                          Clear
-                        </button>
-                        <button
-                          type="button"
-                          onClick={undoLastRunOfShowAnnotation}
-                          disabled={runOfShowAnnotationStrokes.length === 0}
-                          className="min-h-10 shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-2 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Undo
-                        </button>
-                      </>
-                    ) : null}
-                    {typeof document !== "undefined" && document.fullscreenEnabled ? (
+                          {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        </PrimaryButton>
+                      ) : null}
                       <PrimaryButton
                         type="button"
-                        onClick={() => void toggleRunOfShowFullscreen()}
-                        className="min-h-11 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
+                        onClick={closeRunOfShow}
+                        className="min-h-11 flex-1 touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-800 sm:flex-none md:min-h-12 md:px-5 md:text-[15px]"
                       >
-                        {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        Exit Run Of Show
                       </PrimaryButton>
-                    ) : null}
-                    <PrimaryButton
-                      type="button"
-                      onClick={closeRunOfShow}
-                      className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-800 shadow-none hover:bg-stone-100 sm:flex-none sm:min-h-10 sm:px-4 sm:py-2"
-                    >
-                      Exit Run Of Show
-                    </PrimaryButton>
-                    <button
-                      type="button"
-                      onClick={resetRunOfShowDone}
-                      className="min-h-9 w-full flex-[1_1_100%] text-center text-[11px] font-medium text-stone-400 underline decoration-stone-300 underline-offset-[5px] transition hover:text-stone-600 sm:min-h-0 sm:w-auto sm:flex-none sm:text-left"
-                    >
-                      Reset Run Of Show
-                    </button>
+                    </div>
+                    <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-stone-100 pt-2 sm:border-t-0 sm:pt-0 md:gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setRunOfShowAnnotateMode((v) => !v)}
+                        className={`min-h-11 shrink-0 touch-manipulation rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition md:min-h-12 md:px-4 md:text-sm ${runOfShowAnnotateMode
+                          ? "border-stone-400 bg-stone-100 text-stone-800"
+                          : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50"
+                          }`}
+                        aria-pressed={runOfShowAnnotateMode}
+                      >
+                        {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
+                      </button>
+                      {runOfShowAnnotateMode ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={clearRunOfShowAnnotations}
+                            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 md:min-h-12 md:px-4 md:text-sm"
+                          >
+                            Clear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={undoLastRunOfShowAnnotation}
+                            disabled={runOfShowAnnotationStrokes.length === 0}
+                            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 md:min-h-12 md:px-4 md:text-sm"
+                          >
+                            Undo
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={resetRunOfShowDone}
+                        className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-transparent bg-transparent px-3 py-2.5 text-xs font-medium text-stone-500 transition hover:bg-stone-50 hover:text-stone-700 md:min-h-12 md:px-4 md:text-sm"
+                      >
+                        Reset progress
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -16296,15 +16308,18 @@ export default function Home() {
 
             <main
               ref={runOfShowScrollRef}
-              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-16 pt-6 sm:px-10 sm:pb-20 sm:pt-10 lg:px-20"
+              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10 md:pb-28 md:pt-10 lg:px-16 lg:pt-12"
             >
-              <div className="relative z-0 mx-auto max-w-5xl" data-run-of-show-inner="">
+              <div
+                className="relative z-0 mx-auto w-full max-w-5xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl"
+                data-run-of-show-inner=""
+              >
                 {sectionCeremonyEnabled ? (
                   <section className="mb-14 sm:mb-16">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       Ceremony
                     </h3>
-                    <div className="mt-6 grid gap-2 text-sm text-stone-700 sm:grid-cols-2 sm:gap-x-10">
+                    <div className="mt-6 grid gap-3 text-sm leading-relaxed text-stone-700 sm:grid-cols-2 sm:gap-x-10 md:gap-4 md:text-base md:leading-relaxed">
                       <p>
                         <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
                         {ceremonyStartTime || "—"}
@@ -16342,23 +16357,23 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
-                          className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                          className="group flex w-full min-h-[3.5rem] touch-manipulation items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-4 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80 md:min-h-14 md:gap-4 md:px-5 md:py-4"
                           aria-expanded="false"
                         >
                           <span
-                            className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                            className="mt-0.5 shrink-0 text-xl leading-none text-stone-400 transition group-hover:text-stone-600 md:text-2xl"
                             aria-hidden
                           >
                             ▸
                           </span>
-                          <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                          <span className="shrink-0 text-lg text-stone-500 md:text-xl" aria-hidden>
                             ✓
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
                               Summary · list hidden
                             </p>
-                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900 md:text-base">
                               Ceremony <span className="font-medium text-stone-600">complete</span>
                               <span className="font-normal text-stone-400"> · </span>
                               <span className="font-medium text-stone-600">
@@ -16389,7 +16404,7 @@ export default function Home() {
                                 onClick={() =>
                                   collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
                                 }
-                                className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                className="shrink-0 touch-manipulation rounded-lg border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 md:min-h-11 md:px-4 md:text-sm"
                               >
                                 Collapse list
                               </button>
@@ -16404,18 +16419,18 @@ export default function Home() {
                             const rowSurface = done
                               ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
                               : isUpNext
-                                ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                                : "py-8 sm:py-10";
+                                ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                                : "py-8 sm:py-9 md:py-10";
                             return (
                               <article
                                 key={`ros-ceremony-${row.id}`}
                                 {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                className={`flex gap-4 sm:gap-5 md:gap-6 ${rowSurface}`}
                               >
-                                <div className="shrink-0 pt-0.5 sm:pt-1">
+                                <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
                                     type="button"
-                                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                    className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
                                       ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
                                       : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
                                       }`}
@@ -16429,7 +16444,7 @@ export default function Home() {
                                       </span>
                                     ) : (
                                       <span
-                                        className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                        className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
                                         aria-hidden
                                       />
                                     )}
@@ -16437,18 +16452,18 @@ export default function Home() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   {isUpNext && !done ? (
-                                    <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                    <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
                                       Up next
                                     </p>
                                   ) : null}
                                   <p
-                                    className={`font-mono text-2xl font-light tabular-nums sm:text-3xl ${done ? "text-stone-500" : "text-stone-900"
+                                    className={`font-mono text-2xl font-light tabular-nums sm:text-3xl md:text-[2rem] lg:text-[2.125rem] ${done ? "text-stone-500" : "text-stone-900"
                                       }`}
                                   >
                                     {row.order.trim() ? row.order : "—"}
                                   </p>
                                   <h4
-                                    className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                    className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
                                       ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
                                       : "text-stone-950"
                                       }`}
@@ -16483,7 +16498,7 @@ export default function Home() {
 
                 {sectionReceptionTimelineEnabled ? (
                   <section className="mb-14 sm:mb-16">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       {eventPrepReceptionHeading}
                     </h3>
                     <div className="mt-8 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
@@ -16504,23 +16519,23 @@ export default function Home() {
                                 <button
                                   type="button"
                                   onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
-                                  className="group flex w-full min-h-[3.25rem] items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-3.5 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80"
+                                  className="group flex w-full min-h-[3.5rem] touch-manipulation items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-4 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80 md:min-h-14 md:gap-4 md:px-5 md:py-4"
                                   aria-expanded="false"
                                 >
                                   <span
-                                    className="mt-0.5 shrink-0 text-lg leading-none text-stone-400 transition group-hover:text-stone-600"
+                                    className="mt-0.5 shrink-0 text-xl leading-none text-stone-400 transition group-hover:text-stone-600 md:text-2xl"
                                     aria-hidden
                                   >
                                     ▸
                                   </span>
-                                  <span className="shrink-0 text-base text-stone-500" aria-hidden>
+                                  <span className="shrink-0 text-lg text-stone-500 md:text-xl" aria-hidden>
                                     ✓
                                   </span>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
                                       Summary · list hidden
                                     </p>
-                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
+                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900 md:text-base">
                                       {phase.category}{" "}
                                       <span className="font-medium text-stone-600">complete</span>
                                       <span className="font-normal text-stone-400"> · </span>
@@ -16549,7 +16564,7 @@ export default function Home() {
                                       <button
                                         type="button"
                                         onClick={() => collapseRunOfShowCompletedSection(phase.id)}
-                                        className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-[12px] font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100"
+                                        className="shrink-0 touch-manipulation rounded-lg border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 md:min-h-11 md:px-4 md:text-sm"
                                       >
                                         Collapse list
                                       </button>
@@ -16577,20 +16592,20 @@ export default function Home() {
                                       .filter(Boolean)
                                       .join(" · ");
                                     const rowSurface = done
-                                      ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                                      ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
-                                        ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:px-4 sm:py-10"
-                                        : "py-8 sm:py-10";
+                                        ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                                        : "py-8 sm:py-9 md:py-10";
                                     return (
                                       <article
                                         key={`ros-recv-${item.id}`}
                                         {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                        className={`flex gap-4 sm:gap-6 ${rowSurface}`}
+                                        className={`flex gap-4 sm:gap-5 md:gap-6 ${rowSurface}`}
                                       >
-                                        <div className="shrink-0 pt-1 sm:pt-1.5">
+                                        <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
                                             type="button"
-                                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] ${done
+                                            className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
                                               ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
                                               : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
                                               }`}
@@ -16609,7 +16624,7 @@ export default function Home() {
                                               </span>
                                             ) : (
                                               <span
-                                                className="h-6 w-6 rounded-full border-2 border-stone-400"
+                                                className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
                                                 aria-hidden
                                               />
                                             )}
@@ -16617,18 +16632,18 @@ export default function Home() {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                           {isUpNext && !done ? (
-                                            <p className="mb-2.5 inline-block rounded-md border border-stone-400/80 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-900 shadow-sm">
+                                            <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
                                               Up next
                                             </p>
                                           ) : null}
                                           <p
-                                            className={`font-mono text-3xl font-light tabular-nums sm:text-4xl ${done ? "text-stone-500" : "text-stone-900"
+                                            className={`font-mono text-3xl font-light tabular-nums sm:text-4xl md:text-[2.5rem] lg:text-[2.75rem] ${done ? "text-stone-500" : "text-stone-900"
                                               }`}
                                           >
                                             {item.time?.trim() ? item.time.trim() : "—"}
                                           </p>
                                           <h4
-                                            className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${done
+                                            className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
                                               ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
                                               : "text-stone-950"
                                               }`}
@@ -16673,10 +16688,10 @@ export default function Home() {
 
                 {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes ? (
                   <section className="mb-8 border-t border-stone-200 pt-12">
-                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       Music notes
                     </h3>
-                    <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 sm:text-lg">
+                    <div className="mt-8 space-y-4 text-base leading-relaxed text-stone-800 md:text-lg md:leading-relaxed">
                       {layoutProfileForActiveEvent === "School Dance" ? (
                         <p className="text-sm text-stone-600">Clean edits and school-appropriate selections.</p>
                       ) : null}
@@ -16784,7 +16799,7 @@ export default function Home() {
                 tabIndex={runOfShowUpNextRowInView ? -1 : 0}
                 aria-hidden={runOfShowUpNextRowInView}
                 aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
-                className={`no-print fixed z-[8] flex min-h-[3rem] min-w-[10.5rem] max-w-[min(18rem,calc(100vw-2rem))] flex-col justify-center rounded-2xl border border-stone-200/90 bg-white px-4 py-3.5 text-left shadow-[0_2px_14px_rgba(15,23,42,0.06)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity ${runOfShowUpNextRowInView
+                className={`no-print fixed z-[8] flex min-h-[3.25rem] min-w-[11rem] max-w-[min(20rem,calc(100vw-2rem))] touch-manipulation flex-col justify-center rounded-2xl border border-cyan-200/90 bg-white px-4 py-3.5 text-left shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity md:min-h-[3.75rem] md:min-w-[12.5rem] md:px-5 md:py-4 ${runOfShowUpNextRowInView
                   ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
                   : "translate-y-0 opacity-100"
                   }`}
@@ -16793,12 +16808,14 @@ export default function Home() {
                   right: "max(1rem, env(safe-area-inset-right, 0px))",
                 }}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Up Next</p>
-                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-900">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-900/75 md:text-xs">
+                  Up Next
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-950 md:text-base">
                   {runOfShowUpNextCueDetail.title}
                 </p>
                 {runOfShowUpNextCueDetail.subline ? (
-                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-500">
+                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-snug text-stone-600 md:text-sm">
                     {runOfShowUpNextCueDetail.subline}
                   </p>
                 ) : null}
