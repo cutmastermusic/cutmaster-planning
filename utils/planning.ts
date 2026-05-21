@@ -8,6 +8,7 @@ import type {
   GuestRequestEntry,
   PlanningInsight,
   SongEntry,
+  TimelineCategory,
   TimelineItem,
   TimelinePresetItem,
 } from "@/types/planning";
@@ -107,6 +108,91 @@ export function insertReceptionTimelineItemChronologically(
   const next = [...items];
   next.splice(insertAt, 0, newItem);
   return next;
+}
+
+/** Prisma `TimelineItem` row shape used when hydrating events from the database. */
+export type DbTimelineItemRow = {
+  id: string;
+  time: string | null;
+  title: string;
+  category: string | null;
+  notes: string | null;
+  needsDjMcAttention: boolean;
+  songTitle: string | null;
+  artist: string | null;
+  fadeOutEarly: boolean;
+  fadeOutTimestamp: string | null;
+  order: number;
+};
+
+export function mapMainTimelineItemsForDatabase(items: TimelineItem[]) {
+  return items.map((item, index) => ({
+    time: item.time?.trim() || null,
+    title: item.title,
+    category: item.category || null,
+    notes: item.notes?.trim() || null,
+    needsDjMcAttention: item.needsDjMcAttention ?? false,
+    songTitle: item.songTitle?.trim() || null,
+    artist: item.artist?.trim() || null,
+    fadeOutEarly: item.fadeOutEarly ?? false,
+    fadeOutTimestamp: item.fadeOutTimestamp?.trim() || null,
+    order: index,
+  }));
+}
+
+export function mapCeremonyTimelineItemsForDatabase(items: CeremonyTimelineItem[]) {
+  return items.map((item, index) => ({
+    time: item.timeOrOrder?.trim() || null,
+    title: item.moment,
+    category: null,
+    notes: item.notes?.trim() || null,
+    needsDjMcAttention: item.needsDjMcAttention ?? false,
+    songTitle: item.songTitle?.trim() || null,
+    artist: item.artist?.trim() || null,
+    fadeOutEarly: false,
+    fadeOutTimestamp: null,
+    order: index,
+  }));
+}
+
+export function mapDatabaseRowsToMainTimelineItems(rows: DbTimelineItemRow[]): TimelineItem[] {
+  return rows
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((row) => {
+      const item: TimelineItem = {
+        id: row.id,
+        title: row.title,
+        time: row.time ?? "",
+        category: (row.category as TimelineCategory) || "Reception",
+        notes: row.notes ?? "",
+        needsDjMcAttention: row.needsDjMcAttention ?? false,
+      };
+      const song = row.songTitle?.trim();
+      const artist = row.artist?.trim();
+      if (song) item.songTitle = song;
+      if (artist) item.artist = artist;
+      if (row.fadeOutEarly) item.fadeOutEarly = row.fadeOutEarly;
+      if (row.fadeOutTimestamp?.trim()) item.fadeOutTimestamp = row.fadeOutTimestamp.trim();
+      return item;
+    });
+}
+
+export function mapDatabaseRowsToCeremonyTimelineItems(
+  rows: DbTimelineItemRow[],
+): CeremonyTimelineItem[] {
+  return rows
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((row) => ({
+      id: row.id,
+      timeOrOrder: row.time ?? "",
+      moment: row.title,
+      songTitle: row.songTitle ?? "",
+      artist: row.artist ?? "",
+      notes: row.notes ?? "",
+      needsDjMcAttention: row.needsDjMcAttention ?? false,
+    }));
 }
 
 /** Reception timeline row from a Global Settings preset (structure-first: blank fields stay blank). */

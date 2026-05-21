@@ -19,6 +19,8 @@ import {
   replaceGuestRequests,
   replaceEventTeamMembers,
   replaceEventNotes,
+  replaceMainTimelineItems,
+  replaceCeremonyTimelineItems,
 } from "@/lib/actions/events";
 import {
   useCallback,
@@ -169,6 +171,10 @@ import {
   readImageFileAsDataUrl,
   mainTimelineItemFromPreset,
   ceremonyTimelineItemFromPreset,
+  mapCeremonyTimelineItemsForDatabase,
+  mapDatabaseRowsToCeremonyTimelineItems,
+  mapDatabaseRowsToMainTimelineItems,
+  mapMainTimelineItemsForDatabase,
   receptionTimelineHasClockOrderConflict,
   sortTimelineItemsChronologically,
 } from "@/utils/planning";
@@ -1834,6 +1840,33 @@ export default function Home() {
     };
   }, [flushCeremonyTimelineInlineEditDraftIntoTimeline, flushReceptionTimelineInlineEditDraftIntoTimeline]);
 
+  const persistTimelinesToDatabase = useCallback(
+    async (
+      eventId: string,
+      mainItems: TimelineItem[],
+      ceremonyItems: CeremonyTimelineItem[],
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceMainTimelineItems(eventId, mapMainTimelineItemsForDatabase(mainItems));
+        await replaceCeremonyTimelineItems(
+          eventId,
+          mapCeremonyTimelineItemsForDatabase(ceremonyItems),
+        );
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist timelines to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
   const commitActiveEventPlanningToEventsState = useCallback(async () => {
     const recvDraft = receptionTimelineInlineEditDraftRef.current;
     const timelinePayload =
@@ -1899,6 +1932,8 @@ export default function Home() {
             })),
           );
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
+
+          await persistTimelinesToDatabase(activeEventId, timelinePayload, ceremonyPayload);
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -1983,6 +2018,7 @@ export default function Home() {
     unityCeremonySong,
     vendors,
     weddingPartyProcessional,
+    persistTimelinesToDatabase,
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
@@ -5398,6 +5434,15 @@ export default function Home() {
                 isPinned: note.isPinned,
               }));
 
+          const mainDbTimeline = dbEvent.timelines?.find((t) => t.title === "Main Timeline");
+          const ceremonyDbTimeline = dbEvent.timelines?.find((t) => t.title === "Ceremony Timeline");
+          seededEvent.timelineItems = mapDatabaseRowsToMainTimelineItems(
+            mainDbTimeline?.items ?? [],
+          );
+          seededEvent.ceremonyTimelineItems = mapDatabaseRowsToCeremonyTimelineItems(
+            ceremonyDbTimeline?.items ?? [],
+          );
+
           return seededEvent;
         });
 
@@ -5715,6 +5760,9 @@ export default function Home() {
           GLOBAL_SETTINGS_STORAGE_KEY,
           JSON.stringify(appSettings),
         );
+        if (databaseEventIdsRef.current.has(activeEventId)) {
+          void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore);
+        }
         setPersistBaseline(true);
         if (persistUiSuppressBootCountRef.current > 0) {
           persistUiSuppressBootCountRef.current -= 1;
@@ -5756,6 +5804,7 @@ export default function Home() {
     receptionTimelineInlineEditDraft,
     ceremonyTimelineItems,
     ceremonyTimelineInlineEditDraft,
+    persistTimelinesToDatabase,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
