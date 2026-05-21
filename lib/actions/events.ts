@@ -15,6 +15,7 @@ type EventData = {
   ceremonyLocation?: string | null;
   receptionLocation?: string | null;
   internalNotes?: string | null;
+  eventStatus?: string | null;
 };
 
 export async function getEvents() {
@@ -84,6 +85,7 @@ export async function createEvent(data: EventData) {
       ceremonyLocation: data.ceremonyLocation,
       receptionLocation: data.receptionLocation,
       internalNotes: data.internalNotes,
+      eventStatus: data.eventStatus ?? "Planning",
       ownerId: demoUser.id,
       timelines: {
         create: {
@@ -111,6 +113,7 @@ export async function updateEvent(id: string, data: EventData) {
       ceremonyLocation: data.ceremonyLocation,
       receptionLocation: data.receptionLocation,
       internalNotes: data.internalNotes,
+      eventStatus: data.eventStatus ?? undefined,
     },
   });
 }

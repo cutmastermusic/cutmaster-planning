@@ -1,5 +1,6 @@
 import type {
   InternalTeamRole,
+  TeamMember,
   TeamMemberRole,
   Vendor,
   VendorAffiliation,
@@ -121,32 +122,55 @@ export const INTERNAL_TEAM_ROLES: InternalTeamRole[] = ["Admin", "DJ", "Planner"
 
 export type TeamRoleGroup = { label: string; roles: TeamMemberRole[] };
 
+export const EVENT_TEAM_VENDOR_ROLES: TeamMemberRole[] = [
+  "Planner",
+  "Photographer",
+  "Videographer",
+  "Venue",
+  "DJ/Entertainment",
+  "Caterer",
+  "Bar",
+  "Florist",
+  "Hair/Makeup",
+  "Transportation",
+  "Photo Booth",
+  "Officiant",
+  "Content Creator",
+  "Other",
+];
+
+/** External vendors & day-of contacts — safe for client (couple) editing. */
+export const EVENT_TEAM_VENDOR_ROLE_GROUP: TeamRoleGroup = {
+  label: "Vendors & day-of contacts",
+  roles: EVENT_TEAM_VENDOR_ROLES,
+};
+
 export const EVENT_TEAM_ROLE_GROUPS: TeamRoleGroup[] = [
   { label: "Internal team", roles: ["Admin", "DJ", "Planner"] },
   {
     label: "Event partners",
-    roles: [
-      "Photographer",
-      "Videographer",
-      "Venue",
-      "DJ/Entertainment",
-      "Caterer",
-      "Bar",
-      "Florist",
-      "Hair/Makeup",
-      "Transportation",
-      "Photo Booth",
-      "Officiant",
-      "Content Creator",
-      "Other",
-    ],
+    roles: EVENT_TEAM_VENDOR_ROLES.filter(
+      (role) => role !== "Planner",
+    ) as TeamMemberRole[],
   },
 ];
+
+/** Role dropdown groups for the team modal (internal staff only when allowed). */
+export function eventTeamRoleGroupsForActor(canManageInternalStaff: boolean): TeamRoleGroup[] {
+  if (canManageInternalStaff) {
+    return EVENT_TEAM_ROLE_GROUPS;
+  }
+  return [EVENT_TEAM_VENDOR_ROLE_GROUP];
+}
+
+export const DEFAULT_EVENT_TEAM_VENDOR_ROLE: TeamMemberRole = "Photographer";
 
 const TEAM_ROLE_LABEL_OVERRIDES: Partial<Record<TeamMemberRole, string>> = {
   Admin: "Admin",
   DJ: "DJ (internal)",
   Planner: "Planner / Coordinator",
+  Venue: "Venue / venue contact",
+  Other: "Other vendor",
 };
 
 /** Human-readable label for any unified Event Team role. */
@@ -163,6 +187,25 @@ export function teamMemberRoleLabel(role: TeamMemberRole | string): string {
 /** True if the role represents internal Cutmaster staff. */
 export function isInternalTeamRole(role: TeamMemberRole | string): boolean {
   return role === "Admin" || role === "DJ" || role === "Planner";
+}
+
+/**
+ * Whether a client (couple) may add/edit/remove this event-team row.
+ * Admin/DJ are always staff-only; Planner without a company is treated as internal.
+ */
+export function isClientManagedEventTeamMember(member: Pick<TeamMember, "role" | "company">): boolean {
+  if (member.role === "Admin" || member.role === "DJ") return false;
+  if (member.role === "Planner" && !(member.company?.trim() ?? "")) return false;
+  return true;
+}
+
+/** Role dropdown options when the actor cannot assign internal staff. */
+export function canActorManageEventTeamMember(
+  member: Pick<TeamMember, "role" | "company">,
+  canManageInternalStaff: boolean,
+): boolean {
+  if (canManageInternalStaff) return true;
+  return isClientManagedEventTeamMember(member);
 }
 
 export function filterVendorsByTypes(list: Vendor[], types: VendorType[]): Vendor[] {

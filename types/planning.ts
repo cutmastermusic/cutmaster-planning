@@ -1,3 +1,7 @@
+import type { EventStatus } from "@/lib/eventStatus";
+
+export type { EventStatus };
+
 export type Screen =
   | "All Events"
   | "Team"
@@ -271,9 +275,6 @@ export type MusicTasteProfile = {
   danceFloorVibeNotes?: string;
 };
 
-/** Workspace lifecycle — archived events stay in data but hide from default lists. */
-export type EventLifecycleStatus = "active" | "completed" | "archived";
-
 export type Event = {
   id: string;
   meta: WeddingDetails;
@@ -426,8 +427,8 @@ export type EventSettings = {
   checklistManualStatuses: Record<string, ChecklistStatus>;
   /** Base64 data URL of event cover/banner image (local browser storage only). */
   coverPhotoDataUrl?: string;
-  /** Defaults to active when missing (legacy data). */
-  eventLifecycleStatus?: EventLifecycleStatus;
+  /** Planning/execution stage; defaults to Planning when missing. */
+  eventStatus?: EventStatus;
 };
 
 export type ActivityType =

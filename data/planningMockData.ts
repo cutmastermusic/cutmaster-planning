@@ -459,7 +459,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
-    eventLifecycleStatus: "active",
+    eventStatus: "Planning",
   };
   const seedNow = Date.now();
   const common = {

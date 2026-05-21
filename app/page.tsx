@@ -23,6 +23,13 @@ import {
   replaceCeremonyTimelineItems,
 } from "@/lib/actions/events";
 import {
+  EVENT_STATUSES,
+  eventStatusPillClassOnCover,
+  eventStatusPillClassOnLight,
+  isArchivedEventStatus,
+  normalizeEventStatus,
+} from "@/lib/eventStatus";
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -114,7 +121,7 @@ import type {
   CeremonyTimelineItem,
   Collaborator,
   DisplayTimelineItem,
-  EventLifecycleStatus,
+  EventStatus,
   EventSettings,
   EventRecord,
   GuestRequestEntry,
@@ -146,10 +153,10 @@ import type {
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
 import {
-  EVENT_TEAM_ROLE_GROUPS,
+  DEFAULT_EVENT_TEAM_VENDOR_ROLE,
   VENDOR_TYPES_ORDERED,
-  VENDOR_UI_SECTIONS,
-  filterVendorsByTypes,
+  canActorManageEventTeamMember,
+  eventTeamRoleGroupsForActor,
   formatVendorContactLines,
   isCutmasterEventTeam,
   isInternalTeamRole,
@@ -183,11 +190,9 @@ import {
   timelineItemsFromImportDrafts,
   type PastedTimelineImportDraft,
 } from "@/utils/timelinePasteImport";
-import {
-  areaLabelForCouplePlanningGap,
-  buildCouplePlanningGaps,
-  COUPLE_PLANNING_GAPS_UI_MAX,
-} from "@/utils/couplePlanningGaps";
+import { buildCouplePlanningGaps } from "@/utils/couplePlanningGaps";
+import { buildPlanningProgressChecks } from "@/utils/planningProgress";
+import { buildNewWeddingMainTimelineItems } from "@/lib/weddingDefaultTimelineMoments";
 import {
   redrawRunOfShowAnnotationCanvas,
   runOfShowClientToContentCoords,
@@ -1540,7 +1545,7 @@ export default function Home() {
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
-    eventLifecycleStatus: "active",
+    eventStatus: "Planning",
   });
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
@@ -1598,9 +1603,7 @@ export default function Home() {
 
   const [allEventsSearch, setAllEventsSearch] = useState("");
   const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
-  const [allEventsLifecycleFilter, setAllEventsLifecycleFilter] = useState<
-    "open" | "active" | "completed" | "archived" | "all"
-  >("open");
+  const [allEventsShowArchived, setAllEventsShowArchived] = useState(false);
   const [allEventsTimingFilter, setAllEventsTimingFilter] = useState<"all" | "upcoming" | "past">("all");
   const [allEventsSort, setAllEventsSort] = useState<
     "date-asc" | "date-desc" | "recently-updated" | "alpha"
@@ -1898,6 +1901,7 @@ export default function Home() {
             ceremonyLocation: eventSettings.ceremonyLocation,
             receptionLocation: eventSettings.receptionLocation,
             internalNotes: eventSettings.internalNotes,
+            eventStatus: normalizeEventStatus(eventSettings.eventStatus),
           });
 
           await replaceGuestRequests(
@@ -2129,7 +2133,10 @@ export default function Home() {
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
-        eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
+        eventStatus: normalizeEventStatus(
+          evt.settings?.eventStatus,
+          (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        ),
       }),
     );
 
@@ -2341,7 +2348,7 @@ export default function Home() {
         planningQuestionAnswers: {},
         checklistDueDates: {},
         checklistManualStatuses: {},
-        eventLifecycleStatus: "active",
+        eventStatus: "Planning",
       },
     };
   };
@@ -2473,6 +2480,7 @@ export default function Home() {
         internalNotes: draft.internalNotes.trim(),
         ...profileDefaults,
         ...getLiveEventDocumentDefaults(createLayoutProfile),
+        eventStatus: "Planning",
       };
       newEvent.meta = {
         couple,
@@ -2492,11 +2500,17 @@ export default function Home() {
             `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           ),
         );
-      newEvent.timelineItems = enabledPresets
-        .filter((item) => item.timelineType === "main")
-        .map((item) =>
-          mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
-        );
+      newEvent.timelineItems =
+        createLayoutProfile === "Wedding"
+          ? buildNewWeddingMainTimelineItems()
+          : enabledPresets
+              .filter((item) => item.timelineType === "main")
+              .map((item) =>
+                mainTimelineItemFromPreset(
+                  item,
+                  `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                ),
+              );
         try {
           const savedDatabaseEvent = await createDatabaseEvent({
             title: eventName,
@@ -2510,6 +2524,7 @@ export default function Home() {
             ceremonyLocation: draft.ceremonyLocation.trim(),
             receptionLocation: draft.receptionLocation.trim(),
             internalNotes: draft.internalNotes.trim(),
+            eventStatus: "Planning",
           });
         
           newEvent.id = savedDatabaseEvent.id;
@@ -2540,6 +2555,12 @@ export default function Home() {
     }
 
     if (eventEditingId) {
+      const editingEvent = events.find((e) => e.id === eventEditingId);
+      const editingEventStatus = normalizeEventStatus(
+        editingEvent?.settings?.eventStatus,
+        (editingEvent?.settings as EventSettings & { eventLifecycleStatus?: string })
+          ?.eventLifecycleStatus,
+      );
       console.log("Updating database event:", eventEditingId);
       try {
         await updateDatabaseEvent(eventEditingId, {
@@ -2554,6 +2575,7 @@ export default function Home() {
           ceremonyLocation: draft.ceremonyLocation.trim(),
           receptionLocation: draft.receptionLocation.trim(),
           internalNotes: draft.internalNotes.trim(),
+          eventStatus: editingEventStatus,
         });
       } catch (error) {
         console.error("Failed to update event in database:", error);
@@ -2583,6 +2605,7 @@ export default function Home() {
                 plannerName: draft.plannerName.trim(),
                 plannerEmail: draft.plannerEmail.trim(),
                 internalNotes: draft.internalNotes.trim(),
+                eventStatus: editingEventStatus,
               },
             }
             : evt,
@@ -2932,8 +2955,27 @@ export default function Home() {
   const canManageGuestRequests = effectiveRole === "Admin" || effectiveRole === "Couple";
   const canEditNotes = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canManageEvents = effectiveRole === "Admin";
+  const canManageInternalEventTeam = canManageEvents;
+  const canManageEventTeamPartners =
+    canManageInternalEventTeam ||
+    effectiveRole === "Couple" ||
+    effectiveRole === "Planner" ||
+    effectiveRole === "DJ";
+  const eventTeamRoleGroupsForModal = useMemo(
+    () => eventTeamRoleGroupsForActor(canManageInternalEventTeam),
+    [canManageInternalEventTeam],
+  );
+  const teamMemberBeingEdited = teamEditingId
+    ? teamMembers.find((member) => member.id === teamEditingId)
+    : undefined;
+  const canSaveTeamModal =
+    canManageEventTeamPartners &&
+    (!teamMemberBeingEdited ||
+      canActorManageEventTeamMember(teamMemberBeingEdited, canManageInternalEventTeam));
+  const teamModalShowsCompanyField =
+    teamRoleDraft !== "Admin" && teamRoleDraft !== "DJ";
   const canEditEventCover = effectiveRole !== "DJ";
-  const canEditEventLifecycle = effectiveRole === "Admin" || effectiveRole === "Planner";
+  const canEditEventStatus = effectiveRole === "Admin" || effectiveRole === "Planner";
   const applyEventCoverPhoto = useCallback(
     (dataUrl: string | undefined) => {
       setEventSettings((prev) => ({ ...prev, coverPhotoDataUrl: dataUrl }));
@@ -2964,9 +3006,9 @@ export default function Home() {
     [applyEventCoverPhoto],
   );
 
-  const applyEventLifecycleStatus = useCallback(
-    (status: EventLifecycleStatus) => {
-      setEventSettings((prev) => ({ ...prev, eventLifecycleStatus: status }));
+  const applyEventStatus = useCallback(
+    async (status: EventStatus) => {
+      setEventSettings((prev) => ({ ...prev, eventStatus: status }));
       if (!activeEventId) return;
       setEvents((prev) =>
         prev.map((evt) =>
@@ -2974,13 +3016,67 @@ export default function Home() {
             ? {
               ...evt,
               lastUpdatedAt: Date.now(),
-              settings: { ...evt.settings, eventLifecycleStatus: status },
+              settings: { ...evt.settings, eventStatus: status },
             }
             : evt,
         ),
       );
+      if (!databaseEventIdsRef.current.has(activeEventId)) return;
+      try {
+        await updateDatabaseEvent(activeEventId, {
+          title: eventSettings.eventName,
+          date: eventSettings.weddingDate ? new Date(eventSettings.weddingDate) : null,
+          type: eventSettings.eventType,
+          venue: eventSettings.venue,
+          assignedDj: eventSettings.assignedDj,
+          packageName: eventSettings.packageName,
+          plannerName: eventSettings.plannerName,
+          plannerEmail: eventSettings.plannerEmail,
+          ceremonyLocation: eventSettings.ceremonyLocation,
+          receptionLocation: eventSettings.receptionLocation,
+          internalNotes: eventSettings.internalNotes,
+          eventStatus: status,
+        });
+      } catch (error) {
+        console.error("Failed to persist event status:", error);
+      }
     },
-    [activeEventId],
+    [activeEventId, eventSettings],
+  );
+
+  const activeEventStatus = useMemo(
+    () => normalizeEventStatus(eventSettings.eventStatus),
+    [eventSettings.eventStatus],
+  );
+
+  const eventStatusDashboardControl = useMemo(
+    () =>
+      canEditEventStatus ? (
+        <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-black/45 py-1 pl-3 pr-2 ring-1 ring-white/15">
+          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            Status
+          </span>
+          <select
+            value={activeEventStatus}
+            onChange={(e) => void applyEventStatus(e.target.value as EventStatus)}
+            className="min-h-9 min-w-[8.5rem] max-w-[12rem] flex-1 cursor-pointer appearance-none rounded-lg bg-transparent text-[11px] font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/55 sm:text-xs"
+            aria-label="Event status"
+          >
+            {EVENT_STATUSES.map((status) => (
+              <option key={`dash-hero-status-${status}`} value={status} className="bg-white text-stone-900">
+                {status}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <span
+          className={`inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ring-white/15 sm:text-xs ${eventStatusPillClassOnCover(activeEventStatus)}`}
+        >
+          {activeEventStatus}
+        </span>
+      ),
+    [activeEventStatus, applyEventStatus, canEditEventStatus],
   );
 
   const viewerRoleBadgeForEvent = useCallback(
@@ -3508,29 +3604,17 @@ export default function Home() {
       return eventMs < todayMs;
     };
 
-    const matchesLifecycle = (evt: EventRecord) => {
-      const life: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
-      switch (allEventsLifecycleFilter) {
-        case "all":
-          return true;
-        case "active":
-          return life === "active";
-        case "completed":
-          return life === "completed";
-        case "archived":
-          return life === "archived";
-        case "open":
-          if (life === "archived") {
-            return searching && matchesSearchFields(evt, q);
-          }
-          return life === "active" || life === "completed";
-        default:
-          return true;
-      }
+    const matchesArchivedVisibility = (evt: EventRecord) => {
+      const status = normalizeEventStatus(
+        evt.settings?.eventStatus,
+        (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+      );
+      if (!isArchivedEventStatus(status)) return true;
+      return allEventsShowArchived;
     };
 
     let rows = visibleEvents.filter((evt) => {
-      if (!matchesLifecycle(evt)) return false;
+      if (!matchesArchivedVisibility(evt)) return false;
       if (!matchesTiming(evt)) return false;
       const profile = resolveLayoutProfileForDisplay(evt.settings, appSettings.defaultEventType);
       if (allEventsProfileFilter !== "all" && profile !== allEventsProfileFilter) {
@@ -3565,7 +3649,7 @@ export default function Home() {
 
     return rows;
   }, [
-    allEventsLifecycleFilter,
+    allEventsShowArchived,
     allEventsProfileFilter,
     allEventsSearch,
     allEventsSort,
@@ -3621,7 +3705,9 @@ export default function Home() {
   const resetTeamMemberDraft = () => {
     setTeamEditingId(null);
     setTeamNameDraft("");
-    setTeamRoleDraft("DJ");
+    setTeamRoleDraft(
+      canManageInternalEventTeam ? "DJ" : DEFAULT_EVENT_TEAM_VENDOR_ROLE,
+    );
     setTeamCompanyDraft("");
     setTeamEmailDraft("");
     setTeamPhoneDraft("");
@@ -3634,6 +3720,14 @@ export default function Home() {
   };
 
   const startEditingTeamMember = (member: TeamMember) => {
+    if (!canActorManageEventTeamMember(member, canManageInternalEventTeam)) {
+      setTeamFormStatus({
+        kind: "error",
+        message:
+          "This contact is managed by your Cutmaster team. You can add and edit vendors and day-of partners.",
+      });
+      return;
+    }
     setTeamEditingId(member.id);
     setTeamNameDraft(member.name);
     setTeamRoleDraft(member.role);
@@ -3773,6 +3867,31 @@ export default function Home() {
     if (!teamRoleDraft) {
       setTeamFormStatus({ kind: "error", message: "Team member role is required." });
       return;
+    }
+
+    if (
+      !canManageInternalEventTeam &&
+      (teamRoleDraft === "Admin" ||
+        teamRoleDraft === "DJ" ||
+        (teamRoleDraft === "Planner" && !teamCompanyDraft.trim()))
+    ) {
+      setTeamFormStatus({
+        kind: "error",
+        message:
+          "Add vendors and day-of contacts here. For a wedding planner, choose Planner and enter their company name.",
+      });
+      return;
+    }
+
+    if (teamEditingId) {
+      const existing = teamMembers.find((member) => member.id === teamEditingId);
+      if (existing && !canActorManageEventTeamMember(existing, canManageInternalEventTeam)) {
+        setTeamFormStatus({
+          kind: "error",
+          message: "You cannot edit internal Cutmaster staff on this event.",
+        });
+        return;
+      }
     }
 
     const company = teamCompanyDraft.trim();
@@ -3947,11 +4066,20 @@ export default function Home() {
 
   const deleteTeamMember = async (teamMemberId: string) => {
     const target = teamMembers.find((member) => member.id === teamMemberId);
+    if (target && !canActorManageEventTeamMember(target, canManageInternalEventTeam)) {
+      setTeamFormStatus({
+        kind: "error",
+        message: "You cannot remove internal Cutmaster staff from this event.",
+      });
+      return;
+    }
     const ok =
       typeof window === "undefined"
         ? true
         : window.confirm(
-          `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
+          appMode === "event"
+            ? `Remove "${target?.name || "this contact"}" from this event's team?`
+            : `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
         );
     if (!ok) return;
     const nextMembers = teamMembers.filter((member) => member.id !== teamMemberId);
@@ -4563,23 +4691,6 @@ export default function Home() {
     sectionPlanningQuestionsEnabled,
     sectionReceptionTimelineEnabled,
   ]);
-
-  const coupleGuidedNextHint = useMemo(() => {
-    const labels: Partial<Record<Screen, string>> = {
-      "Event Settings": "Next: your names, date & venue",
-      Ceremony: "Next: ceremony music",
-      "Reception Timeline": "Next: timeline",
-      Timeline: "Next: timeline",
-      "Music Hub": "Next: taste, playlists & vibe",
-      "Planning Questions": "Next: your questionnaire",
-      "Guest Requests": "Next: guest song ideas",
-      "Planning Checklist": "Review your checklist",
-      "Event Prep": "Next: your event document",
-      "Event Team": "Next: your event team",
-      Notes: "Next: notes",
-    };
-    return labels[coupleGuidedNextScreen] ?? "Continue your planning";
-  }, [coupleGuidedNextScreen]);
 
   const coupleHomePlanningSections = useMemo(() => {
     type CoupleHomeSectionCard = {
@@ -5379,6 +5490,7 @@ export default function Home() {
             weddingDate: dbEvent.date
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
+            eventStatus: normalizeEventStatus(dbEvent.eventStatus),
           };
 
           seededEvent.meta = {
@@ -5600,7 +5712,10 @@ export default function Home() {
           checklistDueDates: evt.settings?.checklistDueDates ?? {},
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
           coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
-          eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
+          eventStatus: normalizeEventStatus(
+          evt.settings?.eventStatus,
+          (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        ),
         },
       }));
       const migratedEvents = loadedEvents.map((evt) =>
@@ -6187,7 +6302,10 @@ export default function Home() {
         checklistDueDates: evt.settings?.checklistDueDates ?? {},
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
-        eventLifecycleStatus: evt.settings?.eventLifecycleStatus ?? "active",
+        eventStatus: normalizeEventStatus(
+          evt.settings?.eventStatus,
+          (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        ),
       },
     }));
     const mergedBackupEvents = normalizedEvents.map((evt) =>
@@ -7236,272 +7354,89 @@ export default function Home() {
     return planningInsights;
   }, [effectiveRole, planningInsights]);
 
-  type EventReadinessTier = "attention" | "recommended" | "optional";
+  const planningProgressChecks = useMemo(
+    () =>
+      buildPlanningProgressChecks({
+        eventStatus: activeEventStatus,
+        layoutProfile: layoutProfileForActiveEvent,
+        sectionCeremonyEnabled,
+        sectionMustPlayEnabled,
+        timelineItems,
+        ceremonyTimelineItems,
+        teamMemberCount: teamMembers.length,
+        mustPlayCount: mustPlaySongs.length,
+        eventNotesCount: eventNotes.length,
+        hasKeyCeremonySongs,
+        primaryTimelineScreen: primaryTimelineScreenForHome,
+      }),
+    [
+      activeEventStatus,
+      ceremonyTimelineItems,
+      eventNotes.length,
+      hasKeyCeremonySongs,
+      layoutProfileForActiveEvent,
+      mustPlaySongs.length,
+      primaryTimelineScreenForHome,
+      sectionCeremonyEnabled,
+      sectionMustPlayEnabled,
+      teamMembers.length,
+      timelineItems,
+    ],
+  );
 
-  type EventReadinessItem = {
-    id: string;
-    tier: EventReadinessTier;
-    title: string;
-    hint: string;
-    actionLabel: string;
-    targetScreen: Screen;
-  };
-
-  const eventReadinessGuide = useMemo((): EventReadinessItem[] => {
-    const rows: EventReadinessItem[] = [];
-    const tlScreen = primaryTimelineScreenForHome;
-
-    if (!hasEventDetailsComplete) {
-      rows.push({
-        id: "rd-event-basics",
-        tier: "attention",
-        title: "Core event details unfinished",
-        hint: "Add your event name, how you’d like to be introduced, date, and venue so everything downstream stays aligned.",
-        actionLabel: "Complete details",
-        targetScreen: "Event Settings",
-      });
-    }
-
-    if (hasEventDetailsComplete) {
-      const plannerMissing = !eventSettings.plannerName?.trim();
-      const djMissing = !eventSettings.assignedDj?.trim();
-      if (plannerMissing || djMissing) {
-        rows.push({
-          id: "rd-team-routing",
-          tier: "attention",
-          title: plannerMissing && djMissing ? "Planner & DJ not linked yet" : plannerMissing ? "Planner contact open" : "DJ assignment open",
-          hint:
-            plannerMissing && djMissing
-              ? "Assign your planner and DJ in Event Settings—routing gets clearer for vendors and exports."
-              : plannerMissing
-                ? "Add who is coordinating day-of details so vendors know where to send updates."
-                : "Assign your DJ so music notes and timelines attach to the right person.",
-          actionLabel: "Event Settings",
-          targetScreen: "Event Settings",
-        });
-      }
-    }
-
-    if (sectionReceptionTimelineEnabled && mergedTimelineItems.length === 0) {
-      rows.push({
-        id: "rd-reception-timeline-empty",
-        tier: "attention",
-        title: "Reception timeline not started",
-        hint: "Even a short top-to-bottom flow helps you see the night clearly—presets are fine to start.",
-        actionLabel: "Build timeline",
-        targetScreen: tlScreen,
-      });
-    }
-
-    if (sectionCeremonyEnabled && ceremonyTimelineItems.length === 0) {
-      rows.push({
-        id: "rd-ceremony-empty",
-        tier: "attention",
-        title: "Ceremony timeline still empty",
-        hint: "Add procession through recessional beats when you’re ready—small steps still reduce day-of noise.",
-        actionLabel: "Ceremony",
-        targetScreen: "Ceremony",
-      });
-    }
-
-    if (sectionCeremonyEnabled && ceremonyTimelineItems.length > 0 && !hasKeyCeremonySongs) {
-      rows.push({
-        id: "rd-ceremony-music",
-        tier: "attention",
-        title: "Ceremony music cues incomplete",
-        hint: "Processional and recessional selections keep aisle timing calm for everyone involved.",
-        actionLabel: "Set ceremony audio",
-        targetScreen: "Ceremony",
-      });
-    }
-
-    if (sectionPlanningQuestionsEnabled && coupleAttentionSummary.unansweredPlanningQuestionCount > 0) {
-      rows.push({
-        id: "rd-planning-prompts",
-        tier: "attention",
-        title: `${coupleAttentionSummary.unansweredPlanningQuestionCount} planning prompt${coupleAttentionSummary.unansweredPlanningQuestionCount === 1 ? "" : "s"} open`,
-        hint: "Answers feed your Event Document and vendor brief—short responses are enough.",
-        actionLabel: "Planning Questions",
-        targetScreen: "Planning Questions",
-      });
-    }
-
-    if (sectionGuestRequestsEnabled && coupleAttentionSummary.pendingGuestCount > 0) {
-      rows.push({
-        id: "rd-guest-queue",
-        tier: "attention",
-        title: `${coupleAttentionSummary.pendingGuestCount} guest song request${coupleAttentionSummary.pendingGuestCount === 1 ? "" : "s"} waiting`,
-        hint: "Approve or decline when it fits your pace—the DJ sees the final list, not the inbox.",
-        actionLabel: "Guest Requests",
-        targetScreen: "Guest Requests",
-      });
-    }
-
-    if (
-      sectionReceptionTimelineEnabled &&
-      mergedTimelineItems.length > 0 &&
-      !hasKeyTimelineMoments
-    ) {
-      rows.push({
-        id: "rd-reception-flow-beats",
-        tier: "recommended",
-        title: "Reception flow could use anchor moments",
-        hint: "Consider marking cocktail, dinner, toasts, dancing, and a closing beat—gaps show up earlier when it’s calm.",
-        actionLabel: "Review timeline",
-        targetScreen: tlScreen,
-      });
-    }
-
-    if (sectionReceptionTimelineEnabled && mergedTimelineItems.length > 0 && !hasKeyFormalDanceSongs) {
-      rows.push({
-        id: "rd-formal-dances",
-        tier: "recommended",
-        title: "Formal dances still open",
-        hint: "First dance and parent dances carry a lot of emotion—set songs when it feels right.",
-        actionLabel: "Timeline",
-        targetScreen: tlScreen,
-      });
-    }
-
-    const lastDanceRow = mergedTimelineItems.find((item) => /last\s*dance/i.test(item.title));
-    if (
-      sectionReceptionTimelineEnabled &&
-      mergedTimelineItems.length > 0 &&
-      lastDanceRow &&
-      !(lastDanceRow.songTitle?.trim().length)
-    ) {
-      rows.push({
-        id: "rd-last-dance",
-        tier: "recommended",
-        title: "Last dance song not chosen",
-        hint: "A closing track helps your DJ land the night with intention—not a rush decision.",
-        actionLabel: "Pick closing song",
-        targetScreen: tlScreen,
-      });
-    }
-
-    const musicTasteForReadiness =
-      musicPlaylistLinks.length > 0 ||
-      musicGenreEraSelections.length > 0 ||
-      mustPlaySongs.length > 0 ||
-      playIfPossibleSongs.length > 0 ||
-      musicTasteProfileHasSelections(musicTasteProfile) ||
-      PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
-
-    if (
-      (sectionMustPlayEnabled || sectionPlaylistsEnabled) &&
-      !musicTasteForReadiness
-    ) {
-      rows.push({
-        id: "rd-must-play",
-        tier: "recommended",
-        title: "Share a playlist or vibe",
-        hint: "Tap a few taste tags, paste a playlist link, pick genres, or add a handful of must-plays—your DJ does not need a full song-by-song list.",
-        actionLabel: "Music Hub",
-        targetScreen: "Music Hub",
-      });
-    }
-
-    if (sectionVendorContactsEnabled && vendors.length === 0) {
-      rows.push({
-        id: "rd-vendors",
-        tier: "recommended",
-        title: "Event team contacts not captured",
-        hint: "Photo, venue, catering, entertainment—light entries save frantic texting later.",
-        actionLabel: "Event Team",
-        targetScreen: "Event Team",
-      });
-    }
-
-    const liveDocMuted =
-      eventNavItems.includes("Event Prep") &&
-      ((sectionPlanningQuestionsEnabled && !eventSettings.liveEventShowPlanningQuestions) ||
-        (sectionGuestRequestsEnabled && !eventSettings.liveEventShowGuestRequests) ||
-        (sectionMusicNotesEnabled && !eventSettings.liveEventShowMusicNotes) ||
-        (sectionPlaylistsEnabled && !eventSettings.liveEventShowPlaylists) ||
-        (sectionDoNotPlayEnabled && !eventSettings.liveEventShowDoNotPlay));
-
-    if (liveDocMuted) {
-      rows.push({
-        id: "rd-live-doc-sections",
-        tier: "recommended",
-        title: "Event Document not showing every enabled area",
-        hint: "Toggle sections on in Event Document options when you’re ready for vendors to read them.",
-        actionLabel: "Event Document",
-        targetScreen: "Event Prep",
-      });
-    }
-
-    if (sectionDoNotPlayEnabled && doNotPlaySongs.length === 0) {
-      rows.push({
-        id: "rd-do-not-play",
-        tier: "optional",
-        title: "Do-not-play still blank",
-        hint: "Totally optional—a gentle guardrail if certain songs or eras feel off-limits.",
-        actionLabel: "Add guardrails",
-        targetScreen: "Music Hub",
-      });
-    }
-
-    if (sectionMusicNotesEnabled && !hasFinalDjNotes) {
-      rows.push({
-        id: "rd-dj-notes-length",
-        tier: "optional",
-        title: "DJ notes room to grow",
-        hint: "Energy arc, dedications, surprises—add when inspiration strikes; nothing here is urgent.",
-        actionLabel: "Music notes",
-        targetScreen: "Music Hub",
-      });
-    }
-
-    const tierRank = (t: EventReadinessTier) =>
-      t === "attention" ? 0 : t === "recommended" ? 1 : 2;
-
-    const seen = new Set<string>();
-    return rows
-      .filter((row) => {
-        if (seen.has(row.id)) return false;
-        seen.add(row.id);
-        return true;
-      })
-      .sort((a, b) => tierRank(a.tier) - tierRank(b.tier) || a.title.localeCompare(b.title));
-  }, [
-    ceremonyTimelineItems.length,
-    coupleAttentionSummary.pendingGuestCount,
-    coupleAttentionSummary.unansweredPlanningQuestionCount,
-    eventNavItems,
-    eventSettings.assignedDj,
-    eventSettings.liveEventShowDoNotPlay,
-    eventSettings.liveEventShowGuestRequests,
-    eventSettings.liveEventShowMusicNotes,
-    eventSettings.liveEventShowPlanningQuestions,
-    eventSettings.liveEventShowPlaylists,
-    eventSettings.plannerName,
-    hasEventDetailsComplete,
-    hasFinalDjNotes,
-    hasKeyCeremonySongs,
-    hasKeyFormalDanceSongs,
-    hasKeyTimelineMoments,
-    mergedTimelineItems,
-    mustPlaySongs.length,
-    playIfPossibleSongs.length,
-    musicPlaylistLinks.length,
-    musicGenreEraSelections.length,
-    musicTasteProfile,
-    playlistVibeOverrides,
-    doNotPlaySongs.length,
-    primaryTimelineScreenForHome,
-    sectionCeremonyEnabled,
-    sectionDoNotPlayEnabled,
-    sectionGuestRequestsEnabled,
-    sectionMusicNotesEnabled,
-    sectionMustPlayEnabled,
-    sectionPlanningQuestionsEnabled,
-    sectionPlaylistsEnabled,
-    sectionReceptionTimelineEnabled,
-    sectionVendorContactsEnabled,
-    vendors.length,
-  ]);
+  const planningProgressDashboardCard = useMemo(() => {
+    const attentionCount = planningProgressChecks.filter((c) => c.state === "attention").length;
+    return (
+      <PremiumCard className="border-stone-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <SectionTitle className="text-stone-950">Planning progress</SectionTitle>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 ${
+              attentionCount === 0
+                ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
+                : "bg-amber-50 text-amber-950 ring-amber-200/90"
+            }`}
+          >
+            {attentionCount === 0 ? "On track" : `${attentionCount} to revisit`}
+          </span>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-stone-600">
+          A quick read on what&apos;s in place—pulled from your timeline, team, music, and notes.
+        </p>
+        <ul className="mt-4 space-y-2">
+          {planningProgressChecks.map((check) => {
+            const rowBody = (
+              <>
+                <span className="shrink-0 text-base leading-none" aria-hidden>
+                  {check.state === "complete" ? "✅" : "⚠️"}
+                </span>
+                <span className="min-w-0 flex-1 text-left text-sm leading-snug text-stone-900">
+                  {check.label}
+                </span>
+              </>
+            );
+            return (
+              <li key={check.id}>
+                {check.targetScreen ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveScreen(check.targetScreen!)}
+                    className="flex w-full min-h-11 items-start gap-3 rounded-xl border border-stone-200/90 bg-stone-50/40 px-3 py-3 text-left transition-colors hover:border-stone-300 hover:bg-stone-50 sm:min-h-10"
+                  >
+                    {rowBody}
+                  </button>
+                ) : (
+                  <div className="flex min-h-11 items-start gap-3 rounded-xl border border-stone-200/90 bg-stone-50/40 px-3 py-3 sm:min-h-10">
+                    {rowBody}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </PremiumCard>
+    );
+  }, [planningProgressChecks, setActiveScreen]);
 
   const couplePlanningGapsForDashboard = useMemo(
     () =>
@@ -7550,6 +7485,109 @@ export default function Home() {
       vendors,
     ],
   );
+
+  const coupleNextStep = useMemo(() => {
+    const attentionBodies: Partial<Record<string, string>> = {
+      "timeline-started":
+        "Review your timeline and add the moments you already know—cocktail, dinner, and dancing are a great start.",
+      "event-team":
+        "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
+      "ceremony-music":
+        "Add ceremony music cues when timing firms up—processional and recessional are enough to start.",
+      "must-play": "Share a few must-play songs or a playlist link so your DJ can read your vibe early.",
+      "parent-dances":
+        "Add songs for your formal dances on the timeline when you're ready—first dance and parent dances matter most.",
+      "event-notes": "Drop a short note for your DJ or planner when something important comes to mind.",
+      "final-review": "When you're ready, mark planning as final review so your team knows you're steady.",
+    };
+
+    const firstAttention = planningProgressChecks.find((c) => c.state === "attention");
+    if (firstAttention?.targetScreen) {
+      const screenCtas: Partial<Record<Screen, string>> = {
+        "Event Settings": "Event details",
+        Ceremony: "Ceremony",
+        Timeline: "Timeline",
+        "Reception Timeline": "Timeline",
+        "Music Hub": "Music",
+        "Event Team": "Event team",
+        Notes: "Notes",
+      };
+      return {
+        body:
+          attentionBodies[firstAttention.id] ??
+          firstAttention.label.replace(/ missing$/i, " when you're ready."),
+        ctaLabel: screenCtas[firstAttention.targetScreen] ?? "Continue",
+        targetScreen: firstAttention.targetScreen,
+      };
+    }
+
+    if (sectionVendorContactsEnabled && teamMembers.length === 0) {
+      return {
+        body: "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
+        ctaLabel: "Event team",
+        targetScreen: "Event Team" as Screen,
+      };
+    }
+
+    const firstGap = couplePlanningGapsForDashboard[0];
+    if (firstGap) {
+      const gapCtas: Partial<Record<Screen, string>> = {
+        Ceremony: "Ceremony",
+        Timeline: "Timeline",
+        "Reception Timeline": "Timeline",
+        "Music Hub": "Music",
+        "Event Team": "Event team",
+        "Planning Questions": "Questions",
+      };
+      return {
+        body: firstGap.message,
+        ctaLabel: gapCtas[firstGap.targetScreen] ?? "Continue",
+        targetScreen: firstGap.targetScreen,
+      };
+    }
+
+    const guidedBodies: Partial<Record<Screen, string>> = {
+      "Event Settings": "Confirm your names, date, and venue so everything else stays aligned.",
+      Ceremony: "Add ceremony music when your venue confirms timing—small steps still help day-of.",
+      Timeline: "Review your timeline and add the moments you already know.",
+      "Reception Timeline": "Review your timeline and add the moments you already know.",
+      "Music Hub": "Share taste, playlists, or a few must-plays so your DJ can prep calmly.",
+      "Planning Questions": "Answer a few planning prompts when you have a quiet moment—they feed your event document.",
+      "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
+      "Planning Checklist": "Glance at your checklist when you want a structured pass.",
+      "Event Prep": "Open your event document when you want a single shareable packet.",
+      "Event Team": "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
+      Notes: "Add a note for your DJ or planner when something important comes to mind.",
+    };
+
+    const guidedCtas: Partial<Record<Screen, string>> = {
+      "Event Settings": "Event details",
+      Ceremony: "Ceremony",
+      Timeline: "Timeline",
+      "Reception Timeline": "Timeline",
+      "Music Hub": "Music",
+      "Planning Questions": "Questions",
+      "Guest Requests": "Guest requests",
+      "Planning Checklist": "Checklist",
+      "Event Prep": "Event document",
+      "Event Team": "Event team",
+      Notes: "Notes",
+    };
+
+    return {
+      body:
+        guidedBodies[coupleGuidedNextScreen] ??
+        "You're in a steady place—open any section below when you want to refine details.",
+      ctaLabel: guidedCtas[coupleGuidedNextScreen] ?? "Continue planning",
+      targetScreen: coupleGuidedNextScreen,
+    };
+  }, [
+    coupleGuidedNextScreen,
+    couplePlanningGapsForDashboard,
+    planningProgressChecks,
+    sectionVendorContactsEnabled,
+    teamMembers.length,
+  ]);
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -9627,7 +9665,7 @@ export default function Home() {
                       onClick={() => {
                         setAllEventsSearch("");
                         setAllEventsProfileFilter("all");
-                        setAllEventsLifecycleFilter("open");
+                        setAllEventsShowArchived(false);
                         setAllEventsTimingFilter("all");
                         setAllEventsSort("date-asc");
                       }}
@@ -9659,36 +9697,17 @@ export default function Home() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label htmlFor="all-events-status-filter" className={lightUiFormLabelClass}>
-                        Status
+                    <div className="flex flex-col justify-end">
+                      <label className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-2.5">
+                        <input
+                          id="all-events-show-archived"
+                          type="checkbox"
+                          checked={allEventsShowArchived}
+                          onChange={(e) => setAllEventsShowArchived(e.target.checked)}
+                          className="h-4 w-4 rounded border-stone-300 text-[#00D4FF] focus:ring-[#00D4FF]/40"
+                        />
+                        <span className="text-xs font-medium text-stone-800">Show archived</span>
                       </label>
-                      <select
-                        id="all-events-status-filter"
-                        value={allEventsLifecycleFilter}
-                        onChange={(e) =>
-                          setAllEventsLifecycleFilter(
-                            e.target.value as typeof allEventsLifecycleFilter,
-                          )
-                        }
-                        className={lightUiSelectClass}
-                      >
-                        <option value="open" className="bg-white text-stone-900">
-                          Open (hide archived)
-                        </option>
-                        <option value="active" className="bg-white text-stone-900">
-                          Active
-                        </option>
-                        <option value="completed" className="bg-white text-stone-900">
-                          Completed
-                        </option>
-                        <option value="archived" className="bg-white text-stone-900">
-                          Archived
-                        </option>
-                        <option value="all" className="bg-white text-stone-900">
-                          All statuses
-                        </option>
-                      </select>
                     </div>
                     <div>
                       <label htmlFor="all-events-timing-filter" className={lightUiFormLabelClass}>
@@ -9741,7 +9760,7 @@ export default function Home() {
                   <p className="mt-3 text-[11px] leading-relaxed text-stone-600">
                     Showing <span className="font-semibold text-stone-900">{allEventsFilteredAndSorted.length}</span> of{" "}
                     <span className="font-semibold text-stone-900">{visibleEvents.length}</span> events in view.
-                    Archived events stay hidden until you search or choose Archived / All statuses.
+                    Archived events stay hidden unless Show archived is on.
                   </p>
                 </PremiumCard>
 
@@ -9750,15 +9769,14 @@ export default function Home() {
                     <div className="py-10 text-center">
                       <p className="text-sm font-semibold text-stone-900">No events match</p>
                       <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                        Try clearing search or widening filters — archived events appear when they match search or when
-                        Status is set to Archived or All statuses.
+                        Try clearing search or turn on Show archived to include archived events.
                       </p>
                       <PrimaryButton
                         type="button"
                         onClick={() => {
                           setAllEventsSearch("");
                           setAllEventsProfileFilter("all");
-                          setAllEventsLifecycleFilter("open");
+                          setAllEventsShowArchived(false);
                           setAllEventsTimingFilter("all");
                           setAllEventsSort("date-asc");
                         }}
@@ -9783,7 +9801,11 @@ export default function Home() {
                       const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
                       const cardProgress = approximatePlanningProgressPercent(evt);
                       const cardCover = evt.settings?.coverPhotoDataUrl;
-                      const cardLifecycle: EventLifecycleStatus = evt.settings?.eventLifecycleStatus ?? "active";
+                      const cardStatus = normalizeEventStatus(
+                        evt.settings?.eventStatus,
+                        (evt.settings as EventSettings & { eventLifecycleStatus?: string })
+                          .eventLifecycleStatus,
+                      );
                       const viewerBadge = viewerRoleBadgeForEvent(evt);
                       return (
                         <PremiumCard key={evt.id} className="overflow-hidden p-0">
@@ -9804,18 +9826,9 @@ export default function Home() {
                             <div className="absolute inset-0 bg-black/55" />
                             <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${cardLifecycle === "archived"
-                                  ? "bg-black/60 text-zinc-200"
-                                  : cardLifecycle === "completed"
-                                    ? "bg-emerald-500/25 text-emerald-100"
-                                    : "bg-white/15 text-white"
-                                  }`}
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${eventStatusPillClassOnCover(cardStatus)}`}
                               >
-                                {cardLifecycle === "archived"
-                                  ? "Archived"
-                                  : cardLifecycle === "completed"
-                                    ? "Completed"
-                                    : "Planning"}
+                                {cardStatus}
                               </span>
                               {viewerBadge ? (
                                 <span className="rounded-full bg-[#00D4FF]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#00D4FF]/35">
@@ -10160,7 +10173,8 @@ export default function Home() {
                       {eventDisplayName}
                     </h2>
                     <p className="mt-2 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {eventStatusDashboardControl}
                       <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white">
                         {layoutProfileForActiveEvent}
                       </span>
@@ -10237,157 +10251,29 @@ export default function Home() {
                 </div>
               </PremiumCard>
 
-              {couplePlanningGapsForDashboard.length > 0 ? (
-                <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-none sm:px-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
-                        Still needed
-                      </p>
-                      <p className="mt-1 text-sm leading-snug text-stone-700">
-                        Gentle next steps—nothing here blocks you from using the app.
-                      </p>
-                    </div>
-                  </div>
-                  <ul className="mt-3 space-y-2">
-                    {couplePlanningGapsForDashboard.slice(0, COUPLE_PLANNING_GAPS_UI_MAX).map((gap) => (
-                      <li key={gap.id}>
-                        <button
-                          type="button"
-                          onClick={() => setActiveScreen(gap.targetScreen)}
-                          className="flex w-full min-h-[3rem] items-start gap-2.5 rounded-xl border border-stone-200/90 bg-stone-50/50 px-3 py-2.5 text-left transition-colors hover:border-stone-300 hover:bg-stone-50 sm:min-h-0 sm:gap-3 sm:px-3.5 sm:py-3"
-                        >
-                          <span className="mt-0.5 inline-flex shrink-0 rounded-full border border-stone-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-500">
-                            {areaLabelForCouplePlanningGap(gap.area)}
-                          </span>
-                          <span className="min-w-0 flex-1 text-sm leading-snug text-stone-900">{gap.message}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-none sm:px-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
-                      Planning guidance
-                    </p>
-                    <p className="mt-1 text-sm leading-snug text-stone-700">
-                      A light nudge on what to visit next—no pressure, no clutter.
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-[11px] font-medium tabular-nums text-stone-500">{completionPercent}% plan</p>
-                </div>
-
-                {eventReadinessGuide.length === 0 ? (
-                  <p className="mt-4 rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-3 text-sm leading-relaxed text-stone-800">
-                    Nothing needs attention right now—you&apos;re steady for this stage.
-                  </p>
-                ) : (
-                  <div className="mt-4 space-y-5">
-                    {(["attention", "recommended"] as const).map((tier) => {
-                      const bucket = eventReadinessGuide.filter((r) => r.tier === tier);
-                      if (bucket.length === 0) return null;
-                      const tierLabel = tier === "attention" ? "Needs attention" : "Recommended";
-                      return (
-                        <div key={tier}>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                            {tierLabel}
-                          </p>
-                          <ul className="mt-2 space-y-2">
-                            {bucket.map((item) => (
-                              <li
-                                key={item.id}
-                                className={
-                                  tier === "attention"
-                                    ? "rounded-xl border border-stone-200 border-l-[3px] border-l-stone-700 bg-stone-50/90 px-3 py-3 sm:px-4"
-                                    : "rounded-xl border border-stone-200 border-l-[3px] border-l-[#00b8d9]/75 bg-white px-3 py-3 sm:px-4"
-                                }
-                              >
-                                <p className="text-sm font-semibold leading-snug text-stone-900">{item.title}</p>
-                                <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.hint}</p>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveScreen(item.targetScreen)}
-                                  className="mt-2.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-center text-xs font-semibold text-stone-900 hover:bg-stone-50 sm:w-auto sm:py-1.5"
-                                >
-                                  {item.actionLabel}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })}
-
-                    {eventReadinessGuide.some((r) => r.tier === "optional") ? (
-                      <details className="rounded-xl border border-stone-200 bg-stone-50/60">
-                        <summary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold text-stone-800 sm:px-4 [&::-webkit-details-marker]:hidden">
-                          <span className="flex items-center justify-between gap-2">
-                            <span>Optional polish</span>
-                            <span className="text-xs font-medium tabular-nums text-stone-500">
-                              {eventReadinessGuide.filter((r) => r.tier === "optional").length}
-                            </span>
-                          </span>
-                        </summary>
-                        <ul className="space-y-2 border-t border-stone-200 px-3 pb-3 pt-2 sm:px-4">
-                          {eventReadinessGuide
-                            .filter((r) => r.tier === "optional")
-                            .map((item) => (
-                              <li
-                                key={item.id}
-                                className="rounded-lg border border-stone-200/90 bg-white px-3 py-2.5 sm:px-3.5"
-                              >
-                                <p className="text-sm font-semibold leading-snug text-stone-900">{item.title}</p>
-                                <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.hint}</p>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveScreen(item.targetScreen)}
-                                  className="mt-2 w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-center text-xs font-semibold text-stone-800 hover:bg-stone-100 sm:w-auto"
-                                >
-                                  {item.actionLabel}
-                                </button>
-                              </li>
-                            ))}
-                        </ul>
-                      </details>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-
-              <PrimaryButton
-                type="button"
-                onClick={() => setActiveScreen(coupleGuidedNextScreen)}
-                className="min-h-[4.75rem] w-full justify-center rounded-2xl border border-stone-800 bg-[#00D4FF] px-5 py-4 text-center shadow-sm transition hover:brightness-[1.02] sm:min-h-[4.25rem]"
-              >
-                <span className="block text-base font-semibold text-black">Continue planning</span>
-                <span className="mt-1 block text-xs font-semibold text-black/80">{coupleGuidedNextHint}</span>
-              </PrimaryButton>
-
-              <div className="space-y-2 px-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
-                  Your planning workspace
-                </p>
-                <p className="text-sm leading-relaxed text-stone-700">
-                  Pick up where you left off—each card shows live counts from your event (nothing is guessed).
+              <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Next step</p>
+                <p className="mt-2 text-sm leading-relaxed text-stone-700">{coupleNextStep.body}</p>
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen(coupleNextStep.targetScreen)}
+                  className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
+                >
+                  {coupleNextStep.ctaLabel}
+                </PrimaryButton>
+                <p className="mt-3 text-[11px] tabular-nums text-stone-500">
+                  {completionPercent}% of your plan in place
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                 {coupleHomePlanningSections.map((section) => {
-                  const isGuidedNext = section.screen === coupleGuidedNextScreen;
                   return (
                     <button
                       type="button"
                       key={section.id}
                       onClick={() => setActiveScreen(section.screen)}
-                      className={`group flex min-h-[10.5rem] flex-col rounded-2xl border bg-white px-5 py-5 text-left shadow-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${isGuidedNext
-                        ? "border-stone-500 ring-2 ring-cyan-500/25 ring-offset-2 ring-offset-[var(--cm-canvas)] sm:shadow-[0_12px_32px_-14px_rgba(28,25,23,0.14)]"
-                        : "border-stone-300 ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                        }`}
+                      className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -10395,11 +10281,6 @@ export default function Home() {
                             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
                               {section.kicker}
                             </p>
-                            {isGuidedNext ? (
-                              <span className="rounded-full border border-cyan-500/35 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-800">
-                                Next up
-                              </span>
-                            ) : null}
                           </div>
                           <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
                             {section.title}
@@ -10472,7 +10353,8 @@ export default function Home() {
                         {eventDisplayName}
                       </h2>
                       <p className="mt-1 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {eventStatusDashboardControl}
                         <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
                           {layoutProfileForActiveEvent}
                         </span>
@@ -10582,6 +10464,7 @@ export default function Home() {
                     </div>
                   </div>
                 </PremiumCard>
+                {planningProgressDashboardCard}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {roleDashboardMetricCards.map((card) => (
                     <PremiumCard key={card.label}>
@@ -13592,8 +13475,11 @@ export default function Home() {
               trail={["Event Team"]}
               onBack={() => setActiveScreen("Dashboard")}
               primaryAction={
-                canManageEvents
-                  ? { label: "Add team member", onClick: openAddTeamMemberModal }
+                canManageEventTeamPartners
+                  ? {
+                      label: isCoupleView ? "Add vendor / contact" : "Add team member",
+                      onClick: openAddTeamMemberModal,
+                    }
                   : canInviteCollaborators
                     ? { label: "Invite to app", onClick: () => setInviteModalOpen(true) }
                     : undefined
@@ -13605,8 +13491,9 @@ export default function Home() {
                 <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                People helping with your event—planners, venue, photo, catering, entertainment, and who can open this
-                plan in the app.
+                {isCoupleView
+                  ? "Add photographers, caterers, officiants, venues, planners, and other partners here—the same list your Cutmaster team uses on event day."
+                  : "People helping with your event—internal Cutmaster staff, external partners, and who can open this plan in the app."}
               </p>
               {vendorStatus && (
                 <p
@@ -13652,17 +13539,19 @@ export default function Home() {
                 <div className="min-w-0">
                   <SectionTitle className="text-stone-950">Team Members</SectionTitle>
                   <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                    Everyone on this event — internal Cutmaster staff (Admin / DJ / Planner) plus
-                    external partners (venue, photo, catering, entertainment, etc.). Saved per event.
+                    {isCoupleView
+                      ? "Vendors and day-of contacts (photo, video, catering, venue, planner, etc.)—same cards as your Cutmaster team. Saved to this event when you tap Save."
+                      : "Internal Cutmaster staff plus external partners (venue, photo, catering, entertainment, etc.). Saved per event."}
                   </p>
                 </div>
-                <PrimaryButton
-                  onClick={openAddTeamMemberModal}
-                  disabled={!canManageEvents}
-                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
-                >
-                  Add Team Member
-                </PrimaryButton>
+                {canManageEventTeamPartners ? (
+                  <PrimaryButton
+                    onClick={openAddTeamMemberModal}
+                    className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                  >
+                    {isCoupleView ? "Add vendor / contact" : "Add team member"}
+                  </PrimaryButton>
+                ) : null}
               </div>
               {teamFormStatus && (
                 <p
@@ -13743,36 +13632,39 @@ export default function Home() {
                         {member.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <PrimaryButton
-                        onClick={() => startEditingTeamMember(member)}
-                        disabled={!canManageEvents}
-                        className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
-                      >
-                        Edit
-                      </PrimaryButton>
-                      <PrimaryButton
-                        onClick={() => deleteTeamMember(member.id)}
-                        disabled={!canManageEvents}
-                        className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
-                      >
-                        Delete from Team
-                      </PrimaryButton>
-                    </div>
+                    {canActorManageEventTeamMember(member, canManageInternalEventTeam) ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <PrimaryButton
+                          onClick={() => startEditingTeamMember(member)}
+                          className="min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-0 sm:py-2"
+                        >
+                          Edit
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => deleteTeamMember(member.id)}
+                          className="min-h-11 rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:min-h-0 sm:py-2"
+                        >
+                          Remove
+                        </PrimaryButton>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-[11px] leading-relaxed text-stone-500">
+                        Managed by your Cutmaster team.
+                      </p>
+                    )}
                   </div>
                 ))}
                 {teamMembers.length === 0 && (
                   <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center">
-                    <p className="text-xs leading-relaxed text-stone-600">
-                      No team members yet.
-                    </p>
-                    <PrimaryButton
-                      onClick={openAddTeamMemberModal}
-                      disabled={!canManageEvents}
-                      className="mt-3 w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto"
-                    >
-                      Add Team Member
-                    </PrimaryButton>
+                    <p className="text-xs leading-relaxed text-stone-600">No team members yet.</p>
+                    {canManageEventTeamPartners ? (
+                      <PrimaryButton
+                        onClick={openAddTeamMemberModal}
+                        className="mt-3 w-full min-h-11 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto"
+                      >
+                        {isCoupleView ? "Add vendor / contact" : "Add team member"}
+                      </PrimaryButton>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -13897,99 +13789,6 @@ export default function Home() {
                 </div>
               </div>
             </PremiumCard>
-
-            {!sectionVendorContactsEnabled ? (
-              <PremiumCard className="border-amber-200 bg-amber-50/90">
-                <SectionTitle className="text-stone-950">Day-of contacts</SectionTitle>
-                <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                  The detailed contact list is turned off in Event Settings. Turn on{" "}
-                  <span className="font-semibold">Event team contacts</span> to add planners, venue, photo, catering,
-                  and entertainment here.
-                </p>
-              </PremiumCard>
-            ) : vendors.length === 0 ? (
-              <SectionEmptyState
-                title="No day-of contacts yet"
-                description="Add planners, venue, photo + video, catering, and entertainment so calls and texts stay in one place—not buried in threads."
-                primaryAction={{ label: "Add day-of contact", onClick: openAddVendorModal }}
-                cardClassName="border-dashed border-stone-300 bg-stone-50"
-              />
-            ) : (
-              <>
-                <PremiumCard>
-                  <SectionTitle className="text-stone-950">Arrival & load-in</SectionTitle>
-                  <p className={lightUiSectionCaptionClass}>
-                    Quick scan of who is on-site and when—pair with coordination notes for timing-sensitive moments.
-                  </p>
-                  <div className="mt-3 space-y-2">
-                    {vendors
-                      .filter((vendor) => vendor.arrivalTime.trim())
-                      .sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime))
-                      .map((vendor) => (
-                        <div
-                          key={`arrival-${vendor.id}`}
-                          className={lightUiListRowClass}
-                        >
-                          <span className="font-semibold text-stone-950">{vendor.arrivalTime}</span>
-                          <span className="text-stone-500"> · </span>
-                          <span className="font-medium text-stone-800">{vendor.companyName}</span>
-                          <span className="text-stone-500"> · </span>
-                          <span className="text-stone-600">{vendorTypeLabel(vendor.vendorType)}</span>
-                        </div>
-                      ))}
-                    {vendors.filter((vendor) => vendor.arrivalTime.trim()).length === 0 ? (
-                      <p className={lightUiEmptyHintInCardClass}>
-                        Add arrival times on each vendor to build a shareable load-in picture for the day.
-                      </p>
-                    ) : null}
-                  </div>
-                </PremiumCard>
-
-                <PremiumCard>
-                  <SectionTitle className="text-stone-950">Coordination notes</SectionTitle>
-                  <div className="mt-3 space-y-2">
-                    {vendors
-                      .filter((vendor) => vendor.specialCoordinationNotes.trim())
-                      .map((vendor) => (
-                        <div
-                          key={`coord-${vendor.id}`}
-                          className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs"
-                        >
-                          <p className="font-semibold text-stone-950">{vendor.companyName}</p>
-                          <p className="mt-1 leading-relaxed text-stone-700">{vendor.specialCoordinationNotes}</p>
-                        </div>
-                      ))}
-                    {vendors.filter((vendor) => vendor.specialCoordinationNotes.trim()).length === 0 ? (
-                      <p className={lightUiEmptyHintInCardClass}>
-                        Special instructions from vendors appear here—parking, power, staging, or ceremony cues.
-                      </p>
-                    ) : null}
-                  </div>
-                </PremiumCard>
-
-                {VENDOR_UI_SECTIONS.map((section) => {
-                  const inSection = filterVendorsByTypes(vendors, section.types);
-                  if (inSection.length === 0) return null;
-                  return (
-                    <PremiumCard key={`vendor-section-${section.id}`}>
-                      <SectionTitle className="text-stone-950">{section.label}</SectionTitle>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {inSection.map((vendor) => (
-                          <VendorEventCard
-                            key={vendor.id}
-                            vendor={vendor}
-                            variant="partner"
-                            onEdit={openEditVendorModal}
-                            onDelete={deleteVendor}
-                            onCopy={copyVendorContactInfo}
-                          />
-                        ))}
-                      </div>
-                    </PremiumCard>
-                  );
-                })}
-              </>
-            )}
           </section>
         )}
 
@@ -14844,32 +14643,37 @@ export default function Home() {
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event status</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                Control how this event appears on All Events. Archived events stay in your data and remain findable via
-                search, but are hidden from the default list.
+                Track where this booked event is in planning and execution. Archived events stay in your database but
+                are hidden from the default All Events list.
               </p>
+              <div className="relative z-10 isolate mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnLight(
+                    activeEventStatus,
+                  )}`}
+                >
+                  {activeEventStatus}
+                </span>
+              </div>
               <div className="relative z-10 isolate mt-3">
-                <label htmlFor="event-lifecycle-status" className={lightUiFormLabelClass}>
+                <label htmlFor="event-status" className={lightUiFormLabelClass}>
                   Status
                 </label>
                 <select
-                  id="event-lifecycle-status"
-                  value={eventSettings.eventLifecycleStatus ?? "active"}
-                  disabled={!canEditEventLifecycle}
-                  onChange={(e) => applyEventLifecycleStatus(e.target.value as EventLifecycleStatus)}
+                  id="event-status"
+                  value={activeEventStatus}
+                  disabled={!canEditEventStatus}
+                  onChange={(e) => void applyEventStatus(e.target.value as EventStatus)}
                   className={lightUiSelectClass}
                 >
-                  <option value="active" className="bg-white text-stone-900">
-                    Active — in progress
-                  </option>
-                  <option value="completed" className="bg-white text-stone-900">
-                    Completed
-                  </option>
-                  <option value="archived" className="bg-white text-stone-900">
-                    Archived
-                  </option>
+                  {EVENT_STATUSES.map((status) => (
+                    <option key={status} value={status} className="bg-white text-stone-900">
+                      {status}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {!canEditEventLifecycle ? (
+              {!canEditEventStatus ? (
                 <p className="mt-2 text-xs leading-relaxed text-stone-600">Only Admin and Planner can change event status.</p>
               ) : null}
             </PremiumCard>
@@ -15673,7 +15477,15 @@ export default function Home() {
           className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
           role="dialog"
           aria-modal="true"
-          aria-label={teamEditingId ? "Edit team member" : "Add team member"}
+          aria-label={
+            teamEditingId
+              ? isCoupleView
+                ? "Edit vendor or contact"
+                : "Edit team member"
+              : isCoupleView
+                ? "Add vendor or contact"
+                : "Add team member"
+          }
         >
           <form
             onSubmit={(event) => {
@@ -15685,7 +15497,13 @@ export default function Home() {
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
               <SectionTitle className="text-stone-950">
-                {teamEditingId ? "Edit Team Member" : "Add Team Member"}
+                {teamEditingId
+                  ? isCoupleView
+                    ? "Edit vendor / contact"
+                    : "Edit team member"
+                  : isCoupleView
+                    ? "Add vendor / contact"
+                    : "Add team member"}
               </SectionTitle>
               <PrimaryButton
                 type="button"
@@ -15699,18 +15517,18 @@ export default function Home() {
               <div className="space-y-3">
                 <div>
                   <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
-                    Role
+                    {isCoupleView ? "Vendor type" : "Role"}
                   </label>
                   <select
                     id="team-member-role"
                     value={teamRoleDraft}
-                    disabled={!canManageEvents}
+                    disabled={!canSaveTeamModal}
                     onChange={(event) =>
                       setTeamRoleDraft(event.target.value as TeamMemberRole)
                     }
                     className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
                   >
-                    {EVENT_TEAM_ROLE_GROUPS.map((group) => (
+                    {eventTeamRoleGroupsForModal.map((group) => (
                       <optgroup key={`team-role-group-${group.label}`} label={group.label}>
                         {group.roles.map((role) => (
                           <option
@@ -15725,25 +15543,27 @@ export default function Home() {
                     ))}
                   </select>
                   <p className="mt-1.5 text-[11px] leading-snug text-stone-600">
-                    {isInternalTeamRole(teamRoleDraft)
-                      ? "Internal Cutmaster staff. Admin/DJ/Planner can also sign in to the app via the Invite to app flow."
-                      : "External event partner. Company, contact info, arrival, and coordination notes appear in day-of exports."}
+                    {canManageInternalEventTeam
+                      ? isInternalTeamRole(teamRoleDraft)
+                        ? "Internal Cutmaster staff. Admin/DJ/Planner can also sign in via Invite to app."
+                        : "External partner—company, contact info, and day-of notes save to this event."
+                      : "Add vendors and day-of contacts your DJ needs. For a wedding planner, choose Planner and enter their company."}
                   </p>
                 </div>
                 <TextInput
                   id="team-member-name"
-                  label={isInternalTeamRole(teamRoleDraft) ? "Name" : "Primary contact name"}
+                  label={teamModalShowsCompanyField ? "Primary contact name" : "Name"}
                   value={teamNameDraft}
                   onChange={setTeamNameDraft}
-                  disabled={!canManageEvents}
+                  disabled={!canSaveTeamModal}
                 />
-                {!isInternalTeamRole(teamRoleDraft) && (
+                {teamModalShowsCompanyField && (
                   <TextInput
                     id="team-member-company"
                     label="Company / business name"
                     value={teamCompanyDraft}
                     onChange={setTeamCompanyDraft}
-                    disabled={!canManageEvents}
+                    disabled={!canSaveTeamModal}
                   />
                 )}
                 <div className="grid grid-cols-2 gap-2">
@@ -15752,17 +15572,17 @@ export default function Home() {
                     label="Email"
                     value={teamEmailDraft}
                     onChange={setTeamEmailDraft}
-                    disabled={!canManageEvents}
+                    disabled={!canSaveTeamModal}
                   />
                   <TextInput
                     id="team-member-phone"
                     label="Phone"
                     value={teamPhoneDraft}
                     onChange={setTeamPhoneDraft}
-                    disabled={!canManageEvents}
+                    disabled={!canSaveTeamModal}
                   />
                 </div>
-                {!isInternalTeamRole(teamRoleDraft) && (
+                {teamModalShowsCompanyField && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       <TextInput
@@ -15770,14 +15590,14 @@ export default function Home() {
                         label="Website"
                         value={teamWebsiteDraft}
                         onChange={setTeamWebsiteDraft}
-                        disabled={!canManageEvents}
+                        disabled={!canSaveTeamModal}
                       />
                       <TextInput
                         id="team-member-instagram"
                         label="Instagram"
                         value={teamInstagramDraft}
                         onChange={setTeamInstagramDraft}
-                        disabled={!canManageEvents}
+                        disabled={!canSaveTeamModal}
                       />
                     </div>
                     <TextInput
@@ -15785,7 +15605,7 @@ export default function Home() {
                       label="Arrival / load-in time"
                       value={teamArrivalDraft}
                       onChange={setTeamArrivalDraft}
-                      disabled={!canManageEvents}
+                      disabled={!canSaveTeamModal}
                     />
                     <TextArea
                       id="team-member-coordination"
@@ -15793,7 +15613,7 @@ export default function Home() {
                       value={teamCoordinationDraft}
                       onChange={setTeamCoordinationDraft}
                       rows={2}
-                      disabled={!canManageEvents}
+                      disabled={!canSaveTeamModal}
                     />
                   </>
                 )}
@@ -15803,12 +15623,12 @@ export default function Home() {
                   value={teamNotesDraft}
                   onChange={setTeamNotesDraft}
                   rows={3}
-                  disabled={!canManageEvents}
+                  disabled={!canSaveTeamModal}
                 />
                 <PrimaryButton
                   type="button"
                   onClick={() => setTeamActiveDraft((prev) => !prev)}
-                  disabled={!canManageEvents}
+                  disabled={!canSaveTeamModal}
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${teamActiveDraft
                     ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
                     : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
@@ -15843,14 +15663,16 @@ export default function Home() {
                   onClick={() => {
                     console.log("REAL SAVE BUTTON CLICKED");
                   }}
-                  disabled={teamSaving}
+                  disabled={!canSaveTeamModal || teamSaving}
                   className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
                 >
                   {teamSaving
                     ? "Saving…"
                     : teamEditingId
                       ? "Save Changes"
-                      : "Save Team Member"}
+                      : isCoupleView
+                        ? "Save Contact"
+                        : "Save Team Member"}
                 </PrimaryButton>
               </div>
             </div>
