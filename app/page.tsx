@@ -21,6 +21,7 @@ import {
   replaceEventNotes,
   replaceMainTimelineItems,
   replaceCeremonyTimelineItems,
+  replaceEventSongs,
 } from "@/lib/actions/events";
 import {
   EVENT_STATUSES,
@@ -170,7 +171,6 @@ import {
   approximatePlanningProgressPercent,
   buildPlanningInsights,
   cloneJson,
-  eventCoverFallbackClasses,
   insertCeremonyTimelineItemChronologically,
   insertReceptionTimelineItemChronologically,
   migrateFormalitiesIntoTimelineItems,
@@ -193,6 +193,7 @@ import {
 import { buildCouplePlanningGaps } from "@/utils/couplePlanningGaps";
 import { buildPlanningProgressChecks } from "@/utils/planningProgress";
 import { buildNewWeddingMainTimelineItems } from "@/lib/weddingDefaultTimelineMoments";
+import { EventHeroCover } from "@/components/event-hero-cover";
 import {
   redrawRunOfShowAnnotationCanvas,
   runOfShowClientToContentCoords,
@@ -1127,6 +1128,38 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   return coupleNav;
 }
 
+function countPlaylistSongs(evt: EventRecord): number {
+  return (
+    (evt.mustPlaySongs?.length ?? 0) +
+    (evt.doNotPlaySongs?.length ?? 0) +
+    (evt.playIfPossibleSongs?.length ?? 0)
+  );
+}
+
+/** When DB hydration races ahead of a local save, keep LS playlist data on the event record used for reopen. */
+function mergeHydratedEventsPreservingPlaylists(
+  priorEvents: EventRecord[],
+  hydratedEvents: EventRecord[],
+): EventRecord[] {
+  const priorMap = new Map(priorEvents.map((e) => [e.id, e]));
+  return hydratedEvents.map((hydrated) => {
+    const prior = priorMap.get(hydrated.id);
+    if (!prior) return hydrated;
+
+    const hydratedSongCount = countPlaylistSongs(hydrated);
+    const priorSongCount = countPlaylistSongs(prior);
+
+    if (hydratedSongCount > 0 || priorSongCount === 0) return hydrated;
+
+    return {
+      ...hydrated,
+      mustPlaySongs: prior.mustPlaySongs,
+      doNotPlaySongs: prior.doNotPlaySongs,
+      playIfPossibleSongs: prior.playIfPossibleSongs ?? [],
+    };
+  });
+}
+
 function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
   if (role === "Admin") {
     return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
@@ -1576,6 +1609,7 @@ export default function Home() {
   // `replaceEventTeamMembers` require a real DB event id (FK constraint), so
   // we use this set to avoid hitting Postgres with seed/local ids like "evt-1".
   const databaseEventIdsRef = useRef<Set<string>>(new Set<string>());
+  const lastMergedHydratedEventsRef = useRef<EventRecord[] | null>(null);
 
   const [events, setEvents] = useState<EventRecord[]>(() =>
     buildSeedEvents({
@@ -1870,6 +1904,62 @@ export default function Home() {
     [],
   );
 
+  const persistSongsToDatabase = useCallback(
+    async (
+      eventId: string,
+      mustPlay: SongEntry[],
+      doNotPlay: SongEntry[],
+      playIfPossible: SongEntry[],
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceEventSongs(
+          eventId,
+          "mustPlay",
+          mustPlay.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
+        await replaceEventSongs(
+          eventId,
+          "doNotPlay",
+          doNotPlay.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
+        await replaceEventSongs(
+          eventId,
+          "playIfPossible",
+          playIfPossible.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist songs to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
   const commitActiveEventPlanningToEventsState = useCallback(async () => {
     const recvDraft = receptionTimelineInlineEditDraftRef.current;
     const timelinePayload =
@@ -1938,6 +2028,13 @@ export default function Home() {
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
 
           await persistTimelinesToDatabase(activeEventId, timelinePayload, ceremonyPayload);
+
+          await persistSongsToDatabase(
+            activeEventId,
+            mustPlaySongs,
+            doNotPlaySongs,
+            playIfPossibleSongs,
+          );
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -2023,6 +2120,7 @@ export default function Home() {
     vendors,
     weddingPartyProcessional,
     persistTimelinesToDatabase,
+    persistSongsToDatabase,
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
@@ -2976,6 +3074,7 @@ export default function Home() {
     teamRoleDraft !== "Admin" && teamRoleDraft !== "DJ";
   const canEditEventCover = effectiveRole !== "DJ";
   const canEditEventStatus = effectiveRole === "Admin" || effectiveRole === "Planner";
+  /** Session-only hero preview — not sent to server actions (Base64 exceeds action body limit). */
   const applyEventCoverPhoto = useCallback(
     (dataUrl: string | undefined) => {
       setEventSettings((prev) => ({ ...prev, coverPhotoDataUrl: dataUrl }));
@@ -2991,6 +3090,10 @@ export default function Home() {
     [activeEventId],
   );
 
+  const openEventCoverSettings = useCallback(() => {
+    setActiveScreen("Event Settings");
+  }, []);
+
   const handleEventCoverPhotoChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -3005,6 +3108,10 @@ export default function Home() {
     },
     [applyEventCoverPhoto],
   );
+
+  const openEventCoverPhotoPicker = useCallback(() => {
+    eventCoverPhotoInputRef.current?.click();
+  }, []);
 
   const applyEventStatus = useCallback(
     async (status: EventStatus) => {
@@ -5501,6 +5608,39 @@ export default function Home() {
             venue: dbEvent.venue || "",
           };
 
+          seededEvent.mustPlaySongs = (dbEvent.songs || [])
+            .filter((song) => song.listType === "mustPlay")
+            .sort((a, b) => a.order - b.order)
+            .map((song) => ({
+              id: song.id,
+              title: song.title,
+              artist: song.artist || "",
+              notes: song.notes || "",
+              highPriority: song.highPriority,
+            }));
+
+          seededEvent.doNotPlaySongs = (dbEvent.songs || [])
+            .filter((song) => song.listType === "doNotPlay")
+            .sort((a, b) => a.order - b.order)
+            .map((song) => ({
+              id: song.id,
+              title: song.title,
+              artist: song.artist || "",
+              notes: song.notes || "",
+              highPriority: song.highPriority,
+            }));
+
+          seededEvent.playIfPossibleSongs = (dbEvent.songs || [])
+            .filter((song) => song.listType === "playIfPossible")
+            .sort((a, b) => a.order - b.order)
+            .map((song) => ({
+              id: song.id,
+              title: song.title,
+              artist: song.artist || "",
+              notes: song.notes || "",
+              highPriority: song.highPriority,
+            }));
+
           seededEvent.guestRequests = (dbEvent.guestRequests ?? [])
             .slice()
             .sort((a, b) => a.order - b.order)
@@ -5558,7 +5698,11 @@ export default function Home() {
           return seededEvent;
         });
 
-        setEvents(hydratedEvents);
+        setEvents((prev) => {
+          const merged = mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents);
+          lastMergedHydratedEventsRef.current = merged;
+          return merged;
+        });
 
         if (hydratedEvents.length > 0) {
           // Reconcile activeEventId to a real DB id and drive teamMembers from
@@ -5566,12 +5710,14 @@ export default function Home() {
           // back to All Events -> refresh -> reopen event" round-trip cleanly,
           // because team membership is scoped to the active event.
           setActiveEventId((prev) => {
+            const mergedEvents =
+              lastMergedHydratedEventsRef.current ?? hydratedEvents;
             const resolvedId = databaseEventIdsRef.current.has(prev)
               ? prev
-              : hydratedEvents[0].id;
+              : mergedEvents[0].id;
             const resolvedEvent =
-              hydratedEvents.find((evt) => evt.id === resolvedId) ??
-              hydratedEvents[0];
+              mergedEvents.find((evt) => evt.id === resolvedId) ??
+              mergedEvents[0];
             const evtTeam = (resolvedEvent as EventRecord & {
               eventTeamMembers?: TeamMember[];
             }).eventTeamMembers;
@@ -5589,6 +5735,9 @@ export default function Home() {
               eventNotes?: EventNote[];
             }).eventNotes;
             setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
+            setMustPlaySongs(cloneJson(resolvedEvent.mustPlaySongs ?? []));
+            setDoNotPlaySongs(cloneJson(resolvedEvent.doNotPlaySongs ?? []));
+            setPlayIfPossibleSongs(cloneJson(resolvedEvent.playIfPossibleSongs ?? []));
             return resolvedId;
           });
         }
@@ -5811,39 +5960,49 @@ export default function Home() {
           t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
         );
 
-    const payloadEvents = events.map((e) =>
-      e.id === activeEventId
-        ? {
-          ...e,
-          timelineItems: timelineForStore,
-          ceremonyTimelineItems: ceremonyForStore,
-          formalities: [],
-          mustPlaySongs,
-          doNotPlaySongs,
-          playIfPossibleSongs,
-          musicPlaylistLinks,
-          musicGenreEraSelections,
-          ceremonyStartTime,
-          ceremonyGuestArrivalTime,
-          officiantName,
-          ceremonyNotes,
-          microphoneNeeds,
-          weddingPartyProcessional,
-          brideGroomProcessional,
-          unityCeremonySong,
-          recessionalSong,
-          plannerNotes,
-          vendors,
-          guestRequests,
-          generalDjNotes,
-          playlistVibeOverrides,
-          musicVibeDetail,
-          musicTasteProfile: cloneJson(musicTasteProfile),
-          mcAnnouncements,
-          settings: eventSettings,
-        }
-        : e,
-    );
+    const stripCoverPhotoFromSettings = (settings: EventSettings): EventSettings => {
+      const next = { ...settings };
+      delete next.coverPhotoDataUrl;
+      return next;
+    };
+
+    const payloadEvents = events.map((e) => {
+      const merged =
+        e.id === activeEventId
+          ? {
+            ...e,
+            timelineItems: timelineForStore,
+            ceremonyTimelineItems: ceremonyForStore,
+            formalities: [],
+            mustPlaySongs,
+            doNotPlaySongs,
+            playIfPossibleSongs,
+            musicPlaylistLinks,
+            musicGenreEraSelections,
+            ceremonyStartTime,
+            ceremonyGuestArrivalTime,
+            officiantName,
+            ceremonyNotes,
+            microphoneNeeds,
+            weddingPartyProcessional,
+            brideGroomProcessional,
+            unityCeremonySong,
+            recessionalSong,
+            plannerNotes,
+            vendors,
+            guestRequests,
+            generalDjNotes,
+            playlistVibeOverrides,
+            musicVibeDetail,
+            musicTasteProfile: cloneJson(musicTasteProfile),
+            mcAnnouncements,
+            settings: eventSettings,
+          }
+          : e;
+      return merged.settings
+        ? { ...merged, settings: stripCoverPhotoFromSettings(merged.settings) }
+        : merged;
+    });
 
     const payload = {
       events: payloadEvents,
@@ -5877,6 +6036,12 @@ export default function Home() {
         );
         if (databaseEventIdsRef.current.has(activeEventId)) {
           void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore);
+          void persistSongsToDatabase(
+            activeEventId,
+            mustPlaySongs,
+            doNotPlaySongs,
+            playIfPossibleSongs,
+          );
         }
         setPersistBaseline(true);
         if (persistUiSuppressBootCountRef.current > 0) {
@@ -5920,6 +6085,7 @@ export default function Home() {
     ceremonyTimelineItems,
     ceremonyTimelineInlineEditDraft,
     persistTimelinesToDatabase,
+    persistSongsToDatabase,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -9810,19 +9976,10 @@ export default function Home() {
                       return (
                         <PremiumCard key={evt.id} className="overflow-hidden p-0">
                           <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
-                            {cardCover ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={cardCover}
-                                alt=""
-                                className="absolute inset-0 h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div
-                                className={`absolute inset-0 ${eventCoverFallbackClasses(cardProfile)}`}
-                                aria-hidden
-                              />
-                            )}
+                            <EventHeroCover
+                              coverPhotoDataUrl={cardCover}
+                              showPersonalizeGuidance={false}
+                            />
                             <div className="absolute inset-0 bg-black/55" />
                             <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
                               <span
@@ -9985,9 +10142,10 @@ export default function Home() {
           <div className="mt-4">
             <PrimaryButton
               onClick={() => {
-                commitActiveEventPlanningToEventsState();
-                setAppMode("events");
-                setActiveScreen("All Events");
+                void commitActiveEventPlanningToEventsState().then(() => {
+                  setAppMode("events");
+                  setActiveScreen("All Events");
+                });
               }}
               className={`w-full ${lightUiSecondaryButtonClass}`}
             >
@@ -10150,22 +10308,14 @@ export default function Home() {
             <section className={workspaceSectionDashboardClass}>
               <PremiumCard className="overflow-hidden border-stone-200 bg-white !p-0 shadow-sm sm:shadow-[0_20px_50px_-36px_rgba(28,25,23,0.18)]">
                 <div className="relative aspect-[16/11] min-h-[200px] overflow-hidden sm:aspect-[21/9] sm:min-h-[220px]">
-                  {eventSettings.coverPhotoDataUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={eventSettings.coverPhotoDataUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
-                      aria-hidden
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/50" />
+                  <EventHeroCover
+                    coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                    onRequestCoverPhoto={canEditEventCover ? openEventCoverSettings : undefined}
+                    personalizeDisabled={!canEditEventCover}
+                  />
+                  <div className="pointer-events-none absolute inset-0 z-[1] bg-black/50" />
                   <div className="pointer-events-none absolute inset-0 bg-transparent" aria-hidden />
-                  <div className="relative flex h-full flex-col justify-end p-5 pb-6 sm:p-8">
+                  <div className="relative z-[3] flex h-full flex-col justify-end p-5 pb-6 sm:p-8 pointer-events-none">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-200">
                       {primaryPartyShortLabel}
                     </p>
@@ -10173,7 +10323,7 @@ export default function Home() {
                       {eventDisplayName}
                     </h2>
                     <p className="mt-2 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <div className="pointer-events-auto mt-4 flex flex-wrap items-center gap-2">
                       {eventStatusDashboardControl}
                       <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white">
                         {layoutProfileForActiveEvent}
@@ -10333,27 +10483,19 @@ export default function Home() {
               <section className={workspaceSectionClass}>
                 <PremiumCard className="overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
                   <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
-                    {eventSettings.coverPhotoDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={eventSettings.coverPhotoDataUrl}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div
-                        className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
-                        aria-hidden
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-black/45" />
-                    <div className="relative flex h-full flex-col justify-end p-5 sm:p-7">
+                    <EventHeroCover
+                      coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                      onRequestCoverPhoto={canEditEventCover ? openEventCoverSettings : undefined}
+                      personalizeDisabled={!canEditEventCover}
+                    />
+                    <div className="pointer-events-none absolute inset-0 z-[1] bg-black/45" />
+                    <div className="relative z-[3] flex h-full flex-col justify-end p-5 sm:p-7 pointer-events-none">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">{primaryPartyShortLabel}</p>
                       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                         {eventDisplayName}
                       </h2>
                       <p className="mt-1 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="pointer-events-auto mt-3 flex flex-wrap items-center gap-2">
                         {eventStatusDashboardControl}
                         <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
                           {layoutProfileForActiveEvent}
@@ -10822,9 +10964,13 @@ export default function Home() {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-4 rounded-xl border border-dashed border-stone-200 bg-stone-50 px-3 py-3 text-xs text-stone-600">
-                  No links yet—paste one when you have a playlist that feels like you.
-                </p>
+                <div className="mt-4">
+                  <SectionEmptyState
+                    wrapWithCard={false}
+                    title="No playlist links yet"
+                    description="Paste a Spotify, Apple Music, or YouTube link in the field above—your DJ uses it to read your taste."
+                  />
+                </div>
               )}
             </PremiumCard>
 
@@ -11046,9 +11192,9 @@ export default function Home() {
                       <SectionEmptyState
                         wrapWithCard={false}
                         title="No must-plays yet"
-                        description="Totally fine—many couples only share playlists above."
+                        description="Name a few songs your DJ should absolutely work in—three strong picks is a great start."
                         primaryAction={{
-                          label: "Add from quick add",
+                          label: "Add must-play song",
                           onClick: () => {
                             setNewSongListType("mustPlay");
                             document.getElementById("music-hub-quick-add")?.scrollIntoView({
@@ -11243,11 +11389,13 @@ export default function Home() {
 
                             <ul className="mt-3 space-y-2">
                               {lines.length === 0 ? (
-                                <li className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-3 text-left">
-                                  <p className="text-xs font-semibold text-stone-800">Empty for now</p>
-                                  <p className="mt-1 text-[11px] leading-snug text-stone-600">
-                                    Add a line above—pair energy with this part of the night.
-                                  </p>
+                                <li>
+                                  <SectionEmptyState
+                                    wrapWithCard={false}
+                                    cardClassName="py-3"
+                                    title="No songs for this moment"
+                                    description="Add a line above—one title and artist is enough to set the vibe."
+                                  />
                                 </li>
                               ) : null}
                               {lines.map((line, index) => {
@@ -11811,10 +11959,10 @@ export default function Home() {
                 {mergedTimelineItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
-                      title="No reception moments yet"
-                      description="Build your run of show—each row is time, moment, music, then cues."
+                      title="Start your reception timeline"
+                      description="Line up the flow from cocktail through last dance—times can stay blank until your DJ locks the schedule."
                       primaryAction={{
-                        label: "+ Add moment",
+                        label: "Add first moment",
                         onClick: () => {
                           resetTimelineForm();
                           closeReceptionTimelineCardExpanded();
@@ -11829,7 +11977,7 @@ export default function Home() {
                         mainTimelinePresetsForActiveEvent.length > 0 &&
                           timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
                           ? {
-                            label: `Apply suggested ${layoutProfileForActiveEvent} timeline`,
+                            label: "Use suggested moments",
                             onClick: handleApplySuggestedTimelineSetup,
                             disabled:
                               !canEditTimeline || !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded),
@@ -12523,9 +12671,9 @@ export default function Home() {
                       <div className="mt-3">
                         <SectionEmptyState
                           wrapWithCard={false}
-                          title="No requests yet"
-                          description="Share the link above—submissions land here for review."
-                          secondaryAction={{
+                          title="No guest requests yet"
+                          description="Share your request link—submitted songs appear here for you to approve or decline."
+                          primaryAction={{
                             label: "Preview guest view",
                             onClick: () => setGuestRequestView("guest"),
                           }}
@@ -13425,17 +13573,16 @@ export default function Home() {
                   </div>
                 ))}
                 {displayedEventNotes.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center">
-                    <p className="text-xs leading-relaxed text-stone-600">No event notes yet.</p>
-                    {canEditNotes ? (
-                      <PrimaryButton
-                        onClick={openAddEventNoteModal}
-                        className="mt-3 w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto"
-                      >
-                        Add Note
-                      </PrimaryButton>
-                    ) : null}
-                  </div>
+                  <SectionEmptyState
+                    wrapWithCard={false}
+                    title="No notes yet"
+                    description="Capture venue details, reminders, or day-of cues your team should see."
+                    primaryAction={
+                      canEditNotes
+                        ? { label: "Add note", onClick: openAddEventNoteModal }
+                        : undefined
+                    }
+                  />
                 )}
               </div>
             </PremiumCard>
@@ -13655,17 +13802,23 @@ export default function Home() {
                   </div>
                 ))}
                 {teamMembers.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center">
-                    <p className="text-xs leading-relaxed text-stone-600">No team members yet.</p>
-                    {canManageEventTeamPartners ? (
-                      <PrimaryButton
-                        onClick={openAddTeamMemberModal}
-                        className="mt-3 w-full min-h-11 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto"
-                      >
-                        {isCoupleView ? "Add vendor / contact" : "Add team member"}
-                      </PrimaryButton>
-                    ) : null}
-                  </div>
+                  <SectionEmptyState
+                    wrapWithCard={false}
+                    title="No team members yet"
+                    description={
+                      isCoupleView
+                        ? "Add photographers, caterers, your planner, and other day-of contacts in one list."
+                        : "Add internal staff and external partners—venue, photo, catering, and entertainment."
+                    }
+                    primaryAction={
+                      canManageEventTeamPartners
+                        ? {
+                            label: isCoupleView ? "Add vendor / contact" : "Add team member",
+                            onClick: openAddTeamMemberModal,
+                          }
+                        : undefined
+                    }
+                  />
                 )}
               </div>
             </PremiumCard>
@@ -14580,30 +14733,23 @@ export default function Home() {
               ref={eventCoverPhotoInputRef}
               type="file"
               accept="image/*"
-              className="hidden"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
               onChange={handleEventCoverPhotoChange}
             />
             <PremiumCard>
               <SectionTitle className="text-stone-950">Visual identity & cover photo</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                Give this event a face. Your cover appears on the home hero and the All Events grid. Images are stored in
-                this browser only (local storage).
+                Preview a cover on the home hero for this session. Permanent cloud upload (e.g. Supabase Storage) is
+                coming soon—refreshing the browser restores the default placeholder until then.
               </p>
               <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200 shadow-sm">
                 <div className="relative aspect-[21/9] min-h-[140px] w-full sm:min-h-[160px]">
-                  {eventSettings.coverPhotoDataUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={eventSettings.coverPhotoDataUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className={`absolute inset-0 ${eventCoverFallbackClasses(layoutProfileForActiveEvent)}`}
-                      aria-hidden
-                    />
-                  )}
+                  <EventHeroCover
+                    coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                    showPersonalizeGuidance={false}
+                  />
                   <div className="absolute inset-0 bg-black/45" />
                   <div className="absolute bottom-3 left-3 right-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Preview</p>
@@ -14617,10 +14763,10 @@ export default function Home() {
                 <PrimaryButton
                   type="button"
                   disabled={!canEditEventCover}
-                  onClick={() => eventCoverPhotoInputRef.current?.click()}
-                  className={lightUiCyanPrimaryButtonClass}
+                  onClick={openEventCoverPhotoPicker}
+                  className={`${lightUiSecondaryButtonClass} font-semibold`}
                 >
-                  {eventSettings.coverPhotoDataUrl ? "Replace image" : "Upload image"}
+                  {eventSettings.coverPhotoDataUrl ? "Change Cover Photo" : "Add Cover Photo"}
                 </PrimaryButton>
                 {eventSettings.coverPhotoDataUrl ? (
                   <PrimaryButton

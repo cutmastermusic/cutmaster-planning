@@ -358,7 +358,7 @@ export function SectionEmptyState({
   const inner = (
     <>
       <p className="text-sm font-semibold text-stone-900">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-stone-600">{description}</p>
+      <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-stone-700">{description}</p>
       {primaryAction || secondaryAction ? (
         <div className="mt-4 flex flex-col gap-2 sm:mx-auto sm:max-w-lg sm:flex-row sm:justify-center sm:gap-3">
           {primaryAction ? (
@@ -389,7 +389,7 @@ export function SectionEmptyState({
   if (!wrapWithCard) {
     return (
       <div
-        className={`rounded-xl border border-stone-300 bg-stone-50 px-3 py-4 text-center sm:px-4 ${cardClassName}`.trim()}
+        className={`rounded-xl border border-stone-200/90 bg-stone-50/80 px-4 py-4 text-center sm:px-5 ${cardClassName}`.trim()}
       >
         {inner}
       </div>
