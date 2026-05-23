@@ -46,6 +46,7 @@ import {
   EventHomeNav,
   InsightStack,
   PersistEcho,
+  PersistMobileChip,
   PremiumCard,
   PrimaryButton,
   SectionEmptyState,
@@ -8599,18 +8600,12 @@ export default function Home() {
               </div>
             </div>
             <div className="flex w-full shrink-0 flex-col items-end gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-              {(persistPhase !== "idle" || persistBaseline) && (
-                <p
-                  className="text-right text-[10px] font-medium leading-tight text-stone-500 sm:max-w-[10rem]"
-                  aria-live="polite"
-                >
-                  {persistPhase === "pending"
-                    ? "Saving…"
-                    : persistPhase === "saved"
-                      ? "Saved just now"
-                      : "All changes saved"}
-                </p>
-              )}
+              <PersistEcho
+                persistFeedback={persistFeedback}
+                showWhenIdle
+                labelStyle="full"
+                className="text-right sm:max-w-[10rem]"
+              />
               <div className="flex items-center gap-2">
                 <PrimaryButton
                   onClick={() => setActiveScreen("Notification Center")}
@@ -17095,19 +17090,7 @@ export default function Home() {
         </div>
       ) : null}
 
-      {authStage === "app" && (persistPhase === "pending" || persistPhase === "saved") && (
-        <div
-          className="no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden"
-          style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <span
-            className="rounded-full border border-stone-200/90 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-stone-800 shadow-sm backdrop-blur-sm"
-            aria-live="polite"
-          >
-            {persistPhase === "pending" ? "Saving…" : "Saved just now"}
-          </span>
-        </div>
-      )}
+      {authStage === "app" && <PersistMobileChip persistFeedback={persistFeedback} />}
 
       {authStage === "app" && (
         <BottomNav

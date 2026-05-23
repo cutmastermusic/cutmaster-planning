@@ -522,33 +522,100 @@ export function SongCard({
   );
 }
 
+export function getPersistFeedbackLabel(
+  persistFeedback: PersistFeedback,
+  labelStyle: "compact" | "full" = "full",
+): string | null {
+  if (persistFeedback.phase === "pending") return "Saving…";
+  if (persistFeedback.phase === "saved") {
+    return labelStyle === "compact" ? "Saved" : "Saved just now";
+  }
+  if (persistFeedback.hasBaseline) return "All changes saved";
+  return null;
+}
+
+export function getPersistFeedbackTone(
+  persistFeedback: PersistFeedback,
+  variant: "light" | "dark" = "light",
+): string {
+  if (persistFeedback.phase === "pending") {
+    return variant === "dark" ? "text-[#9ae8ff]/95" : "text-stone-600";
+  }
+  if (persistFeedback.phase === "saved") {
+    return variant === "dark" ? "text-zinc-200" : "text-stone-800";
+  }
+  return variant === "dark" ? "text-zinc-400" : "text-stone-500";
+}
+
+export function shouldShowPersistFeedback(
+  persistFeedback: PersistFeedback,
+  showWhenIdle = false,
+): boolean {
+  if (persistFeedback.phase !== "idle") return true;
+  return showWhenIdle && persistFeedback.hasBaseline;
+}
+
 export function PersistEcho({
   persistFeedback,
   variant = "light",
+  showWhenIdle = false,
+  labelStyle = "compact",
   className = "",
 }: {
   persistFeedback: PersistFeedback;
   variant?: "light" | "dark";
+  /** When true, shows a calm baseline label after the save flash clears. */
+  showWhenIdle?: boolean;
+  labelStyle?: "compact" | "full";
   className?: string;
 }) {
-  const { phase } = persistFeedback;
-  if (phase === "idle") return null;
-  const label = phase === "pending" ? "Saving…" : "Saved";
-  const tone =
-    variant === "dark"
-      ? phase === "pending"
-        ? "text-[#9ae8ff]/95"
-        : "text-zinc-200"
-      : phase === "pending"
-        ? "text-stone-600"
-        : "text-stone-800";
+  if (!shouldShowPersistFeedback(persistFeedback, showWhenIdle)) return null;
+  const label = getPersistFeedbackLabel(persistFeedback, labelStyle);
+  if (!label) return null;
+  const tone = getPersistFeedbackTone(persistFeedback, variant);
+  const isBaseline =
+    persistFeedback.phase === "idle" && persistFeedback.hasBaseline;
+  const typography = isBaseline
+    ? "text-[10px] font-medium normal-case tracking-tight"
+    : "text-[10px] font-semibold uppercase tracking-[0.14em]";
   return (
     <span
-      className={`shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.14em] ${tone} ${className}`.trim()}
+      className={`shrink-0 whitespace-nowrap ${typography} ${tone} ${className}`.trim()}
       aria-live="polite"
     >
       {label}
     </span>
+  );
+}
+
+/** Fixed mobile chip above bottom nav — visible during saves and at baseline. */
+export function PersistMobileChip({
+  persistFeedback,
+  className = "",
+}: {
+  persistFeedback: PersistFeedback;
+  className?: string;
+}) {
+  if (!shouldShowPersistFeedback(persistFeedback, true)) return null;
+  const label = getPersistFeedbackLabel(persistFeedback, "full");
+  if (!label) return null;
+  const isActive = persistFeedback.phase !== "idle";
+  return (
+    <div
+      className={`no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden ${className}`.trim()}
+      style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
+    >
+      <span
+        className={`rounded-full border px-3 py-1.5 text-[11px] font-medium backdrop-blur-sm ${
+          isActive
+            ? "border-stone-200/90 bg-white/95 text-stone-800 shadow-sm"
+            : "border-stone-100 bg-white/80 text-stone-500 shadow-none"
+        }`}
+        aria-live="polite"
+      >
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -558,20 +625,8 @@ export function AppHeader({
   persistFeedback,
   appSettings,
 }: AppHeaderProps) {
-  const saveLabel =
-    persistFeedback.phase === "pending"
-      ? "Saving…"
-      : persistFeedback.phase === "saved"
-        ? "Saved just now"
-        : persistFeedback.hasBaseline
-          ? "All changes saved"
-          : null;
-  const saveTone =
-    persistFeedback.phase === "pending"
-      ? "text-stone-600"
-      : persistFeedback.phase === "saved"
-        ? "text-stone-900"
-        : "text-stone-600";
+  const saveLabel = getPersistFeedbackLabel(persistFeedback, "full");
+  const saveTone = getPersistFeedbackTone(persistFeedback, "light");
 
   return (
     <header className="rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
