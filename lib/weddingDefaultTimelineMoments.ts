@@ -1,4 +1,15 @@
-import type { TimelineCategory, TimelineItem } from "@/types/planning";
+import type { CeremonyTimelineItem, TimelineCategory, TimelineItem } from "@/types/planning";
+
+/** Suggested ceremony moment titles for brand-new Wedding events (order matters). */
+export const NEW_WEDDING_CEREMONY_TIMELINE_MOMENTS = [
+  "Pre-Ceremony Music",
+  "Prelude",
+  "Family Processional",
+  "Wedding Party Processional",
+  "Bride Processional",
+  "During Ceremony",
+  "Recessional",
+] as const;
 
 /** Suggested main-timeline moment titles for brand-new Wedding events (order matters). */
 export const NEW_WEDDING_MAIN_TIMELINE_MOMENTS = [
@@ -33,6 +44,23 @@ function categoryForWeddingMoment(title: (typeof NEW_WEDDING_MAIN_TIMELINE_MOMEN
     default:
       return "Reception";
   }
+}
+
+/**
+ * Ceremony timeline rows for a newly created Wedding (or Gender-Neutral Wedding) event only.
+ * Structure and order are fixed; times and songs stay blank.
+ */
+export function buildNewWeddingCeremonyTimelineItems(): CeremonyTimelineItem[] {
+  const stamp = Date.now();
+  return NEW_WEDDING_CEREMONY_TIMELINE_MOMENTS.map((moment, index) => ({
+    id: `ceremony-timeline-wedding-${stamp}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+    timeOrOrder: "",
+    moment,
+    songTitle: "",
+    artist: "",
+    notes: "",
+    needsDjMcAttention: false,
+  }));
 }
 
 /**

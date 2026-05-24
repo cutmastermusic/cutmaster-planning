@@ -194,7 +194,10 @@ import {
 } from "@/utils/timelinePasteImport";
 import { buildCouplePlanningGaps } from "@/utils/couplePlanningGaps";
 import { buildPlanningProgressChecks } from "@/utils/planningProgress";
-import { buildNewWeddingMainTimelineItems } from "@/lib/weddingDefaultTimelineMoments";
+import {
+  buildNewWeddingCeremonyTimelineItems,
+  buildNewWeddingMainTimelineItems,
+} from "@/lib/weddingDefaultTimelineMoments";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import {
   redrawRunOfShowAnnotationCanvas,
@@ -425,6 +428,119 @@ function insertTimelineItemAfterId<T extends { id: string }>(
   const next = [...items];
   next.splice(index + 1, 0, newItem);
   return next;
+}
+
+type EventTimelineDayRailProps = {
+  ceremonyCount: number;
+  receptionCount: number;
+  receptionLabel: string;
+  onScrollToCeremony: () => void;
+  onScrollToReception: () => void;
+};
+
+function EventTimelineDayRail({
+  ceremonyCount,
+  receptionCount,
+  receptionLabel,
+  onScrollToCeremony,
+  onScrollToReception,
+}: EventTimelineDayRailProps) {
+  return (
+    <div className={TIMELINE_MOMENTS_RAIL_CLASS}>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+          Event day
+        </p>
+        <p className="mt-0.5 text-sm font-semibold leading-snug text-stone-900">
+          Ceremony first, then {receptionLabel.toLowerCase()}
+          <span className="font-normal text-stone-400" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <span className="text-xs font-medium text-stone-600">Scroll top to bottom</span>
+        </p>
+      </div>
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <PrimaryButton
+          type="button"
+          onClick={onScrollToCeremony}
+          className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-left text-[12px] font-semibold text-stone-900 shadow-none transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:min-w-[9.5rem] sm:text-[11px]"
+        >
+          Ceremony · {ceremonyCount}
+        </PrimaryButton>
+        <PrimaryButton
+          type="button"
+          onClick={onScrollToReception}
+          className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-left text-[12px] font-semibold text-stone-900 shadow-none transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:min-w-[9.5rem] sm:text-[11px]"
+        >
+          {receptionLabel} · {receptionCount}
+        </PrimaryButton>
+      </div>
+    </div>
+  );
+}
+
+type TimelinePhaseSectionHeaderProps = {
+  id: string;
+  phaseLabel: string;
+  title: string;
+  momentCount: number;
+  hint: string;
+  onAdd?: () => void;
+  addLabel?: string;
+  addDisabled?: boolean;
+};
+
+function TimelinePhaseSectionHeader({
+  id,
+  phaseLabel,
+  title,
+  momentCount,
+  hint,
+  onAdd,
+  addLabel,
+  addDisabled,
+}: TimelinePhaseSectionHeaderProps) {
+  const countLabel =
+    momentCount === 0
+      ? "No moments yet"
+      : `${momentCount} ${momentCount === 1 ? "moment" : "moments"}`;
+
+  return (
+    <div
+      id={id}
+      className="scroll-mt-4 border-b border-stone-200/90 bg-stone-50/80 px-4 py-3 sm:px-5 sm:py-3.5"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+            {phaseLabel}
+          </p>
+          <h3 className="mt-0.5 text-base font-semibold tracking-tight text-stone-950 sm:text-lg">
+            {title}
+          </h3>
+          <p className="mt-1 text-xs leading-snug text-stone-600">
+            {countLabel}
+            <span className="text-stone-400" aria-hidden>
+              {" "}
+              ·{" "}
+            </span>
+            {hint}
+          </p>
+        </div>
+        {onAdd && addLabel ? (
+          <PrimaryButton
+            type="button"
+            onClick={onAdd}
+            disabled={addDisabled}
+            className="min-h-11 w-full shrink-0 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-[12px] font-semibold text-stone-900 shadow-none hover:border-[#00D4FF]/45 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:text-[11px]"
+          >
+            {addLabel}
+          </PrimaryButton>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 type ReceptionTimelineMomentFormProps = {
@@ -1441,7 +1557,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
     ...(s.sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
-    ...(s.sectionCeremonyEnabled ? (["Ceremony"] as Screen[]) : []),
+    ...(s.sectionCeremonyEnabled && !s.sectionReceptionTimelineEnabled ? (["Ceremony"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
     "Event Team",
@@ -1728,6 +1844,12 @@ const TIMELINE_CARD_SHELL_CLASS =
   "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-6 md:py-5 lg:px-5 lg:py-4 xl:px-6";
 const TIMELINE_STREAM_CLASS =
   "min-w-0 space-y-3 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3.5 md:max-h-[min(72dvh,52rem)] md:space-y-3 md:overflow-y-auto md:overscroll-y-contain";
+const TIMELINE_STREAM_UNIFIED_CLASS =
+  "min-w-0 space-y-3 overflow-x-hidden sm:space-y-3.5 md:space-y-3";
+const TIMELINE_MOMENTS_PANEL_CLASS =
+  "no-print overflow-hidden rounded-2xl border border-stone-200/90 bg-gradient-to-b from-stone-50/70 via-white to-white shadow-sm ring-1 ring-stone-200/40";
+const TIMELINE_MOMENTS_RAIL_CLASS =
+  "sticky top-0 z-[2] flex flex-col gap-2.5 border-b border-stone-200/90 bg-white/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3.5 supports-[backdrop-filter]:bg-white/85";
 const TIMELINE_CARD_TIME_CLASS =
   "font-mono text-sm font-semibold tabular-nums tracking-tight text-stone-600 md:text-[0.9375rem] lg:text-sm";
 const TIMELINE_CARD_TITLE_CLASS =
@@ -1752,6 +1874,8 @@ const EVENT_NOTE_CATEGORIES = [
 export default function Home() {
   const timelineComposerRef = useRef<HTMLDivElement | null>(null);
   const timelineStreamRef = useRef<HTMLDivElement | null>(null);
+  const timelineSectionCeremonyRef = useRef<HTMLDivElement | null>(null);
+  const timelineSectionReceptionRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineComposerRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineStreamRef = useRef<HTMLDivElement | null>(null);
   /** Tracks last main nav context so we scroll to top only on real section/mode/auth changes. */
@@ -2964,14 +3088,21 @@ export default function Home() {
         getDefaultTimelinePresetSets()[createLayoutProfile] ??
         [];
       const enabledPresets = timelinePresetDefaults.filter((item) => item.defaultIncluded);
-      newEvent.ceremonyTimelineItems = enabledPresets
-        .filter((item) => item.timelineType === "ceremony")
-        .map((item) =>
-          ceremonyTimelineItemFromPreset(
-            item,
-            `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          ),
-        );
+      const weddingProfileWithCeremony =
+        (createLayoutProfile === "Wedding" || createLayoutProfile === "Gender-Neutral Wedding") &&
+        profileDefaults.sectionCeremonyEnabled;
+      newEvent.ceremonyTimelineItems = weddingProfileWithCeremony
+        ? buildNewWeddingCeremonyTimelineItems()
+        : profileDefaults.sectionCeremonyEnabled
+          ? enabledPresets
+              .filter((item) => item.timelineType === "ceremony")
+              .map((item) =>
+                ceremonyTimelineItemFromPreset(
+                  item,
+                  `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                ),
+              )
+          : [];
       newEvent.timelineItems =
         createLayoutProfile === "Wedding"
           ? buildNewWeddingMainTimelineItems()
@@ -3271,43 +3402,50 @@ export default function Home() {
     () => timelinePresetSetsForSettings[layoutProfileForActiveEvent] ?? [],
     [timelinePresetSetsForSettings, layoutProfileForActiveEvent],
   );
-  const ceremonyPresetsForActiveEvent = useMemo(
-    () => timelinePresetsForActiveEvent.filter((item) => item.timelineType === "ceremony"),
-    [timelinePresetsForActiveEvent],
-  );
   const mainTimelinePresetsForActiveEvent = useMemo(
     () => timelinePresetsForActiveEvent.filter((item) => item.timelineType === "main"),
     [timelinePresetsForActiveEvent],
   );
 
-  const buildTimelineItemsFromPresets = useCallback((presets: TimelinePresetItem[]) => {
-    const enabledPresets = presets.filter((item) => item.defaultIncluded);
-    const ceremonyItems: CeremonyTimelineItem[] = enabledPresets
-      .filter((item) => item.timelineType === "ceremony")
-      .map((item) =>
-        ceremonyTimelineItemFromPreset(
-          item,
-          `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        ),
-      );
+  const buildTimelineItemsFromPresets = useCallback(
+    (presets: TimelinePresetItem[], layoutProfile: EventLayoutProfile) => {
+      const enabledPresets = presets.filter((item) => item.defaultIncluded);
+      const weddingProfileWithCeremony =
+        (layoutProfile === "Wedding" || layoutProfile === "Gender-Neutral Wedding") &&
+        eventSettings.sectionCeremonyEnabled;
+      const ceremonyItems: CeremonyTimelineItem[] = weddingProfileWithCeremony
+        ? buildNewWeddingCeremonyTimelineItems()
+        : enabledPresets
+            .filter((item) => item.timelineType === "ceremony")
+            .map((item) =>
+              ceremonyTimelineItemFromPreset(
+                item,
+                `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              ),
+            );
     const mainItems: TimelineItem[] = enabledPresets
       .filter((item) => item.timelineType === "main")
       .map((item) =>
         mainTimelineItemFromPreset(item, `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
       );
     return { ceremonyItems, mainItems };
-  }, []);
+  },
+  [eventSettings.sectionCeremonyEnabled],
+);
 
   const applyPresetItemsToTimelineState = useCallback(
     (presets: TimelinePresetItem[], replaceExisting: boolean) => {
       closeReceptionTimelineCardExpanded();
       closeCeremonyTimelineCardExpanded();
-      const { ceremonyItems, mainItems } = buildTimelineItemsFromPresets(presets);
+      const { ceremonyItems, mainItems } = buildTimelineItemsFromPresets(
+        presets,
+        layoutProfileForActiveEvent,
+      );
 
       setCeremonyTimelineItems((prev) => (replaceExisting ? ceremonyItems : [...prev, ...ceremonyItems]));
       setTimelineItems((prev) => (replaceExisting ? mainItems : [...prev, ...mainItems]));
     },
-    [buildTimelineItemsFromPresets, closeCeremonyTimelineCardExpanded, closeReceptionTimelineCardExpanded],
+    [buildTimelineItemsFromPresets, closeCeremonyTimelineCardExpanded, closeReceptionTimelineCardExpanded, layoutProfileForActiveEvent],
   );
 
   const updateTimelinePresetSet = useCallback(
@@ -3584,6 +3722,40 @@ export default function Home() {
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
+  const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
+  const isTimelineWorkspaceScreen =
+    activeScreen === "Timeline" || activeScreen === "Reception Timeline";
+  const showUnifiedTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    isTimelineWorkspaceScreen &&
+    unifiedEventTimeline;
+  const showCeremonyOnlyTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    activeScreen === "Ceremony" &&
+    sectionCeremonyEnabled &&
+    !unifiedEventTimeline;
+  const showReceptionOnlyTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    isTimelineWorkspaceScreen &&
+    sectionReceptionTimelineEnabled &&
+    !unifiedEventTimeline;
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (unifiedEventTimeline && activeScreen === "Ceremony") {
+      setActiveScreen("Timeline");
+    }
+  }, [hasHydrated, unifiedEventTimeline, activeScreen, setActiveScreen]);
+
+  const scrollTimelineSectionIntoView = useCallback((target: "ceremony" | "reception") => {
+    const node =
+      target === "ceremony"
+        ? timelineSectionCeremonyRef.current
+        : timelineSectionReceptionRef.current;
+    node?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
   const sectionPlaylistsEnabled = eventSettings.sectionPlaylistsEnabled;
   const sectionMustPlayEnabled = eventSettings.sectionMustPlayEnabled;
   const sectionDoNotPlayEnabled = eventSettings.sectionDoNotPlayEnabled;
@@ -5121,7 +5293,7 @@ export default function Home() {
     });
 
     if (!hasEventDetailsComplete) return "Event Settings";
-    if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return "Ceremony";
+    if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return unifiedEventTimeline ? "Timeline" : "Ceremony";
 
     if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
       return "Timeline";
@@ -5168,6 +5340,7 @@ export default function Home() {
     sectionPlanningChecklistEnabled,
     sectionPlanningQuestionsEnabled,
     sectionReceptionTimelineEnabled,
+    unifiedEventTimeline,
   ]);
 
   const coupleHomePlanningSections = useMemo(() => {
@@ -5210,7 +5383,7 @@ export default function Home() {
     const receptionMomentCount = timelineItems.length;
     const ceremonyMomentCount = ceremonyTimelineItems.length;
 
-    if (sectionCeremonyEnabled) {
+    if (sectionCeremonyEnabled && !unifiedEventTimeline) {
       cards.push({
         id: "ceremony",
         kicker: "Ceremony",
@@ -5239,12 +5412,16 @@ export default function Home() {
       cards.push({
         id: "reception",
         kicker: "Timeline",
-        title: "Reception timeline",
-        description: "Your evening in order—times, moments, songs, and MC notes.",
+        title: unifiedEventTimeline ? "Event timeline" : "Reception timeline",
+        description: unifiedEventTimeline
+          ? "Ceremony through reception—one continuous flow for the full event day."
+          : "Your evening in order—times, moments, songs, and MC notes.",
         screen: coupleTimelineEntryScreen,
         completion,
         ctaLabel: needsWork ? "Continue" : "Review",
-        statLine: `${receptionMomentCount} moment${receptionMomentCount === 1 ? "" : "s"} planned`,
+        statLine: unifiedEventTimeline
+          ? `${ceremonyMomentCount + receptionMomentCount} moment${ceremonyMomentCount + receptionMomentCount === 1 ? "" : "s"} · ceremony & reception`
+          : `${receptionMomentCount} moment${receptionMomentCount === 1 ? "" : "s"} planned`,
         statSubline: timelineUpdatedLabel
           ? `Last updated ${timelineUpdatedLabel}`
           : receptionMomentCount > 0
@@ -5454,6 +5631,7 @@ export default function Home() {
     musicTasteProfile,
     nowTick,
     sectionCeremonyEnabled,
+    sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
     sectionPlanningQuestionsEnabled,
@@ -5461,6 +5639,7 @@ export default function Home() {
     sectionReceptionTimelineEnabled,
     sectionVendorContactsEnabled,
     timelineItems.length,
+    unifiedEventTimeline,
     vendors.length,
     activeEvent?.collaborators,
     acceptedCollaborators.length,
@@ -7397,18 +7576,6 @@ export default function Home() {
     setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, newItem));
     logActivity("timeline_updated", `Added preset: ${preset.momentName}`);
     pushNotification("Timeline updated", "timeline_updated");
-  };
-
-  const addCeremonyPreset = (preset: TimelinePresetItem) => {
-    const newItem = ceremonyTimelineItemFromPreset(
-      preset,
-      `ceremony-timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    );
-    setCeremonyTimelineItems((prev) =>
-      insertCeremonyTimelineItemChronologically(prev, newItem),
-    );
-    logActivity("ceremony_updated", `Added ceremony preset: ${preset.momentName}`);
-    pushNotification("Ceremony timeline updated", "ceremony_updated");
   };
 
   const applyTimelinePresetsForActiveEvent = () => {
@@ -12041,11 +12208,719 @@ export default function Home() {
 
         {authStage === "app" &&
           appMode === "event" &&
-          (activeScreen === "Timeline" || activeScreen === "Reception Timeline") &&
-          sectionReceptionTimelineEnabled && (
-            <section
-              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
+          (showCeremonyOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
+          <section
+            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pb-0" : ""}`}
+          >
+            {showUnifiedTimelineWorkspace ? (
+              <>
+                <EventHomeNav
+                  trail={["Event timeline"]}
+                  onBack={() => setActiveScreen("Dashboard")}
+                />
+                {!canEditTimeline && (
+                  <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                    <p className="text-xs font-medium text-amber-950">
+                      {effectiveRole} role can view timeline, but editing is limited in this prototype.
+                    </p>
+                  </PremiumCard>
+                )}
+                <div className="no-print flex min-w-0 flex-col gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Full event day
+                        </p>
+                        <h2 className="mt-1 min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
+                          Event timeline
+                        </h2>
+                      </div>
+                      <PersistEcho
+                        persistFeedback={persistFeedback}
+                        variant="light"
+                        className="pt-1 sm:pt-0.5"
+                      />
+                    </div>
+                    <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1.5 sm:text-xs md:text-sm">
+                      Ceremony first, then reception—one continuous scroll through the event day. Expand any row to edit.
+                    </p>
+                  </div>
+                </div>
+                <div className={TIMELINE_MOMENTS_PANEL_CLASS}>
+                  <EventTimelineDayRail
+                    ceremonyCount={ceremonyTimelineItems.length}
+                    receptionCount={mergedTimelineItems.length}
+                    receptionLabel={
+                      eventPrepReceptionHeading === "Reception Timeline"
+                        ? "Reception"
+                        : eventPrepReceptionHeading
+                    }
+                    onScrollToCeremony={() => scrollTimelineSectionIntoView("ceremony")}
+                    onScrollToReception={() => scrollTimelineSectionIntoView("reception")}
+                  />
+                  <div ref={timelineSectionCeremonyRef}>
+                    <TimelinePhaseSectionHeader
+                      id="timeline-section-ceremony"
+                      phaseLabel="Phase 1"
+                      title="Ceremony"
+                      momentCount={ceremonyTimelineItems.length}
+                      hint="Aisle through recessional"
+                      onAdd={openCeremonyTimelineComposer}
+                      addLabel="+ Ceremony moment"
+                      addDisabled={!canEditTimeline}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+            <EventHomeNav
+              trail={["Ceremony"]}
+              onBack={() => setActiveScreen("Dashboard")}
+              primaryAction={{
+                label: "+ Add ceremony moment",
+                onClick: openCeremonyTimelineComposer,
+                disabled: !canEditTimeline,
+              }}
+            />
+            {!canEditTimeline && (
+              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <p className="text-xs font-medium text-amber-950">
+                  {effectiveRole} role can view ceremony timeline, but editing is limited in this prototype.
+                </p>
+              </PremiumCard>
+            )}
+
+            <div className="no-print">
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
+                  Ceremony timeline
+                </h2>
+                <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
+                  Read top-to-bottom like the ceremony itself—time, moment, music, then cues. Expand a row to edit.
+                </p>
+              </div>
+            </div>
+              </>
+            )}
+
+            {ceremonyTimelineComposerOpen && (
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
+                <div ref={ceremonyTimelineComposerRef}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <SectionTitle>New ceremony moment</SectionTitle>
+                      <p className="text-xs leading-relaxed text-stone-600">
+                        Lightweight capture—fine-tune anytime inline on the timeline.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        cancelCeremonyTimelineInlineInsert();
+                        setCeremonyTimelineComposerOpen(false);
+                      }}
+                      className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="mt-6">
+                    <CeremonyTimelineMomentForm
+                      idPrefix="ceremony-top"
+                      canEdit={canEditTimeline}
+                      timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
+                      setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
+                      moment={ceremonyTimelineDraftMoment}
+                      setMoment={setCeremonyTimelineDraftMoment}
+                      songTitle={ceremonyTimelineDraftSongTitle}
+                      setSongTitle={setCeremonyTimelineDraftSongTitle}
+                      artist={ceremonyTimelineDraftArtist}
+                      setArtist={setCeremonyTimelineDraftArtist}
+                      notes={ceremonyTimelineDraftNotes}
+                      setNotes={setCeremonyTimelineDraftNotes}
+                      needsAttention={ceremonyTimelineDraftNeedsAttention}
+                      setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
+                      onCancel={() => {
+                        cancelCeremonyTimelineInlineInsert();
+                        setCeremonyTimelineComposerOpen(false);
+                      }}
+                      onSubmit={saveCeremonyTimelineComposerItem}
+                      submitLabel="Add to ceremony timeline"
+                    />
+                  </div>
+                </div>
+              </PremiumCard>
+            )}
+
+            <div
+              ref={ceremonyTimelineStreamRef}
+              className={showUnifiedTimelineWorkspace ? TIMELINE_STREAM_UNIFIED_CLASS : TIMELINE_STREAM_CLASS}
             >
+              {ceremonyTimelineItems.length === 0 ? (
+                <SectionEmptyState
+                  title="No ceremony moments yet"
+                  description="Add moments with + Ceremony moment above, or expand any row to edit."
+                  primaryAction={{
+                    label: "+ Add ceremony moment",
+                    onClick: openCeremonyTimelineComposer,
+                    disabled: !canEditTimeline,
+                  }}
+                />
+              ) : (
+                ceremonyTimelineItems.map((item, index) => {
+                  const rowExpanded = ceremonyTimelineExpandedId === item.id;
+                  const songLine = [item.songTitle?.trim(), item.artist?.trim()]
+                    .filter(Boolean)
+                    .join(" · ");
+                  const cerInlineVals =
+                    ceremonyTimelineInlineEditDraft?.itemId === item.id
+                      ? ceremonyTimelineInlineEditDraft.values
+                      : null;
+                  const cerTime = cerInlineVals?.timeOrOrder ?? item.timeOrOrder;
+                  const cerMoment = cerInlineVals?.moment ?? item.moment;
+                  const cerSong = cerInlineVals?.songTitle ?? item.songTitle;
+                  const cerArtist = cerInlineVals?.artist ?? item.artist;
+                  const cerNotes = cerInlineVals?.notes ?? item.notes;
+                  const cerNeedsMc = cerInlineVals?.needsDjMcAttention ?? item.needsDjMcAttention;
+                  const isDragging = draggingCeremonyTimelineId === item.id;
+                  const isDropTarget =
+                    dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
+                  const ceremonyDragActive = draggingCeremonyTimelineId !== null;
+                  return (
+                    <Fragment key={item.id}>
+                    <PremiumCard
+                      className={`${timelineReorderRowSurfaceClass({
+                        isDragging,
+                        isDropTarget,
+                        dragActive: ceremonyDragActive && !isDragging,
+                        zebra: index % 2 === 1,
+                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""}`}
+                      aria-grabbed={isDragging}
+                      data-ceremony-timeline-id={item.id}
+                      onDragOver={(event) => {
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        event.preventDefault();
+                        if (draggingCeremonyTimelineId !== item.id) {
+                          dropTargetCeremonyTimelineIdRef.current = item.id;
+                          setDropTargetCeremonyTimelineId(item.id);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
+                        reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                        dropTargetCeremonyTimelineIdRef.current = null;
+                        touchDragCeremonyTimelineSourceRef.current = null;
+                      }}
+                      onDragEnd={() => {
+                        setDraggingCeremonyTimelineId(null);
+                        setDropTargetCeremonyTimelineId(null);
+                        dropTargetCeremonyTimelineIdRef.current = null;
+                        touchDragCeremonyTimelineSourceRef.current = null;
+                      }}
+                    >
+                      {isDropTarget ? <TimelineDropTargetMarker /> : null}
+                      {!rowExpanded && (
+                        <>
+                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
+                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-4 lg:max-w-[40rem] lg:gap-3 xl:max-w-[42rem]">
+                              <div className="shrink-0 pt-0.5 sm:w-[4.5rem] sm:text-right md:w-[4.75rem] lg:w-[4.5rem]">
+                                <p className={`${TIMELINE_CARD_TIME_CLASS} sm:text-right`}>
+                                  {item.timeOrOrder?.trim() || "—"}
+                                </p>
+                              </div>
+                              <div className="relative min-w-0 flex-1 border-l border-stone-200 pl-4 md:pl-4 lg:pl-3.5">
+                                <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-stone-600 ring-1 ring-stone-200" />
+                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
+                                <p className={`mt-1.5 ${TIMELINE_CARD_CUE_CLASS}`}>
+                                  <span className="font-medium text-stone-400">Song</span>
+                                  <span className="mx-1.5 text-stone-300" aria-hidden>
+                                    ·
+                                  </span>
+                                  {songLine || "—"}
+                                </p>
+                                {item.notes?.trim() ? (
+                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS}`}>{item.notes}</p>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                              <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                                <span className="rounded border border-stone-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
+                                  Ceremony
+                                </span>
+                                {item.needsDjMcAttention ? (
+                                  <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
+                                    DJ/MC
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => openCeremonyTimelineCardExpanded(item)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                >
+                                  Details
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                >
+                                  + After
+                                </PrimaryButton>
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => duplicateCeremonyTimelineItem(item)}
+                                  disabled={!canEditTimeline}
+                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                >
+                                  Duplicate
+                                </PrimaryButton>
+                                {canEditTimeline ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  >
+                                    Delete
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2 md:hidden">
+                            <div
+                              role="button"
+                              tabIndex={canEditTimeline ? 0 : -1}
+                              onClick={() => {
+                                if (!canEditTimeline) return;
+                                openCeremonyTimelineCardExpanded(item);
+                              }}
+                              onKeyDown={(event) => {
+                                if (!canEditTimeline) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  openCeremonyTimelineCardExpanded(item);
+                                }
+                              }}
+                              className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                                ? "cursor-pointer active:scale-[0.995]"
+                                : "cursor-default opacity-80"
+                                }`}
+                            >
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className={TIMELINE_CARD_TIME_CLASS}>
+                                    {item.timeOrOrder?.trim() || "—"}
+                                  </p>
+                                  <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
+                                    {item.moment}
+                                  </h3>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
+                                    Ceremony
+                                  </span>
+                                  {item.needsDjMcAttention ? (
+                                    <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
+                                      DJ/MC
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {songLine ? (
+                                <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
+                                  <span className="font-medium text-stone-400">Song</span>
+                                  <span className="mx-1.5 text-stone-300" aria-hidden>
+                                    ·
+                                  </span>
+                                  {songLine}
+                                </p>
+                              ) : null}
+                              {item.notes?.trim() ? (
+                                <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
+                                  {item.notes.trim()}
+                                </p>
+                              ) : null}
+                              {canEditTimeline ? (
+                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">
+                                  Tap card to edit
+                                </p>
+                              ) : (
+                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => openCeremonyTimelineCardExpanded(item)}
+                                disabled={!canEditTimeline}
+                                className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                              >
+                                Expand
+                              </PrimaryButton>
+                              {canEditTimeline ? (
+                                <>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                                  >
+                                    + After
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => duplicateCeremonyTimelineItem(item)}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
+                                  >
+                                    Duplicate
+                                  </PrimaryButton>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {rowExpanded && (
+                        <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
+                            <button
+                              type="button"
+                              onClick={() => closeCeremonyTimelineCardExpanded()}
+                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline md:text-xs"
+                            >
+                              Collapse view
+                            </button>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              {canEditTimeline ? (
+                                <>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => duplicateCeremonyTimelineItem(item)}
+                                    disabled={!canEditTimeline}
+                                    className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                                  >
+                                    Duplicate
+                                  </PrimaryButton>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingTimelineDelete({
+                                        kind: "ceremony",
+                                        id: item.id,
+                                        label: item.moment.trim() || "this moment",
+                                      })
+                                    }
+                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 md:min-h-11 md:px-4 md:py-2.5 md:text-sm"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                            <TextInput
+                              id={`ceremony-inline-time-${item.id}`}
+                              label="Time / order"
+                              value={cerTime}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                              onChange={(value) =>
+                                patchCeremonyTimelineInlineDraft(item.id, { timeOrOrder: value }, item)
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-moment-${item.id}`}
+                              label="Moment"
+                              value={cerMoment}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                              onChange={(value) =>
+                                patchCeremonyTimelineInlineDraft(item.id, { moment: value }, item)
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                            <TextInput
+                              id={`ceremony-inline-song-${item.id}`}
+                              label="Song title"
+                              value={cerSong}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                              onChange={(value) =>
+                                patchCeremonyTimelineInlineDraft(item.id, { songTitle: value }, item)
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                            <TextInput
+                              id={`ceremony-inline-artist-${item.id}`}
+                              label="Artist"
+                              value={cerArtist}
+                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                              onChange={(value) =>
+                                patchCeremonyTimelineInlineDraft(item.id, { artist: value }, item)
+                              }
+                              disabled={!canEditTimeline}
+                            />
+                          </div>
+                          <TextArea
+                            id={`ceremony-inline-notes-${item.id}`}
+                            label="Notes"
+                            value={cerNotes}
+                            textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                            onChange={(value) =>
+                              patchCeremonyTimelineInlineDraft(item.id, { notes: value }, item)
+                            }
+                            rows={2}
+                            disabled={!canEditTimeline}
+                          />
+                          <PrimaryButton
+                            type="button"
+                            onClick={() =>
+                              patchCeremonyTimelineInlineDraft(
+                                item.id,
+                                { needsDjMcAttention: !cerNeedsMc },
+                                item,
+                              )
+                            }
+                            disabled={!canEditTimeline}
+                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${cerNeedsMc
+                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                              }`}
+                          >
+                            {cerNeedsMc
+                              ? "DJ/MC attention: On"
+                              : "Flag DJ/MC attention"}
+                          </PrimaryButton>
+                        </div>
+                      )}
+                      <div className={TIMELINE_CARD_FOOTER_CLASS}>
+                        <button
+                          type="button"
+                          draggable={canEditTimeline}
+                          title="Press and drag to reorder"
+                          onDragStart={(event) => {
+                            if (!canEditTimeline) return;
+                            touchDragCeremonyTimelineSourceRef.current = null;
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingCeremonyTimelineId(null);
+                            setDropTargetCeremonyTimelineId(null);
+                            dropTargetCeremonyTimelineIdRef.current = null;
+                            touchDragCeremonyTimelineSourceRef.current = null;
+                          }}
+                          onTouchStart={(event) => {
+                            if (!canEditTimeline || event.touches.length > 1) return;
+                            touchDragCeremonyTimelineSourceRef.current = item.id;
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
+                          disabled={!canEditTimeline}
+                          aria-label={`Drag to reorder ${item.moment}`}
+                        >
+                          <TimelineDragGripDots emphasized={isDragging} />
+                          <span className="flex flex-col items-start leading-tight sm:items-center">
+                            <span>Reorder</span>
+                            <span className="text-[10px] font-medium text-stone-500 sm:hidden">
+                              Hold &amp; drag
+                            </span>
+                          </span>
+                        </button>
+                        <div
+                          className={`flex w-full flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:w-auto sm:justify-end ${!rowExpanded ? "max-md:hidden" : ""}`}
+                        >
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => duplicateCeremonyTimelineItem(item)}
+                            disabled={!canEditTimeline}
+                            className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:text-[13px]"
+                          >
+                            Duplicate
+                          </PrimaryButton>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600 md:text-xs md:tracking-wide lg:mt-0 lg:text-[10px] lg:text-stone-500">
+                        {index + 1} / {ceremonyTimelineItems.length}
+                      </p>
+                    </PremiumCard>
+                    {ceremonyTimelineInsertAfterId === item.id ? (
+                      <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
+                        <PremiumCard
+                          variant="accent"
+                          className={`${premiumFormSectionCardClass} rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20`}
+                        >
+                          <SectionTitle className="text-base">New ceremony moment</SectionTitle>
+                          <p className="mt-1 text-xs text-stone-600">
+                            Placed directly after the moment above.
+                          </p>
+                          <div className="mt-3">
+                            <CeremonyTimelineMomentForm
+                              idPrefix={`inline-cer-${item.id}`}
+                              canEdit={canEditTimeline}
+                              anchorLabel={item.moment}
+                              timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
+                              setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
+                              moment={ceremonyTimelineDraftMoment}
+                              setMoment={setCeremonyTimelineDraftMoment}
+                              songTitle={ceremonyTimelineDraftSongTitle}
+                              setSongTitle={setCeremonyTimelineDraftSongTitle}
+                              artist={ceremonyTimelineDraftArtist}
+                              setArtist={setCeremonyTimelineDraftArtist}
+                              notes={ceremonyTimelineDraftNotes}
+                              setNotes={setCeremonyTimelineDraftNotes}
+                              needsAttention={ceremonyTimelineDraftNeedsAttention}
+                              setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
+                              onCancel={cancelCeremonyTimelineInlineInsert}
+                              onSubmit={saveCeremonyTimelineComposerItem}
+                              submitLabel="Add moment"
+                            />
+                          </div>
+                        </PremiumCard>
+                      </div>
+                    ) : null}
+                    </Fragment>
+                  );
+                })
+              )}
+            </div>
+
+            {!showUnifiedTimelineWorkspace && !isCoupleView && (
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
+                <SectionTitle>Ceremony Assistant</SectionTitle>
+                <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                  Processionals and audio readiness.
+                </p>
+                <div className="mt-5">
+                  <InsightStack
+                    insights={planningInsights.filter((i) => i.section === "ceremony")}
+                    emptyLabel="Ceremony prep looks complete."
+                  />
+                </div>
+              </PremiumCard>
+            )}
+
+            {!showUnifiedTimelineWorkspace ? (
+            <PremiumCard className={premiumFormSectionCardClass}>
+              <SectionTitle className="text-stone-950">Ceremony Details</SectionTitle>
+              <div className="mt-6 space-y-4">
+                <TextInput
+                  id="ceremony-location"
+                  label="Ceremony Location"
+                  value={eventSettings.ceremonyLocation}
+                  onChange={(value) =>
+                    setEventSettings((prev) => ({ ...prev, ceremonyLocation: value }))
+                  }
+                  placeholder="e.g. Garden Courtyard"
+                />
+                <TextInput
+                  id="ceremony-start-time"
+                  label="Ceremony Start Time"
+                  value={ceremonyStartTime}
+                  onChange={setCeremonyStartTime}
+                  placeholder="e.g. 4:00 PM"
+                />
+                <TextInput
+                  id="ceremony-guest-arrival-time"
+                  label="Guest Arrival Time"
+                  value={ceremonyGuestArrivalTime}
+                  onChange={setCeremonyGuestArrivalTime}
+                  placeholder="e.g. 3:30 PM"
+                />
+                <TextInput
+                  id="officiant-name"
+                  label="Officiant Name"
+                  value={officiantName}
+                  onChange={setOfficiantName}
+                  placeholder="e.g. Reverend Taylor Brooks"
+                />
+                <TextArea
+                  id="microphone-needs"
+                  label="Microphone Needs"
+                  value={microphoneNeeds}
+                  onChange={setMicrophoneNeeds}
+                  placeholder="List mics, placement, and backups..."
+                  rows={2}
+                />
+                <TextArea
+                  id="ceremony-notes"
+                  label="Ceremony Notes"
+                  value={ceremonyNotes}
+                  onChange={setCeremonyNotes}
+                  placeholder="Cue notes, coordinator timing, special moments..."
+                  rows={3}
+                />
+              </div>
+            </PremiumCard>
+            ) : null}
+          </section>
+        )}
+        {authStage === "app" &&
+          appMode === "event" &&
+          (showReceptionOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
+            <section
+              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-2" : ""}`}
+            >
+              {showUnifiedTimelineWorkspace ? (
+                <>
+                  <div className="mx-4 border-t border-stone-200/90 sm:mx-5" aria-hidden />
+                  <div ref={timelineSectionReceptionRef} className="scroll-mt-2">
+                    <TimelinePhaseSectionHeader
+                      id="timeline-section-reception"
+                      phaseLabel="Phase 2"
+                      title={
+                        eventPrepReceptionHeading === "Reception Timeline"
+                          ? "Reception"
+                          : eventPrepReceptionHeading
+                      }
+                      momentCount={mergedTimelineItems.length}
+                      hint="Cocktail hour through last dance"
+                      onAdd={openReceptionTimelineComposerAtTop}
+                      addLabel="+ Reception moment"
+                      addDisabled={!canEditTimeline}
+                    />
+                  </div>
+                </>
+              ) : null}
+              {!showUnifiedTimelineWorkspace ? (
+              <>
               <EventHomeNav
                 trail={
                   isCoupleView
@@ -12157,6 +13032,8 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+              </>
+              ) : null}
 
               {showTimelinePresetOnboarding && (
                 <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
@@ -12278,7 +13155,7 @@ export default function Home() {
                 </div>
               ) : null}
 
-              <div ref={timelineStreamRef} className={TIMELINE_STREAM_CLASS}>
+              <div ref={timelineStreamRef} className={showUnifiedTimelineWorkspace ? TIMELINE_STREAM_UNIFIED_CLASS : TIMELINE_STREAM_CLASS}>
                 {mergedTimelineItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
@@ -13189,646 +14066,6 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Ceremony" && sectionCeremonyEnabled && (
-          <section
-            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8`}
-          >
-            <EventHomeNav
-              trail={["Ceremony"]}
-              onBack={() => setActiveScreen("Dashboard")}
-              primaryAction={{
-                label: "+ Add ceremony moment",
-                onClick: openCeremonyTimelineComposer,
-                disabled: !canEditTimeline,
-              }}
-            />
-            {!canEditTimeline && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
-                <p className="text-xs font-medium text-amber-950">
-                  {effectiveRole} role can view ceremony timeline, but editing is limited in this prototype.
-                </p>
-              </PremiumCard>
-            )}
-
-            <div className="no-print">
-              <div className="min-w-0">
-                <h2 className="text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
-                  Ceremony timeline
-                </h2>
-                <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
-                  Read top-to-bottom like the ceremony itself—time, moment, music, then cues. Expand a row to edit.
-                </p>
-              </div>
-            </div>
-
-            <PremiumCard className={`border-stone-200 bg-white shadow-sm ${premiumFormSectionCardClass}`}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600">
-                    Ceremony presets
-                  </p>
-                  <p className="text-xs leading-relaxed text-stone-600">
-                    Drop in common beats—still editable on the timeline.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
-                {ceremonyPresetsForActiveEvent.map((preset) => (
-                  <PrimaryButton
-                    key={`ceremony-preset-${preset.id}`}
-                    type="button"
-                    onClick={() => addCeremonyPreset(preset)}
-                    disabled={!canEditTimeline}
-                    className="min-h-11 rounded-full border border-stone-300 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:px-3 sm:py-1.5 sm:text-[11px] sm:font-medium"
-                  >
-                    + {preset.momentName}
-                  </PrimaryButton>
-                ))}
-              </div>
-            </PremiumCard>
-
-            {ceremonyTimelineComposerOpen && (
-              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
-                <div ref={ceremonyTimelineComposerRef}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1.5">
-                      <SectionTitle>New ceremony moment</SectionTitle>
-                      <p className="text-xs leading-relaxed text-stone-600">
-                        Lightweight capture—fine-tune anytime inline on the timeline.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        cancelCeremonyTimelineInlineInsert();
-                        setCeremonyTimelineComposerOpen(false);
-                      }}
-                      className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <div className="mt-6">
-                    <CeremonyTimelineMomentForm
-                      idPrefix="ceremony-top"
-                      canEdit={canEditTimeline}
-                      timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
-                      setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
-                      moment={ceremonyTimelineDraftMoment}
-                      setMoment={setCeremonyTimelineDraftMoment}
-                      songTitle={ceremonyTimelineDraftSongTitle}
-                      setSongTitle={setCeremonyTimelineDraftSongTitle}
-                      artist={ceremonyTimelineDraftArtist}
-                      setArtist={setCeremonyTimelineDraftArtist}
-                      notes={ceremonyTimelineDraftNotes}
-                      setNotes={setCeremonyTimelineDraftNotes}
-                      needsAttention={ceremonyTimelineDraftNeedsAttention}
-                      setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
-                      onCancel={() => {
-                        cancelCeremonyTimelineInlineInsert();
-                        setCeremonyTimelineComposerOpen(false);
-                      }}
-                      onSubmit={saveCeremonyTimelineComposerItem}
-                      submitLabel="Add to ceremony timeline"
-                    />
-                  </div>
-                </div>
-              </PremiumCard>
-            )}
-
-            <div ref={ceremonyTimelineStreamRef} className={TIMELINE_STREAM_CLASS}>
-              {ceremonyTimelineItems.length === 0 ? (
-                <SectionEmptyState
-                  title="No ceremony moments yet"
-                  description="Preset chips above are the fastest start—or add your own aisle-to-recessional flow."
-                  primaryAction={{
-                    label: "+ Add ceremony moment",
-                    onClick: openCeremonyTimelineComposer,
-                    disabled: !canEditTimeline,
-                  }}
-                />
-              ) : (
-                ceremonyTimelineItems.map((item, index) => {
-                  const rowExpanded = ceremonyTimelineExpandedId === item.id;
-                  const songLine = [item.songTitle?.trim(), item.artist?.trim()]
-                    .filter(Boolean)
-                    .join(" · ");
-                  const cerInlineVals =
-                    ceremonyTimelineInlineEditDraft?.itemId === item.id
-                      ? ceremonyTimelineInlineEditDraft.values
-                      : null;
-                  const cerTime = cerInlineVals?.timeOrOrder ?? item.timeOrOrder;
-                  const cerMoment = cerInlineVals?.moment ?? item.moment;
-                  const cerSong = cerInlineVals?.songTitle ?? item.songTitle;
-                  const cerArtist = cerInlineVals?.artist ?? item.artist;
-                  const cerNotes = cerInlineVals?.notes ?? item.notes;
-                  const cerNeedsMc = cerInlineVals?.needsDjMcAttention ?? item.needsDjMcAttention;
-                  const isDragging = draggingCeremonyTimelineId === item.id;
-                  const isDropTarget =
-                    dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
-                  const ceremonyDragActive = draggingCeremonyTimelineId !== null;
-                  return (
-                    <Fragment key={item.id}>
-                    <PremiumCard
-                      className={`${timelineReorderRowSurfaceClass({
-                        isDragging,
-                        isDropTarget,
-                        dragActive: ceremonyDragActive && !isDragging,
-                        zebra: index % 2 === 1,
-                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""}`}
-                      aria-grabbed={isDragging}
-                      data-ceremony-timeline-id={item.id}
-                      onDragOver={(event) => {
-                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
-                        event.preventDefault();
-                        if (draggingCeremonyTimelineId !== item.id) {
-                          dropTargetCeremonyTimelineIdRef.current = item.id;
-                          setDropTargetCeremonyTimelineId(item.id);
-                        }
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        if (!canEditTimeline || !draggingCeremonyTimelineId) return;
-                        reorderCeremonyTimelineItemToTarget(draggingCeremonyTimelineId, item.id);
-                        setDraggingCeremonyTimelineId(null);
-                        setDropTargetCeremonyTimelineId(null);
-                        dropTargetCeremonyTimelineIdRef.current = null;
-                        touchDragCeremonyTimelineSourceRef.current = null;
-                      }}
-                      onDragEnd={() => {
-                        setDraggingCeremonyTimelineId(null);
-                        setDropTargetCeremonyTimelineId(null);
-                        dropTargetCeremonyTimelineIdRef.current = null;
-                        touchDragCeremonyTimelineSourceRef.current = null;
-                      }}
-                    >
-                      {isDropTarget ? <TimelineDropTargetMarker /> : null}
-                      {!rowExpanded && (
-                        <>
-                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-4 lg:max-w-[40rem] lg:gap-3 xl:max-w-[42rem]">
-                              <div className="shrink-0 pt-0.5 sm:w-[4.5rem] sm:text-right md:w-[4.75rem] lg:w-[4.5rem]">
-                                <p className={`${TIMELINE_CARD_TIME_CLASS} sm:text-right`}>
-                                  {item.timeOrOrder?.trim() || "—"}
-                                </p>
-                              </div>
-                              <div className="relative min-w-0 flex-1 border-l border-stone-200 pl-4 md:pl-4 lg:pl-3.5">
-                                <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-stone-600 ring-1 ring-stone-200" />
-                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
-                                <p className={`mt-1.5 ${TIMELINE_CARD_CUE_CLASS}`}>
-                                  <span className="font-medium text-stone-400">Song</span>
-                                  <span className="mx-1.5 text-stone-300" aria-hidden>
-                                    ·
-                                  </span>
-                                  {songLine || "—"}
-                                </p>
-                                {item.notes?.trim() ? (
-                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS}`}>{item.notes}</p>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
-                              <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-                                <span className="rounded border border-stone-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
-                                  Ceremony
-                                </span>
-                                {item.needsDjMcAttention ? (
-                                  <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
-                                    DJ/MC
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => openCeremonyTimelineCardExpanded(item)}
-                                  disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
-                                >
-                                  Details
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => prepareAddCeremonyMomentAfter(item.id)}
-                                  disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
-                                >
-                                  + After
-                                </PrimaryButton>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => duplicateCeremonyTimelineItem(item)}
-                                  disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
-                                >
-                                  Duplicate
-                                </PrimaryButton>
-                                {canEditTimeline ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPendingTimelineDelete({
-                                        kind: "ceremony",
-                                        id: item.id,
-                                        label: item.moment.trim() || "this moment",
-                                      })
-                                    }
-                                    className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
-                                  >
-                                    Delete
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-2 md:hidden">
-                            <div
-                              role="button"
-                              tabIndex={canEditTimeline ? 0 : -1}
-                              onClick={() => {
-                                if (!canEditTimeline) return;
-                                openCeremonyTimelineCardExpanded(item);
-                              }}
-                              onKeyDown={(event) => {
-                                if (!canEditTimeline) return;
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  openCeremonyTimelineCardExpanded(item);
-                                }
-                              }}
-                              className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
-                                ? "cursor-pointer active:scale-[0.995]"
-                                : "cursor-default opacity-80"
-                                }`}
-                            >
-                              <div className="flex items-start justify-between gap-2.5">
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p className={TIMELINE_CARD_TIME_CLASS}>
-                                    {item.timeOrOrder?.trim() || "—"}
-                                  </p>
-                                  <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
-                                    {item.moment}
-                                  </h3>
-                                </div>
-                                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                                  <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
-                                    Ceremony
-                                  </span>
-                                  {item.needsDjMcAttention ? (
-                                    <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
-                                      DJ/MC
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                              {songLine ? (
-                                <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
-                                  <span className="font-medium text-stone-400">Song</span>
-                                  <span className="mx-1.5 text-stone-300" aria-hidden>
-                                    ·
-                                  </span>
-                                  {songLine}
-                                </p>
-                              ) : null}
-                              {item.notes?.trim() ? (
-                                <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
-                                  {item.notes.trim()}
-                                </p>
-                              ) : null}
-                              {canEditTimeline ? (
-                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">
-                                  Tap card to edit
-                                </p>
-                              ) : (
-                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => openCeremonyTimelineCardExpanded(item)}
-                                disabled={!canEditTimeline}
-                                className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
-                              >
-                                Expand
-                              </PrimaryButton>
-                              {canEditTimeline ? (
-                                <>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => prepareAddCeremonyMomentAfter(item.id)}
-                                    disabled={!canEditTimeline}
-                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
-                                  >
-                                    + After
-                                  </PrimaryButton>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => duplicateCeremonyTimelineItem(item)}
-                                    disabled={!canEditTimeline}
-                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
-                                  >
-                                    Duplicate
-                                  </PrimaryButton>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPendingTimelineDelete({
-                                        kind: "ceremony",
-                                        id: item.id,
-                                        label: item.moment.trim() || "this moment",
-                                      })
-                                    }
-                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      {rowExpanded && (
-                        <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
-                            <button
-                              type="button"
-                              onClick={() => closeCeremonyTimelineCardExpanded()}
-                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline md:text-xs"
-                            >
-                              Collapse view
-                            </button>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              {canEditTimeline ? (
-                                <>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => duplicateCeremonyTimelineItem(item)}
-                                    disabled={!canEditTimeline}
-                                    className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
-                                  >
-                                    Duplicate
-                                  </PrimaryButton>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPendingTimelineDelete({
-                                        kind: "ceremony",
-                                        id: item.id,
-                                        label: item.moment.trim() || "this moment",
-                                      })
-                                    }
-                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 md:min-h-11 md:px-4 md:py-2.5 md:text-sm"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                            <TextInput
-                              id={`ceremony-inline-time-${item.id}`}
-                              label="Time / order"
-                              value={cerTime}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { timeOrOrder: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-moment-${item.id}`}
-                              label="Moment"
-                              value={cerMoment}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { moment: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                            <TextInput
-                              id={`ceremony-inline-song-${item.id}`}
-                              label="Song title"
-                              value={cerSong}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { songTitle: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-artist-${item.id}`}
-                              label="Artist"
-                              value={cerArtist}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { artist: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <TextArea
-                            id={`ceremony-inline-notes-${item.id}`}
-                            label="Notes"
-                            value={cerNotes}
-                            textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) =>
-                              patchCeremonyTimelineInlineDraft(item.id, { notes: value }, item)
-                            }
-                            rows={2}
-                            disabled={!canEditTimeline}
-                          />
-                          <PrimaryButton
-                            type="button"
-                            onClick={() =>
-                              patchCeremonyTimelineInlineDraft(
-                                item.id,
-                                { needsDjMcAttention: !cerNeedsMc },
-                                item,
-                              )
-                            }
-                            disabled={!canEditTimeline}
-                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${cerNeedsMc
-                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
-                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                              }`}
-                          >
-                            {cerNeedsMc
-                              ? "DJ/MC attention: On"
-                              : "Flag DJ/MC attention"}
-                          </PrimaryButton>
-                        </div>
-                      )}
-                      <div className={TIMELINE_CARD_FOOTER_CLASS}>
-                        <button
-                          type="button"
-                          draggable={canEditTimeline}
-                          title="Press and drag to reorder"
-                          onDragStart={(event) => {
-                            if (!canEditTimeline) return;
-                            touchDragCeremonyTimelineSourceRef.current = null;
-                            event.dataTransfer.effectAllowed = "move";
-                            setDraggingCeremonyTimelineId(item.id);
-                          }}
-                          onDragEnd={() => {
-                            setDraggingCeremonyTimelineId(null);
-                            setDropTargetCeremonyTimelineId(null);
-                            dropTargetCeremonyTimelineIdRef.current = null;
-                            touchDragCeremonyTimelineSourceRef.current = null;
-                          }}
-                          onTouchStart={(event) => {
-                            if (!canEditTimeline || event.touches.length > 1) return;
-                            touchDragCeremonyTimelineSourceRef.current = item.id;
-                            setDraggingCeremonyTimelineId(item.id);
-                          }}
-                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
-                          disabled={!canEditTimeline}
-                          aria-label={`Drag to reorder ${item.moment}`}
-                        >
-                          <TimelineDragGripDots emphasized={isDragging} />
-                          <span className="flex flex-col items-start leading-tight sm:items-center">
-                            <span>Reorder</span>
-                            <span className="text-[10px] font-medium text-stone-500 sm:hidden">
-                              Hold &amp; drag
-                            </span>
-                          </span>
-                        </button>
-                        <div
-                          className={`flex w-full flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:w-auto sm:justify-end ${!rowExpanded ? "max-md:hidden" : ""}`}
-                        >
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => duplicateCeremonyTimelineItem(item)}
-                            disabled={!canEditTimeline}
-                            className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:text-[13px]"
-                          >
-                            Duplicate
-                          </PrimaryButton>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600 md:text-xs md:tracking-wide lg:mt-0 lg:text-[10px] lg:text-stone-500">
-                        {index + 1} / {ceremonyTimelineItems.length}
-                      </p>
-                    </PremiumCard>
-                    {ceremonyTimelineInsertAfterId === item.id ? (
-                      <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
-                        <PremiumCard
-                          variant="accent"
-                          className={`${premiumFormSectionCardClass} rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20`}
-                        >
-                          <SectionTitle className="text-base">New ceremony moment</SectionTitle>
-                          <p className="mt-1 text-xs text-stone-600">
-                            Placed directly after the moment above.
-                          </p>
-                          <div className="mt-3">
-                            <CeremonyTimelineMomentForm
-                              idPrefix={`inline-cer-${item.id}`}
-                              canEdit={canEditTimeline}
-                              anchorLabel={item.moment}
-                              timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
-                              setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
-                              moment={ceremonyTimelineDraftMoment}
-                              setMoment={setCeremonyTimelineDraftMoment}
-                              songTitle={ceremonyTimelineDraftSongTitle}
-                              setSongTitle={setCeremonyTimelineDraftSongTitle}
-                              artist={ceremonyTimelineDraftArtist}
-                              setArtist={setCeremonyTimelineDraftArtist}
-                              notes={ceremonyTimelineDraftNotes}
-                              setNotes={setCeremonyTimelineDraftNotes}
-                              needsAttention={ceremonyTimelineDraftNeedsAttention}
-                              setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
-                              onCancel={cancelCeremonyTimelineInlineInsert}
-                              onSubmit={saveCeremonyTimelineComposerItem}
-                              submitLabel="Add moment"
-                            />
-                          </div>
-                        </PremiumCard>
-                      </div>
-                    ) : null}
-                    </Fragment>
-                  );
-                })
-              )}
-            </div>
-
-            {!isCoupleView && (
-              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
-                <SectionTitle>Ceremony Assistant</SectionTitle>
-                <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                  Processionals and audio readiness.
-                </p>
-                <div className="mt-5">
-                  <InsightStack
-                    insights={planningInsights.filter((i) => i.section === "ceremony")}
-                    emptyLabel="Ceremony prep looks complete."
-                  />
-                </div>
-              </PremiumCard>
-            )}
-
-            <PremiumCard className={premiumFormSectionCardClass}>
-              <SectionTitle className="text-stone-950">Ceremony Details</SectionTitle>
-              <div className="mt-6 space-y-4">
-                <TextInput
-                  id="ceremony-location"
-                  label="Ceremony Location"
-                  value={eventSettings.ceremonyLocation}
-                  onChange={(value) =>
-                    setEventSettings((prev) => ({ ...prev, ceremonyLocation: value }))
-                  }
-                  placeholder="e.g. Garden Courtyard"
-                />
-                <TextInput
-                  id="ceremony-start-time"
-                  label="Ceremony Start Time"
-                  value={ceremonyStartTime}
-                  onChange={setCeremonyStartTime}
-                  placeholder="e.g. 4:00 PM"
-                />
-                <TextInput
-                  id="ceremony-guest-arrival-time"
-                  label="Guest Arrival Time"
-                  value={ceremonyGuestArrivalTime}
-                  onChange={setCeremonyGuestArrivalTime}
-                  placeholder="e.g. 3:30 PM"
-                />
-                <TextInput
-                  id="officiant-name"
-                  label="Officiant Name"
-                  value={officiantName}
-                  onChange={setOfficiantName}
-                  placeholder="e.g. Reverend Taylor Brooks"
-                />
-                <TextArea
-                  id="microphone-needs"
-                  label="Microphone Needs"
-                  value={microphoneNeeds}
-                  onChange={setMicrophoneNeeds}
-                  placeholder="List mics, placement, and backups..."
-                  rows={2}
-                />
-                <TextArea
-                  id="ceremony-notes"
-                  label="Ceremony Notes"
-                  value={ceremonyNotes}
-                  onChange={setCeremonyNotes}
-                  placeholder="Cue notes, coordinator timing, special moments..."
-                  rows={3}
-                />
-              </div>
-            </PremiumCard>
-          </section>
-        )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Notes" && !isCoupleView && (
           <section className={workspaceSectionClass}>
