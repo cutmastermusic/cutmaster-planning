@@ -31,6 +31,7 @@ import {
   normalizeEventStatus,
 } from "@/lib/eventStatus";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -365,6 +366,356 @@ const EVENT_PACKET_SECTION_TOGGLE_OFF =
 
 const TIMELINE_DRAG_EDGE_PX = 76;
 const TIMELINE_DRAG_SCROLL_STEP = 18;
+
+const TIMELINE_DRAG_HANDLE_CLASS =
+  "inline-flex min-h-12 w-full cursor-grab touch-none select-none items-center justify-center gap-2 rounded-lg border border-dashed border-stone-400/90 bg-stone-100/90 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:border-stone-500 hover:bg-stone-200/90 active:cursor-grabbing active:scale-[0.99] disabled:opacity-50 max-md:min-h-11 max-md:rounded-md max-md:px-3 max-md:py-2.5 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:rounded-md lg:border-stone-300 lg:border-solid lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs";
+
+function timelineReorderRowSurfaceClass(opts: {
+  isDragging: boolean;
+  isDropTarget: boolean;
+  dragActive: boolean;
+  zebra?: boolean;
+}): string {
+  const base =
+    "touch-pan-y rounded-xl border-2 bg-white transition-[transform,box-shadow,opacity,border-color,background-color] duration-200 ease-out motion-reduce:transition-none";
+  const zebra = opts.zebra ? "bg-stone-50" : "";
+  if (opts.isDragging) {
+    return `${base} ${zebra} z-10 scale-[1.02] border-stone-900 opacity-100 shadow-[0_14px_32px_rgba(15,23,42,0.14)] ring-1 ring-stone-900/10`;
+  }
+  if (opts.isDropTarget) {
+    return `${base} ${zebra} border-[#00D4FF] bg-[#00D4FF]/[0.06] shadow-[0_0_0_1px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/75 ring-offset-2 ring-offset-white`;
+  }
+  if (opts.dragActive) {
+    return `${base} ${zebra} border-stone-200 opacity-[0.88]`;
+  }
+  return `${base} ${zebra} border-stone-300`;
+}
+
+function TimelineDragGripDots({ emphasized = false }: { emphasized?: boolean }) {
+  return (
+    <span
+      className={`inline-grid shrink-0 grid-cols-2 gap-[3px] ${emphasized ? "opacity-100" : "opacity-80"}`}
+      aria-hidden
+    >
+      {Array.from({ length: 6 }, (_, i) => (
+        <span
+          key={i}
+          className={`size-1 rounded-full ${emphasized ? "bg-stone-700" : "bg-stone-500"}`}
+        />
+      ))}
+    </span>
+  );
+}
+
+function TimelineDropTargetMarker() {
+  return (
+    <div className="mb-3 flex items-center gap-2 px-0.5" aria-hidden>
+      <div className="h-1 flex-1 rounded-full bg-[#00D4FF] shadow-[0_0_10px_rgba(0,212,255,0.35)]" />
+    </div>
+  );
+}
+
+function insertTimelineItemAfterId<T extends { id: string }>(
+  items: T[],
+  afterId: string,
+  newItem: T,
+): T[] {
+  const index = items.findIndex((row) => row.id === afterId);
+  if (index === -1) return [...items, newItem];
+  const next = [...items];
+  next.splice(index + 1, 0, newItem);
+  return next;
+}
+
+type ReceptionTimelineMomentFormProps = {
+  idPrefix: string;
+  canEdit: boolean;
+  anchorLabel?: string;
+  timelineTime: string;
+  setTimelineTime: (value: string) => void;
+  timelineTitle: string;
+  setTimelineTitle: (value: string) => void;
+  timelineSongTitle: string;
+  setTimelineSongTitle: (value: string) => void;
+  timelineArtist: string;
+  setTimelineArtist: (value: string) => void;
+  timelineCategory: TimelineCategory;
+  setTimelineCategory: (value: TimelineCategory) => void;
+  timelineNotes: string;
+  setTimelineNotes: (value: string) => void;
+  timelineNeedsAttention: boolean;
+  setTimelineNeedsAttention: (updater: (prev: boolean) => boolean) => void;
+  composerError: string | null;
+  setComposerError: (value: string | null) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+};
+
+function ReceptionTimelineMomentForm({
+  idPrefix,
+  canEdit,
+  anchorLabel,
+  timelineTime,
+  setTimelineTime,
+  timelineTitle,
+  setTimelineTitle,
+  timelineSongTitle,
+  setTimelineSongTitle,
+  timelineArtist,
+  setTimelineArtist,
+  timelineCategory,
+  setTimelineCategory,
+  timelineNotes,
+  setTimelineNotes,
+  timelineNeedsAttention,
+  setTimelineNeedsAttention,
+  composerError,
+  setComposerError,
+  onCancel,
+  onSubmit,
+  submitLabel,
+}: ReceptionTimelineMomentFormProps) {
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      {anchorLabel ? (
+        <p className="text-[11px] font-medium leading-snug text-stone-600">
+          Adding after <span className="font-semibold text-stone-800">{anchorLabel}</span>
+        </p>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextInput
+          id={`${idPrefix}-timeline-time`}
+          label="Time / order"
+          value={timelineTime}
+          onChange={setTimelineTime}
+          placeholder="e.g. 6:30 PM (optional)"
+          disabled={!canEdit}
+        />
+        <div className="space-y-0">
+          <TextInput
+            id={`${idPrefix}-timeline-title`}
+            label="Moment"
+            value={timelineTitle}
+            onChange={(value) => {
+              setTimelineTitle(value);
+              setComposerError(null);
+            }}
+            placeholder="Required — e.g. Dinner service begins"
+            disabled={!canEdit}
+          />
+          {composerError ? (
+            <p className="mt-1.5 text-xs font-medium text-rose-700">{composerError}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextInput
+          id={`${idPrefix}-timeline-song-title`}
+          label="Song title"
+          value={timelineSongTitle}
+          onChange={setTimelineSongTitle}
+          placeholder="Optional"
+          disabled={!canEdit}
+        />
+        <TextInput
+          id={`${idPrefix}-timeline-artist`}
+          label="Artist"
+          value={timelineArtist}
+          onChange={setTimelineArtist}
+          placeholder="Optional"
+          disabled={!canEdit}
+        />
+      </div>
+      <div>
+        <label htmlFor={`${idPrefix}-timeline-category`} className={lightUiFormLabelClass}>
+          Category
+        </label>
+        <select
+          id={`${idPrefix}-timeline-category`}
+          value={timelineCategory}
+          disabled={!canEdit}
+          onChange={(event) => setTimelineCategory(event.target.value as TimelineCategory)}
+          className={lightUiSelectClass}
+        >
+          {timelineCategories.map((category) => (
+            <option key={category} value={category} className="bg-white text-stone-900">
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+      <TextArea
+        id={`${idPrefix}-timeline-notes`}
+        label="Notes / cues"
+        value={timelineNotes}
+        onChange={setTimelineNotes}
+        placeholder="Production notes, MC guidance…"
+        disabled={!canEdit}
+      />
+      <PrimaryButton
+        type="button"
+        onClick={() => setTimelineNeedsAttention((prev) => !prev)}
+        disabled={!canEdit}
+        className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${timelineNeedsAttention
+          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+          }`}
+      >
+        {timelineNeedsAttention ? "DJ/MC attention marked" : "Flag DJ/MC attention"}
+      </PrimaryButton>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <PrimaryButton
+          type="button"
+          onClick={onCancel}
+          disabled={!canEdit}
+          className={`w-full border border-stone-300 bg-white py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto sm:min-w-[7rem] ${lightUiSecondaryButtonClass}`}
+        >
+          Cancel
+        </PrimaryButton>
+        <PrimaryButton
+          type="submit"
+          disabled={!canEdit}
+          className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem]"
+        >
+          {submitLabel}
+        </PrimaryButton>
+      </div>
+    </form>
+  );
+}
+
+type CeremonyTimelineMomentFormProps = {
+  idPrefix: string;
+  canEdit: boolean;
+  anchorLabel?: string;
+  timeOrOrder: string;
+  setTimeOrOrder: (value: string) => void;
+  moment: string;
+  setMoment: (value: string) => void;
+  songTitle: string;
+  setSongTitle: (value: string) => void;
+  artist: string;
+  setArtist: (value: string) => void;
+  notes: string;
+  setNotes: (value: string) => void;
+  needsAttention: boolean;
+  setNeedsAttention: (updater: (prev: boolean) => boolean) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+};
+
+function CeremonyTimelineMomentForm({
+  idPrefix,
+  canEdit,
+  anchorLabel,
+  timeOrOrder,
+  setTimeOrOrder,
+  moment,
+  setMoment,
+  songTitle,
+  setSongTitle,
+  artist,
+  setArtist,
+  notes,
+  setNotes,
+  needsAttention,
+  setNeedsAttention,
+  onCancel,
+  onSubmit,
+  submitLabel,
+}: CeremonyTimelineMomentFormProps) {
+  return (
+    <div className="space-y-4">
+      {anchorLabel ? (
+        <p className="text-[11px] font-medium leading-snug text-stone-600">
+          Adding after <span className="font-semibold text-stone-800">{anchorLabel}</span>
+        </p>
+      ) : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextInput
+          id={`${idPrefix}-ceremony-time-order`}
+          label="Time / order"
+          value={timeOrOrder}
+          onChange={setTimeOrOrder}
+          placeholder="e.g. 3:30 PM or Prelude"
+          disabled={!canEdit}
+        />
+        <TextInput
+          id={`${idPrefix}-ceremony-moment`}
+          label="Moment"
+          value={moment}
+          onChange={setMoment}
+          placeholder="e.g. Processional"
+          disabled={!canEdit}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextInput
+          id={`${idPrefix}-ceremony-song-title`}
+          label="Song title"
+          value={songTitle}
+          onChange={setSongTitle}
+          placeholder="Song title"
+          disabled={!canEdit}
+        />
+        <TextInput
+          id={`${idPrefix}-ceremony-artist`}
+          label="Artist"
+          value={artist}
+          onChange={setArtist}
+          placeholder="Artist"
+          disabled={!canEdit}
+        />
+      </div>
+      <TextArea
+        id={`${idPrefix}-ceremony-notes`}
+        label="Notes / cues"
+        value={notes}
+        onChange={setNotes}
+        placeholder="Cue notes, transitions, and callouts..."
+        rows={3}
+        disabled={!canEdit}
+      />
+      <PrimaryButton
+        type="button"
+        onClick={() => setNeedsAttention((prev) => !prev)}
+        disabled={!canEdit}
+        className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${needsAttention
+          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+          }`}
+      >
+        {needsAttention ? "DJ/MC attention marked" : "Flag DJ/MC attention"}
+      </PrimaryButton>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <PrimaryButton
+          type="button"
+          onClick={onCancel}
+          disabled={!canEdit}
+          className={`w-full border border-stone-300 bg-white py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto sm:min-w-[7rem] ${lightUiSecondaryButtonClass}`}
+        >
+          Cancel
+        </PrimaryButton>
+        <PrimaryButton
+          type="button"
+          onClick={onSubmit}
+          disabled={!canEdit}
+          className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem]"
+        >
+          {submitLabel}
+        </PrimaryButton>
+      </div>
+    </div>
+  );
+}
 
 /** Nearest vertical scroll container (including `start`) for timeline drag auto-scroll. */
 function findVerticalScrollContainer(start: HTMLElement | null): HTMLElement | null {
@@ -1372,6 +1723,21 @@ const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
 const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-12 md:px-4 md:py-3.5 md:text-base`;
 const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)] md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
 const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
+/** Outer timeline row padding — tuned for phone, iPad landscape, and desktop scan density. */
+const TIMELINE_CARD_SHELL_CLASS =
+  "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-6 md:py-5 lg:px-5 lg:py-4 xl:px-6";
+const TIMELINE_STREAM_CLASS =
+  "min-w-0 space-y-3 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3.5 md:max-h-[min(72dvh,52rem)] md:space-y-3 md:overflow-y-auto md:overscroll-y-contain";
+const TIMELINE_CARD_TIME_CLASS =
+  "font-mono text-sm font-semibold tabular-nums tracking-tight text-stone-600 md:text-[0.9375rem] lg:text-sm";
+const TIMELINE_CARD_TITLE_CLASS =
+  "text-base font-semibold leading-snug tracking-tight text-stone-950 [overflow-wrap:anywhere] md:text-lg lg:text-[1.0625rem] lg:leading-tight";
+const TIMELINE_CARD_CUE_CLASS =
+  "text-sm leading-relaxed text-stone-700 [overflow-wrap:anywhere] md:text-[15px] md:leading-snug";
+const TIMELINE_CARD_NOTES_CLASS =
+  "line-clamp-2 border-t border-stone-100 pt-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-[13px] md:leading-snug";
+const TIMELINE_CARD_FOOTER_CLASS =
+  "mt-4 flex flex-col gap-2 border-t border-stone-200/90 pt-3 max-md:mt-3 max-md:gap-1.5 max-md:pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3 lg:flex-nowrap lg:gap-2 lg:pt-2.5";
 
 const EVENT_NOTE_CATEGORIES = [
   "General",
@@ -1469,6 +1835,9 @@ export default function Home() {
   const [timelineImportReplaceDanger, setTimelineImportReplaceDanger] = useState(false);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
+  /** Inline insert directly after a reception timeline row (+ After). */
+  const [timelineInsertAfterId, setTimelineInsertAfterId] = useState<string | null>(null);
+  const timelineInlineInsertRef = useRef<HTMLDivElement | null>(null);
   /** Event Document: distraction-free live execution view (same timeline order as packet). */
   const [runOfShowOpen, setRunOfShowOpen] = useState(false);
   const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
@@ -1736,6 +2105,10 @@ export default function Home() {
   } | null>(null);
   /** Compact composer for new ceremony moments */
   const [ceremonyTimelineComposerOpen, setCeremonyTimelineComposerOpen] = useState(false);
+  const [ceremonyTimelineInsertAfterId, setCeremonyTimelineInsertAfterId] = useState<string | null>(
+    null,
+  );
+  const ceremonyTimelineInlineInsertRef = useRef<HTMLDivElement | null>(null);
   const [ceremonyTimelineDraftTimeOrOrder, setCeremonyTimelineDraftTimeOrOrder] = useState("");
   const [ceremonyTimelineDraftMoment, setCeremonyTimelineDraftMoment] = useState("");
   const [ceremonyTimelineDraftSongTitle, setCeremonyTimelineDraftSongTitle] = useState("");
@@ -3562,10 +3935,7 @@ export default function Home() {
             setTimelineComposerError(null);
             setTimelineNeedsAttention(false);
             setEditingTimelineId(null);
-            setTimelineComposerOpen(true);
-            window.setTimeout(() => {
-              timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            }, 0);
+            openReceptionTimelineComposerAtTop();
           },
           priority:
             activeScreen === "Timeline" || activeScreen === "Reception Timeline" ? 100 : 39,
@@ -6808,6 +7178,21 @@ export default function Home() {
     setEditingTimelineId(null);
   };
 
+  const cancelReceptionTimelineInlineInsert = () => {
+    resetTimelineForm();
+    setTimelineInsertAfterId(null);
+  };
+
+  const openReceptionTimelineComposerAtTop = () => {
+    resetTimelineForm();
+    closeReceptionTimelineCardExpanded();
+    setTimelineInsertAfterId(null);
+    setTimelineComposerOpen(true);
+    window.setTimeout(() => {
+      timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  };
+
   const prepareAddMomentAfterTimelineItem = (timelineItemId: string) => {
     const item = timelineItems.find((t) => t.id === timelineItemId);
     if (!item) return;
@@ -6815,11 +7200,17 @@ export default function Home() {
     resetTimelineForm();
     setTimelineTime(item.time);
     setTimelineCategory(item.category);
-    setTimelineComposerOpen(true);
-    window.setTimeout(() => {
-      timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
+    setTimelineComposerOpen(false);
+    setTimelineInsertAfterId(timelineItemId);
   };
+
+  useEffect(() => {
+    if (!timelineInsertAfterId) return;
+    const t = window.setTimeout(() => {
+      timelineInlineInsertRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [timelineInsertAfterId]);
 
   const addOrUpdateTimelineItem = () => {
     const cleanTitle = timelineTitle.trim();
@@ -6868,10 +7259,16 @@ export default function Home() {
       needsDjMcAttention: timelineNeedsAttention,
     };
 
-    setTimelineItems((prev) => insertReceptionTimelineItemChronologically(prev, newItem));
+    const insertAfterId = timelineInsertAfterId;
+    setTimelineItems((prev) =>
+      insertAfterId
+        ? insertTimelineItemAfterId(prev, insertAfterId, newItem)
+        : insertReceptionTimelineItemChronologically(prev, newItem),
+    );
     logActivity("timeline_item_added", `Added timeline moment: ${cleanTitle}`);
     pushNotification("Timeline moment added", "timeline_item_added");
     resetTimelineForm();
+    setTimelineInsertAfterId(null);
     setTimelineComposerOpen(false);
   };
 
@@ -7057,8 +7454,18 @@ export default function Home() {
   };
 
   const openCeremonyTimelineComposer = () => {
+    openCeremonyTimelineComposerAtTop();
+  };
+
+  const cancelCeremonyTimelineInlineInsert = () => {
+    resetCeremonyTimelineDraft();
+    setCeremonyTimelineInsertAfterId(null);
+  };
+
+  const openCeremonyTimelineComposerAtTop = () => {
     resetCeremonyTimelineDraft();
     closeCeremonyTimelineCardExpanded();
+    setCeremonyTimelineInsertAfterId(null);
     setCeremonyTimelineComposerOpen(true);
     window.setTimeout(() => {
       ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -7071,11 +7478,17 @@ export default function Home() {
     closeCeremonyTimelineCardExpanded();
     resetCeremonyTimelineDraft();
     setCeremonyTimelineDraftTimeOrOrder(prior.timeOrOrder);
-    setCeremonyTimelineComposerOpen(true);
-    window.setTimeout(() => {
-      ceremonyTimelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
+    setCeremonyTimelineComposerOpen(false);
+    setCeremonyTimelineInsertAfterId(afterItemId);
   };
+
+  useEffect(() => {
+    if (!ceremonyTimelineInsertAfterId) return;
+    const t = window.setTimeout(() => {
+      ceremonyTimelineInlineInsertRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [ceremonyTimelineInsertAfterId]);
 
   const saveCeremonyTimelineComposerItem = () => {
     const cleanMoment = ceremonyTimelineDraftMoment.trim();
@@ -7089,12 +7502,16 @@ export default function Home() {
       notes: ceremonyTimelineDraftNotes.trim(),
       needsDjMcAttention: ceremonyTimelineDraftNeedsAttention,
     };
+    const insertAfterId = ceremonyTimelineInsertAfterId;
     setCeremonyTimelineItems((prev) =>
-      insertCeremonyTimelineItemChronologically(prev, newCeremonyItem),
+      insertAfterId
+        ? insertTimelineItemAfterId(prev, insertAfterId, newCeremonyItem)
+        : insertCeremonyTimelineItemChronologically(prev, newCeremonyItem),
     );
     logActivity("ceremony_updated", `Added ceremony moment: ${cleanMoment}`);
     pushNotification("Ceremony timeline updated", "ceremony_updated");
     resetCeremonyTimelineDraft();
+    setCeremonyTimelineInsertAfterId(null);
     setCeremonyTimelineComposerOpen(false);
   };
 
@@ -11640,14 +12057,7 @@ export default function Home() {
                 onBack={() => setActiveScreen("Dashboard")}
                 primaryAction={{
                   label: "+ Add moment",
-                  onClick: () => {
-                    resetTimelineForm();
-                    closeReceptionTimelineCardExpanded();
-                    setTimelineComposerOpen(true);
-                    window.setTimeout(() => {
-                      timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                    }, 50);
-                  },
+                  onClick: openReceptionTimelineComposerAtTop,
                   disabled: !canEditTimeline,
                 }}
               />
@@ -11771,14 +12181,7 @@ export default function Home() {
                       </PrimaryButton>
                       <PrimaryButton
                         type="button"
-                        onClick={() => {
-                          resetTimelineForm();
-                          closeReceptionTimelineCardExpanded();
-                          setTimelineComposerOpen(true);
-                          window.setTimeout(() => {
-                            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                          }, 50);
-                        }}
+                        onClick={openReceptionTimelineComposerAtTop}
                         disabled={!canEditTimeline}
                         className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
                       >
@@ -11814,7 +12217,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => {
-                          resetTimelineForm();
+                          cancelReceptionTimelineInlineInsert();
                           setTimelineComposerOpen(false);
                         }}
                         className="rounded-lg px-2 py-1 text-[11px] text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
@@ -11822,106 +12225,34 @@ export default function Home() {
                         Close
                       </button>
                     </div>
-                    <form
-                      className="mt-4 space-y-3"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        addOrUpdateTimelineItem();
-                      }}
-                    >
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <TextInput
-                          id="timeline-time"
-                          label="Time / order"
-                          value={timelineTime}
-                          onChange={setTimelineTime}
-                          placeholder="e.g. 6:30 PM (optional)"
-                          disabled={!canEditTimeline}
-                        />
-                        <div className="space-y-0">
-                          <TextInput
-                            id="timeline-title"
-                            label="Moment"
-                            value={timelineTitle}
-                            onChange={(value) => {
-                              setTimelineTitle(value);
-                              setTimelineComposerError(null);
-                            }}
-                            placeholder="Required — e.g. Dinner service begins"
-                            disabled={!canEditTimeline}
-                          />
-                          {timelineComposerError ? (
-                            <p className="mt-1.5 text-xs font-medium text-rose-700">{timelineComposerError}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <TextInput
-                          id="timeline-song-title"
-                          label="Song title"
-                          value={timelineSongTitle}
-                          onChange={setTimelineSongTitle}
-                          placeholder="Optional"
-                          disabled={!canEditTimeline}
-                        />
-                        <TextInput
-                          id="timeline-artist"
-                          label="Artist"
-                          value={timelineArtist}
-                          onChange={setTimelineArtist}
-                          placeholder="Optional"
-                          disabled={!canEditTimeline}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="timeline-category" className={lightUiFormLabelClass}>
-                          Category
-                        </label>
-                        <select
-                          id="timeline-category"
-                          value={timelineCategory}
-                          disabled={!canEditTimeline}
-                          onChange={(event) =>
-                            setTimelineCategory(event.target.value as TimelineCategory)
-                          }
-                          className={lightUiSelectClass}
-                        >
-                          {timelineCategories.map((category) => (
-                            <option key={category} value={category} className="bg-white text-stone-900">
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <TextArea
-                        id="timeline-notes"
-                        label="Notes / cues"
-                        value={timelineNotes}
-                        onChange={setTimelineNotes}
-                        placeholder="Production notes, MC guidance…"
-                        disabled={!canEditTimeline}
+                    <div className="mt-4">
+                      <ReceptionTimelineMomentForm
+                        idPrefix="timeline-top"
+                        canEdit={canEditTimeline}
+                        timelineTime={timelineTime}
+                        setTimelineTime={setTimelineTime}
+                        timelineTitle={timelineTitle}
+                        setTimelineTitle={setTimelineTitle}
+                        timelineSongTitle={timelineSongTitle}
+                        setTimelineSongTitle={setTimelineSongTitle}
+                        timelineArtist={timelineArtist}
+                        setTimelineArtist={setTimelineArtist}
+                        timelineCategory={timelineCategory}
+                        setTimelineCategory={setTimelineCategory}
+                        timelineNotes={timelineNotes}
+                        setTimelineNotes={setTimelineNotes}
+                        timelineNeedsAttention={timelineNeedsAttention}
+                        setTimelineNeedsAttention={setTimelineNeedsAttention}
+                        composerError={timelineComposerError}
+                        setComposerError={setTimelineComposerError}
+                        onCancel={() => {
+                          cancelReceptionTimelineInlineInsert();
+                          setTimelineComposerOpen(false);
+                        }}
+                        onSubmit={addOrUpdateTimelineItem}
+                        submitLabel="Add to timeline"
                       />
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => setTimelineNeedsAttention((prev) => !prev)}
-                        disabled={!canEditTimeline}
-                        className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${timelineNeedsAttention
-                          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
-                          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                          }`}
-                      >
-                        {timelineNeedsAttention
-                          ? "DJ/MC attention marked"
-                          : "Flag DJ/MC attention"}
-                      </PrimaryButton>
-                      <PrimaryButton
-                        type="submit"
-                        disabled={!canEditTimeline}
-                        className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
-                      >
-                        Add to timeline
-                      </PrimaryButton>
-                    </form>
+                    </div>
                   </div>
                 </PremiumCard>
               )}
@@ -11947,10 +12278,7 @@ export default function Home() {
                 </div>
               ) : null}
 
-              <div
-                ref={timelineStreamRef}
-                className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
-              >
+              <div ref={timelineStreamRef} className={TIMELINE_STREAM_CLASS}>
                 {mergedTimelineItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
@@ -11958,14 +12286,7 @@ export default function Home() {
                       description="Line up the flow from cocktail through last dance—times can stay blank until your DJ locks the schedule."
                       primaryAction={{
                         label: "Add first moment",
-                        onClick: () => {
-                          resetTimelineForm();
-                          closeReceptionTimelineCardExpanded();
-                          setTimelineComposerOpen(true);
-                          window.setTimeout(() => {
-                            timelineComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                          }, 50);
-                        },
+                        onClick: openReceptionTimelineComposerAtTop,
                         disabled: !canEditTimeline,
                       }}
                       secondaryAction={
@@ -12010,12 +12331,17 @@ export default function Home() {
                     const recvFadeTs = recvInlineVals?.fadeOutTimestamp ?? timelineRow?.fadeOutTimestamp ?? "";
                     const isDragging = draggingTimelineId === item.id;
                     const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
+                    const timelineDragActive = draggingTimelineId !== null;
                     return (
+                      <Fragment key={item.id}>
                       <PremiumCard
-                        key={item.id}
-                        className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white transition-all duration-200 !p-0 px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${index % 2 === 1 ? "bg-stone-50" : ""
-                          } ${isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
-                          } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
+                        className={`${timelineReorderRowSurfaceClass({
+                          isDragging,
+                          isDropTarget,
+                          dragActive: timelineDragActive && !isDragging,
+                          zebra: index % 2 === 1,
+                        })} ${TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""}`}
+                        aria-grabbed={isDragging}
                         onDragOver={(event) => {
                           if (!canEditTimeline || !draggingTimelineId) return;
                           event.preventDefault();
@@ -12041,27 +12367,24 @@ export default function Home() {
                         }}
                         data-timeline-id={item.id}
                       >
-                        {isDropTarget && (
-                          <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
-                        )}
+                        {isDropTarget ? <TimelineDropTargetMarker /> : null}
                         {!rowExpanded && (
                           <>
-                            <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
-                              <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2 lg:max-w-[40rem] lg:space-y-1 xl:max-w-[42rem]">
-                                <h3 className="text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere] md:text-xl md:font-semibold lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
-                                  {item.title}
-                                </h3>
-                                <p className="font-mono text-base font-semibold tabular-nums text-stone-700 sm:text-sm md:text-lg md:font-semibold lg:mt-0.5 lg:text-sm lg:font-semibold lg:text-stone-600 xl:text-[0.9375rem]">
+                            <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
+                              <div className="min-w-0 flex-1 space-y-2 lg:max-w-[40rem] xl:max-w-[42rem]">
+                                <p className={TIMELINE_CARD_TIME_CLASS}>
                                   {item.time?.trim() || "—"}
                                 </p>
-                                <p className="break-words text-[15px] leading-snug text-stone-900 sm:text-sm md:text-base md:leading-relaxed [overflow-wrap:anywhere] lg:mt-1.5 lg:text-sm lg:leading-snug xl:text-[15px] xl:leading-snug">
-                                  <span className="font-medium text-stone-500">{cueKind} · </span>
+                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.title}</h3>
+                                <p className={TIMELINE_CARD_CUE_CLASS}>
+                                  <span className="font-medium text-stone-400">{cueKind}</span>
+                                  <span className="mx-1.5 text-stone-300" aria-hidden>
+                                    ·
+                                  </span>
                                   {songPreview}
                                 </p>
                                 {item.notes?.trim() ? (
-                                  <p className="line-clamp-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-sm md:leading-relaxed md:text-stone-600 lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs xl:text-stone-600">
-                                    {item.notes}
-                                  </p>
+                                  <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
                                 ) : null}
                               </div>
                               <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
@@ -12144,19 +12467,17 @@ export default function Home() {
                                     if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                   }
                                 }}
-                                className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                                className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
                                   ? "cursor-pointer active:scale-[0.995]"
                                   : "cursor-default opacity-80"
                                   }`}
                               >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    {item.time?.trim() ? (
-                                      <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
-                                        {item.time.trim()}
-                                      </p>
-                                    ) : null}
-                                    <h3 className="mt-0.5 text-lg font-semibold leading-snug tracking-tight text-stone-900 [overflow-wrap:anywhere]">
+                                <div className="flex items-start justify-between gap-2.5">
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <p className={TIMELINE_CARD_TIME_CLASS}>
+                                      {item.time?.trim() || "—"}
+                                    </p>
+                                    <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
                                       {item.title}
                                     </h3>
                                   </div>
@@ -12177,22 +12498,25 @@ export default function Home() {
                                   </div>
                                 </div>
                                 {songArtistCompact ? (
-                                  <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
-                                    <span className="font-medium text-stone-500">{cueKind} · </span>
+                                  <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
+                                    <span className="font-medium text-stone-400">{cueKind}</span>
+                                    <span className="mx-1.5 text-stone-300" aria-hidden>
+                                      ·
+                                    </span>
                                     {songArtistCompact}
                                   </p>
                                 ) : null}
                                 {item.notes?.trim() ? (
-                                  <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
+                                  <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
                                     {item.notes.trim()}
                                   </p>
                                 ) : null}
                                 {canEditTimeline ? (
-                                  <p className="mt-2 text-xs font-semibold text-stone-500">
-                                    Tap summary to expand · full edit
+                                  <p className="mt-2.5 text-[10px] font-medium text-stone-400">
+                                    Tap card to edit
                                   </p>
                                 ) : (
-                                  <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
+                                  <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                                 )}
                               </div>
                               <div className="grid grid-cols-2 gap-1.5">
@@ -12430,10 +12754,11 @@ export default function Home() {
                             </div>
                           </div>
                         )}
-                        <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:pt-3 md:mt-6 md:gap-4 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
+                        <div className={TIMELINE_CARD_FOOTER_CLASS}>
                           <button
                             type="button"
                             draggable={canEditTimeline}
+                            title="Press and drag to reorder"
                             onDragStart={(event) => {
                               if (!canEditTimeline) return;
                               touchDragTimelineSourceRef.current = null;
@@ -12446,23 +12771,68 @@ export default function Home() {
                               dropTargetTimelineIdRef.current = null;
                               touchDragTimelineSourceRef.current = null;
                             }}
-                            onTouchStart={() => {
-                              if (!canEditTimeline) return;
+                            onTouchStart={(event) => {
+                              if (!canEditTimeline || event.touches.length > 1) return;
                               touchDragTimelineSourceRef.current = item.id;
                               setDraggingTimelineId(item.id);
                             }}
-                            className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
+                            className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                             disabled={!canEditTimeline}
-                            aria-label={`Drag handle for ${item.title}`}
+                            aria-label={`Drag to reorder ${item.title}`}
                           >
-                            <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
-                            <span>Reorder</span>
+                            <TimelineDragGripDots emphasized={isDragging} />
+                            <span className="flex flex-col items-start leading-tight sm:items-center">
+                              <span>Reorder</span>
+                              <span className="text-[10px] font-medium text-stone-500 sm:hidden">
+                                Hold &amp; drag
+                              </span>
+                            </span>
                           </button>
                           <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
                             {index + 1} / {mergedTimelineItems.length}
                           </p>
                         </div>
                       </PremiumCard>
+                      {timelineInsertAfterId === item.id ? (
+                        <div ref={timelineInlineInsertRef} className="-mt-0.5">
+                          <PremiumCard
+                            variant="accent"
+                            className="rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20"
+                          >
+                            <SectionTitle className="text-base">New moment</SectionTitle>
+                            <p className="mt-1 text-xs text-stone-600">
+                              Placed directly after the moment above.
+                            </p>
+                            <div className="mt-3">
+                              <ReceptionTimelineMomentForm
+                                idPrefix={`inline-recv-${item.id}`}
+                                canEdit={canEditTimeline}
+                                anchorLabel={item.title}
+                                timelineTime={timelineTime}
+                                setTimelineTime={setTimelineTime}
+                                timelineTitle={timelineTitle}
+                                setTimelineTitle={setTimelineTitle}
+                                timelineSongTitle={timelineSongTitle}
+                                setTimelineSongTitle={setTimelineSongTitle}
+                                timelineArtist={timelineArtist}
+                                setTimelineArtist={setTimelineArtist}
+                                timelineCategory={timelineCategory}
+                                setTimelineCategory={setTimelineCategory}
+                                timelineNotes={timelineNotes}
+                                setTimelineNotes={setTimelineNotes}
+                                timelineNeedsAttention={timelineNeedsAttention}
+                                setTimelineNeedsAttention={setTimelineNeedsAttention}
+                                composerError={timelineComposerError}
+                                setComposerError={setTimelineComposerError}
+                                onCancel={cancelReceptionTimelineInlineInsert}
+                                onSubmit={addOrUpdateTimelineItem}
+                                submitLabel="Add moment"
+                              />
+                            </div>
+                          </PremiumCard>
+                        </div>
+                      ) : null}
+                      </Fragment>
                     )
                   })
                 )}
@@ -12890,7 +13260,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => {
-                        resetCeremonyTimelineDraft();
+                        cancelCeremonyTimelineInlineInsert();
                         setCeremonyTimelineComposerOpen(false);
                       }}
                       className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
@@ -12898,84 +13268,35 @@ export default function Home() {
                       Close
                     </button>
                   </div>
-                  <div className="mt-6 space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <TextInput
-                        id="ceremony-composer-time-order"
-                        label="Time / order"
-                        value={ceremonyTimelineDraftTimeOrOrder}
-                        onChange={setCeremonyTimelineDraftTimeOrOrder}
-                        placeholder="e.g. 3:30 PM or Prelude"
-                        disabled={!canEditTimeline}
-                      />
-                      <TextInput
-                        id="ceremony-composer-moment"
-                        label="Moment"
-                        value={ceremonyTimelineDraftMoment}
-                        onChange={setCeremonyTimelineDraftMoment}
-                        placeholder="e.g. Processional"
-                        disabled={!canEditTimeline}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <TextInput
-                        id="ceremony-composer-song-title"
-                        label="Song title"
-                        value={ceremonyTimelineDraftSongTitle}
-                        onChange={setCeremonyTimelineDraftSongTitle}
-                        placeholder="Song title"
-                        disabled={!canEditTimeline}
-                      />
-                      <TextInput
-                        id="ceremony-composer-artist"
-                        label="Artist"
-                        value={ceremonyTimelineDraftArtist}
-                        onChange={setCeremonyTimelineDraftArtist}
-                        placeholder="Artist"
-                        disabled={!canEditTimeline}
-                      />
-                    </div>
-                    <div>
-                      <TextArea
-                        id="ceremony-composer-notes"
-                        label="Notes / cues"
-                        value={ceremonyTimelineDraftNotes}
-                        onChange={setCeremonyTimelineDraftNotes}
-                        placeholder="Cue notes, transitions, and callouts..."
-                        rows={3}
-                        disabled={!canEditTimeline}
-                      />
-                    </div>
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => setCeremonyTimelineDraftNeedsAttention((prev) => !prev)}
-                      disabled={!canEditTimeline}
-                      className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${ceremonyTimelineDraftNeedsAttention
-                        ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
-                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                        }`}
-                    >
-                      {ceremonyTimelineDraftNeedsAttention
-                        ? "DJ/MC attention marked"
-                        : "Flag DJ/MC attention"}
-                    </PrimaryButton>
-                    <PrimaryButton
-                      type="button"
-                      onClick={saveCeremonyTimelineComposerItem}
-                      disabled={!canEditTimeline}
-                      className="w-full border border-black bg-[#00D4FF] py-3 text-sm font-semibold text-black shadow-none hover:brightness-105"
-                    >
-                      Add to ceremony timeline
-                    </PrimaryButton>
+                  <div className="mt-6">
+                    <CeremonyTimelineMomentForm
+                      idPrefix="ceremony-top"
+                      canEdit={canEditTimeline}
+                      timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
+                      setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
+                      moment={ceremonyTimelineDraftMoment}
+                      setMoment={setCeremonyTimelineDraftMoment}
+                      songTitle={ceremonyTimelineDraftSongTitle}
+                      setSongTitle={setCeremonyTimelineDraftSongTitle}
+                      artist={ceremonyTimelineDraftArtist}
+                      setArtist={setCeremonyTimelineDraftArtist}
+                      notes={ceremonyTimelineDraftNotes}
+                      setNotes={setCeremonyTimelineDraftNotes}
+                      needsAttention={ceremonyTimelineDraftNeedsAttention}
+                      setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
+                      onCancel={() => {
+                        cancelCeremonyTimelineInlineInsert();
+                        setCeremonyTimelineComposerOpen(false);
+                      }}
+                      onSubmit={saveCeremonyTimelineComposerItem}
+                      submitLabel="Add to ceremony timeline"
+                    />
                   </div>
                 </div>
               </PremiumCard>
             )}
 
-            <div
-              ref={ceremonyTimelineStreamRef}
-              className="min-w-0 space-y-5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible md:max-h-[min(72dvh,52rem)] md:overflow-y-auto md:overscroll-y-contain sm:space-y-4 md:space-y-3"
-            >
+            <div ref={ceremonyTimelineStreamRef} className={TIMELINE_STREAM_CLASS}>
               {ceremonyTimelineItems.length === 0 ? (
                 <SectionEmptyState
                   title="No ceremony moments yet"
@@ -13005,12 +13326,17 @@ export default function Home() {
                   const isDragging = draggingCeremonyTimelineId === item.id;
                   const isDropTarget =
                     dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
+                  const ceremonyDragActive = draggingCeremonyTimelineId !== null;
                   return (
+                    <Fragment key={item.id}>
                     <PremiumCard
-                      key={item.id}
-                      className={`touch-pan-y rounded-xl border-2 border-stone-300 bg-white px-4 py-6 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:px-6 lg:py-5 xl:px-7 xl:py-5 ${index % 2 === 1 ? "bg-stone-50" : ""
-                        } transition-all duration-200 ${isDragging ? "scale-[1.005] border-stone-800 shadow-sm" : ""
-                        } ${isDropTarget ? "ring-2 ring-[#00D4FF] ring-offset-2 ring-offset-white" : ""}`}
+                      className={`${timelineReorderRowSurfaceClass({
+                        isDragging,
+                        isDropTarget,
+                        dragActive: ceremonyDragActive && !isDragging,
+                        zebra: index % 2 === 1,
+                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""}`}
+                      aria-grabbed={isDragging}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
                         if (!canEditTimeline || !draggingCeremonyTimelineId) return;
@@ -13036,31 +13362,28 @@ export default function Home() {
                         touchDragCeremonyTimelineSourceRef.current = null;
                       }}
                     >
-                      {isDropTarget ? (
-                        <div className="mb-2 h-0.5 w-full rounded-full bg-[#00D4FF]" />
-                      ) : null}
+                      {isDropTarget ? <TimelineDropTargetMarker /> : null}
                       {!rowExpanded && (
                         <>
-                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-5 xl:max-w-[60rem] xl:gap-6">
-                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-5 lg:max-w-[40rem] lg:gap-4 xl:max-w-[42rem]">
-                              <div className="shrink-0 pt-0.5 sm:w-24 sm:text-right md:w-24 lg:w-[4.5rem]">
-                                <p className="font-mono text-sm font-semibold tabular-nums text-stone-800 sm:text-xs md:text-base md:font-semibold lg:text-xs lg:text-stone-600 xl:text-sm">
+                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
+                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-4 lg:max-w-[40rem] lg:gap-3 xl:max-w-[42rem]">
+                              <div className="shrink-0 pt-0.5 sm:w-[4.5rem] sm:text-right md:w-[4.75rem] lg:w-[4.5rem]">
+                                <p className={`${TIMELINE_CARD_TIME_CLASS} sm:text-right`}>
                                   {item.timeOrOrder?.trim() || "—"}
                                 </p>
                               </div>
-                              <div className="relative min-w-0 flex-1 border-l-2 border-stone-300 pl-4 sm:pl-4 md:pl-5 lg:pl-4">
-                                <span className="absolute -left-[7px] top-2 h-3 w-3 rounded-full border-2 border-white bg-stone-700 shadow-sm ring-2 ring-stone-200" />
-                                <h3 className="text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere] lg:text-[1.0625rem] lg:leading-tight xl:text-lg">
-                                  {item.moment}
-                                </h3>
-                                <p className="mt-1.5 text-[15px] leading-snug text-stone-900 sm:mt-1 sm:text-sm sm:leading-normal sm:text-stone-800 md:mt-2 md:text-base md:leading-relaxed lg:mt-1 lg:text-sm lg:leading-snug xl:text-[15px]">
-                                  <span className="font-medium text-stone-500">Song · </span>
+                              <div className="relative min-w-0 flex-1 border-l border-stone-200 pl-4 md:pl-4 lg:pl-3.5">
+                                <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-stone-600 ring-1 ring-stone-200" />
+                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
+                                <p className={`mt-1.5 ${TIMELINE_CARD_CUE_CLASS}`}>
+                                  <span className="font-medium text-stone-400">Song</span>
+                                  <span className="mx-1.5 text-stone-300" aria-hidden>
+                                    ·
+                                  </span>
                                   {songLine || "—"}
                                 </p>
                                 {item.notes?.trim() ? (
-                                  <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-stone-500 sm:text-stone-600 md:mt-2 md:text-sm md:leading-relaxed lg:mt-1 lg:text-[11px] lg:leading-snug xl:text-xs">
-                                    {item.notes}
-                                  </p>
+                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS}`}>{item.notes}</p>
                                 ) : null}
                               </div>
                             </div>
@@ -13134,19 +13457,17 @@ export default function Home() {
                                   openCeremonyTimelineCardExpanded(item);
                                 }
                               }}
-                              className={`touch-pan-y rounded-xl border border-stone-200 bg-gradient-to-b from-white to-stone-50/90 px-3.5 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                              className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
                                 ? "cursor-pointer active:scale-[0.995]"
                                 : "cursor-default opacity-80"
                                 }`}
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  {item.timeOrOrder?.trim() ? (
-                                    <p className="font-mono text-sm font-semibold tabular-nums text-stone-800">
-                                      {item.timeOrOrder.trim()}
-                                    </p>
-                                  ) : null}
-                                  <h3 className="mt-0.5 text-lg font-semibold leading-snug text-stone-900 [overflow-wrap:anywhere]">
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className={TIMELINE_CARD_TIME_CLASS}>
+                                    {item.timeOrOrder?.trim() || "—"}
+                                  </p>
+                                  <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
                                     {item.moment}
                                   </h3>
                                 </div>
@@ -13162,22 +13483,25 @@ export default function Home() {
                                 </div>
                               </div>
                               {songLine ? (
-                                <p className="mt-2 text-[15px] leading-snug text-stone-800 [overflow-wrap:anywhere]">
-                                  <span className="font-medium text-stone-500">Song · </span>
+                                <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
+                                  <span className="font-medium text-stone-400">Song</span>
+                                  <span className="mx-1.5 text-stone-300" aria-hidden>
+                                    ·
+                                  </span>
                                   {songLine}
                                 </p>
                               ) : null}
                               {item.notes?.trim() ? (
-                                <p className="mt-2 line-clamp-2 text-sm leading-snug text-stone-600 [overflow-wrap:anywhere]">
+                                <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
                                   {item.notes.trim()}
                                 </p>
                               ) : null}
                               {canEditTimeline ? (
-                                <p className="mt-2 text-xs font-semibold text-stone-500">
-                                  Tap summary to expand · full edit
+                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">
+                                  Tap card to edit
                                 </p>
                               ) : (
-                                <p className="mt-2 text-xs font-medium text-stone-500">View only</p>
+                                <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                               )}
                             </div>
                             <div className="grid grid-cols-2 gap-1.5">
@@ -13345,10 +13669,11 @@ export default function Home() {
                           </PrimaryButton>
                         </div>
                       )}
-                      <div className="mt-5 flex flex-col gap-2 border-t border-stone-200 pt-4 max-md:mt-3 max-md:gap-1.5 max-md:pt-2 sm:mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pt-3 md:mt-6 md:gap-3 md:pt-5 lg:mt-2 lg:flex-nowrap lg:items-center lg:justify-between lg:gap-2 lg:border-stone-200/70 lg:pt-2 lg:pb-0.5">
+                      <div className={TIMELINE_CARD_FOOTER_CLASS}>
                         <button
                           type="button"
                           draggable={canEditTimeline}
+                          title="Press and drag to reorder"
                           onDragStart={(event) => {
                             if (!canEditTimeline) return;
                             touchDragCeremonyTimelineSourceRef.current = null;
@@ -13361,17 +13686,22 @@ export default function Home() {
                             dropTargetCeremonyTimelineIdRef.current = null;
                             touchDragCeremonyTimelineSourceRef.current = null;
                           }}
-                          onTouchStart={() => {
-                            if (!canEditTimeline) return;
+                          onTouchStart={(event) => {
+                            if (!canEditTimeline || event.touches.length > 1) return;
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className="inline-flex min-h-12 w-full touch-none items-center justify-center gap-1.5 rounded-lg border border-stone-400 bg-stone-100 px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none transition hover:border-stone-500 hover:bg-stone-200 active:scale-[0.98] disabled:opacity-50 max-md:min-h-10 max-md:rounded-md max-md:px-3 max-md:py-2 max-md:text-xs max-md:font-medium sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:gap-1 lg:rounded-md lg:border-stone-300 lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs"
+                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                           disabled={!canEditTimeline}
-                          aria-label={`Drag handle for ${item.moment}`}
+                          aria-label={`Drag to reorder ${item.moment}`}
                         >
-                          <span className="text-[10px] tracking-wide text-stone-600 lg:text-[9px] lg:text-stone-500">::</span>
-                          <span>Reorder</span>
+                          <TimelineDragGripDots emphasized={isDragging} />
+                          <span className="flex flex-col items-start leading-tight sm:items-center">
+                            <span>Reorder</span>
+                            <span className="text-[10px] font-medium text-stone-500 sm:hidden">
+                              Hold &amp; drag
+                            </span>
+                          </span>
                         </button>
                         <div
                           className={`flex w-full flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:w-auto sm:justify-end ${!rowExpanded ? "max-md:hidden" : ""}`}
@@ -13390,6 +13720,42 @@ export default function Home() {
                         {index + 1} / {ceremonyTimelineItems.length}
                       </p>
                     </PremiumCard>
+                    {ceremonyTimelineInsertAfterId === item.id ? (
+                      <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
+                        <PremiumCard
+                          variant="accent"
+                          className={`${premiumFormSectionCardClass} rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20`}
+                        >
+                          <SectionTitle className="text-base">New ceremony moment</SectionTitle>
+                          <p className="mt-1 text-xs text-stone-600">
+                            Placed directly after the moment above.
+                          </p>
+                          <div className="mt-3">
+                            <CeremonyTimelineMomentForm
+                              idPrefix={`inline-cer-${item.id}`}
+                              canEdit={canEditTimeline}
+                              anchorLabel={item.moment}
+                              timeOrOrder={ceremonyTimelineDraftTimeOrOrder}
+                              setTimeOrOrder={setCeremonyTimelineDraftTimeOrOrder}
+                              moment={ceremonyTimelineDraftMoment}
+                              setMoment={setCeremonyTimelineDraftMoment}
+                              songTitle={ceremonyTimelineDraftSongTitle}
+                              setSongTitle={setCeremonyTimelineDraftSongTitle}
+                              artist={ceremonyTimelineDraftArtist}
+                              setArtist={setCeremonyTimelineDraftArtist}
+                              notes={ceremonyTimelineDraftNotes}
+                              setNotes={setCeremonyTimelineDraftNotes}
+                              needsAttention={ceremonyTimelineDraftNeedsAttention}
+                              setNeedsAttention={setCeremonyTimelineDraftNeedsAttention}
+                              onCancel={cancelCeremonyTimelineInlineInsert}
+                              onSubmit={saveCeremonyTimelineComposerItem}
+                              submitLabel="Add moment"
+                            />
+                          </div>
+                        </PremiumCard>
+                      </div>
+                    ) : null}
+                    </Fragment>
                   );
                 })
               )}
