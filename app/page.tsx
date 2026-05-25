@@ -12476,9 +12476,9 @@ export default function Home() {
                                   type="button"
                                   onClick={() => openCeremonyTimelineCardExpanded(item)}
                                   disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  className="min-h-12 w-full rounded-lg border border-stone-500 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
                                 >
-                                  Details
+                                  Edit
                                 </PrimaryButton>
                                 <PrimaryButton
                                   type="button"
@@ -12613,7 +12613,7 @@ export default function Home() {
                                         label: item.moment.trim() || "this moment",
                                       })
                                     }
-                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
+                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40"
                                   >
                                     Delete
                                   </button>
@@ -13315,7 +13315,7 @@ export default function Home() {
                                       if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                     }}
                                     disabled={!canEditTimeline}
-                                    className="min-h-12 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                    className="min-h-12 flex-1 rounded-lg border border-stone-500 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
                                   >
                                     Edit
                                   </PrimaryButton>
@@ -13465,7 +13465,7 @@ export default function Home() {
                                           label: item.title.trim() || "this moment",
                                         })
                                       }
-                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-200/90 bg-rose-50/70 px-2 py-2 text-[11px] font-semibold leading-tight text-rose-900/85 shadow-none transition hover:border-rose-300 hover:bg-rose-100/80"
+                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40"
                                     >
                                       Delete
                                     </button>
