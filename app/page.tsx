@@ -367,6 +367,123 @@ const MUSIC_HUB_BUCKET_SHELL: Record<PlaylistBucketId, string> = {
   custom: "border border-stone-200 border-t-2 border-t-emerald-700 bg-white shadow-none",
 };
 
+function musicHubScrollToSection(elementId: string) {
+  document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function musicPlaylistLinkHost(url: string): string {
+  try {
+    return new URL(url.trim()).hostname.replace(/^www\./, "");
+  } catch {
+    const trimmed = url.trim();
+    return trimmed.length > 36 ? `${trimmed.slice(0, 36)}…` : trimmed || "Link";
+  }
+}
+
+type MusicHubPrepSnapshotProps = {
+  playlistCount: number;
+  mustPlayCount: number;
+  playIfPossibleCount: number;
+  doNotPlayCount: number;
+  showMustPlay: boolean;
+  showDoNotPlay: boolean;
+};
+
+function MusicHubPrepSnapshot({
+  playlistCount,
+  mustPlayCount,
+  playIfPossibleCount,
+  doNotPlayCount,
+  showMustPlay,
+  showDoNotPlay,
+}: MusicHubPrepSnapshotProps) {
+  const chips: Array<{
+    id: string;
+    label: string;
+    count: number;
+    shell: string;
+  }> = [
+    {
+      id: "music-hub-playlist-links",
+      label: "Playlist links",
+      count: playlistCount,
+      shell: "border-[#00D4FF]/35 bg-[#00D4FF]/10 hover:border-[#00D4FF]/55 hover:bg-[#00D4FF]/15",
+    },
+  ];
+  if (showMustPlay) {
+    chips.push(
+      {
+        id: "music-hub-must-play",
+        label: "Must play",
+        count: mustPlayCount,
+        shell: "border-[#7E52A0]/30 bg-[#7E52A0]/[0.07] hover:border-[#7E52A0]/45 hover:bg-[#7E52A0]/[0.11]",
+      },
+      {
+        id: "music-hub-play-if-possible",
+        label: "Play if possible",
+        count: playIfPossibleCount,
+        shell: "border-emerald-300/80 bg-emerald-50/90 hover:border-emerald-400 hover:bg-emerald-50",
+      },
+    );
+  }
+  if (showDoNotPlay) {
+    chips.push({
+      id: "music-hub-do-not-play",
+      label: "Do not play",
+      count: doNotPlayCount,
+      shell: "border-rose-300/70 bg-rose-50/70 hover:border-rose-400 hover:bg-rose-50",
+    });
+  }
+
+  const totalSongs = mustPlayCount + playIfPossibleCount + doNotPlayCount;
+  const summaryLine =
+    playlistCount === 0 && totalSongs === 0
+      ? "Nothing shared yet — start with a playlist link or a few must-plays."
+      : [
+          playlistCount > 0 ? `${playlistCount} playlist${playlistCount === 1 ? "" : "s"}` : null,
+          mustPlayCount > 0 ? `${mustPlayCount} must-play${mustPlayCount === 1 ? "" : "s"}` : null,
+          playIfPossibleCount > 0
+            ? `${playIfPossibleCount} play-if-possible`
+            : null,
+          doNotPlayCount > 0 ? `${doNotPlayCount} blocked` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3.5 shadow-none sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+            Prep snapshot
+          </p>
+          <p className="mt-1 text-xs leading-snug text-stone-600">{summaryLine}</p>
+        </div>
+        <p className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-stone-400">
+          Tap to jump
+        </p>
+      </div>
+      <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {chips.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => musicHubScrollToSection(chip.id)}
+            className={`flex min-h-11 min-w-[7.25rem] shrink-0 flex-col items-start rounded-xl border px-3 py-2.5 text-left transition sm:min-h-10 ${chip.shell}`}
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+              {chip.label}
+            </span>
+            <span className="mt-0.5 text-lg font-semibold tabular-nums leading-none text-stone-950">
+              {chip.count}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Event Packet Options: on = solid cyan + dark text; off = white + readable gray + border */
 const EVENT_PACKET_SECTION_TOGGLE_ON =
   "w-full border border-stone-900/20 bg-[#00D4FF] text-stone-950 shadow-none hover:brightness-[1.02]";
@@ -11449,20 +11566,15 @@ export default function Home() {
                 </p>
               </PremiumCard>
             )}
-            {!isCoupleView && (
-              <PremiumCard variant="accent">
-                <SectionTitle>Music Assistant</SectionTitle>
-                <p className="mt-1 text-xs text-stone-600">
-                  Operational read on taste tags, playlist links, genre picks, and song lists.
-                </p>
-                <div className="mt-3">
-                  <InsightStack
-                    insights={planningInsights.filter((i) => i.section === "music")}
-                    emptyLabel="Music lists look intentional."
-                  />
-                </div>
-              </PremiumCard>
-            )}
+
+            <MusicHubPrepSnapshot
+              playlistCount={musicPlaylistLinks.length}
+              mustPlayCount={mustPlaySongs.length}
+              playIfPossibleCount={playIfPossibleSongs.length}
+              doNotPlayCount={doNotPlaySongs.length}
+              showMustPlay={sectionMustPlayEnabled}
+              showDoNotPlay={sectionDoNotPlayEnabled}
+            />
 
             <PremiumCard
               id="music-hub-playlist-links"
@@ -11512,63 +11624,90 @@ export default function Home() {
               </div>
               {musicPlaylistLinks.length > 0 ? (
                 <ul className="mt-5 space-y-3">
-                  {musicPlaylistLinks.map((link) => (
-                    <li
-                      key={link.id}
-                      className="rounded-xl border border-stone-200 bg-stone-50/90 p-3 sm:p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
-                          {link.label?.trim() ? link.label : "Playlist"}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => removeMusicPlaylistLink(link.id)}
-                          disabled={!canManageMusic}
-                          className="shrink-0 text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <TextInput
-                        id={`pl-url-${link.id}`}
-                        label="URL"
-                        value={link.url}
-                        onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
-                        disabled={!canManageMusic}
-                      />
-                      <div className="mt-3">
-                        <TextInput
-                          id={`pl-label-${link.id}`}
-                          label="Label (optional)"
-                          value={link.label ?? ""}
-                          onChange={(v) => updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })}
-                          disabled={!canManageMusic}
-                        />
-                      </div>
-                      <div className="mt-3">
-                        <TextArea
-                          id={`pl-notes-${link.id}`}
-                          label="Notes (optional)"
-                          value={link.notes ?? ""}
-                          onChange={(v) => updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })}
-                          rows={2}
-                          disabled={!canManageMusic}
-                        />
-                      </div>
-                      <div
-                        className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-white/60 px-3 py-2.5"
-                        aria-label="Imported tracks placeholder"
-                      >
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                          Imported tracks
-                        </p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
-                          Track import is coming later. For now, your DJ uses this link to listen and prep manually.
-                        </p>
-                      </div>
-                    </li>
-                  ))}
+                  {musicPlaylistLinks.map((link) => {
+                    const linkLabel = link.label?.trim() || "Playlist";
+                    const linkHost = musicPlaylistLinkHost(link.url);
+                    const linkNotesPreview = link.notes?.trim();
+                    return (
+                      <li key={link.id}>
+                        <details className="group rounded-xl border border-stone-200 bg-stone-50/90 open:bg-white">
+                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
+                              <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
+                              {linkNotesPreview ? (
+                                <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">
+                                  {linkNotesPreview}
+                                </p>
+                              ) : null}
+                              <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 group-open:hidden">
+                                Tap to edit
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-2">
+                              <span className="text-[11px] font-medium text-stone-400 transition-transform group-open:rotate-180">
+                                ▼
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  removeMusicPlaylistLink(link.id);
+                                }}
+                                disabled={!canManageMusic}
+                                className="text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </summary>
+                          <div className="border-t border-stone-200 px-3 pb-4 pt-3 sm:px-4">
+                            <TextInput
+                              id={`pl-url-${link.id}`}
+                              label="URL"
+                              value={link.url}
+                              onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
+                              disabled={!canManageMusic}
+                            />
+                            <div className="mt-3">
+                              <TextInput
+                                id={`pl-label-${link.id}`}
+                                label="Label (optional)"
+                                value={link.label ?? ""}
+                                onChange={(v) =>
+                                  updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })
+                                }
+                                disabled={!canManageMusic}
+                              />
+                            </div>
+                            <div className="mt-3">
+                              <TextArea
+                                id={`pl-notes-${link.id}`}
+                                label="Notes (optional)"
+                                value={link.notes ?? ""}
+                                onChange={(v) =>
+                                  updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })
+                                }
+                                rows={2}
+                                disabled={!canManageMusic}
+                              />
+                            </div>
+                            <div
+                              className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-stone-50/80 px-3 py-2.5"
+                              aria-label="Imported tracks placeholder"
+                            >
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                Imported tracks
+                              </p>
+                              <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
+                                Track import is coming later. For now, your DJ uses this link to listen and prep manually.
+                              </p>
+                            </div>
+                          </div>
+                        </details>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <div className="mt-4">
@@ -11795,7 +11934,7 @@ export default function Home() {
 
             <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
               {sectionMustPlayEnabled && (
-                <PremiumCard variant="accent">
+                <PremiumCard variant="accent" id="music-hub-must-play">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <SectionTitle>Must play</SectionTitle>
@@ -11840,7 +11979,7 @@ export default function Home() {
               )}
 
               {sectionMustPlayEnabled && (
-                <PremiumCard className="border border-emerald-200/80 bg-white shadow-none">
+                <PremiumCard className="border border-emerald-200/80 bg-white shadow-none" id="music-hub-play-if-possible">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <SectionTitle className="text-stone-950">Play if possible</SectionTitle>
@@ -11887,7 +12026,7 @@ export default function Home() {
               )}
 
               {sectionDoNotPlayEnabled && (
-                <PremiumCard className="border-stone-300 bg-white shadow-none">
+                <PremiumCard className="border-stone-300 bg-white shadow-none" id="music-hub-do-not-play">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <SectionTitle className="text-stone-950">Do not play</SectionTitle>
@@ -15175,6 +15314,8 @@ export default function Home() {
                         <li key={`live-dnp-${song.id}`}>
                           {song.title}
                           {song.artist ? ` - ${song.artist}` : ""}
+                          {song.highPriority ? " (Priority block)" : ""}
+                          {song.notes ? ` — ${song.notes}` : ""}
                         </li>
                       ))}
                     </ul>
@@ -15221,7 +15362,10 @@ export default function Home() {
                           {(sectionMustPlayEnabled ? mustPlaySongs : []).map((song, index) => (
                             <tr key={`playlist-must-${song.id}`}>
                               <td>{index + 1}</td>
-                              <td>{song.title || "-"}</td>
+                              <td>
+                                {song.title || "-"}
+                                {song.highPriority ? " ★" : ""}
+                              </td>
                               <td>{song.artist || ""}</td>
                               <td>{song.notes || ""}</td>
                             </tr>

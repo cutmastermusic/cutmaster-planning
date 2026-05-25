@@ -483,11 +483,14 @@ export function SongCard({
 }: SongCardProps) {
   const isMustPlay = listType === "mustPlay";
   const isPlayIfPossible = listType === "playIfPossible";
+  const isDoNotPlay = listType === "doNotPlay";
   const shellClass = isMustPlay
     ? "rounded-xl border border-stone-200 border-l-[3px] border-l-[#7E52A0] bg-white p-3 shadow-none"
     : isPlayIfPossible
       ? "rounded-xl border border-stone-200 border-l-[3px] border-l-emerald-600 bg-white p-3 shadow-none"
-      : "rounded-xl border border-stone-200 bg-white p-3 shadow-none";
+      : isDoNotPlay
+        ? "rounded-xl border border-stone-200 border-l-[3px] border-l-rose-500 bg-white p-3 shadow-none"
+        : "rounded-xl border border-stone-200 bg-white p-3 shadow-none";
   return (
     <div className={shellClass}>
       <div className="flex items-start justify-between gap-2">
