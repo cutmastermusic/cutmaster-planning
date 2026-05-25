@@ -1860,6 +1860,13 @@ const TIMELINE_CARD_NOTES_CLASS =
   "line-clamp-2 border-t border-stone-100 pt-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-[13px] md:leading-snug";
 const TIMELINE_CARD_FOOTER_CLASS =
   "mt-4 flex flex-col gap-2 border-t border-stone-200/90 pt-3 max-md:mt-3 max-md:gap-1.5 max-md:pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3 lg:flex-nowrap lg:gap-2 lg:pt-2.5";
+/**
+ * Calm accent surface applied to a timeline row when its inline editor is open.
+ * Subtle tint + soft ring so editing reads as "embedded in the timeline" without
+ * flashing into a stark form panel. Keeps drag/reorder unaffected.
+ */
+const TIMELINE_CARD_EDITING_CLASS =
+  "!border-[#00D4FF]/40 !bg-gradient-to-b from-[#00D4FF]/[0.04] via-white to-white ring-1 ring-[#00D4FF]/15 shadow-[0_2px_10px_rgba(0,212,255,0.08)]";
 
 const EVENT_NOTE_CATEGORIES = [
   "General",
@@ -2955,9 +2962,13 @@ export default function Home() {
       inferredProfile === "Gender-Neutral Wedding"
         ? "Partner/Couple Processional"
         : "Bride/Groom Processional";
-    const existing = Array.isArray(evt.ceremonyTimelineItems) ? evt.ceremonyTimelineItems : [];
-    if (existing.length > 0) {
-      return existing.map((item, index) => ({
+    // Respect explicit user state: if the ceremony field is present on the
+    // stored event — even as an empty array — that reflects a real save (the
+    // user may have intentionally deleted every moment). Only fall through to
+    // the legacy-defaults backfill when the field is genuinely absent
+    // (truly legacy events that pre-date the ceremonyTimelineItems schema).
+    if (Array.isArray(evt.ceremonyTimelineItems)) {
+      return evt.ceremonyTimelineItems.map((item, index) => ({
         id: item.id || `ceremony-timeline-migrated-${index}`,
         timeOrOrder: item.timeOrOrder || "",
         moment: item.moment || `Ceremony Moment ${index + 1}`,
@@ -12360,8 +12371,8 @@ export default function Home() {
             >
               {ceremonyTimelineItems.length === 0 ? (
                 <SectionEmptyState
-                  title="No ceremony moments yet"
-                  description="Add moments with + Ceremony moment above, or expand any row to edit."
+                  title="Build your ceremony flow"
+                  description="Add aisle-to-recessional moments one at a time. Times and songs can stay blank for now."
                   primaryAction={{
                     label: "+ Add ceremony moment",
                     onClick: openCeremonyTimelineComposer,
@@ -12369,7 +12380,8 @@ export default function Home() {
                   }}
                 />
               ) : (
-                ceremonyTimelineItems.map((item, index) => {
+                <>
+                {ceremonyTimelineItems.map((item, index) => {
                   const rowExpanded = ceremonyTimelineExpandedId === item.id;
                   const songLine = [item.songTitle?.trim(), item.artist?.trim()]
                     .filter(Boolean)
@@ -12396,7 +12408,7 @@ export default function Home() {
                         isDropTarget,
                         dragActive: ceremonyDragActive && !isDragging,
                         zebra: index % 2 === 1,
-                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""}`}
+                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
                       aria-grabbed={isDragging}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
@@ -12614,13 +12626,9 @@ export default function Home() {
                       {rowExpanded && (
                         <div className="md:mx-auto md:w-full md:max-w-[44rem]">
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
-                            <button
-                              type="button"
-                              onClick={() => closeCeremonyTimelineCardExpanded()}
-                              className="text-[11px] font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-900 hover:underline md:text-xs"
-                            >
-                              Collapse view
-                            </button>
+                            <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
+                              Edit moment
+                            </p>
                             <div className="flex flex-wrap items-center justify-end gap-2">
                               {canEditTimeline ? (
                                 <>
@@ -12728,6 +12736,15 @@ export default function Home() {
                               ? "DJ/MC attention: On"
                               : "Flag DJ/MC attention"}
                           </PrimaryButton>
+                          <div className="mt-5 flex flex-col items-stretch gap-2 border-t border-stone-200/80 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:mt-6 md:pt-5">
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => closeCeremonyTimelineCardExpanded()}
+                              className="min-h-12 w-full rounded-lg border border-black bg-[#00D4FF] px-6 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem] md:min-h-11 md:py-2.5"
+                            >
+                              Done
+                            </PrimaryButton>
+                          </div>
                         </div>
                       )}
                       <div className={TIMELINE_CARD_FOOTER_CLASS}>
@@ -12818,7 +12835,17 @@ export default function Home() {
                     ) : null}
                     </Fragment>
                   );
-                })
+                })}
+                {ceremonyTimelineItems.length >= 1 && ceremonyTimelineItems.length <= 3 ? (
+                  <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
+                    <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
+                      Add the next ceremony moment with{" "}
+                      <span className="font-semibold text-stone-800">+ Ceremony moment</span> above,
+                      or use <span className="font-semibold text-stone-800">+ After</span> on any row.
+                    </p>
+                  </div>
+                ) : null}
+                </>
               )}
             </div>
 
@@ -13159,8 +13186,8 @@ export default function Home() {
                 {mergedTimelineItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
-                      title="Start your reception timeline"
-                      description="Line up the flow from cocktail through last dance—times can stay blank until your DJ locks the schedule."
+                      title="Build your reception flow"
+                      description="Add moments from cocktail through last dance. Times can stay blank until your DJ locks the schedule."
                       primaryAction={{
                         label: "Add first moment",
                         onClick: openReceptionTimelineComposerAtTop,
@@ -13180,7 +13207,8 @@ export default function Home() {
                     />
                   )
                 ) : (
-                  mergedTimelineItems.map((item, index) => {
+                  <>
+                  {mergedTimelineItems.map((item, index) => {
                     const timelineRow = timelineItems.find((t) => t.id === item.id);
                     const rowExpanded = receptionTimelineExpandedId === item.id;
                     const songPreview =
@@ -13217,7 +13245,7 @@ export default function Home() {
                           isDropTarget,
                           dragActive: timelineDragActive && !isDragging,
                           zebra: index % 2 === 1,
-                        })} ${TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""}`}
+                        })} ${TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
                         aria-grabbed={isDragging}
                         onDragOver={(event) => {
                           if (!canEditTimeline || !draggingTimelineId) return;
@@ -13482,13 +13510,6 @@ export default function Home() {
                                     </button>
                                   </>
                                 ) : null}
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => closeReceptionTimelineCardExpanded()}
-                                  className="min-h-10 rounded-lg border border-stone-400 bg-white px-4 py-2 text-[12px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-5 md:text-[13px]"
-                                >
-                                  Done
-                                </PrimaryButton>
                               </div>
                             </div>
 
@@ -13628,6 +13649,15 @@ export default function Home() {
                                   </div>
                                 </div>
                               </details>
+                              <div className="mt-5 flex flex-col items-stretch gap-2 border-t border-stone-200/80 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:mt-6 md:pt-5">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => closeReceptionTimelineCardExpanded()}
+                                  className="min-h-12 w-full rounded-lg border border-black bg-[#00D4FF] px-6 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem] md:min-h-11 md:py-2.5"
+                                >
+                                  Done
+                                </PrimaryButton>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -13711,7 +13741,17 @@ export default function Home() {
                       ) : null}
                       </Fragment>
                     )
-                  })
+                  })}
+                  {mergedTimelineItems.length >= 1 && mergedTimelineItems.length <= 3 ? (
+                    <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
+                      <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
+                        Add the next reception moment with{" "}
+                        <span className="font-semibold text-stone-800">+ Reception moment</span> above,
+                        or use <span className="font-semibold text-stone-800">+ After</span> on any row.
+                      </p>
+                    </div>
+                  ) : null}
+                  </>
                 )}
               </div>
 
