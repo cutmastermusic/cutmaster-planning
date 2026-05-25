@@ -1851,13 +1851,13 @@ const TIMELINE_MOMENTS_PANEL_CLASS =
 const TIMELINE_MOMENTS_RAIL_CLASS =
   "sticky top-0 z-[2] flex flex-col gap-2.5 border-b border-stone-200/90 bg-white/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3.5 supports-[backdrop-filter]:bg-white/85";
 const TIMELINE_CARD_TIME_CLASS =
-  "font-mono text-sm font-semibold tabular-nums tracking-tight text-stone-600 md:text-[0.9375rem] lg:text-sm";
+  "font-mono text-[15px] font-semibold tabular-nums tracking-tight text-stone-800 md:text-base lg:text-[15px]";
 const TIMELINE_CARD_TITLE_CLASS =
   "text-base font-semibold leading-snug tracking-tight text-stone-950 [overflow-wrap:anywhere] md:text-lg lg:text-[1.0625rem] lg:leading-tight";
 const TIMELINE_CARD_CUE_CLASS =
   "text-sm leading-relaxed text-stone-700 [overflow-wrap:anywhere] md:text-[15px] md:leading-snug";
 const TIMELINE_CARD_NOTES_CLASS =
-  "line-clamp-2 border-t border-stone-100 pt-2 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-[13px] md:leading-snug";
+  "line-clamp-2 border-t border-stone-200/90 pt-2.5 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-[13px] md:leading-snug";
 const TIMELINE_CARD_FOOTER_CLASS =
   "mt-4 flex flex-col gap-2 border-t border-stone-200/90 pt-3 max-md:mt-3 max-md:gap-1.5 max-md:pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3 lg:flex-nowrap lg:gap-2 lg:pt-2.5";
 /**
@@ -12439,26 +12439,21 @@ export default function Home() {
                       {!rowExpanded && (
                         <>
                           <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-4 md:gap-4 lg:max-w-[40rem] lg:gap-3 xl:max-w-[42rem]">
-                              <div className="shrink-0 pt-0.5 sm:w-[4.5rem] sm:text-right md:w-[4.75rem] lg:w-[4.5rem]">
-                                <p className={`${TIMELINE_CARD_TIME_CLASS} sm:text-right`}>
-                                  {item.timeOrOrder?.trim() || "—"}
-                                </p>
-                              </div>
-                              <div className="relative min-w-0 flex-1 border-l border-stone-200 pl-4 md:pl-4 lg:pl-3.5">
-                                <span className="absolute -left-[5px] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-stone-600 ring-1 ring-stone-200" />
-                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
-                                <p className={`mt-1.5 ${TIMELINE_CARD_CUE_CLASS}`}>
-                                  <span className="font-medium text-stone-400">Song</span>
-                                  <span className="mx-1.5 text-stone-300" aria-hidden>
-                                    ·
-                                  </span>
-                                  {songLine || "—"}
-                                </p>
-                                {item.notes?.trim() ? (
-                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS}`}>{item.notes}</p>
-                                ) : null}
-                              </div>
+                            <div className="min-w-0 flex-1 space-y-2 lg:max-w-[40rem] xl:max-w-[42rem]">
+                              <p className={TIMELINE_CARD_TIME_CLASS}>
+                                {item.timeOrOrder?.trim() || "—"}
+                              </p>
+                              <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
+                              <p className={TIMELINE_CARD_CUE_CLASS}>
+                                <span className="font-medium text-stone-400">Song</span>
+                                <span className="mx-1.5 text-stone-300" aria-hidden>
+                                  ·
+                                </span>
+                                {songLine || "—"}
+                              </p>
+                              {item.notes?.trim() ? (
+                                <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
+                              ) : null}
                             </div>
                             <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
                               <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
