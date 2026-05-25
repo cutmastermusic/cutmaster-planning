@@ -12,17 +12,23 @@ import { EventModalActions } from "@/components/events/EventModalActions";
 import { EventTypeSection } from "@/components/events/EventTypeSection";
 import { EventModalForm } from "@/components/events/EventModalForm";
 import { EventModal } from "@/components/events/EventModal";
+/**
+ * Server Actions are imported through `eventsClient` wrappers so every call
+ * is size-checked before being placed on the wire. This surfaces the
+ * exact offending field if a payload approaches the Next.js Server Action
+ * body limit (~1 MB), instead of failing with a cryptic 413.
+ */
 import {
-  createEvent as createDatabaseEvent,
+  createEventGuarded as createDatabaseEvent,
   getEvents as getDatabaseEvents,
-  updateEvent as updateDatabaseEvent,
-  replaceGuestRequests,
-  replaceEventTeamMembers,
-  replaceEventNotes,
-  replaceMainTimelineItems,
-  replaceCeremonyTimelineItems,
-  replaceEventSongs,
-} from "@/lib/actions/events";
+  updateEventGuarded as updateDatabaseEvent,
+  replaceGuestRequestsGuarded as replaceGuestRequests,
+  replaceEventTeamMembersGuarded as replaceEventTeamMembers,
+  replaceEventNotesGuarded as replaceEventNotes,
+  replaceMainTimelineItemsGuarded as replaceMainTimelineItems,
+  replaceCeremonyTimelineItemsGuarded as replaceCeremonyTimelineItems,
+  replaceEventSongsGuarded as replaceEventSongs,
+} from "@/lib/actions/eventsClient";
 import {
   EVENT_STATUSES,
   eventStatusPillClassOnCover,

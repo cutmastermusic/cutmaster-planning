@@ -2,6 +2,24 @@
 
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { describePayload } from "@/lib/payloadSize";
+
+/**
+ * Log a single line per Server Action invocation describing the size of the
+ * arguments we received. Helps pinpoint which action is approaching the 1 MB
+ * Next.js Server Action body limit and which field within it is unbounded.
+ *
+ * Intentionally lightweight: only a console line, no DB writes or external
+ * IO. Safe to keep in production.
+ */
+function logActionPayload(actionName: string, payload: unknown): void {
+  const report = describePayload(actionName, payload);
+  console.log(
+    `[action-payload] ${report.actionName} ${report.kb} KB | largest=${report.largest.path} ~${Math.round(
+      report.largest.bytes / 1024,
+    )} KB`,
+  );
+}
 
 type EventData = {
   title: string;
@@ -61,6 +79,7 @@ export async function getEvents() {
 }
 
 export async function createEvent(data: EventData) {
+  logActionPayload("createEvent", data);
   const demoUser = await prisma.user.upsert({
     where: {
       email: "demo@cutmasterplanning.com",
@@ -97,6 +116,7 @@ export async function createEvent(data: EventData) {
 }
 
 export async function updateEvent(id: string, data: EventData) {
+  logActionPayload("updateEvent", data);
   return prisma.event.update({
     where: {
       id,
@@ -132,6 +152,7 @@ export async function replaceMainTimelineItems(
     order: number;
   }>,
 ) {
+  logActionPayload("replaceMainTimelineItems", items);
   const timeline = await prisma.timeline.upsert({
     where: {
       eventId_title: {
@@ -184,6 +205,7 @@ export async function replaceCeremonyTimelineItems(
     order: number;
   }>,
 ) {
+  logActionPayload("replaceCeremonyTimelineItems", items);
   const timeline = await prisma.timeline.upsert({
     where: {
       eventId_title: {
@@ -232,6 +254,7 @@ export async function replaceEventSongs(
     order: number;
   }>,
 ) {
+  logActionPayload(`replaceEventSongs[${listType}]`, songs);
   await prisma.eventSong.deleteMany({
     where: {
       eventId,
@@ -265,6 +288,7 @@ export async function replaceGuestRequests(
     order: number;
   }>,
 ) {
+  logActionPayload("replaceGuestRequests", guestRequests);
   await prisma.guestRequest.deleteMany({
     where: {
       eventId,
@@ -305,6 +329,7 @@ export async function replaceEventTeamMembers(
     order: number;
   }>,
 ) {
+  logActionPayload("replaceEventTeamMembers", teamMembers);
   console.log("replaceEventTeamMembers CALLED");
   console.log(
     "replaceEventTeamMembers incoming",
@@ -403,6 +428,7 @@ export async function replaceEventNotes(
     order: number;
   }>,
 ) {
+  logActionPayload("replaceEventNotes", notes);
   const eventExists = await prisma.event.findUnique({
     where: { id: eventId },
     select: { id: true },
