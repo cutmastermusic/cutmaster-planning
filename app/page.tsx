@@ -11550,6 +11550,17 @@ export default function Home() {
                           disabled={!canManageMusic}
                         />
                       </div>
+                      <div
+                        className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-white/60 px-3 py-2.5"
+                        aria-label="Imported tracks placeholder"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                          Imported tracks
+                        </p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
+                          Track import is coming later. For now, your DJ uses this link to listen and prep manually.
+                        </p>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -11764,6 +11775,17 @@ export default function Home() {
                 </PrimaryButton>
               </div>
             </PremiumCard>
+
+            {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  Priority songs
+                </p>
+                <p className="text-xs leading-relaxed text-stone-600">
+                  Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from.
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
               {sectionMustPlayEnabled && (
@@ -14919,8 +14941,8 @@ export default function Home() {
 
                 {sectionCeremonyEnabled && (
                   <>
-                    <p className="doc-subtitle no-print">Print · ceremony follows overview on page 1</p>
                     <div className="doc-section print-break-avoid">
+                      <p className="doc-section-phase">Phase 1</p>
                       <h3>Ceremony Timeline</h3>
                       <table className="doc-table">
                         <tbody>
@@ -14930,7 +14952,7 @@ export default function Home() {
                         </tbody>
                       </table>
                       <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
-                        <table className="doc-table doc-ceremony-timeline mt-2 min-w-[520px] sm:min-w-0">
+                        <table className="doc-table live-event-timeline-table mt-2 min-w-[520px] sm:min-w-0">
                           <thead>
                             <tr>
                               <th scope="col">Time / Order</th>
@@ -14967,10 +14989,8 @@ export default function Home() {
                 )}
                 {sectionReceptionTimelineEnabled && (
                   <>
-                    <p className="doc-subtitle no-print">
-                      Print · reception / main timeline begins on the next page
-                    </p>
                     <div className="doc-section live-reception-page-break print-break-avoid">
+                      <p className="doc-section-phase">{sectionCeremonyEnabled ? "Phase 2" : "Phase 1"}</p>
                       <h3>{eventPrepReceptionHeading}</h3>
                       <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
                         <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
