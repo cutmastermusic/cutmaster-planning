@@ -494,7 +494,7 @@ const TIMELINE_DRAG_EDGE_PX = 76;
 const TIMELINE_DRAG_SCROLL_STEP = 18;
 
 const TIMELINE_DRAG_HANDLE_CLASS =
-  "inline-flex min-h-12 w-full cursor-grab touch-none select-none items-center justify-center gap-2 rounded-lg border border-dashed border-stone-400/90 bg-stone-100/90 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:border-stone-500 hover:bg-stone-200/90 active:cursor-grabbing active:scale-[0.99] disabled:opacity-50 max-md:min-h-11 max-md:rounded-md max-md:px-3 max-md:py-2.5 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:rounded-md lg:border-stone-300 lg:border-solid lg:bg-stone-50 lg:px-2.5 lg:py-1.5 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3 xl:text-xs";
+  "inline-flex min-h-12 w-full cursor-grab touch-none select-none items-center justify-center gap-2 rounded-lg border border-dashed border-stone-400/90 bg-stone-100/90 px-4 py-3 text-[13px] font-semibold text-stone-900 shadow-none transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:border-stone-500 hover:bg-stone-200/90 active:cursor-grabbing active:scale-[0.99] disabled:opacity-50 max-md:min-h-11 max-md:rounded-md max-md:px-3.5 max-md:py-3 max-md:text-xs max-md:font-medium sm:min-h-11 sm:w-auto sm:px-4 sm:py-2.5 sm:text-[12px] md:min-w-[9rem] md:py-3 md:text-[13px] lg:min-h-9 lg:w-auto lg:shrink-0 lg:rounded-md lg:border-stone-300 lg:border-solid lg:bg-stone-50 lg:px-3 lg:py-2 lg:text-[11px] lg:font-medium lg:text-stone-700 lg:hover:bg-stone-100 xl:px-3.5 xl:text-xs";
 
 function timelineReorderRowSurfaceClass(opts: {
   isDragging: boolean;
@@ -553,62 +553,9 @@ function insertTimelineItemAfterId<T extends { id: string }>(
   return next;
 }
 
-type EventTimelineDayRailProps = {
-  ceremonyCount: number;
-  receptionCount: number;
-  receptionLabel: string;
-  onScrollToCeremony: () => void;
-  onScrollToReception: () => void;
-};
-
-function EventTimelineDayRail({
-  ceremonyCount,
-  receptionCount,
-  receptionLabel,
-  onScrollToCeremony,
-  onScrollToReception,
-}: EventTimelineDayRailProps) {
-  return (
-    <div className={TIMELINE_MOMENTS_RAIL_CLASS}>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-          Event day
-        </p>
-        <p className="mt-0.5 text-sm font-semibold leading-snug text-stone-900">
-          Ceremony first, then {receptionLabel.toLowerCase()}
-          <span className="font-normal text-stone-400" aria-hidden>
-            {" "}
-            ·{" "}
-          </span>
-          <span className="text-xs font-medium text-stone-600">Scroll top to bottom</span>
-        </p>
-      </div>
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-        <PrimaryButton
-          type="button"
-          onClick={onScrollToCeremony}
-          className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-left text-[12px] font-semibold text-stone-900 shadow-none transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:min-w-[9.5rem] sm:text-[11px]"
-        >
-          Ceremony · {ceremonyCount}
-        </PrimaryButton>
-        <PrimaryButton
-          type="button"
-          onClick={onScrollToReception}
-          className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-left text-[12px] font-semibold text-stone-900 shadow-none transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:min-w-[9.5rem] sm:text-[11px]"
-        >
-          {receptionLabel} · {receptionCount}
-        </PrimaryButton>
-      </div>
-    </div>
-  );
-}
-
 type TimelinePhaseSectionHeaderProps = {
   id: string;
-  phaseLabel: string;
   title: string;
-  momentCount: number;
-  hint: string;
   onAdd?: () => void;
   addLabel?: string;
   addDisabled?: boolean;
@@ -616,47 +563,23 @@ type TimelinePhaseSectionHeaderProps = {
 
 function TimelinePhaseSectionHeader({
   id,
-  phaseLabel,
   title,
-  momentCount,
-  hint,
   onAdd,
   addLabel,
   addDisabled,
 }: TimelinePhaseSectionHeaderProps) {
-  const countLabel =
-    momentCount === 0
-      ? "No moments yet"
-      : `${momentCount} ${momentCount === 1 ? "moment" : "moments"}`;
-
   return (
-    <div
-      id={id}
-      className="scroll-mt-4 border-b border-stone-200/90 bg-stone-50/80 px-4 py-3 sm:px-5 sm:py-3.5"
-    >
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-            {phaseLabel}
-          </p>
-          <h3 className="mt-0.5 text-base font-semibold tracking-tight text-stone-950 sm:text-lg">
-            {title}
-          </h3>
-          <p className="mt-1 text-xs leading-snug text-stone-600">
-            {countLabel}
-            <span className="text-stone-400" aria-hidden>
-              {" "}
-              ·{" "}
-            </span>
-            {hint}
-          </p>
-        </div>
+    <div id={id} className={TIMELINE_SECTION_HEADER_CLASS}>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="min-w-0 truncate text-base font-semibold tracking-tight text-stone-950 sm:text-lg">
+          {title}
+        </h3>
         {onAdd && addLabel ? (
           <PrimaryButton
             type="button"
             onClick={onAdd}
             disabled={addDisabled}
-            className="min-h-11 w-full shrink-0 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-[12px] font-semibold text-stone-900 shadow-none hover:border-[#00D4FF]/45 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:text-[11px]"
+            className="min-h-10 w-auto shrink-0 rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:border-[#00D4FF]/45 hover:bg-stone-50 disabled:opacity-45 sm:min-h-9 sm:px-3.5 sm:py-2 sm:text-[11px]"
           >
             {addLabel}
           </PrimaryButton>
@@ -1964,32 +1887,127 @@ const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h
 const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
 /** Outer timeline row padding — tuned for phone, iPad landscape, and desktop scan density. */
 const TIMELINE_CARD_SHELL_CLASS =
-  "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-6 md:py-5 lg:px-5 lg:py-4 xl:px-6";
+  "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-5 md:py-4 lg:px-5 lg:py-4 xl:px-6";
 const TIMELINE_STREAM_CLASS =
-  "min-w-0 space-y-3 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3.5 md:max-h-[min(72dvh,52rem)] md:space-y-3 md:overflow-y-auto md:overscroll-y-contain";
+  "min-w-0 space-y-2.5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3 md:max-h-[min(72dvh,52rem)] md:space-y-2.5 md:overflow-y-auto md:overscroll-y-contain";
 const TIMELINE_STREAM_UNIFIED_CLASS =
-  "min-w-0 space-y-3 overflow-x-hidden sm:space-y-3.5 md:space-y-3";
-const TIMELINE_MOMENTS_PANEL_CLASS =
-  "no-print overflow-hidden rounded-2xl border border-stone-200/90 bg-gradient-to-b from-stone-50/70 via-white to-white shadow-sm ring-1 ring-stone-200/40";
-const TIMELINE_MOMENTS_RAIL_CLASS =
-  "sticky top-0 z-[2] flex flex-col gap-2.5 border-b border-stone-200/90 bg-white/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3.5 supports-[backdrop-filter]:bg-white/85";
-const TIMELINE_CARD_TIME_CLASS =
-  "font-mono text-[15px] font-semibold tabular-nums tracking-tight text-stone-800 md:text-base lg:text-[15px]";
+  "min-w-0 space-y-2.5 overflow-x-hidden sm:space-y-3 md:space-y-2.5";
+const TIMELINE_SECTION_HEADER_CLASS =
+  "scroll-mt-4 border-b border-stone-200/90 bg-white px-4 py-3 sm:px-5 sm:py-3";
+const TIMELINE_CARD_TIME_TITLE_ROW_CLASS =
+  "flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:gap-x-3.5";
+const TIMELINE_CARD_TIME_INLINE_CLASS =
+  "shrink-0 font-mono text-[13px] font-semibold tabular-nums tracking-tight text-stone-500 sm:text-sm lg:min-w-[5rem] lg:text-[13px]";
 const TIMELINE_CARD_TITLE_CLASS =
   "text-base font-semibold leading-snug tracking-tight text-stone-950 [overflow-wrap:anywhere] md:text-lg lg:text-[1.0625rem] lg:leading-tight";
 const TIMELINE_CARD_CUE_CLASS =
-  "text-sm leading-relaxed text-stone-700 [overflow-wrap:anywhere] md:text-[15px] md:leading-snug";
+  "text-sm leading-snug text-stone-700 [overflow-wrap:anywhere] md:text-[14px]";
 const TIMELINE_CARD_NOTES_CLASS =
-  "line-clamp-2 border-t border-stone-200/90 pt-2.5 text-xs leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:text-[13px] md:leading-snug";
+  "line-clamp-2 mt-1 text-[11px] leading-snug text-stone-500 [overflow-wrap:anywhere] md:mt-1.5 md:text-xs";
 const TIMELINE_CARD_FOOTER_CLASS =
-  "mt-4 flex flex-col gap-2 border-t border-stone-200/90 pt-3 max-md:mt-3 max-md:gap-1.5 max-md:pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3 lg:flex-nowrap lg:gap-2 lg:pt-2.5";
+  "mt-4 flex flex-col gap-2.5 border-t border-stone-200/90 pt-3.5 max-md:mt-3.5 max-md:gap-2 max-md:pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3.5 lg:flex-nowrap lg:gap-2.5 lg:pt-3";
+const TIMELINE_CARD_POSITION_CLASS =
+  "shrink-0 self-end text-right text-[10px] font-medium tabular-nums uppercase tracking-wide text-stone-500";
+const TIMELINE_CARD_ACTION_RAIL_CLASS =
+  "flex w-full min-w-0 shrink-0 flex-col gap-2.5 border-t border-stone-200/80 pt-3.5 md:pt-3.5 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5";
+const TIMELINE_CARD_ACTION_ROW_CLASS =
+  "flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2";
+const TIMELINE_CARD_ACTION_BTN_CLASS =
+  "min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+const TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS =
+  "min-h-11 w-full rounded-lg border border-stone-500 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+const TIMELINE_CARD_ACTION_BTN_DELETE_CLASS =
+  "min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+const TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS = "grid grid-cols-2 gap-2";
+const TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS =
+  "min-h-11 min-w-0 touch-manipulation rounded-lg border border-stone-300 bg-white px-2.5 py-2.5 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45";
+const TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS =
+  "min-h-11 min-w-0 touch-manipulation rounded-lg border border-stone-400 bg-white px-2.5 py-2.5 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45";
+const TIMELINE_CARD_MOBILE_ACTION_BTN_DELETE_CLASS =
+  "min-h-11 min-w-0 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2.5 py-2.5 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40";
+const TIMELINE_CARD_MOBILE_READ_SHELL_CLASS =
+  "touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2";
+const TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS =
+  "flex flex-wrap items-center justify-end gap-2.5";
+const TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS =
+  "min-h-10 rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-4 md:py-2.5 md:text-[13px]";
+const TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS =
+  "min-h-10 touch-manipulation rounded-lg border border-transparent bg-transparent px-3 py-2 text-[12px] font-medium text-rose-700/90 shadow-none transition hover:border-rose-200/90 hover:bg-rose-50/70 md:min-h-10 md:px-3.5 md:py-2 md:text-[13px]";
+const TIMELINE_CARD_FOOTER_ACTIONS_CLASS =
+  "ml-auto flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2.5";
+const TIMELINE_CARD_EDIT_FIELDS_CLASS = "space-y-2.5 md:space-y-3";
+const TIMELINE_CARD_EDIT_DONE_ROW_CLASS =
+  "mt-4 flex flex-col items-stretch gap-2 border-t border-stone-200/70 pt-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 md:mt-4 md:pt-4";
+const TIMELINE_CARD_EDIT_DONE_BTN_CLASS =
+  "min-h-11 w-full rounded-lg border border-stone-800/15 bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-stone-950 shadow-none hover:brightness-[1.03] sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5";
+const TIMELINE_DRAG_HANDLE_EDITING_CLASS =
+  "border-solid border-stone-300/75 bg-stone-50/90 text-stone-600 max-md:min-h-9 max-md:py-2 sm:min-h-9 md:py-2.5 lg:min-h-8 lg:py-1.5 lg:text-[10px] lg:text-stone-500";
 /**
  * Calm accent surface applied to a timeline row when its inline editor is open.
  * Subtle tint + soft ring so editing reads as "embedded in the timeline" without
  * flashing into a stark form panel. Keeps drag/reorder unaffected.
  */
 const TIMELINE_CARD_EDITING_CLASS =
-  "!border-[#00D4FF]/40 !bg-gradient-to-b from-[#00D4FF]/[0.04] via-white to-white ring-1 ring-[#00D4FF]/15 shadow-[0_2px_10px_rgba(0,212,255,0.08)]";
+  "!border-[#00D4FF]/28 !bg-[#00D4FF]/[0.025] ring-1 ring-[#00D4FF]/10 shadow-none";
+
+function TimelineCardPositionIndicator({
+  index,
+  total,
+}: {
+  index: number;
+  total: number;
+}) {
+  return (
+    <p
+      className={TIMELINE_CARD_POSITION_CLASS}
+      aria-label={`Moment ${index + 1} of ${total}`}
+    >
+      {index + 1} / {total}
+    </p>
+  );
+}
+
+function TimelineMomentHeadline({
+  timeLabel,
+  title,
+  titleClassName = "",
+}: {
+  timeLabel: string;
+  title: string;
+  titleClassName?: string;
+}) {
+  const time = timeLabel.trim() || "—";
+  return (
+    <div className={TIMELINE_CARD_TIME_TITLE_ROW_CLASS}>
+      <p className={TIMELINE_CARD_TIME_INLINE_CLASS}>{time}</p>
+      <h3 className={`${TIMELINE_CARD_TITLE_CLASS} min-w-0 flex-1 ${titleClassName}`.trim()}>
+        {title}
+      </h3>
+    </div>
+  );
+}
+
+function TimelineSongCueLine({
+  kind,
+  preview,
+  hasSong,
+  className = TIMELINE_CARD_CUE_CLASS,
+}: {
+  kind: string;
+  preview: string;
+  hasSong: boolean;
+  className?: string;
+}) {
+  return (
+    <p className={className}>
+      <span className="font-medium text-stone-400">{kind}</span>
+      <span className="mx-1.5 text-stone-300" aria-hidden>
+        ·
+      </span>
+      <span className={hasSong ? "font-medium text-stone-900" : "text-stone-600"}>{preview}</span>
+    </p>
+  );
+}
 
 const EVENT_NOTE_CATEGORIES = [
   "General",
@@ -2004,8 +2022,6 @@ const EVENT_NOTE_CATEGORIES = [
 export default function Home() {
   const timelineComposerRef = useRef<HTMLDivElement | null>(null);
   const timelineStreamRef = useRef<HTMLDivElement | null>(null);
-  const timelineSectionCeremonyRef = useRef<HTMLDivElement | null>(null);
-  const timelineSectionReceptionRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineComposerRef = useRef<HTMLDivElement | null>(null);
   const ceremonyTimelineStreamRef = useRef<HTMLDivElement | null>(null);
   /** Tracks last main nav context so we scroll to top only on real section/mode/auth changes. */
@@ -3883,13 +3899,6 @@ export default function Home() {
     }
   }, [hasHydrated, unifiedEventTimeline, activeScreen, setActiveScreen]);
 
-  const scrollTimelineSectionIntoView = useCallback((target: "ceremony" | "reception") => {
-    const node =
-      target === "ceremony"
-        ? timelineSectionCeremonyRef.current
-        : timelineSectionReceptionRef.current;
-    node?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
   const sectionPlaylistsEnabled = eventSettings.sectionPlaylistsEnabled;
   const sectionMustPlayEnabled = eventSettings.sectionMustPlayEnabled;
   const sectionDoNotPlayEnabled = eventSettings.sectionDoNotPlayEnabled;
@@ -12403,53 +12412,23 @@ export default function Home() {
                     </p>
                   </PremiumCard>
                 )}
-                <div className="no-print flex min-w-0 flex-col gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                          Full event day
-                        </p>
-                        <h2 className="mt-1 min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
-                          Event timeline
-                        </h2>
-                      </div>
-                      <PersistEcho
-                        persistFeedback={persistFeedback}
-                        variant="light"
-                        className="pt-1 sm:pt-0.5"
-                      />
-                    </div>
-                    <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1.5 sm:text-xs md:text-sm">
-                      Ceremony first, then reception—one continuous scroll through the event day. Expand any row to edit.
-                    </p>
-                  </div>
-                </div>
-                <div className={TIMELINE_MOMENTS_PANEL_CLASS}>
-                  <EventTimelineDayRail
-                    ceremonyCount={ceremonyTimelineItems.length}
-                    receptionCount={mergedTimelineItems.length}
-                    receptionLabel={
-                      eventPrepReceptionHeading === "Reception Timeline"
-                        ? "Reception"
-                        : eventPrepReceptionHeading
-                    }
-                    onScrollToCeremony={() => scrollTimelineSectionIntoView("ceremony")}
-                    onScrollToReception={() => scrollTimelineSectionIntoView("reception")}
+                <div className="no-print flex min-w-0 items-start justify-between gap-2">
+                  <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
+                    Event timeline
+                  </h2>
+                  <PersistEcho
+                    persistFeedback={persistFeedback}
+                    variant="light"
+                    className="pt-1 sm:pt-0.5"
                   />
-                  <div ref={timelineSectionCeremonyRef}>
-                    <TimelinePhaseSectionHeader
-                      id="timeline-section-ceremony"
-                      phaseLabel="Phase 1"
-                      title="Ceremony"
-                      momentCount={ceremonyTimelineItems.length}
-                      hint="Aisle through recessional"
-                      onAdd={openCeremonyTimelineComposer}
-                      addLabel="+ Ceremony moment"
-                      addDisabled={!canEditTimeline}
-                    />
-                  </div>
                 </div>
+                <TimelinePhaseSectionHeader
+                  id="timeline-section-ceremony"
+                  title="Ceremony"
+                  onAdd={openCeremonyTimelineComposer}
+                  addLabel="+ Ceremony moment"
+                  addDisabled={!canEditTimeline}
+                />
               </>
             ) : (
               <>
@@ -12534,7 +12513,11 @@ export default function Home() {
 
             <div
               ref={ceremonyTimelineStreamRef}
-              className={showUnifiedTimelineWorkspace ? TIMELINE_STREAM_UNIFIED_CLASS : TIMELINE_STREAM_CLASS}
+              className={
+                showUnifiedTimelineWorkspace
+                  ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
+                  : TIMELINE_STREAM_CLASS
+              }
             >
               {ceremonyTimelineItems.length === 0 ? (
                 <SectionEmptyState
@@ -12606,23 +12589,17 @@ export default function Home() {
                       {!rowExpanded && (
                         <>
                           <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                            <div className="min-w-0 flex-1 space-y-2 lg:max-w-[40rem] xl:max-w-[42rem]">
-                              <p className={TIMELINE_CARD_TIME_CLASS}>
-                                {item.timeOrOrder?.trim() || "—"}
-                              </p>
-                              <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.moment}</h3>
-                              <p className={TIMELINE_CARD_CUE_CLASS}>
-                                <span className="font-medium text-stone-400">Song</span>
-                                <span className="mx-1.5 text-stone-300" aria-hidden>
-                                  ·
-                                </span>
-                                {songLine || "—"}
-                              </p>
+                            <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
+                              <TimelineMomentHeadline
+                                timeLabel={item.timeOrOrder ?? ""}
+                                title={item.moment}
+                              />
+                              <TimelineSongCueLine kind="Song" preview={songLine || "—"} hasSong={Boolean(songLine)} />
                               {item.notes?.trim() ? (
                                 <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
                               ) : null}
                             </div>
-                            <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                            <div className={TIMELINE_CARD_ACTION_RAIL_CLASS}>
                               <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                                 <span className="rounded border border-stone-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700 md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
                                   Ceremony
@@ -12633,12 +12610,12 @@ export default function Home() {
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                              <div className={TIMELINE_CARD_ACTION_ROW_CLASS}>
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => openCeremonyTimelineCardExpanded(item)}
                                   disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-500 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
                                 >
                                   Edit
                                 </PrimaryButton>
@@ -12646,7 +12623,7 @@ export default function Home() {
                                   type="button"
                                   onClick={() => prepareAddCeremonyMomentAfter(item.id)}
                                   disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  className={TIMELINE_CARD_ACTION_BTN_CLASS}
                                 >
                                   + After
                                 </PrimaryButton>
@@ -12654,7 +12631,7 @@ export default function Home() {
                                   type="button"
                                   onClick={() => duplicateCeremonyTimelineItem(item)}
                                   disabled={!canEditTimeline}
-                                  className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                  className={TIMELINE_CARD_ACTION_BTN_CLASS}
                                 >
                                   Duplicate
                                 </PrimaryButton>
@@ -12668,7 +12645,7 @@ export default function Home() {
                                         label: item.moment.trim() || "this moment",
                                       })
                                     }
-                                    className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                    className={TIMELINE_CARD_ACTION_BTN_DELETE_CLASS}
                                   >
                                     Delete
                                   </button>
@@ -12677,7 +12654,7 @@ export default function Home() {
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-2 md:hidden">
+                          <div className="flex flex-col gap-2.5 md:hidden">
                             <div
                               role="button"
                               tabIndex={canEditTimeline ? 0 : -1}
@@ -12692,19 +12669,18 @@ export default function Home() {
                                   openCeremonyTimelineCardExpanded(item);
                                 }
                               }}
-                              className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                              className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                 ? "cursor-pointer active:scale-[0.995]"
                                 : "cursor-default opacity-80"
                                 }`}
                             >
                               <div className="flex items-start justify-between gap-2.5">
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p className={TIMELINE_CARD_TIME_CLASS}>
-                                    {item.timeOrOrder?.trim() || "—"}
-                                  </p>
-                                  <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
-                                    {item.moment}
-                                  </h3>
+                                <div className="min-w-0 flex-1">
+                                  <TimelineMomentHeadline
+                                    timeLabel={item.timeOrOrder ?? ""}
+                                    title={item.moment}
+                                    titleClassName="text-[1.05rem]"
+                                  />
                                 </div>
                                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                                   <span className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
@@ -12718,16 +12694,15 @@ export default function Home() {
                                 </div>
                               </div>
                               {songLine ? (
-                                <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
-                                  <span className="font-medium text-stone-400">Song</span>
-                                  <span className="mx-1.5 text-stone-300" aria-hidden>
-                                    ·
-                                  </span>
-                                  {songLine}
-                                </p>
+                                <TimelineSongCueLine
+                                  kind="Song"
+                                  preview={songLine}
+                                  hasSong
+                                  className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
+                                />
                               ) : null}
                               {item.notes?.trim() ? (
-                                <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
+                                <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
                                   {item.notes.trim()}
                                 </p>
                               ) : null}
@@ -12739,12 +12714,12 @@ export default function Home() {
                                 <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                               )}
                             </div>
-                            <div className="grid grid-cols-2 gap-1.5">
+                            <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                               <PrimaryButton
                                 type="button"
                                 onClick={() => openCeremonyTimelineCardExpanded(item)}
                                 disabled={!canEditTimeline}
-                                className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                                className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                               >
                                 Expand
                               </PrimaryButton>
@@ -12754,7 +12729,7 @@ export default function Home() {
                                     type="button"
                                     onClick={() => prepareAddCeremonyMomentAfter(item.id)}
                                     disabled={!canEditTimeline}
-                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                                    className={TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS}
                                   >
                                     + After
                                   </PrimaryButton>
@@ -12762,7 +12737,7 @@ export default function Home() {
                                     type="button"
                                     onClick={() => duplicateCeremonyTimelineItem(item)}
                                     disabled={!canEditTimeline}
-                                    className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
+                                    className={TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS}
                                   >
                                     Duplicate
                                   </PrimaryButton>
@@ -12775,7 +12750,7 @@ export default function Home() {
                                         label: item.moment.trim() || "this moment",
                                       })
                                     }
-                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40"
+                                    className={TIMELINE_CARD_MOBILE_ACTION_BTN_DELETE_CLASS}
                                   >
                                     Delete
                                   </button>
@@ -12787,18 +12762,18 @@ export default function Home() {
                       )}
                       {rowExpanded && (
                         <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
                             <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
                               Edit moment
                             </p>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
+                            <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
                               {canEditTimeline ? (
                                 <>
                                   <PrimaryButton
                                     type="button"
                                     onClick={() => duplicateCeremonyTimelineItem(item)}
                                     disabled={!canEditTimeline}
-                                    className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                                    className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
                                   >
                                     Duplicate
                                   </PrimaryButton>
@@ -12811,7 +12786,7 @@ export default function Home() {
                                         label: item.moment.trim() || "this moment",
                                       })
                                     }
-                                    className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 md:min-h-11 md:px-4 md:py-2.5 md:text-sm"
+                                    className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
                                   >
                                     Delete
                                   </button>
@@ -12819,6 +12794,7 @@ export default function Home() {
                               ) : null}
                             </div>
                           </div>
+                          <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                             <TextInput
                               id={`ceremony-inline-time-${item.id}`}
@@ -12843,7 +12819,7 @@ export default function Home() {
                               disabled={!canEditTimeline}
                             />
                           </div>
-                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                             <TextInput
                               id={`ceremony-inline-song-${item.id}`}
                               label="Song title"
@@ -12889,7 +12865,7 @@ export default function Home() {
                               )
                             }
                             disabled={!canEditTimeline}
-                            className={`mt-3 w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:mt-4 md:py-3 md:text-[13px] ${cerNeedsMc
+                            className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${cerNeedsMc
                               ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
                               : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                               }`}
@@ -12898,14 +12874,15 @@ export default function Home() {
                               ? "DJ/MC attention: On"
                               : "Flag DJ/MC attention"}
                           </PrimaryButton>
-                          <div className="mt-5 flex flex-col items-stretch gap-2 border-t border-stone-200/80 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:mt-6 md:pt-5">
+                          <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
                             <PrimaryButton
                               type="button"
                               onClick={() => closeCeremonyTimelineCardExpanded()}
-                              className="min-h-12 w-full rounded-lg border border-black bg-[#00D4FF] px-6 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem] md:min-h-11 md:py-2.5"
+                              className={TIMELINE_CARD_EDIT_DONE_BTN_CLASS}
                             >
                               Done
                             </PrimaryButton>
+                          </div>
                           </div>
                         </div>
                       )}
@@ -12931,7 +12908,7 @@ export default function Home() {
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
+                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${rowExpanded ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                           disabled={!canEditTimeline}
                           aria-label={`Drag to reorder ${item.moment}`}
                         >
@@ -12943,22 +12920,13 @@ export default function Home() {
                             </span>
                           </span>
                         </button>
-                        <div
-                          className={`flex w-full flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:w-auto sm:justify-end ${!rowExpanded ? "max-md:hidden" : ""}`}
-                        >
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => duplicateCeremonyTimelineItem(item)}
-                            disabled={!canEditTimeline}
-                            className="min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10 sm:w-auto sm:py-2 sm:text-[11px] md:text-[13px]"
-                          >
-                            Duplicate
-                          </PrimaryButton>
+                        <div className={TIMELINE_CARD_FOOTER_ACTIONS_CLASS}>
+                          <TimelineCardPositionIndicator
+                            index={index}
+                            total={ceremonyTimelineItems.length}
+                          />
                         </div>
                       </div>
-                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-600 md:text-xs md:tracking-wide lg:mt-0 lg:text-[10px] lg:text-stone-500">
-                        {index + 1} / {ceremonyTimelineItems.length}
-                      </p>
                     </PremiumCard>
                     {ceremonyTimelineInsertAfterId === item.id ? (
                       <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
@@ -13085,22 +13053,18 @@ export default function Home() {
           appMode === "event" &&
           (showReceptionOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
             <section
-              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-2" : ""}`}
+              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-0" : ""}`}
             >
               {showUnifiedTimelineWorkspace ? (
                 <>
-                  <div className="mx-4 border-t border-stone-200/90 sm:mx-5" aria-hidden />
-                  <div ref={timelineSectionReceptionRef} className="scroll-mt-2">
+                  <div className="scroll-mt-6 mt-4 border-t border-stone-200/90 sm:mt-5">
                     <TimelinePhaseSectionHeader
                       id="timeline-section-reception"
-                      phaseLabel="Phase 2"
                       title={
                         eventPrepReceptionHeading === "Reception Timeline"
                           ? "Reception"
                           : eventPrepReceptionHeading
                       }
-                      momentCount={mergedTimelineItems.length}
-                      hint="Cocktail hour through last dance"
                       onAdd={openReceptionTimelineComposerAtTop}
                       addLabel="+ Reception moment"
                       addDisabled={!canEditTimeline}
@@ -13344,7 +13308,14 @@ export default function Home() {
                 </div>
               ) : null}
 
-              <div ref={timelineStreamRef} className={showUnifiedTimelineWorkspace ? TIMELINE_STREAM_UNIFIED_CLASS : TIMELINE_STREAM_CLASS}>
+              <div
+                ref={timelineStreamRef}
+                className={
+                  showUnifiedTimelineWorkspace
+                    ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
+                    : TIMELINE_STREAM_CLASS
+                }
+              >
                 {mergedTimelineItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
@@ -13438,23 +13409,18 @@ export default function Home() {
                         {!rowExpanded && (
                           <>
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                              <div className="min-w-0 flex-1 space-y-2 lg:max-w-[40rem] xl:max-w-[42rem]">
-                                <p className={TIMELINE_CARD_TIME_CLASS}>
-                                  {item.time?.trim() || "—"}
-                                </p>
-                                <h3 className={TIMELINE_CARD_TITLE_CLASS}>{item.title}</h3>
-                                <p className={TIMELINE_CARD_CUE_CLASS}>
-                                  <span className="font-medium text-stone-400">{cueKind}</span>
-                                  <span className="mx-1.5 text-stone-300" aria-hidden>
-                                    ·
-                                  </span>
-                                  {songPreview}
-                                </p>
+                              <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
+                                <TimelineMomentHeadline timeLabel={item.time ?? ""} title={item.title} />
+                                <TimelineSongCueLine
+                                  kind={cueKind}
+                                  preview={songPreview}
+                                  hasSong={Boolean(songArtistCompact)}
+                                />
                                 {item.notes?.trim() ? (
                                   <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
                                 ) : null}
                               </div>
-                              <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 border-t border-stone-200/80 pt-3 md:pt-3 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5">
+                              <div className={TIMELINE_CARD_ACTION_RAIL_CLASS}>
                                 <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                                   <span
                                     className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px] ${item.category === "Formalities"
@@ -13470,14 +13436,14 @@ export default function Home() {
                                     </span>
                                   ) : null}
                                 </div>
-                                <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-1.5">
+                                <div className={TIMELINE_CARD_ACTION_ROW_CLASS}>
                                   <PrimaryButton
                                     type="button"
                                     onClick={() => {
                                       if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                     }}
                                     disabled={!canEditTimeline}
-                                    className="min-h-12 flex-1 rounded-lg border border-stone-500 bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none sm:px-4 md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                    className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
                                   >
                                     Edit
                                   </PrimaryButton>
@@ -13485,7 +13451,7 @@ export default function Home() {
                                     type="button"
                                     onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
                                     disabled={!canEditTimeline}
-                                    className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                    className={TIMELINE_CARD_ACTION_BTN_CLASS}
                                   >
                                     + After
                                   </PrimaryButton>
@@ -13496,7 +13462,7 @@ export default function Home() {
                                       if (row) duplicateTimelineItem(row);
                                     }}
                                     disabled={!canEditTimeline}
-                                    className="min-h-12 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:py-2 sm:text-[12px] sm:flex-none md:min-h-11 md:py-2.5 md:text-[13px] lg:min-h-8 lg:w-auto lg:flex-initial lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:px-3 xl:text-xs"
+                                    className={TIMELINE_CARD_ACTION_BTN_CLASS}
                                   >
                                     Duplicate
                                   </PrimaryButton>
@@ -13510,7 +13476,7 @@ export default function Home() {
                                           label: item.title.trim() || "this moment",
                                         })
                                       }
-                                      className="min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-8 lg:w-auto lg:shrink-0 lg:px-2.5 lg:py-1.5 lg:text-[11px] xl:text-xs"
+                                      className={TIMELINE_CARD_ACTION_BTN_DELETE_CLASS}
                                     >
                                       Delete
                                     </button>
@@ -13519,7 +13485,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            <div className="flex flex-col gap-2 md:hidden">
+                            <div className="flex flex-col gap-2.5 md:hidden">
                               <div
                                 role="button"
                                 tabIndex={canEditTimeline ? 0 : -1}
@@ -13534,19 +13500,18 @@ export default function Home() {
                                     if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                   }
                                 }}
-                                className={`touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3 py-3 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2 ${canEditTimeline
+                                className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                   ? "cursor-pointer active:scale-[0.995]"
                                   : "cursor-default opacity-80"
                                   }`}
                               >
                                 <div className="flex items-start justify-between gap-2.5">
-                                  <div className="min-w-0 flex-1 space-y-1">
-                                    <p className={TIMELINE_CARD_TIME_CLASS}>
-                                      {item.time?.trim() || "—"}
-                                    </p>
-                                    <h3 className={`${TIMELINE_CARD_TITLE_CLASS} text-[1.05rem]`}>
-                                      {item.title}
-                                    </h3>
+                                  <div className="min-w-0 flex-1">
+                                    <TimelineMomentHeadline
+                                      timeLabel={item.time ?? ""}
+                                      title={item.title}
+                                      titleClassName="text-[1.05rem]"
+                                    />
                                   </div>
                                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                                     <span
@@ -13565,16 +13530,15 @@ export default function Home() {
                                   </div>
                                 </div>
                                 {songArtistCompact ? (
-                                  <p className={`mt-2.5 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}>
-                                    <span className="font-medium text-stone-400">{cueKind}</span>
-                                    <span className="mx-1.5 text-stone-300" aria-hidden>
-                                      ·
-                                    </span>
-                                    {songArtistCompact}
-                                  </p>
+                                  <TimelineSongCueLine
+                                    kind={cueKind}
+                                    preview={songArtistCompact}
+                                    hasSong
+                                    className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
+                                  />
                                 ) : null}
                                 {item.notes?.trim() ? (
-                                  <p className={`mt-2.5 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3 border-none pt-0`}>
+                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
                                     {item.notes.trim()}
                                   </p>
                                 ) : null}
@@ -13586,14 +13550,14 @@ export default function Home() {
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                                 )}
                               </div>
-                              <div className="grid grid-cols-2 gap-1.5">
+                              <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => {
                                     if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                   }}
                                   disabled={!canEditTimeline}
-                                  className={`min-h-10 min-w-0 rounded-lg border border-stone-400 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 ${!canEditTimeline ? "col-span-2" : ""}`}
+                                  className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                                 >
                                   Expand
                                 </PrimaryButton>
@@ -13603,7 +13567,7 @@ export default function Home() {
                                       type="button"
                                       onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
                                       disabled={!canEditTimeline}
-                                      className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45"
+                                      className={TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS}
                                     >
                                       + After
                                     </PrimaryButton>
@@ -13614,7 +13578,7 @@ export default function Home() {
                                         if (row) duplicateTimelineItem(row);
                                       }}
                                       disabled={!canEditTimeline}
-                                      className="min-h-10 min-w-0 rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:bg-stone-50 disabled:opacity-45"
+                                      className={TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS}
                                     >
                                       Duplicate
                                     </PrimaryButton>
@@ -13627,7 +13591,7 @@ export default function Home() {
                                           label: item.title.trim() || "this moment",
                                         })
                                       }
-                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40"
+                                      className={TIMELINE_CARD_MOBILE_ACTION_BTN_DELETE_CLASS}
                                     >
                                       Delete
                                     </button>
@@ -13639,11 +13603,11 @@ export default function Home() {
                         )}
                         {rowExpanded && (
                           <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3 md:mb-5 md:gap-3 md:pb-4">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
                               <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
                                 Edit moment
                               </p>
-                              <div className="flex flex-wrap items-center justify-end gap-2">
+                              <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
                                 {canEditTimeline ? (
                                   <>
                                     <PrimaryButton
@@ -13653,7 +13617,7 @@ export default function Home() {
                                         if (row) duplicateTimelineItem(row);
                                       }}
                                       disabled={!canEditTimeline}
-                                      className="min-h-10 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:text-[13px]"
+                                      className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
                                     >
                                       Duplicate
                                     </PrimaryButton>
@@ -13666,7 +13630,7 @@ export default function Home() {
                                           label: item.title.trim() || "this moment",
                                         })
                                       }
-                                      className="min-h-10 touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3 py-2 text-[12px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90"
+                                      className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
                                     >
                                       Delete
                                     </button>
@@ -13675,7 +13639,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            <div className="space-y-2 md:space-y-3.5">
+                            <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
                               <TextInput
                                 id={`timeline-inline-title-${item.id}`}
                                 label="Moment"
@@ -13811,11 +13775,11 @@ export default function Home() {
                                   </div>
                                 </div>
                               </details>
-                              <div className="mt-5 flex flex-col items-stretch gap-2 border-t border-stone-200/80 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3 md:mt-6 md:pt-5">
+                              <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => closeReceptionTimelineCardExpanded()}
-                                  className="min-h-12 w-full rounded-lg border border-black bg-[#00D4FF] px-6 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem] md:min-h-11 md:py-2.5"
+                                  className={TIMELINE_CARD_EDIT_DONE_BTN_CLASS}
                                 >
                                   Done
                                 </PrimaryButton>
@@ -13845,7 +13809,7 @@ export default function Home() {
                               touchDragTimelineSourceRef.current = item.id;
                               setDraggingTimelineId(item.id);
                             }}
-                            className={`${TIMELINE_DRAG_HANDLE_CLASS} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
+                            className={`${TIMELINE_DRAG_HANDLE_CLASS} ${rowExpanded ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                             disabled={!canEditTimeline}
                             aria-label={`Drag to reorder ${item.title}`}
                           >
@@ -13857,9 +13821,10 @@ export default function Home() {
                               </span>
                             </span>
                           </button>
-                          <p className="shrink-0 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-700 sm:text-left sm:text-[10px] sm:font-medium sm:text-stone-600 md:text-xs md:font-semibold md:tracking-wide lg:text-[10px] lg:font-medium lg:tabular-nums lg:text-stone-500 xl:text-[11px]">
-                            {index + 1} / {mergedTimelineItems.length}
-                          </p>
+                          <TimelineCardPositionIndicator
+                            index={index}
+                            total={mergedTimelineItems.length}
+                          />
                         </div>
                       </PremiumCard>
                       {timelineInsertAfterId === item.id ? (
