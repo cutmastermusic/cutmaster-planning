@@ -29,6 +29,8 @@ type BottomNavProps = {
   onSelect: (screen: Screen) => void;
 };
 
+export { EventNavSegmented } from "./event-nav-segmented";
+
 type PremiumCardProps = {
   children: ReactNode;
   className?: string;
@@ -605,7 +607,7 @@ export function PersistMobileChip({
   const isActive = persistFeedback.phase !== "idle";
   return (
     <div
-      className={`no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:hidden ${className}`.trim()}
+      className={`no-print pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 md:hidden ${className}`.trim()}
       style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
     >
       <span
@@ -673,15 +675,18 @@ export function AppHeader({
 
 export function BottomNav({ items, activeScreen, onSelect }: BottomNavProps) {
   return (
-    <nav className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-lg border-t border-stone-300 bg-white px-2 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 shadow-none lg:hidden">
-      <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-1 pl-0.5 pr-2 pt-0.5 no-scrollbar">
+    <nav
+      aria-label="Event navigation"
+      className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-stone-200/90 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 backdrop-blur-sm supports-[backdrop-filter]:bg-white/90 md:hidden"
+    >
+      <ul className="flex gap-1.5 overflow-x-auto overscroll-x-contain px-3 no-scrollbar">
         {items.map((item) => (
-          <li key={item.screen} className="snap-start shrink-0">
+          <li key={item.screen} className="shrink-0">
             <PrimaryButton
               onClick={() => onSelect(item.screen)}
-              className={`min-h-[3.25rem] min-w-[96px] touch-manipulation px-3.5 ${
+              className={`min-h-10 touch-manipulation px-3 py-2 text-[12px] leading-tight ${
                 activeScreen === item.screen
-                  ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
+                  ? "border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
                   : "border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
               }`}
             >

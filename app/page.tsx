@@ -28,6 +28,7 @@ import {
   replaceMainTimelineItemsGuarded as replaceMainTimelineItems,
   replaceCeremonyTimelineItemsGuarded as replaceCeremonyTimelineItems,
   replaceEventSongsGuarded as replaceEventSongs,
+  updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
 import {
   EVENT_STATUSES,
@@ -51,6 +52,7 @@ import {
   BottomNav,
   cmAppShellClass,
   EventHomeNav,
+  EventNavSegmented,
   InsightStack,
   PersistEcho,
   PersistMobileChip,
@@ -204,9 +206,30 @@ import {
   buildNewWeddingCeremonyTimelineItems,
   buildNewWeddingMainTimelineItems,
 } from "@/lib/weddingDefaultTimelineMoments";
-import { EventHeroCover } from "@/components/event-hero-cover";
 import {
-  redrawRunOfShowAnnotationCanvas,
+  isGrandEntranceTimelineItem,
+  mergeGrandEntranceDbIntoPlanningAnswers,
+  mergeGrandEntranceDetailIntoAnswers,
+  readGrandEntranceDetail,
+} from "@/lib/grandEntranceDetail";
+import {
+  buildRunOfShowDoneKeysFromTimeline,
+  mergeLocalRunOfShowDoneKeysIntoTimeline,
+  readLocalRunOfShowDoneKeysForEvent,
+  RUN_OF_SHOW_DONE_STORAGE_KEY,
+} from "@/lib/runOfShowDone";
+import { EventHeroCover } from "@/components/event-hero-cover";
+import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
+import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
+import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
+import {
+  appendRunOfShowStrokePoint,
+  ensureRunOfShowAnnotationCanvas,
+  paintRunOfShowInkIncrement,
+  redrawRunOfShowCommittedStrokes,
+  RUN_OF_SHOW_ANNOTATION_ENABLED,
+  runOfShowAnnotationAcceptsPointer,
+  runOfShowAnnotationStrokeWidth,
   runOfShowClientToContentCoords,
   type RunOfShowAnnotationStroke,
 } from "@/lib/runOfShowAnnotations";
@@ -1674,6 +1697,47 @@ function mergeHydratedEventsPreservingPlaylists(
   });
 }
 
+/** Keep browser-local Grand Entrance detail until the event has DB-backed values. */
+function mergeHydratedEventsPreservingGrandEntranceDetail(
+  priorEvents: EventRecord[],
+  hydratedEvents: EventRecord[],
+): EventRecord[] {
+  const priorMap = new Map(priorEvents.map((e) => [e.id, e]));
+  return hydratedEvents.map((hydrated) => {
+    const prior = priorMap.get(hydrated.id);
+    if (!prior?.settings) return hydrated;
+
+    const hydratedDetail = readGrandEntranceDetail(
+      hydrated.settings?.planningQuestionAnswers ?? {},
+      "",
+    );
+    const hasDbBackedDetail = Boolean(
+      hydratedDetail.script || hydratedDetail.lineup || hydratedDetail.coupleEntrance,
+    );
+    if (hasDbBackedDetail) return hydrated;
+
+    const priorDetail = readGrandEntranceDetail(
+      prior.settings?.planningQuestionAnswers ?? {},
+      prior.settings?.coupleNames ?? prior.meta?.couple ?? "",
+    );
+    const hasPriorDetail = Boolean(
+      priorDetail.script || priorDetail.lineup || priorDetail.coupleEntrance,
+    );
+    if (!hasPriorDetail) return hydrated;
+
+    return {
+      ...hydrated,
+      settings: {
+        ...hydrated.settings,
+        planningQuestionAnswers: mergeGrandEntranceDetailIntoAnswers(
+          hydrated.settings?.planningQuestionAnswers ?? {},
+          priorDetail,
+        ),
+      },
+    };
+  });
+}
+
 function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
   if (role === "Admin") {
     return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
@@ -1906,6 +1970,8 @@ const TIMELINE_CARD_NOTES_CLASS =
   "line-clamp-2 mt-1 text-[11px] leading-snug text-stone-500 [overflow-wrap:anywhere] md:mt-1.5 md:text-xs";
 const TIMELINE_CARD_FOOTER_CLASS =
   "mt-4 flex flex-col gap-2.5 border-t border-stone-200/90 pt-3.5 max-md:mt-3.5 max-md:gap-2 max-md:pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3.5 lg:flex-nowrap lg:gap-2.5 lg:pt-3";
+const GRAND_ENTRANCE_DETAIL_BTN_CLASS =
+  "min-h-11 touch-manipulation rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-stone-800 shadow-sm transition hover:border-stone-400 hover:bg-stone-50 md:text-sm";
 const TIMELINE_CARD_POSITION_CLASS =
   "shrink-0 self-end text-right text-[10px] font-medium tabular-nums uppercase tracking-wide text-stone-500";
 const TIMELINE_CARD_ACTION_RAIL_CLASS =
@@ -2070,6 +2136,10 @@ export default function Home() {
   const [ceremonyTimelineItems, setCeremonyTimelineItems] = useState<CeremonyTimelineItem[]>(
     initialCeremonyTimelineItems,
   );
+  const runOfShowDoneKeys = useMemo(
+    () => buildRunOfShowDoneKeysFromTimeline(ceremonyTimelineItems, timelineItems),
+    [ceremonyTimelineItems, timelineItems],
+  );
   const [timelineTitle, setTimelineTitle] = useState("");
   const [timelineTime, setTimelineTime] = useState("");
   const [timelineCategory, setTimelineCategory] =
@@ -2111,8 +2181,34 @@ export default function Home() {
   /** Event Document: distraction-free live execution view (same timeline order as packet). */
   const [runOfShowOpen, setRunOfShowOpen] = useState(false);
   const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
-  /** Live execution only: per-moment done flags (localStorage), never synced to planning timeline. */
-  const [runOfShowDoneKeys, setRunOfShowDoneKeys] = useState<Set<string>>(() => new Set());
+  /** Per-card operational notes in Run Of Show (`c:{id}` / `r:{id}`), local to device. */
+  const [runOfShowCardNotes, setRunOfShowCardNotes] = useState<Record<string, string>>({});
+  const [runOfShowCardNoteEditor, setRunOfShowCardNoteEditor] = useState<{
+    cardKey: string;
+    cardLabel: string;
+    cardSubline?: string;
+  } | null>(null);
+  const [runOfShowCardNoteEditorDraft, setRunOfShowCardNoteEditorDraft] = useState("");
+  const [runOfShowCardNoteEditorSavedValue, setRunOfShowCardNoteEditorSavedValue] = useState("");
+  const [grandEntranceDetailEditor, setGrandEntranceDetailEditor] = useState<{
+    itemId: string;
+    title: string;
+    subline?: string;
+    songLabel?: string;
+  } | null>(null);
+  const [grandEntranceDetailDraft, setGrandEntranceDetailDraft] = useState<GrandEntranceDetailDraft>({
+    script: "",
+    lineup: "",
+    coupleEntrance: "",
+    sideNote: "",
+  });
+  const [grandEntranceDetailSavedDraft, setGrandEntranceDetailSavedDraft] =
+    useState<GrandEntranceDetailDraft>({
+      script: "",
+      lineup: "",
+      coupleEntrance: "",
+      sideNote: "",
+    });
   /**
    * Sections that are still all-done but the operator chose to expand again (prevents immediate
    * re-collapse until at least one moment in that section is marked not done).
@@ -2128,11 +2224,16 @@ export default function Home() {
   const [runOfShowAnnotationStrokes, setRunOfShowAnnotationStrokes] = useState<RunOfShowAnnotationStroke[]>([]);
   const [runOfShowAnnotationCanvasSize, setRunOfShowAnnotationCanvasSize] = useState({ w: 0, h: 0 });
   const runOfShowAnnotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const runOfShowAnnotationInProgressRef = useRef<{ x: number; y: number }[] | null>(null);
+  const runOfShowAnnotationInProgressRef = useRef<{
+    points: { x: number; y: number }[];
+    width: number;
+  } | null>(null);
   const runOfShowAnnotationStrokesRef = useRef<RunOfShowAnnotationStroke[]>([]);
   const runOfShowAnnotationCanvasSizeRef = useRef({ w: 0, h: 0 });
   const runOfShowAnnotationPersistTimerRef = useRef<number | null>(null);
   const runOfShowAnnotationPointerRafRef = useRef<number | null>(null);
+  const runOfShowAnnotationPaintedPointCountRef = useRef(0);
+  const runOfShowCardNotesPersistTimerRef = useRef<number | null>(null);
   runOfShowAnnotationStrokesRef.current = runOfShowAnnotationStrokes;
   runOfShowAnnotationCanvasSizeRef.current = runOfShowAnnotationCanvasSize;
   const [weddingPartyProcessional, setWeddingPartyProcessional] = useState<CeremonySongPlan>(
@@ -2548,6 +2649,26 @@ export default function Home() {
     [],
   );
 
+  const persistRunOfShowTimelineFlags = useCallback(
+    async (mainItems: TimelineItem[], ceremonyItems: CeremonyTimelineItem[]) => {
+      if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
+      const result = await persistTimelinesToDatabase(activeEventId, mainItems, ceremonyItems);
+      if (!result.ok) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+                ...evt,
+                timelineItems: cloneJson(mainItems),
+                ceremonyTimelineItems: cloneJson(ceremonyItems),
+              }
+            : evt,
+        ),
+      );
+    },
+    [activeEventId, persistTimelinesToDatabase],
+  );
+
   const persistSongsToDatabase = useCallback(
     async (
       eventId: string,
@@ -2769,8 +2890,33 @@ export default function Home() {
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
     const normalized = normalizeEventRecordAfterFormalitiesMerge(evt);
-    setTimelineItems(cloneJson(normalized.timelineItems));
-    setCeremonyTimelineItems(cloneJson(normalized.ceremonyTimelineItems ?? []));
+    let nextTimelineItems = cloneJson(normalized.timelineItems);
+    let nextCeremonyTimelineItems = cloneJson(normalized.ceremonyTimelineItems ?? []);
+    const hasDbRunOfShowDone =
+      nextTimelineItems.some((item) => item.runOfShowDone) ||
+      nextCeremonyTimelineItems.some((item) => item.runOfShowDone);
+    if (!hasDbRunOfShowDone) {
+      const localDoneKeys = readLocalRunOfShowDoneKeysForEvent(
+        RUN_OF_SHOW_DONE_STORAGE_KEY,
+        evt.id,
+      );
+      if (localDoneKeys.length > 0) {
+        const merged = mergeLocalRunOfShowDoneKeysIntoTimeline(
+          nextCeremonyTimelineItems,
+          nextTimelineItems,
+          localDoneKeys,
+        );
+        nextCeremonyTimelineItems = merged.ceremonyItems;
+        nextTimelineItems = merged.receptionItems;
+        if (merged.changed && databaseEventIdsRef.current.has(evt.id)) {
+          queueMicrotask(() => {
+            void persistRunOfShowTimelineFlags(nextTimelineItems, nextCeremonyTimelineItems);
+          });
+        }
+      }
+    }
+    setTimelineItems(nextTimelineItems);
+    setCeremonyTimelineItems(nextCeremonyTimelineItems);
     setMustPlaySongs(cloneJson(normalized.mustPlaySongs));
     setDoNotPlaySongs(cloneJson(normalized.doNotPlaySongs));
     setPlayIfPossibleSongs(cloneJson(normalized.playIfPossibleSongs ?? []));
@@ -3910,9 +4056,6 @@ export default function Home() {
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
   /** Reception Hub entry when the reception/main timeline is enabled (couple-friendly). */
   const receptionHubEligibleNav = sectionReceptionTimelineEnabled;
-  const showDesktopSidebar =
-    authStage === "app" &&
-    (effectiveRole === "Admin" || effectiveRole === "DJ");
   const acceptedCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Accepted") ?? [];
   const pendingCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Pending") ?? [];
 
@@ -6293,6 +6436,12 @@ export default function Home() {
             eventStatus: normalizeEventStatus(dbEvent.eventStatus),
           };
 
+          seededEvent.settings.planningQuestionAnswers =
+            mergeGrandEntranceDbIntoPlanningAnswers(
+              seededEvent.settings.planningQuestionAnswers ?? {},
+              dbEvent,
+            );
+
           seededEvent.meta = {
             couple: dbEvent.title,
             date: dbEvent.date
@@ -6392,7 +6541,10 @@ export default function Home() {
         });
 
         setEvents((prev) => {
-          const merged = mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents);
+          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(
+            prev,
+            mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents),
+          );
           lastMergedHydratedEventsRef.current = merged;
           return merged;
         });
@@ -6455,8 +6607,8 @@ export default function Home() {
 
   const EVENTS_STORAGE_KEY = "cutmaster_planning_events_v1";
   const GLOBAL_SETTINGS_STORAGE_KEY = "cutmaster_planning_global_settings_v1";
-  const RUN_OF_SHOW_DONE_STORAGE_KEY = "cutmaster_run_of_show_done_v1";
   const RUN_OF_SHOW_SECTION_UI_STORAGE_KEY = "cutmaster_run_of_show_section_ui_v1";
+  const RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY = "cutmaster_run_of_show_card_notes_v1";
   const RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY = "cutmaster_run_of_show_annotations_v1";
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -8156,10 +8308,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!runOfShowOverlayActive) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.classList.add("cm-ros-scroll-lock");
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("cm-ros-scroll-lock");
     };
   }, [runOfShowOverlayActive]);
 
@@ -8810,14 +8961,34 @@ export default function Home() {
     [persistPhase, persistBaseline],
   );
 
+  const closeGrandEntranceDetailEditor = useCallback(() => {
+    setGrandEntranceDetailEditor(null);
+    setGrandEntranceDetailDraft({
+      script: "",
+      lineup: "",
+      coupleEntrance: "",
+      sideNote: "",
+    });
+    setGrandEntranceDetailSavedDraft({
+      script: "",
+      lineup: "",
+      coupleEntrance: "",
+      sideNote: "",
+    });
+  }, []);
+
   const closeRunOfShow = useCallback(() => {
     setRunOfShowOpen(false);
     setRunOfShowAnnotateMode(false);
+    setRunOfShowCardNoteEditor(null);
+    setRunOfShowCardNoteEditorDraft("");
+    setRunOfShowCardNoteEditorSavedValue("");
+    closeGrandEntranceDetailEditor();
     runOfShowAnnotationInProgressRef.current = null;
     if (typeof document !== "undefined" && document.fullscreenElement) {
       void document.exitFullscreen();
     }
-  }, []);
+  }, [closeGrandEntranceDetailEditor]);
 
   const scrollRunOfShowToUpNext = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -8833,21 +9004,6 @@ export default function Home() {
     });
   }, []);
 
-  const persistRunOfShowDoneKeys = useCallback(
-    (next: Set<string>) => {
-      if (typeof window === "undefined" || !activeEventId) return;
-      try {
-        const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
-        const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-        map[activeEventId] = [...next];
-        window.localStorage.setItem(RUN_OF_SHOW_DONE_STORAGE_KEY, JSON.stringify(map));
-      } catch {
-        /* ignore corrupt storage */
-      }
-    },
-    [activeEventId],
-  );
-
   const persistRunOfShowSectionUi = useCallback(
     (expandedWhileComplete: Set<string>) => {
       if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
@@ -8862,6 +9018,164 @@ export default function Home() {
     },
     [activeEventId, hasHydrated],
   );
+
+  const persistRunOfShowCardNotes = useCallback(
+    (notes: Record<string, string>) => {
+      if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY);
+        const map = raw ? (JSON.parse(raw) as Record<string, Record<string, string>>) : {};
+        const cleaned: Record<string, string> = {};
+        for (const [key, value] of Object.entries(notes)) {
+          if (value.trim()) cleaned[key] = value;
+        }
+        map[activeEventId] = cleaned;
+        window.localStorage.setItem(RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        /* ignore quota / corrupt storage */
+      }
+    },
+    [activeEventId, hasHydrated],
+  );
+
+  const setRunOfShowCardNote = useCallback(
+    (cardKey: string, value: string) => {
+      setRunOfShowCardNotes((prev) => {
+        const next = { ...prev, [cardKey]: value };
+        if (!value.trim()) delete next[cardKey];
+        if (runOfShowCardNotesPersistTimerRef.current != null) {
+          window.clearTimeout(runOfShowCardNotesPersistTimerRef.current);
+          runOfShowCardNotesPersistTimerRef.current = null;
+        }
+        if (!value.trim()) {
+          persistRunOfShowCardNotes(next);
+        } else {
+          runOfShowCardNotesPersistTimerRef.current = window.setTimeout(() => {
+            persistRunOfShowCardNotes(next);
+            runOfShowCardNotesPersistTimerRef.current = null;
+          }, 400);
+        }
+        return next;
+      });
+    },
+    [persistRunOfShowCardNotes],
+  );
+
+  const openGrandEntranceDetail = useCallback(
+    (item: {
+      id: string;
+      title: string;
+      time?: string;
+      category?: string;
+      songTitle?: string;
+      artist?: string;
+    }) => {
+      const coupleDefault =
+        eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
+      const detail = readGrandEntranceDetail(
+        eventSettings.planningQuestionAnswers ?? {},
+        coupleDefault,
+      );
+      const doneKey = `r:${item.id}`;
+      const draft: GrandEntranceDetailDraft = {
+        ...detail,
+        sideNote: runOfShowCardNotes[doneKey] ?? "",
+      };
+      const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
+        .filter(Boolean)
+        .join(" - ");
+      const subline = [item.time?.trim(), item.category].filter(Boolean).join(" · ");
+      setGrandEntranceDetailEditor({
+        itemId: item.id,
+        title: item.title,
+        subline: subline || undefined,
+        songLabel: songLabel || undefined,
+      });
+      setGrandEntranceDetailDraft(draft);
+      setGrandEntranceDetailSavedDraft(draft);
+    },
+    [
+      eventSettings.planningQuestionAnswers,
+      eventSettings.coupleNames,
+      weddingDetails.couple,
+      runOfShowCardNotes,
+    ],
+  );
+
+  const doneGrandEntranceDetail = useCallback(async () => {
+    if (!grandEntranceDetailEditor) return;
+    const { script, lineup, coupleEntrance, sideNote } = grandEntranceDetailDraft;
+    const mergedAnswers = mergeGrandEntranceDetailIntoAnswers(
+      eventSettings.planningQuestionAnswers ?? {},
+      { script, lineup, coupleEntrance },
+    );
+    setEventSettings((prev) => ({
+      ...prev,
+      planningQuestionAnswers: mergedAnswers,
+    }));
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              settings: {
+                ...evt.settings,
+                planningQuestionAnswers: mergedAnswers,
+              },
+            }
+          : evt,
+      ),
+    );
+    setRunOfShowCardNote(`r:${grandEntranceDetailEditor.itemId}`, sideNote);
+    closeGrandEntranceDetailEditor();
+    if (databaseEventIdsRef.current.has(activeEventId)) {
+      try {
+        await updateGrandEntranceDetail(activeEventId, {
+          script,
+          lineup,
+          coupleEntrance,
+        });
+      } catch (error) {
+        console.error("Failed to persist Grand Entrance detail to database:", error);
+      }
+    }
+  }, [
+    grandEntranceDetailEditor,
+    grandEntranceDetailDraft,
+    eventSettings.planningQuestionAnswers,
+    activeEventId,
+    setRunOfShowCardNote,
+    closeGrandEntranceDetailEditor,
+  ]);
+
+  const openRunOfShowCardNoteEditor = useCallback(
+    (cardKey: string, cardLabel: string, cardSubline?: string) => {
+      const saved = runOfShowCardNotes[cardKey] ?? "";
+      setRunOfShowCardNoteEditor({ cardKey, cardLabel, cardSubline });
+      setRunOfShowCardNoteEditorSavedValue(saved);
+      setRunOfShowCardNoteEditorDraft(saved);
+    },
+    [runOfShowCardNotes],
+  );
+
+  const cancelRunOfShowCardNoteEditor = useCallback(() => {
+    setRunOfShowCardNoteEditor(null);
+    setRunOfShowCardNoteEditorDraft("");
+    setRunOfShowCardNoteEditorSavedValue("");
+  }, []);
+
+  const doneRunOfShowCardNoteEditor = useCallback(() => {
+    if (runOfShowCardNoteEditor) {
+      setRunOfShowCardNote(runOfShowCardNoteEditor.cardKey, runOfShowCardNoteEditorDraft);
+    }
+    setRunOfShowCardNoteEditor(null);
+    setRunOfShowCardNoteEditorDraft("");
+    setRunOfShowCardNoteEditorSavedValue("");
+  }, [runOfShowCardNoteEditor, runOfShowCardNoteEditorDraft, setRunOfShowCardNote]);
+
+  const clearRunOfShowCardNoteEditorDraft = useCallback(() => {
+    setRunOfShowCardNoteEditorDraft("");
+  }, []);
 
   const persistRunOfShowAnnotations = useCallback(
     (strokes: RunOfShowAnnotationStroke[]) => {
@@ -8893,15 +9207,25 @@ export default function Home() {
 
   const toggleRunOfShowDoneKey = useCallback(
     (key: string) => {
-      setRunOfShowDoneKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        persistRunOfShowDoneKeys(next);
-        return next;
-      });
+      if (key.startsWith("c:")) {
+        const itemId = key.slice(2);
+        const nextCeremony = ceremonyTimelineItems.map((item) =>
+          item.id === itemId ? { ...item, runOfShowDone: !item.runOfShowDone } : item,
+        );
+        setCeremonyTimelineItems(nextCeremony);
+        void persistRunOfShowTimelineFlags(timelineItems, nextCeremony);
+        return;
+      }
+      if (key.startsWith("r:")) {
+        const itemId = key.slice(2);
+        const nextMain = timelineItems.map((item) =>
+          item.id === itemId ? { ...item, runOfShowDone: !item.runOfShowDone } : item,
+        );
+        setTimelineItems(nextMain);
+        void persistRunOfShowTimelineFlags(nextMain, ceremonyTimelineItems);
+      }
     },
-    [persistRunOfShowDoneKeys],
+    [timelineItems, ceremonyTimelineItems, persistRunOfShowTimelineFlags],
   );
 
   const markRunOfShowSectionUserExpanded = useCallback(
@@ -8929,7 +9253,15 @@ export default function Home() {
   );
 
   const resetRunOfShowDone = useCallback(() => {
-    setRunOfShowDoneKeys(new Set());
+    const nextMain = timelineItems.map((item) =>
+      item.runOfShowDone ? { ...item, runOfShowDone: false } : item,
+    );
+    const nextCeremony = ceremonyTimelineItems.map((item) =>
+      item.runOfShowDone ? { ...item, runOfShowDone: false } : item,
+    );
+    setTimelineItems(nextMain);
+    setCeremonyTimelineItems(nextCeremony);
+    void persistRunOfShowTimelineFlags(nextMain, nextCeremony);
     setRunOfShowUserExpandedWhileCompleteIds(new Set());
     setRunOfShowAnnotationStrokes([]);
     if (typeof window === "undefined" || !activeEventId) return;
@@ -8955,7 +9287,7 @@ export default function Home() {
     } catch {
       /* ignore */
     }
-  }, [activeEventId]);
+  }, [activeEventId, ceremonyTimelineItems, persistRunOfShowTimelineFlags, timelineItems]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !hasHydrated || !activeEventId) return;
@@ -8963,14 +9295,6 @@ export default function Home() {
     const t = window.setTimeout(() => {
       if (cancelled) return;
       try {
-        const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
-        if (!raw) {
-          setRunOfShowDoneKeys(new Set());
-        } else {
-          const map = JSON.parse(raw) as Record<string, string[]>;
-          const keys = map[activeEventId];
-          setRunOfShowDoneKeys(new Set(Array.isArray(keys) ? keys : []));
-        }
         const rawSec = window.localStorage.getItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY);
         if (!rawSec) {
           setRunOfShowUserExpandedWhileCompleteIds(new Set());
@@ -8979,6 +9303,22 @@ export default function Home() {
           const row = mapSec[activeEventId];
           const expanded = row?.expandedWhileComplete;
           setRunOfShowUserExpandedWhileCompleteIds(new Set(Array.isArray(expanded) ? expanded : []));
+        }
+        const rawNotes = window.localStorage.getItem(RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY);
+        if (!rawNotes) {
+          setRunOfShowCardNotes({});
+        } else {
+          const mapNotes = JSON.parse(rawNotes) as Record<string, Record<string, string>>;
+          const notes = mapNotes[activeEventId];
+          if (notes && typeof notes === "object" && !Array.isArray(notes)) {
+            const cleaned: Record<string, string> = {};
+            for (const [key, value] of Object.entries(notes)) {
+              if (typeof value === "string" && value.trim()) cleaned[key] = value;
+            }
+            setRunOfShowCardNotes(cleaned);
+          } else {
+            setRunOfShowCardNotes({});
+          }
         }
         const rawAn = window.localStorage.getItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY);
         if (!rawAn) {
@@ -8998,8 +9338,8 @@ export default function Home() {
           );
         }
       } catch {
-        setRunOfShowDoneKeys(new Set());
         setRunOfShowUserExpandedWhileCompleteIds(new Set());
+        setRunOfShowCardNotes({});
         setRunOfShowAnnotationStrokes([]);
       }
     }, 0);
@@ -9054,6 +9394,7 @@ export default function Home() {
   useEffect(() => {
     if (!runOfShowAnnotateMode) {
       runOfShowAnnotationInProgressRef.current = null;
+      runOfShowAnnotationPaintedPointCountRef.current = 0;
     }
   }, [runOfShowAnnotateMode]);
 
@@ -9076,35 +9417,34 @@ export default function Home() {
   }, [runOfShowAnnotationStrokes, hasHydrated, activeEventId, persistRunOfShowAnnotations]);
 
   useLayoutEffect(() => {
-    if (!runOfShowOverlayActive) return;
+    if (!RUN_OF_SHOW_ANNOTATION_ENABLED || !runOfShowOverlayActive) return;
     const main = runOfShowScrollRef.current;
     if (!main) return;
     const inner = main.querySelector<HTMLElement>("[data-run-of-show-inner]");
     const measure = () => {
       const w = main.clientWidth;
       const h = Math.max(main.scrollHeight, main.clientHeight);
+      const prev = runOfShowAnnotationCanvasSizeRef.current;
+      if (prev.w === w && prev.h === h) return;
       runOfShowAnnotationCanvasSizeRef.current = { w, h };
-      setRunOfShowAnnotationCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+      setRunOfShowAnnotationCanvasSize({ w, h });
     };
     measure();
     const ro = new ResizeObserver(() => measure());
     ro.observe(main);
     if (inner) ro.observe(inner);
-    main.addEventListener("scroll", measure, { passive: true });
     return () => {
       ro.disconnect();
-      main.removeEventListener("scroll", measure);
     };
   }, [runOfShowOverlayActive]);
 
   useEffect(() => {
-    if (!runOfShowOverlayActive) return;
+    if (!RUN_OF_SHOW_ANNOTATION_ENABLED || !runOfShowOverlayActive) return;
     const canvas = runOfShowAnnotationCanvasRef.current;
     if (!canvas || runOfShowAnnotationCanvasSize.w <= 0 || runOfShowAnnotationCanvasSize.h <= 0) return;
-    redrawRunOfShowAnnotationCanvas(
+    redrawRunOfShowCommittedStrokes(
       canvas,
       runOfShowAnnotationStrokes,
-      null,
       runOfShowAnnotationCanvasSize.w,
       runOfShowAnnotationCanvasSize.h,
     );
@@ -9116,63 +9456,91 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    if (!runOfShowOverlayActive || !runOfShowAnnotateMode) return;
+    if (!RUN_OF_SHOW_ANNOTATION_ENABLED || !runOfShowOverlayActive || !runOfShowAnnotateMode) return;
     const canvas = runOfShowAnnotationCanvasRef.current;
     const main = runOfShowScrollRef.current;
     if (!canvas || !main) return;
 
-    const scheduleFlush = () => {
+    const scheduleInkFlush = () => {
       if (runOfShowAnnotationPointerRafRef.current != null) return;
       runOfShowAnnotationPointerRafRef.current = window.requestAnimationFrame(() => {
         runOfShowAnnotationPointerRafRef.current = null;
         const c = runOfShowAnnotationCanvasRef.current;
-        if (!c) return;
-        redrawRunOfShowAnnotationCanvas(
-          c,
-          runOfShowAnnotationStrokesRef.current,
-          runOfShowAnnotationInProgressRef.current,
-          runOfShowAnnotationCanvasSizeRef.current.w,
-          runOfShowAnnotationCanvasSizeRef.current.h,
+        const inProgress = runOfShowAnnotationInProgressRef.current;
+        if (!c || !inProgress) return;
+        const { w, h } = runOfShowAnnotationCanvasSizeRef.current;
+        const ctx = ensureRunOfShowAnnotationCanvas(c, w, h);
+        if (!ctx) return;
+        runOfShowAnnotationPaintedPointCountRef.current = paintRunOfShowInkIncrement(
+          ctx,
+          inProgress.points,
+          runOfShowAnnotationPaintedPointCountRef.current,
+          inProgress.width,
         );
       });
     };
 
+    const appendCoalescedPoints = (e: PointerEvent) => {
+      const stroke = runOfShowAnnotationInProgressRef.current;
+      if (!stroke) return;
+      const events =
+        typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : [e];
+      for (const ev of events) {
+        appendRunOfShowStrokePoint(
+          stroke.points,
+          runOfShowClientToContentCoords(ev.clientX, ev.clientY, main),
+        );
+      }
+    };
+
     const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.pointerType !== "mouse" && e.pointerType !== "pen" && e.pointerType !== "touch") return;
+      if (!runOfShowAnnotationAcceptsPointer(e.pointerType, e.button)) return;
       e.preventDefault();
-      runOfShowAnnotationInProgressRef.current = [
-        runOfShowClientToContentCoords(e.clientX, e.clientY, main),
-      ];
+      const { w, h } = runOfShowAnnotationCanvasSizeRef.current;
+      redrawRunOfShowCommittedStrokes(canvas, runOfShowAnnotationStrokesRef.current, w, h);
+      runOfShowAnnotationPaintedPointCountRef.current = 0;
+      runOfShowAnnotationInProgressRef.current = {
+        points: [],
+        width: runOfShowAnnotationStrokeWidth(e.pointerType, e.pressure),
+      };
+      appendCoalescedPoints(e);
+      main.style.overflow = "hidden";
       try {
         canvas.setPointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      scheduleFlush();
+      scheduleInkFlush();
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (!runOfShowAnnotationInProgressRef.current) return;
+      if (e.pointerType === "touch") return;
       if (e.cancelable) e.preventDefault();
-      runOfShowAnnotationInProgressRef.current.push(
-        runOfShowClientToContentCoords(e.clientX, e.clientY, main),
-      );
-      scheduleFlush();
+      appendCoalescedPoints(e);
+      scheduleInkFlush();
     };
 
     const finishStroke = (e: PointerEvent) => {
       const stroke = runOfShowAnnotationInProgressRef.current;
       runOfShowAnnotationInProgressRef.current = null;
+      runOfShowAnnotationPaintedPointCountRef.current = 0;
+      main.style.overflow = "";
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      if (stroke && stroke.length > 0) {
-        setRunOfShowAnnotationStrokes((prev) => [...prev, { points: stroke }]);
+      if (stroke && stroke.points.length > 0) {
+        const next: RunOfShowAnnotationStroke[] = [
+          ...runOfShowAnnotationStrokesRef.current,
+          { points: stroke.points, width: stroke.width },
+        ];
+        runOfShowAnnotationStrokesRef.current = next;
+        setRunOfShowAnnotationStrokes(next);
+        const { w, h } = runOfShowAnnotationCanvasSizeRef.current;
+        redrawRunOfShowCommittedStrokes(canvas, next, w, h);
       }
-      scheduleFlush();
     };
 
     canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
@@ -9181,6 +9549,7 @@ export default function Home() {
     canvas.addEventListener("pointercancel", finishStroke);
 
     return () => {
+      main.style.overflow = "";
       if (runOfShowAnnotationPointerRafRef.current != null) {
         window.cancelAnimationFrame(runOfShowAnnotationPointerRafRef.current);
         runOfShowAnnotationPointerRafRef.current = null;
@@ -9255,33 +9624,7 @@ export default function Home() {
 
   return (
     <div className={cmAppShellClass}>
-      {showDesktopSidebar && (
-        <aside className="no-print fixed left-5 top-5 z-30 hidden h-[calc(100vh-2.5rem)] w-60 overflow-y-auto rounded-2xl border border-stone-300 bg-white p-4 shadow-none lg:block">
-          <p className="px-2 text-[11px] uppercase tracking-[0.14em] text-stone-500">
-            {appMode === "events" ? "Workspace Mode" : "Event Mode"}
-          </p>
-          <div className="mt-3 space-y-2">
-            {currentNavItems.map((item) => (
-              <PrimaryButton
-                key={`desktop-nav-${item}`}
-                onClick={() => setActiveScreen(item)}
-                className={`w-full justify-start rounded-xl border px-3 text-left ${shellNavActiveScreen === item
-                  ? "border-black bg-[#00D4FF] font-semibold text-black shadow-none"
-                  : "border-stone-300 bg-white text-stone-800 hover:border-stone-900 hover:bg-stone-50"
-                  }`}
-              >
-                {navLabel(item)}
-              </PrimaryButton>
-            ))}
-          </div>
-        </aside>
-      )}
-      <main
-        className={`mx-auto w-full max-w-full overflow-x-hidden px-5 pb-36 pt-6 transition-all max-lg:pb-40 sm:px-6 lg:pb-10 ${showDesktopSidebar
-          ? "max-w-[1400px] lg:pl-[17.5rem] lg:pr-8"
-          : "max-w-6xl"
-          }`}
-      >
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pt-6 sm:px-6">
         <AppHeader
           screenTitle={
             appMode === "events"
@@ -9354,6 +9697,16 @@ export default function Home() {
               </div>
             </div>
           </div>
+        )}
+      </div>
+
+      <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
+        {authStage === "app" && (
+          <EventNavSegmented
+            items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
+            activeScreen={shellNavActiveScreen}
+            onSelect={setActiveScreen}
+          />
         )}
 
         {authStage === "login" && (
@@ -13370,6 +13723,7 @@ export default function Home() {
                     const isDragging = draggingTimelineId === item.id;
                     const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                     const timelineDragActive = draggingTimelineId !== null;
+                    const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
@@ -13437,6 +13791,15 @@ export default function Home() {
                                   ) : null}
                                 </div>
                                 <div className={TIMELINE_CARD_ACTION_ROW_CLASS}>
+                                  {isGrandEntrance ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openGrandEntranceDetail(item)}
+                                      className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} w-full lg:w-auto`}
+                                    >
+                                      Open Entrance Details
+                                    </button>
+                                  ) : null}
                                   <PrimaryButton
                                     type="button"
                                     onClick={() => {
@@ -13551,6 +13914,15 @@ export default function Home() {
                                 )}
                               </div>
                               <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
+                                {isGrandEntrance ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openGrandEntranceDetail(item)}
+                                    className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} col-span-2 w-full`}
+                                  >
+                                    Open Entrance Details
+                                  </button>
+                                ) : null}
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => {
@@ -16240,6 +16612,20 @@ export default function Home() {
         )}
       </main>
 
+      <GrandEntranceDetailSheet
+        open={grandEntranceDetailEditor != null}
+        title={grandEntranceDetailEditor?.title ?? "Grand Entrance"}
+        subline={grandEntranceDetailEditor?.subline}
+        songLabel={grandEntranceDetailEditor?.songLabel}
+        savedDraft={grandEntranceDetailSavedDraft}
+        draft={grandEntranceDetailDraft}
+        onChange={(patch) => setGrandEntranceDetailDraft((prev) => ({ ...prev, ...patch }))}
+        onDone={doneGrandEntranceDetail}
+        onCancel={closeGrandEntranceDetailEditor}
+        canEditDetail={canEditTimeline}
+        canEditSideNote={canAccessRunOfShow}
+      />
+
       {authStage === "app" && quickActions.length > 0 && (
         <>
           <div
@@ -17048,34 +17434,38 @@ export default function Home() {
                       </PrimaryButton>
                     </div>
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-stone-100 pt-2 sm:border-t-0 sm:pt-0 md:gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setRunOfShowAnnotateMode((v) => !v)}
-                        className={`min-h-11 shrink-0 touch-manipulation rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition md:min-h-12 md:px-4 md:text-sm ${runOfShowAnnotateMode
-                          ? "border-stone-400 bg-stone-100 text-stone-800"
-                          : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50"
-                          }`}
-                        aria-pressed={runOfShowAnnotateMode}
-                      >
-                        {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
-                      </button>
-                      {runOfShowAnnotateMode ? (
+                      {RUN_OF_SHOW_ANNOTATION_ENABLED ? (
                         <>
                           <button
                             type="button"
-                            onClick={clearRunOfShowAnnotations}
-                            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 md:min-h-12 md:px-4 md:text-sm"
+                            onClick={() => setRunOfShowAnnotateMode((v) => !v)}
+                            className={`min-h-11 shrink-0 touch-manipulation rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition md:min-h-12 md:px-4 md:text-sm ${runOfShowAnnotateMode
+                              ? "border-stone-400 bg-stone-100 text-stone-800"
+                              : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50"
+                              }`}
+                            aria-pressed={runOfShowAnnotateMode}
                           >
-                            Clear
+                            {runOfShowAnnotateMode ? "Annotating" : "Annotate"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={undoLastRunOfShowAnnotation}
-                            disabled={runOfShowAnnotationStrokes.length === 0}
-                            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 md:min-h-12 md:px-4 md:text-sm"
-                          >
-                            Undo
-                          </button>
+                          {runOfShowAnnotateMode ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={clearRunOfShowAnnotations}
+                                className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 md:min-h-12 md:px-4 md:text-sm"
+                              >
+                                Clear
+                              </button>
+                              <button
+                                type="button"
+                                onClick={undoLastRunOfShowAnnotation}
+                                disabled={runOfShowAnnotationStrokes.length === 0}
+                                className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 md:min-h-12 md:px-4 md:text-sm"
+                              >
+                                Undo
+                              </button>
+                            </>
+                          ) : null}
                         </>
                       ) : null}
                       <button
@@ -17210,7 +17600,7 @@ export default function Home() {
                               <article
                                 key={`ros-ceremony-${row.id}`}
                                 {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                className={`flex gap-4 sm:gap-5 md:gap-6 ${rowSurface}`}
+                                className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                               >
                                 <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
@@ -17271,6 +17661,20 @@ export default function Home() {
                                       {row.notes}
                                     </p>
                                   ) : null}
+                                </div>
+                                <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
+                                  <RunOfShowCardNote
+                                    value={runOfShowCardNotes[doneKey] ?? ""}
+                                    onChange={(value) => setRunOfShowCardNote(doneKey, value)}
+                                    onExpandEditor={() =>
+                                      openRunOfShowCardNoteEditor(
+                                        doneKey,
+                                        row.moment,
+                                        row.order.trim() || undefined,
+                                      )
+                                    }
+                                    done={done}
+                                  />
                                 </div>
                               </article>
                             );
@@ -17376,6 +17780,7 @@ export default function Home() {
                                     ]
                                       .filter(Boolean)
                                       .join(" · ");
+                                    const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                                     const rowSurface = done
                                       ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
@@ -17385,7 +17790,7 @@ export default function Home() {
                                       <article
                                         key={`ros-recv-${item.id}`}
                                         {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
-                                        className={`flex gap-4 sm:gap-5 md:gap-6 ${rowSurface}`}
+                                        className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                                       >
                                         <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
@@ -17457,6 +17862,35 @@ export default function Home() {
                                               {notesLabel}
                                             </p>
                                           ) : null}
+                                          {isGrandEntrance ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => openGrandEntranceDetail(item)}
+                                              className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} mt-5`}
+                                            >
+                                              Open Entrance Details
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                        <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
+                                          <RunOfShowCardNote
+                                            value={runOfShowCardNotes[doneKey] ?? ""}
+                                            onChange={(value) => setRunOfShowCardNote(doneKey, value)}
+                                            onExpandEditor={() =>
+                                              openRunOfShowCardNoteEditor(
+                                                doneKey,
+                                                item.title,
+                                                [
+                                                  item.time?.trim(),
+                                                  item.category,
+                                                  songCell || undefined,
+                                                ]
+                                                  .filter(Boolean)
+                                                  .join(" · ") || undefined,
+                                              )
+                                            }
+                                            done={done}
+                                          />
                                         </div>
                                       </article>
                                     );
@@ -17559,21 +17993,35 @@ export default function Home() {
                   </p>
                 ) : null}
               </div>
-              {(runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
+              {RUN_OF_SHOW_ANNOTATION_ENABLED &&
+                (runOfShowAnnotateMode || runOfShowAnnotationStrokes.length > 0) &&
                 runOfShowAnnotationCanvasSize.w > 0 &&
                 runOfShowAnnotationCanvasSize.h > 0 ? (
                 <canvas
                   ref={runOfShowAnnotationCanvasRef}
-                  className={`absolute left-0 top-0 z-[6] ${runOfShowAnnotateMode ? "pointer-events-auto touch-none" : "pointer-events-none"
+                  className={`absolute left-0 top-0 z-[6] ${runOfShowAnnotateMode ? "pointer-events-auto" : "pointer-events-none"
                     }`}
                   style={{
                     width: runOfShowAnnotationCanvasSize.w,
                     height: runOfShowAnnotationCanvasSize.h,
+                    touchAction: runOfShowAnnotateMode ? "pan-y" : "auto",
                   }}
                   aria-hidden={!runOfShowAnnotateMode}
                 />
               ) : null}
             </main>
+
+            <RunOfShowCardNoteEditor
+              open={runOfShowCardNoteEditor != null}
+              cardLabel={runOfShowCardNoteEditor?.cardLabel ?? ""}
+              cardSubline={runOfShowCardNoteEditor?.cardSubline}
+              savedValue={runOfShowCardNoteEditorSavedValue}
+              value={runOfShowCardNoteEditorDraft}
+              onChange={setRunOfShowCardNoteEditorDraft}
+              onDone={doneRunOfShowCardNoteEditor}
+              onCancel={cancelRunOfShowCardNoteEditor}
+              onClear={clearRunOfShowCardNoteEditorDraft}
+            />
 
             {runOfShowOverlayActive &&
               runOfShowUpNextMeta.banner === "upNext" &&

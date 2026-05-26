@@ -122,6 +122,7 @@ export type DbTimelineItemRow = {
   artist: string | null;
   fadeOutEarly: boolean;
   fadeOutTimestamp: string | null;
+  runOfShowDone: boolean;
   order: number;
 };
 
@@ -136,6 +137,7 @@ export function mapMainTimelineItemsForDatabase(items: TimelineItem[]) {
     artist: item.artist?.trim() || null,
     fadeOutEarly: item.fadeOutEarly ?? false,
     fadeOutTimestamp: item.fadeOutTimestamp?.trim() || null,
+    runOfShowDone: item.runOfShowDone ?? false,
     order: index,
   }));
 }
@@ -151,6 +153,7 @@ export function mapCeremonyTimelineItemsForDatabase(items: CeremonyTimelineItem[
     artist: item.artist?.trim() || null,
     fadeOutEarly: false,
     fadeOutTimestamp: null,
+    runOfShowDone: item.runOfShowDone ?? false,
     order: index,
   }));
 }
@@ -168,6 +171,7 @@ export function mapDatabaseRowsToMainTimelineItems(rows: DbTimelineItemRow[]): T
         notes: row.notes ?? "",
         needsDjMcAttention: row.needsDjMcAttention ?? false,
       };
+      if (row.runOfShowDone) item.runOfShowDone = true;
       const song = row.songTitle?.trim();
       const artist = row.artist?.trim();
       if (song) item.songTitle = song;
@@ -192,6 +196,7 @@ export function mapDatabaseRowsToCeremonyTimelineItems(
       artist: row.artist ?? "",
       notes: row.notes ?? "",
       needsDjMcAttention: row.needsDjMcAttention ?? false,
+      runOfShowDone: row.runOfShowDone ?? false,
     }));
 }
 

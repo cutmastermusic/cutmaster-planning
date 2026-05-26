@@ -32,6 +32,11 @@ model Event {
   internalNotes     String?
   eventStatus       String   @default("Planning")
 
+  /** DB-backed Grand Entrance moment detail (syncs across devices). */
+  grandEntranceScript  String?
+  grandEntranceLineup  String?
+  grandEntranceCouple  String?
+
   ownerId String
   owner   User @relation(fields: [ownerId], references: [id])
 
@@ -71,6 +76,9 @@ model TimelineItem {
 
   fadeOutEarly     Boolean @default(false)
   fadeOutTimestamp String?
+
+  /** Run Of Show execution: moment marked complete/crossed off (DB-backed). */
+  runOfShowDone Boolean @default(false)
 
   order Int
 

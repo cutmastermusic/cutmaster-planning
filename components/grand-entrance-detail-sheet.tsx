@@ -1,0 +1,211 @@
+"use client";
+
+import { useCallback, useEffect } from "react";
+import { PrimaryButton, SectionTitle } from "@/components/planning-ui";
+import {
+  grandEntranceDetailDraftsEqual,
+  type GrandEntranceDetailFields,
+} from "@/lib/grandEntranceDetail";
+
+export type GrandEntranceDetailDraft = GrandEntranceDetailFields & {
+  sideNote: string;
+};
+
+type GrandEntranceDetailSheetProps = {
+  open: boolean;
+  title: string;
+  subline?: string;
+  songLabel?: string;
+  savedDraft: GrandEntranceDetailDraft;
+  draft: GrandEntranceDetailDraft;
+  onChange: (patch: Partial<GrandEntranceDetailDraft>) => void;
+  onDone: () => void;
+  onCancel: () => void;
+  canEditDetail: boolean;
+  canEditSideNote: boolean;
+};
+
+function fieldLabel(className = "") {
+  return `text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 ${className}`.trim();
+}
+
+const scriptTextareaClass =
+  "block min-h-[min(18rem,42dvh)] max-h-[min(55dvh,40rem)] w-full resize-none touch-manipulation overflow-y-auto overscroll-y-contain rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3.5 text-base leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60 md:text-lg";
+
+const lineupTextareaClass =
+  "block min-h-[12rem] max-h-[min(40dvh,28rem)] w-full resize-none touch-manipulation overflow-y-auto overscroll-y-contain rounded-2xl border border-stone-200/90 bg-stone-50/60 px-4 py-4 text-xl font-semibold leading-snug tracking-tight text-stone-950 placeholder:text-stone-400 placeholder:font-normal placeholder:text-base focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60 sm:text-2xl sm:leading-snug md:text-[1.65rem] md:leading-snug";
+
+const sideNoteTextareaClass =
+  "block min-h-[5rem] max-h-[min(20dvh,12rem)] w-full resize-none touch-manipulation overflow-y-auto overscroll-y-contain rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3.5 text-base leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60";
+
+/** Focused Grand Entrance moment detail — script, lineup, couple, side note. */
+export function GrandEntranceDetailSheet({
+  open,
+  title,
+  subline,
+  songLabel,
+  savedDraft,
+  draft,
+  onChange,
+  onDone,
+  onCancel,
+  canEditDetail,
+  canEditSideNote,
+}: GrandEntranceDetailSheetProps) {
+  const isDirty = !grandEntranceDetailDraftsEqual(draft, savedDraft);
+
+  const requestCancel = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved Grand Entrance changes?")) return;
+    onCancel();
+  }, [isDirty, onCancel]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        requestCancel();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, requestCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[220] flex items-end justify-center bg-black/50 md:items-stretch md:justify-end md:bg-black/45 md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Grand Entrance details for ${title}`}
+    >
+      <div
+        className="flex h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-2xl md:rounded-3xl lg:max-w-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="shrink-0 border-b border-stone-200 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4 md:pt-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className={fieldLabel()}>Grand Entrance</p>
+                <SectionTitle className="mt-1 text-stone-950">{title}</SectionTitle>
+                {subline?.trim() ? (
+                  <p className="mt-1 text-sm font-medium leading-snug text-stone-500">{subline.trim()}</p>
+                ) : null}
+                {songLabel?.trim() ? (
+                  <p className="mt-1 text-sm leading-snug text-stone-600">{songLabel.trim()}</p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <PrimaryButton
+                  type="button"
+                  onClick={requestCancel}
+                  className="min-h-11 min-w-[5.5rem] touch-manipulation rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                >
+                  Cancel
+                </PrimaryButton>
+                <PrimaryButton
+                  type="button"
+                  onClick={onDone}
+                  className="min-h-11 min-w-[5.5rem] touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-800"
+                >
+                  Done
+                </PrimaryButton>
+              </div>
+            </div>
+            {isDirty ? (
+              <p className="text-[11px] font-medium text-amber-800/90" role="status">
+                Unsaved changes — tap Done to save
+              </p>
+            ) : null}
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-5">
+          <div className="flex flex-col gap-7 md:gap-8">
+            <section className="rounded-2xl border border-stone-100 bg-stone-50/30 p-4 sm:p-5">
+              <div className="space-y-2">
+                <label htmlFor="ge-detail-script" className={fieldLabel()}>
+                  MC script
+                </label>
+                <textarea
+                  id="ge-detail-script"
+                  value={draft.script}
+                  onChange={(e) => onChange({ script: e.target.value })}
+                  disabled={!canEditDetail}
+                  placeholder="Intro wording, staging cues, energy notes…"
+                  rows={14}
+                  className={scriptTextareaClass}
+                />
+                <p className="text-[11px] leading-snug text-stone-400 md:text-xs">
+                  Scroll inside the script area to read long notes. Type or use Apple Pencil Scribble.
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-100 bg-white p-4 sm:p-5">
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="ge-detail-lineup" className={fieldLabel()}>
+                    Wedding party lineup
+                  </label>
+                  <p className="mt-1 text-xs leading-snug text-stone-500">
+                    One name per line — order is introduction order. Edit directly below.
+                  </p>
+                </div>
+                <textarea
+                  id="ge-detail-lineup"
+                  value={draft.lineup}
+                  onChange={(e) => onChange({ lineup: e.target.value })}
+                  disabled={!canEditDetail}
+                  placeholder={"Best man — Alex\nMaid of honor — Jordan\nBridesmaids…"}
+                  rows={8}
+                  spellCheck={false}
+                  className={lineupTextareaClass}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-100 bg-white p-4 sm:p-5">
+              <div className="space-y-2">
+                <label htmlFor="ge-detail-couple" className={fieldLabel()}>
+                  Couple entrance
+                </label>
+                <input
+                  id="ge-detail-couple"
+                  type="text"
+                  value={draft.coupleEntrance}
+                  onChange={(e) => onChange({ coupleEntrance: e.target.value })}
+                  disabled={!canEditDetail}
+                  placeholder="Alex & Jordan"
+                  className="block min-h-12 w-full touch-manipulation rounded-2xl border border-stone-200/90 bg-white px-4 py-3 text-xl font-semibold leading-snug text-stone-950 placeholder:text-stone-400 focus:border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60 sm:text-2xl md:min-h-14 md:text-[1.75rem]"
+                />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-100 bg-stone-50/30 p-4 sm:p-5">
+              <div className="space-y-2">
+                <label htmlFor="ge-detail-side-note" className={fieldLabel()}>
+                  Side note
+                </label>
+                <p className="text-xs leading-snug text-stone-500">
+                  Run Of Show scratch pad — local to this device.
+                </p>
+                <textarea
+                  id="ge-detail-side-note"
+                  value={draft.sideNote}
+                  onChange={(e) => onChange({ sideNote: e.target.value })}
+                  disabled={!canEditSideNote}
+                  placeholder="Last-minute lineup change, staging reminder…"
+                  rows={3}
+                  className={sideNoteTextareaClass}
+                />
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

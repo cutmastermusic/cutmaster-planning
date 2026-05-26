@@ -72,6 +72,8 @@ export type TimelineItem = {
   /** Optional DJ cue detail (formerly on separate formalities rows). */
   fadeOutEarly?: boolean;
   fadeOutTimestamp?: string;
+  /** Run Of Show execution: moment marked complete (persisted on timeline row). */
+  runOfShowDone?: boolean;
 };
 
 export type Formality = {
@@ -115,6 +117,7 @@ export type CeremonyTimelineItem = {
   artist: string;
   notes: string;
   needsDjMcAttention: boolean;
+  runOfShowDone?: boolean;
 };
 
 export type PlanningInsight = {

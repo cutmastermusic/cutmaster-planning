@@ -25,6 +25,7 @@ import {
   replaceGuestRequests,
   replaceMainTimelineItems,
   updateEvent,
+  updateGrandEntranceDetail,
 } from "@/lib/actions/events";
 import { assertPayloadFitsServerAction } from "@/lib/payloadSize";
 
@@ -36,6 +37,7 @@ type ReplaceEventTeamMembersArgs = Parameters<typeof replaceEventTeamMembers>[1]
 type ReplaceEventNotesArgs = Parameters<typeof replaceEventNotes>[1];
 type CreateEventArgs = Parameters<typeof createEvent>[0];
 type UpdateEventArgs = Parameters<typeof updateEvent>[1];
+type UpdateGrandEntranceDetailArgs = Parameters<typeof updateGrandEntranceDetail>[1];
 
 export { getEvents };
 
@@ -47,6 +49,14 @@ export async function createEventGuarded(data: CreateEventArgs) {
 export async function updateEventGuarded(id: string, data: UpdateEventArgs) {
   assertPayloadFitsServerAction("updateEvent", data);
   return updateEvent(id, data);
+}
+
+export async function updateGrandEntranceDetailGuarded(
+  eventId: string,
+  detail: UpdateGrandEntranceDetailArgs,
+) {
+  assertPayloadFitsServerAction("updateGrandEntranceDetail", detail);
+  return updateGrandEntranceDetail(eventId, detail);
 }
 
 export async function replaceMainTimelineItemsGuarded(

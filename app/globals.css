@@ -56,8 +56,14 @@
 /* Optional: wrap main planning shell for token-driven background */
 .cm-app-shell {
   min-height: 100vh;
+  overflow: visible;
   background: var(--cm-canvas);
   color: var(--cm-text-primary);
+}
+
+/** Run Of Show full-screen overlay — class-based lock avoids stuck inline overflow styles. */
+body.cm-ros-scroll-lock {
+  overflow: hidden;
 }
 
 /**

@@ -115,6 +115,35 @@ export async function createEvent(data: EventData) {
   });
 }
 
+export async function updateGrandEntranceDetail(
+  eventId: string,
+  detail: {
+    script: string;
+    lineup: string;
+    coupleEntrance: string;
+  },
+) {
+  logActionPayload("updateGrandEntranceDetail", detail);
+  const trimOrNull = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed || null;
+  };
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      grandEntranceScript: trimOrNull(detail.script),
+      grandEntranceLineup: trimOrNull(detail.lineup),
+      grandEntranceCouple: trimOrNull(detail.coupleEntrance),
+    },
+    select: {
+      id: true,
+      grandEntranceScript: true,
+      grandEntranceLineup: true,
+      grandEntranceCouple: true,
+    },
+  });
+}
+
 export async function updateEvent(id: string, data: EventData) {
   logActionPayload("updateEvent", data);
   return prisma.event.update({
@@ -149,6 +178,7 @@ export async function replaceMainTimelineItems(
     artist?: string | null;
     fadeOutEarly?: boolean;
     fadeOutTimestamp?: string | null;
+    runOfShowDone?: boolean;
     order: number;
   }>,
 ) {
@@ -185,6 +215,7 @@ export async function replaceMainTimelineItems(
       artist: item.artist,
       fadeOutEarly: item.fadeOutEarly ?? false,
       fadeOutTimestamp: item.fadeOutTimestamp,
+      runOfShowDone: item.runOfShowDone ?? false,
       order: item.order,
     })),
   });
@@ -202,6 +233,7 @@ export async function replaceCeremonyTimelineItems(
     artist?: string | null;
     fadeOutEarly?: boolean;
     fadeOutTimestamp?: string | null;
+    runOfShowDone?: boolean;
     order: number;
   }>,
 ) {
@@ -238,6 +270,7 @@ export async function replaceCeremonyTimelineItems(
       artist: item.artist,
       fadeOutEarly: item.fadeOutEarly ?? false,
       fadeOutTimestamp: item.fadeOutTimestamp,
+      runOfShowDone: item.runOfShowDone ?? false,
       order: item.order,
     })),
   });
