@@ -1,5 +1,5 @@
 import { musicTasteProfileHasSelections, normalizeMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
-import { readGrandEntranceDetail } from "@/lib/grandEntranceDetail";
+import { isGrandEntranceTimelineItem, readGrandEntranceDetail } from "@/lib/grandEntranceDetail";
 import type {
   CeremonyPlan,
   CeremonyTimelineItem,
@@ -579,25 +579,38 @@ export function hasCeremonyMusic(input: Pick<
 
 export function deriveGrandEntranceChecklistProgress(input: Pick<
   PlanningChecklistInput,
-  "planningQuestionAnswers" | "coupleNames"
+  "planningQuestionAnswers" | "coupleNames" | "timelineItems"
 >): DerivedChecklistProgress {
+  const geRow = input.timelineItems.find((item) => isGrandEntranceTimelineItem(item.title));
   const detail = readGrandEntranceDetail(input.planningQuestionAnswers, input.coupleNames);
-  const parts = [detail.script, detail.lineup, detail.coupleEntrance];
-  const filled = parts.filter((value) => value.trim()).length;
-  return deriveTimelineSlotsProgress(filled, parts.length);
+
+  if (!geRow) {
+    const started = Boolean(detail.script.trim() || detail.lineup.trim());
+    return started ? "in-progress" : "not-started";
+  }
+
+  const filled = [
+    detail.script.trim(),
+    detail.lineup.trim(),
+    geRow.songTitle?.trim() || geRow.artist?.trim() || "",
+  ].filter(Boolean).length;
+  return deriveTimelineSlotsProgress(filled, 3);
 }
 
 export function deriveGrandEntranceMissingNotes(input: Pick<
   PlanningChecklistInput,
-  "planningQuestionAnswers" | "coupleNames"
+  "planningQuestionAnswers" | "coupleNames" | "timelineItems"
 >): string[] {
+  const geRow = input.timelineItems.find((item) => isGrandEntranceTimelineItem(item.title));
   const detail = readGrandEntranceDetail(input.planningQuestionAnswers, input.coupleNames);
-  const slots: { label: string; value: string }[] = [
-    { label: "MC script", value: detail.script },
-    { label: "Wedding party lineup", value: detail.lineup },
-    { label: "Couple entrance", value: detail.coupleEntrance },
-  ];
-  return slots.filter((slot) => !slot.value.trim()).map((slot) => `${slot.label} missing`);
+  const notes: string[] = [];
+
+  if (!geRow) notes.push("Add Grand Entrance to reception timeline");
+  else if (!timelineItemHasSong(geRow)) notes.push(formatTimelineMissingSongNote("Grand Entrance"));
+  if (!detail.script.trim()) notes.push("MC script missing");
+  if (!detail.lineup.trim()) notes.push("Wedding party lineup missing");
+
+  return notes;
 }
 
 export function deriveEventDetailsMissingNotes(input: Pick<
@@ -613,22 +626,127 @@ export function deriveEventDetailsMissingNotes(input: Pick<
   return slots.filter((slot) => !slot.value.trim()).map((slot) => `${slot.label} missing`);
 }
 
-export function deriveTimelineReviewChecklistProgress(
-  input: Pick<PlanningChecklistInput, "timelineItems">,
-): DerivedChecklistProgress {
-  const titles = input.timelineItems.map((item) => item.title.toLowerCase());
-  const anchors = ["cocktail", "dinner", "toast", "open danc", "last"];
-  const filled = anchors.filter((needle) => titles.some((title) => title.includes(needle))).length;
-  return deriveRatioProgress(filled, anchors.length);
+const TIMELINE_REVIEW_ANCHORS = ["cocktail", "dinner", "toast", "open danc", "last"] as const;
+
+function timelineAnchorLabel(needle: (typeof TIMELINE_REVIEW_ANCHORS)[number]): string {
+  switch (needle) {
+    case "cocktail":
+      return "Cocktail hour";
+    case "dinner":
+      return "Dinner";
+    case "toast":
+      return "Toasts";
+    case "open danc":
+      return "Open dancing";
+    default:
+      return "Last dance";
+  }
 }
 
-export function hasKeyTimelineMoments(input: Pick<PlanningChecklistInput, "timelineItems">): boolean {
+function findTimelineAnchorRow(
+  timelineItems: TimelineItem[],
+  needle: (typeof TIMELINE_REVIEW_ANCHORS)[number],
+): TimelineItem | undefined {
+  return timelineItems.find((item) => item.title.toLowerCase().includes(needle));
+}
+
+/** Whether a reception anchor row has enough detail for day-of use (not just a preset title). */
+function timelineAnchorOperationalReady(
+  item: TimelineItem,
+  planningQuestionAnswers: Record<string, string | undefined>,
+): boolean {
+  const title = item.title.toLowerCase();
+
+  if (/toast/.test(title)) {
+    return Boolean(item.notes?.trim() || planningQuestionAnswers.pq_toasts?.trim());
+  }
+
+  if (isGrandEntranceTimelineItem(item.title)) {
+    const detail = readGrandEntranceDetail(planningQuestionAnswers, "");
+    return Boolean(
+      detail.script.trim() || detail.lineup.trim() || timelineItemHasSong(item),
+    );
+  }
+
+  if (timelineItemExpectsSongCue(item)) {
+    return timelineItemHasSong(item);
+  }
+
+  return Boolean(item.time?.trim() || item.notes?.trim());
+}
+
+function timelineAnchorGapNote(
+  item: TimelineItem,
+  planningQuestionAnswers: Record<string, string | undefined>,
+): string {
+  if (/toast/i.test(item.title)) return "Toasts need speakers or notes";
+  if (isGrandEntranceTimelineItem(item.title)) {
+    return "Grand Entrance needs script, lineup, or song";
+  }
+  if (timelineItemExpectsSongCue(item)) return formatTimelineMissingSongNote(item.title);
+  return `${item.title.trim()} needs a time or notes`;
+}
+
+export function deriveTimelineReviewChecklistProgress(
+  input: Pick<PlanningChecklistInput, "timelineItems" | "planningQuestionAnswers">,
+): DerivedChecklistProgress {
+  const answers = input.planningQuestionAnswers ?? {};
+  let present = 0;
+  let ready = 0;
+
+  for (const needle of TIMELINE_REVIEW_ANCHORS) {
+    const row = findTimelineAnchorRow(input.timelineItems, needle);
+    if (!row) continue;
+    present += 1;
+    if (timelineAnchorOperationalReady(row, answers)) ready += 1;
+  }
+
+  if (present === 0) return "not-started";
+
+  const expected = TIMELINE_REVIEW_ANCHORS.length;
+  if (present < expected) {
+    return deriveRatioProgress(ready, expected);
+  }
+
+  if (ready === expected) return "complete";
+  return "in-progress";
+}
+
+export function deriveTimelineReviewMissingNotes(
+  input: Pick<PlanningChecklistInput, "timelineItems" | "planningQuestionAnswers">,
+): string[] {
+  const answers = input.planningQuestionAnswers ?? {};
+  const rows = TIMELINE_REVIEW_ANCHORS.map((needle) => ({
+    needle,
+    row: findTimelineAnchorRow(input.timelineItems, needle),
+  }));
+
+  if (rows.every((entry) => !entry.row)) {
+    return ["Add key reception moments to the timeline"];
+  }
+
+  const notes: string[] = [];
+  for (const { needle, row } of rows) {
+    if (!row) {
+      notes.push(`${timelineAnchorLabel(needle)} not on timeline`);
+      continue;
+    }
+    if (!timelineAnchorOperationalReady(row, answers)) {
+      notes.push(timelineAnchorGapNote(row, answers));
+    }
+  }
+  return notes;
+}
+
+export function hasKeyTimelineMoments(
+  input: Pick<PlanningChecklistInput, "timelineItems" | "planningQuestionAnswers">,
+): boolean {
   return deriveTimelineReviewChecklistProgress(input) === "complete";
 }
 
 export function hasGrandEntranceDetails(input: Pick<
   PlanningChecklistInput,
-  "planningQuestionAnswers" | "coupleNames"
+  "planningQuestionAnswers" | "coupleNames" | "timelineItems"
 >): boolean {
   return deriveGrandEntranceChecklistProgress(input) === "complete";
 }
@@ -668,6 +786,8 @@ export function derivePlanningChecklistMissingNotes(
       return deriveFormalDanceMissingNotes(input);
     case "add-grand-entrance-details":
       return deriveGrandEntranceMissingNotes(input);
+    case "review-timeline":
+      return deriveTimelineReviewMissingNotes(input);
     case "add-final-dj-notes":
       return deriveFinalDjNotesMissingNotes(input.generalDjNotes);
     default:
@@ -723,6 +843,189 @@ export function planningChecklistLinkedSection(
     return "Ceremony";
   }
   return PLANNING_CHECKLIST_TASKS.find((task) => task.id === taskId)?.linkedSection ?? "Dashboard";
+}
+
+export type ChecklistTaskFocus =
+  | { kind: "none" }
+  | { kind: "scroll"; elementId: string; focusElementId?: string }
+  | {
+      kind: "receptionTimelineItem";
+      itemId: string;
+      expand?: boolean;
+      openGrandEntrance?: boolean;
+    }
+  | { kind: "ceremonyTimelineItem"; itemId: string; expand?: boolean }
+  | { kind: "musicQuickAdd"; songListType: "mustPlay" | "playIfPossible" | "doNotPlay" }
+  | { kind: "guestRequestQueue" }
+  | { kind: "eventTeamInvite" };
+
+export type ChecklistTaskNavigation = {
+  screen: Screen;
+  focus: ChecklistTaskFocus;
+};
+
+export type ChecklistTaskNavigationOptions = {
+  /** When true, ceremony tasks open the unified Timeline workspace instead of Ceremony. */
+  unifiedEventTimeline?: boolean;
+};
+
+function firstCeremonyMusicMomentMissingSong(
+  input: Pick<
+    PlanningChecklistInput,
+    "ceremonyTimelineItems" | "weddingPartyProcessional" | "brideGroomProcessional" | "recessionalSong"
+  >,
+): CeremonyTimelineItem | undefined {
+  const musicMoments = input.ceremonyTimelineItems.filter((item) =>
+    CEREMONY_MUSIC_MOMENT_PATTERN.test(item.moment),
+  );
+  if (musicMoments.length > 0) {
+    return musicMoments.find((item) => !ceremonyTimelineItemHasSong(item));
+  }
+  return undefined;
+}
+
+function firstReceptionTimelineItemMissingSong(
+  timelineItems: TimelineItem[],
+): TimelineItem | undefined {
+  return timelineItems.find(
+    (item) => timelineItemExpectsSongCue(item) && !timelineItemHasSong(item),
+  );
+}
+
+function eventDetailsFocusElementId(input: Pick<
+  PlanningChecklistInput,
+  "eventName" | "coupleNames" | "venue" | "weddingDate"
+>): string {
+  const missing = deriveEventDetailsMissingNotes(input);
+  const first = missing[0]?.toLowerCase() ?? "";
+  if (first.includes("couple")) return "event-settings-couple-names";
+  if (first.includes("venue")) return "event-settings-venue";
+  if (first.includes("date")) return "event-settings-date";
+  return "event-settings-event-name";
+}
+
+/** Deep-link target for a checklist task — screen plus optional in-section focus. */
+export function resolveChecklistTaskNavigation(
+  taskId: string,
+  input: PlanningChecklistInput,
+  options?: ChecklistTaskNavigationOptions,
+): ChecklistTaskNavigation {
+  const unifiedEventTimeline = options?.unifiedEventTimeline ?? false;
+
+  switch (taskId) {
+    case "complete-event-details":
+      return {
+        screen: "Event Settings",
+        focus: {
+          kind: "scroll",
+          elementId: eventDetailsFocusElementId(input),
+          focusElementId: eventDetailsFocusElementId(input),
+        },
+      };
+    case "add-planner-contact":
+      return {
+        screen: "Event Team",
+        focus: hasPlannerContact(input) ? { kind: "none" } : { kind: "eventTeamInvite" },
+      };
+    case "choose-ceremony-songs": {
+      const screen = unifiedEventTimeline ? receptionTimelineLinkedSection(input) : "Ceremony";
+      const missingCeremonyItem = firstCeremonyMusicMomentMissingSong(input);
+      if (missingCeremonyItem) {
+        return {
+          screen,
+          focus: {
+            kind: "ceremonyTimelineItem",
+            itemId: missingCeremonyItem.id,
+            expand: true,
+          },
+        };
+      }
+      return {
+        screen,
+        focus: {
+          kind: "scroll",
+          elementId: unifiedEventTimeline ? "timeline-section-ceremony" : "timeline-section-ceremony",
+        },
+      };
+    }
+    case "add-formal-dance-songs": {
+      const screen = receptionTimelineLinkedSection(input);
+      const missingItem = firstReceptionTimelineItemMissingSong(input.timelineItems);
+      if (missingItem) {
+        return {
+          screen,
+          focus: {
+            kind: "receptionTimelineItem",
+            itemId: missingItem.id,
+            expand: true,
+          },
+        };
+      }
+      return {
+        screen,
+        focus: { kind: "scroll", elementId: "timeline-section-reception" },
+      };
+    }
+    case "add-must-play-songs":
+      return {
+        screen: "Music Hub",
+        focus: { kind: "musicQuickAdd", songListType: "mustPlay" },
+      };
+    case "build-must-play-list":
+      return {
+        screen: "Music Hub",
+        focus: {
+          kind: "scroll",
+          elementId: "music-hub-playlist-links",
+          focusElementId: "music-new-playlist-url",
+        },
+      };
+    case "add-do-not-play-songs":
+      return {
+        screen: "Music Hub",
+        focus: { kind: "musicQuickAdd", songListType: "doNotPlay" },
+      };
+    case "add-grand-entrance-details": {
+      const screen = receptionTimelineLinkedSection(input);
+      const grandEntrance = input.timelineItems.find((item) =>
+        isGrandEntranceTimelineItem(item.title),
+      );
+      if (grandEntrance) {
+        return {
+          screen,
+          focus: {
+            kind: "receptionTimelineItem",
+            itemId: grandEntrance.id,
+            openGrandEntrance: true,
+          },
+        };
+      }
+      return {
+        screen,
+        focus: { kind: "scroll", elementId: "timeline-section-reception" },
+      };
+    }
+    case "review-timeline":
+      return {
+        screen: receptionTimelineLinkedSection(input),
+        focus: { kind: "scroll", elementId: "timeline-section-reception" },
+      };
+    case "approve-guest-requests":
+      return {
+        screen: "Guest Requests",
+        focus: { kind: "guestRequestQueue" },
+      };
+    case "add-final-dj-notes":
+      return {
+        screen: "Event Prep",
+        focus: { kind: "none" },
+      };
+    default:
+      return {
+        screen: planningChecklistLinkedSection(taskId, input),
+        focus: { kind: "none" },
+      };
+  }
 }
 
 export function resolvePlanningChecklistStatus(

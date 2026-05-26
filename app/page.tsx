@@ -12,6 +12,11 @@ import { EventModalActions } from "@/components/events/EventModalActions";
 import { EventTypeSection } from "@/components/events/EventTypeSection";
 import { EventModalForm } from "@/components/events/EventModalForm";
 import { EventModal } from "@/components/events/EventModal";
+import {
+  buildNewEventDraft,
+  getEventCreationFieldConfig,
+  resolveNewEventIdentity,
+} from "@/lib/eventCreationFields";
 /**
  * Server Actions are imported through `eventsClient` wrappers so every call
  * is size-checked before being placed on the wire. This surfaces the
@@ -30,6 +35,10 @@ import {
   replaceEventSongsGuarded as replaceEventSongs,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
+import {
+  getCompanyTeamMembers,
+  replaceCompanyTeamMembersGuarded as replaceCompanyTeamMembers,
+} from "@/lib/actions/companyTeamMembersClient";
 import {
   EVENT_STATUSES,
   eventStatusPillClassOnCover,
@@ -218,8 +227,10 @@ import {
   hasMusicTasteSignal as computeMusicTasteSignal,
   normalizeChecklistDueDatesRecord,
   planningChecklistCompletionPercent,
+  resolveChecklistTaskNavigation,
   shouldShowPlanningChecklistMissingNotes,
   templateDefaultDueDate,
+  type ChecklistTaskFocus,
   type PlanningChecklistDueConfig,
   type PlanningChecklistInput,
 } from "@/lib/planningChecklist";
@@ -399,6 +410,7 @@ type BackupPayload = {
   appSettings: AppSettings;
   templates: TimelineTemplate[];
   teamMembers: TeamMember[];
+  companyTeamMembers?: TeamMember[];
   activities: ActivityItem[];
   notifications: NotificationItem[];
   appState: LocalAppStateBackup;
@@ -2564,28 +2576,20 @@ export default function Home() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
-  const [eventDraft, setEventDraft] = useState<EventModalDraft>({
-    eventName: "",
-    coupleNames: "",
-    eventType: appSettings.defaultEventType,
-    eventLayoutProfile: inferLayoutProfileFromEventType(appSettings.defaultEventType),
-    weddingDate: "",
-    venue: "",
-    ceremonyLocation: "",
-    receptionLocation: "",
-    assignedDj: "",
-    packageName: "",
-    plannerName: "",
-    plannerEmail: "",
-    internalNotes: "",
-  });
+  const [eventDraft, setEventDraft] = useState<EventModalDraft>(buildNewEventDraft());
+  const eventCreationFields = useMemo(
+    () => getEventCreationFieldConfig(eventDraft.eventLayoutProfile),
+    [eventDraft.eventLayoutProfile],
+  );
   const [eventEditingId, setEventEditingId] = useState<string | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateModalMode, setTemplateModalMode] = useState<"new" | "edit">("new");
   const [templateEditingId, setTemplateEditingId] = useState<string | null>(null);
   const [templateDraftName, setTemplateDraftName] = useState("");
   const [templates, setTemplates] = useState<TimelineTemplate[]>(initialTemplates);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [companyTeamMembers, setCompanyTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const isEventTeamPersistenceContext = appMode === "event";
   const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
   const [teamNameDraft, setTeamNameDraft] = useState("");
   const [teamRoleDraft, setTeamRoleDraft] = useState<TeamMemberRole>("DJ");
@@ -3499,22 +3503,20 @@ export default function Home() {
 
   const handleSaveEventModal = async () => {
     const draft = eventDraft;
-    const couple = draft.coupleNames.trim();
     const date = draft.weddingDate.trim();
     const venue = draft.venue.trim();
-    const eventName = draft.eventName.trim() || couple || "New Event";
-    const inferredProfile = inferLayoutProfileFromEventType(draft.eventType || appSettings.defaultEventType);
-    const createLayoutProfile = inferredProfile;
+    const createLayoutProfile = draft.eventLayoutProfile;
     const profileDefaults = getLayoutProfileDefaults(createLayoutProfile);
 
-    if (!eventName || !couple) {
-      const missingPrimaryLabel = PRIMARY_PARTY_FIELD_LABEL[draft.eventLayoutProfile];
+    const identity = resolveNewEventIdentity(draft);
+    if ("error" in identity) {
       setEventModalStatus({
         kind: "error",
-        message: `${missingPrimaryLabel} is required to create an event.`,
+        message: identity.error,
       });
       return;
     }
+    const { eventName, coupleNames: couple } = identity;
 
     if (eventModalMode === "new") {
       const newEvent = buildEventFromTemplate(
@@ -3530,7 +3532,7 @@ export default function Home() {
         eventLayoutProfile: createLayoutProfile,
         eventName,
         coupleNames: couple,
-        eventType: draft.eventType || newEvent.settings.eventType,
+        eventType: createLayoutProfile,
         weddingDate: date,
         venue,
         ceremonyLocation: draft.ceremonyLocation.trim(),
@@ -3570,7 +3572,7 @@ export default function Home() {
               )
           : [];
       newEvent.timelineItems =
-        createLayoutProfile === "Wedding"
+        createLayoutProfile === "Wedding" || createLayoutProfile === "Gender-Neutral Wedding"
           ? buildNewWeddingMainTimelineItems()
           : enabledPresets
               .filter((item) => item.timelineType === "main")
@@ -3584,7 +3586,7 @@ export default function Home() {
           const savedDatabaseEvent = await createDatabaseEvent({
             title: eventName,
             date: date ? new Date(date) : null,
-            type: draft.eventType || newEvent.settings.eventType,
+            type: createLayoutProfile,
             venue,
             assignedDj: draft.assignedDj,
             packageName: draft.packageName.trim(),
@@ -3630,12 +3632,13 @@ export default function Home() {
         (editingEvent?.settings as EventSettings & { eventLifecycleStatus?: string })
           ?.eventLifecycleStatus,
       );
+      const inferredProfile = draft.eventLayoutProfile;
       console.log("Updating database event:", eventEditingId);
       try {
         await updateDatabaseEvent(eventEditingId, {
           title: eventName,
           date: date ? new Date(date) : null,
-          type: draft.eventType,
+          type: createLayoutProfile,
           venue,
           assignedDj: draft.assignedDj,
           packageName: draft.packageName.trim(),
@@ -3664,7 +3667,7 @@ export default function Home() {
                 eventLayoutProfile: inferredProfile,
                 eventName,
                 coupleNames: couple,
-                eventType: draft.eventType,
+                eventType: createLayoutProfile,
                 weddingDate: date,
                 venue,
                 ceremonyLocation: draft.ceremonyLocation.trim(),
@@ -4092,7 +4095,9 @@ export default function Home() {
     [canManageInternalEventTeam],
   );
   const teamMemberBeingEdited = teamEditingId
-    ? teamMembers.find((member) => member.id === teamEditingId)
+    ? (isEventTeamPersistenceContext ? teamMembers : companyTeamMembers).find(
+        (member) => member.id === teamEditingId,
+      )
     : undefined;
   const canSaveTeamModal =
     canManageEventTeamPartners &&
@@ -4219,7 +4224,7 @@ export default function Home() {
       const role = effectiveRole;
       if (role === "Admin") return null;
       if (role === "DJ") {
-        const activeDj = teamMembers.find((m) => m.role === "DJ" && m.isActive);
+        const activeDj = companyTeamMembers.find((m) => m.role === "DJ" && m.isActive);
         const assigned = evt.settings?.assignedDj?.trim();
         if (activeDj && assigned && (assigned === activeDj.id || assigned === activeDj.name)) {
           return "Assigned DJ";
@@ -4232,7 +4237,7 @@ export default function Home() {
       if (!collab) return null;
       return role === "Couple" ? "Client" : role;
     },
-    [effectiveRole, teamMembers],
+    [effectiveRole, companyTeamMembers],
   );
 
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
@@ -4608,21 +4613,7 @@ export default function Home() {
             setActiveScreen("All Events");
             setEventModalMode("new");
             setEventEditingId(null);
-            setEventDraft({
-              eventName: "",
-              coupleNames: "",
-              eventType: effectiveEventType,
-              eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
-              weddingDate: "",
-              venue: "",
-              ceremonyLocation: "",
-              receptionLocation: "",
-              assignedDj: "",
-              packageName: "",
-              plannerName: "",
-              plannerEmail: "",
-              internalNotes: "",
-            });
+            setEventDraft(buildNewEventDraft());
             setEventModalOpen(true);
           },
           priority: 20,
@@ -4653,7 +4644,7 @@ export default function Home() {
     if (!currentRole || currentRole === "Admin") {
       list = events;
     } else if (currentRole === "DJ") {
-      const activeDj = teamMembers.find((member) => member.role === "DJ" && member.isActive);
+      const activeDj = companyTeamMembers.find((member) => member.role === "DJ" && member.isActive);
       if (activeDj) {
         list = events.filter(
           (evt) =>
@@ -4675,7 +4666,7 @@ export default function Home() {
       return [pinned, ...list];
     }
     return list;
-  }, [events, currentRole, teamMembers, activeEventId]);
+  }, [events, currentRole, companyTeamMembers, activeEventId]);
 
   const parseEventDateTime = useCallback((value: string) => {
     const parsed = Date.parse(value);
@@ -4872,6 +4863,47 @@ export default function Home() {
     resetTeamMemberDraft();
   };
 
+  const writeCompanyTeamMembersToDatabase = async (
+    nextTeamMembers: TeamMember[],
+  ): Promise<
+    | { ok: true; rows: Awaited<ReturnType<typeof replaceCompanyTeamMembers>> }
+    | { ok: false; error: unknown }
+  > => {
+    try {
+      const savedRows = await replaceCompanyTeamMembers(
+        nextTeamMembers.map((member, index) => ({
+          name: member.name,
+          role: member.role,
+          email: member.email || null,
+          phone: member.phone || null,
+          notes: member.notes || null,
+          isActive: member.isActive,
+          order: index,
+        })),
+      );
+
+      if (
+        Array.isArray(savedRows) &&
+        savedRows.length === nextTeamMembers.length
+      ) {
+        const reconciled = savedRows
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((row, index) => ({
+            ...nextTeamMembers[index],
+            id: row.id,
+            isActive: row.isActive,
+          }));
+        setCompanyTeamMembers(reconciled);
+      }
+
+      return { ok: true, rows: savedRows };
+    } catch (error) {
+      console.error("replaceCompanyTeamMembers threw", error);
+      return { ok: false, error };
+    }
+  };
+
   // Persist the new roster to the database. Returns a result object so the
   // caller can branch on success/failure (keep the modal open on failure,
   // close on success). No silent skips: if there's no active event id we
@@ -5001,7 +5033,9 @@ export default function Home() {
     }
 
     if (teamEditingId) {
-      const existing = teamMembers.find((member) => member.id === teamEditingId);
+      const existing = (isEventTeamPersistenceContext ? teamMembers : companyTeamMembers).find(
+        (member) => member.id === teamEditingId,
+      );
       if (existing && !canActorManageEventTeamMember(existing, canManageInternalEventTeam)) {
         setTeamFormStatus({
           kind: "error",
@@ -5022,6 +5056,8 @@ export default function Home() {
     // Build the next roster up front so we can log it and pass it directly
     // to `replaceEventTeamMembers`. Add path prepends a fresh member; edit
     // path patches the matching entry in place.
+    const rosterSource = isEventTeamPersistenceContext ? teamMembers : companyTeamMembers;
+
     const newMember: TeamMember | null = teamEditingId
       ? null
       : {
@@ -5040,8 +5076,8 @@ export default function Home() {
         };
 
     const nextTeamMembers: TeamMember[] = newMember
-      ? [newMember, ...teamMembers]
-      : teamMembers.map((member) =>
+      ? [newMember, ...rosterSource]
+      : rosterSource.map((member) =>
           member.id === teamEditingId
             ? {
                 ...member,
@@ -5062,6 +5098,38 @@ export default function Home() {
 
     console.log("activeEventId", activeEventId);
     console.log("nextTeamMembers", nextTeamMembers);
+
+    if (!isEventTeamPersistenceContext) {
+      setTeamSaving(true);
+      setTeamFormStatus({ kind: "success", message: "Saving…" });
+      setCompanyTeamMembers(nextTeamMembers);
+      try {
+        const result = await writeCompanyTeamMembersToDatabase(nextTeamMembers);
+        if (!result.ok) {
+          setTeamFormStatus({
+            kind: "error",
+            message: `Save failed: ${
+              result.error instanceof Error ? result.error.message : "Unknown error"
+            }`,
+          });
+          return;
+        }
+        logActivity(
+          "team_member_added",
+          teamEditingId ? `Updated team member: ${name}` : `Added team member: ${name}`,
+        );
+        setTeamFormStatus({
+          kind: "success",
+          message: teamEditingId
+            ? `Saved updates for ${name}.`
+            : `Added ${name} to the workspace team.`,
+        });
+        closeTeamMemberModal();
+      } finally {
+        setTeamSaving(false);
+      }
+      return;
+    }
 
     if (!activeEventId) {
       setTeamFormStatus({
@@ -5182,7 +5250,8 @@ export default function Home() {
   };
 
   const deleteTeamMember = async (teamMemberId: string) => {
-    const target = teamMembers.find((member) => member.id === teamMemberId);
+    const rosterSource = isEventTeamPersistenceContext ? teamMembers : companyTeamMembers;
+    const target = rosterSource.find((member) => member.id === teamMemberId);
     if (target && !canActorManageEventTeamMember(target, canManageInternalEventTeam)) {
       setTeamFormStatus({
         kind: "error",
@@ -5194,12 +5263,12 @@ export default function Home() {
       typeof window === "undefined"
         ? true
         : window.confirm(
-          appMode === "event"
+          isEventTeamPersistenceContext
             ? `Remove "${target?.name || "this contact"}" from this event's team?`
             : `Permanently delete "${target?.name || "this team member"}" from your workspace team? This does not delete events, but DJ assignments to this person are cleared.`,
         );
     if (!ok) return;
-    const nextMembers = teamMembers.filter((member) => member.id !== teamMemberId);
+    const nextMembers = rosterSource.filter((member) => member.id !== teamMemberId);
     console.log("DELETE TEAM MEMBER nextTeamMembers", {
       activeEventId,
       appMode,
@@ -5207,6 +5276,39 @@ export default function Home() {
       names: nextMembers.map((m) => m.name),
       nextMembers,
     });
+
+    if (!isEventTeamPersistenceContext) {
+      setCompanyTeamMembers(nextMembers);
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.settings.assignedDj === teamMemberId
+            ? {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  assignedDj: "",
+                },
+              }
+            : evt,
+        ),
+      );
+      if (teamEditingId === teamMemberId) {
+        closeTeamMemberModal();
+      }
+      const result = await writeCompanyTeamMembersToDatabase(nextMembers);
+      if (!result.ok) {
+        setTeamFormStatus({
+          kind: "error",
+          message: `Delete failed: ${
+            result.error instanceof Error
+              ? result.error.message
+              : "Unknown error"
+          }`,
+        });
+      }
+      return;
+    }
+
     setTeamMembers(nextMembers);
     setEvents((prev) =>
       prev.map((evt) =>
@@ -6509,11 +6611,15 @@ export default function Home() {
 
   const getTeamMemberName = (value: string) => {
     if (!value.trim()) return "TBD";
-    return teamMembers.find((member) => member.id === value)?.name || value;
+    return (
+      companyTeamMembers.find((member) => member.id === value)?.name ||
+      teamMembers.find((member) => member.id === value)?.name ||
+      value
+    );
   };
   const activeDjTeamMembers = useMemo(
-    () => teamMembers.filter((member) => member.role === "DJ" && member.isActive),
-    [teamMembers],
+    () => companyTeamMembers.filter((member) => member.role === "DJ" && member.isActive),
+    [companyTeamMembers],
   );
 
   const assignedPlannerTeamMemberForEvent = useMemo(() => {
@@ -6767,6 +6873,29 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const loadCompanyTeam = async () => {
+      try {
+        const rows = await getCompanyTeamMembers();
+        setCompanyTeamMembers(
+          rows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            role: row.role as TeamMember["role"],
+            email: row.email ?? "",
+            phone: row.phone ?? "",
+            notes: row.notes ?? "",
+            isActive: row.isActive,
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to load company team members:", error);
+      }
+    };
+
+    void loadCompanyTeam();
+  }, []);
+
+  useEffect(() => {
     if (authStage !== "app" || appMode !== "event" || !isCoupleView) return;
     if (activeScreen === "Reception Hub") {
       setActiveScreen(sectionReceptionTimelineEnabled ? "Timeline" : "Dashboard");
@@ -6803,6 +6932,7 @@ export default function Home() {
         activeEventId: string;
         templates: TimelineTemplate[];
         teamMembers: TeamMember[];
+        companyTeamMembers?: TeamMember[];
         appSettings: AppSettings;
         activities: ActivityItem[];
         notifications: NotificationItem[];
@@ -6909,7 +7039,10 @@ export default function Home() {
           })),
         );
       }
-      if (Array.isArray(parsed.teamMembers)) setTeamMembers(parsed.teamMembers);
+      if (Array.isArray(parsed.teamMembers)) setCompanyTeamMembers(parsed.teamMembers);
+      if (Array.isArray(parsed.companyTeamMembers)) {
+        setCompanyTeamMembers(parsed.companyTeamMembers);
+      }
       if (Array.isArray(parsed.activities)) setActivities(parsed.activities);
       if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
       if (parsed.appState) {
@@ -7033,7 +7166,8 @@ export default function Home() {
       events: payloadEvents,
       activeEventId,
       templates,
-      teamMembers,
+      teamMembers: companyTeamMembers,
+      companyTeamMembers,
       activities,
       notifications,
       appState: {
@@ -7099,7 +7233,7 @@ export default function Home() {
     events,
     activeEventId,
     templates,
-    teamMembers,
+    companyTeamMembers,
     activities,
     notifications,
     activeScreen,
@@ -7534,30 +7668,43 @@ export default function Home() {
         }))
         : [],
     );
-    const restoredTeamMembers = Array.isArray(payload.teamMembers)
-      ? payload.teamMembers
-      : [];
-    setTeamMembers(restoredTeamMembers);
-    if (databaseEventIdsRef.current.has(nextActiveId)) {
-      void replaceEventTeamMembers(
-        nextActiveId,
-        restoredTeamMembers.map((member, index) => ({
-          name: member.name,
-          role: member.role,
-          email: member.email || null,
-          phone: member.phone || null,
-          notes: member.notes || null,
-          isActive: member.isActive,
-          order: index,
-        })),
-      ).catch((error) => {
-        console.error("Failed to persist restored team members:", error);
+    const restoredCompanyTeamMembers = Array.isArray(payload.companyTeamMembers)
+      ? payload.companyTeamMembers
+      : Array.isArray(payload.teamMembers)
+        ? payload.teamMembers
+        : [];
+    setCompanyTeamMembers(restoredCompanyTeamMembers);
+    void replaceCompanyTeamMembers(
+      restoredCompanyTeamMembers.map((member, index) => ({
+        name: member.name,
+        role: member.role,
+        email: member.email || null,
+        phone: member.phone || null,
+        notes: member.notes || null,
+        isActive: member.isActive,
+        order: index,
+      })),
+    )
+      .then((savedRows) => {
+        if (
+          Array.isArray(savedRows) &&
+          savedRows.length === restoredCompanyTeamMembers.length
+        ) {
+          setCompanyTeamMembers(
+            savedRows
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((row, index) => ({
+                ...restoredCompanyTeamMembers[index],
+                id: row.id,
+                isActive: row.isActive,
+              })),
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to persist restored company team members:", error);
       });
-    } else {
-      console.warn(
-        `Skipping team-member persistence on backup restore: event "${nextActiveId}" is not a database event yet.`,
-      );
-    }
     setActivities(Array.isArray(payload.activities) ? payload.activities : []);
     setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
     setAppSettings({ ...defaultAppSettings, ...payload.appSettings });
@@ -9335,6 +9482,119 @@ export default function Home() {
     closeGrandEntranceDetailEditor,
   ]);
 
+  const applyChecklistTaskFocus = useCallback(
+    (focus: ChecklistTaskFocus) => {
+      if (typeof document === "undefined") return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scrollBehavior = reduceMotion ? "auto" : "smooth";
+
+      switch (focus.kind) {
+        case "none":
+          return;
+        case "scroll": {
+          document.getElementById(focus.elementId)?.scrollIntoView({
+            behavior: scrollBehavior,
+            block: "start",
+          });
+          if (focus.focusElementId) {
+            window.setTimeout(
+              () => document.getElementById(focus.focusElementId!)?.focus(),
+              reduceMotion ? 0 : 260,
+            );
+          }
+          break;
+        }
+        case "receptionTimelineItem": {
+          const row = timelineItems.find((item) => item.id === focus.itemId);
+          if (!row) return;
+          document
+            .querySelector(`[data-timeline-id="${focus.itemId}"]`)
+            ?.scrollIntoView({ behavior: scrollBehavior, block: "center" });
+          if (focus.expand) {
+            openReceptionTimelineCardExpanded(row);
+          }
+          if (focus.openGrandEntrance) {
+            window.setTimeout(
+              () => openGrandEntranceDetail(row),
+              focus.expand ? 180 : 80,
+            );
+          }
+          break;
+        }
+        case "ceremonyTimelineItem": {
+          const row = ceremonyTimelineItems.find((item) => item.id === focus.itemId);
+          if (!row) return;
+          document
+            .querySelector(`[data-ceremony-timeline-id="${focus.itemId}"]`)
+            ?.scrollIntoView({ behavior: scrollBehavior, block: "center" });
+          if (focus.expand) {
+            openCeremonyTimelineCardExpanded(row);
+          }
+          break;
+        }
+        case "musicQuickAdd": {
+          setNewSongListType(focus.songListType);
+          musicHubScrollToSection("music-hub-quick-add");
+          window.setTimeout(
+            () => document.getElementById("song-title")?.focus(),
+            reduceMotion ? 0 : 260,
+          );
+          break;
+        }
+        case "guestRequestQueue": {
+          setGuestRequestView("admin");
+          document.getElementById("guest-requests-queue-anchor")?.scrollIntoView({
+            behavior: scrollBehavior,
+            block: "start",
+          });
+          break;
+        }
+        case "eventTeamInvite": {
+          window.setTimeout(() => setInviteModalOpen(true), 80);
+          break;
+        }
+      }
+    },
+    [
+      timelineItems,
+      ceremonyTimelineItems,
+      openReceptionTimelineCardExpanded,
+      openCeremonyTimelineCardExpanded,
+      openGrandEntranceDetail,
+      setNewSongListType,
+      setGuestRequestView,
+    ],
+  );
+
+  const navigateToChecklistTask = useCallback(
+    (taskId: string) => {
+      let nav = resolveChecklistTaskNavigation(taskId, planningChecklistInput, {
+        unifiedEventTimeline,
+      });
+      if (taskId === "add-final-dj-notes" && sectionMusicNotesEnabled) {
+        nav = {
+          screen: "Music Hub",
+          focus: {
+            kind: "scroll",
+            elementId: "music-hub-overall-vibe",
+            focusElementId: "music-hub-overall-vibe",
+          },
+        };
+      }
+      setActiveScreen(nav.screen);
+      const delay = nav.screen === activeScreen ? 0 : 180;
+      window.setTimeout(() => applyChecklistTaskFocus(nav.focus), delay);
+    },
+    [
+      planningChecklistInput,
+      unifiedEventTimeline,
+      sectionMusicNotesEnabled,
+      activeScreen,
+      applyChecklistTaskFocus,
+      setActiveScreen,
+    ],
+  );
+
   const openRunOfShowCardNoteEditor = useCallback(
     (cardKey: string, cardLabel: string, cardSubline?: string) => {
       const saved = runOfShowCardNotes[cardKey] ?? "";
@@ -9920,7 +10180,7 @@ export default function Home() {
                       } else if (role === "Admin") {
                         targetEvt = events[0];
                       } else if (role === "DJ") {
-                        const activeDj = teamMembers.find((m) => m.role === "DJ" && m.isActive);
+                        const activeDj = companyTeamMembers.find((m) => m.role === "DJ" && m.isActive);
                         if (activeDj) {
                           targetEvt = events.find(
                             (evt) =>
@@ -10843,19 +11103,19 @@ export default function Home() {
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
                           Admins:{" "}
-                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Admin").length}</span>
+                          <span className="font-semibold text-stone-950">{companyTeamMembers.filter((m) => m.role === "Admin").length}</span>
                         </div>
                         <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
                           DJs:{" "}
-                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "DJ").length}</span>
+                          <span className="font-semibold text-stone-950">{companyTeamMembers.filter((m) => m.role === "DJ").length}</span>
                         </div>
                         <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-2.5 text-stone-600 sm:px-3 sm:py-2">
                           Planners:{" "}
-                          <span className="font-semibold text-stone-950">{teamMembers.filter((m) => m.role === "Planner").length}</span>
+                          <span className="font-semibold text-stone-950">{companyTeamMembers.filter((m) => m.role === "Planner").length}</span>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {teamMembers.map((member) => (
+                        {companyTeamMembers.map((member) => (
                           <div key={`settings-team-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                             <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
@@ -10990,7 +11250,7 @@ export default function Home() {
             <PremiumCard>
               <SectionTitle className="text-stone-950">Team Members</SectionTitle>
               <div className="mt-3 space-y-2">
-                {teamMembers.map((member) => (
+                {companyTeamMembers.map((member) => (
                   <div key={`team-member-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -11035,7 +11295,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                {teamMembers.length === 0 && (
+                {companyTeamMembers.length === 0 && (
                   <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs text-stone-600">
                     No team members yet.
                   </p>
@@ -11063,21 +11323,7 @@ export default function Home() {
                     onClick={() => {
                       setEventModalMode("new");
                       setEventEditingId(null);
-                      setEventDraft({
-                        eventName: "",
-                        coupleNames: "",
-                        eventType: effectiveEventType,
-                        eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
-                        weddingDate: "",
-                        venue: "",
-                        ceremonyLocation: "",
-                        receptionLocation: "",
-                        assignedDj: "",
-                        packageName: "",
-                        plannerName: "",
-                        plannerEmail: "",
-                        internalNotes: "",
-                      });
+                      setEventDraft(buildNewEventDraft());
                       setEventModalStatus(null);
                       setEventModalOpen(true);
                     }}
@@ -11106,21 +11352,7 @@ export default function Home() {
                         onClick={() => {
                           setEventModalMode("new");
                           setEventEditingId(null);
-                          setEventDraft({
-                            eventName: "",
-                            coupleNames: "",
-                            eventType: effectiveEventType,
-                            eventLayoutProfile: inferLayoutProfileFromEventType(effectiveEventType),
-                            weddingDate: "",
-                            venue: "",
-                            ceremonyLocation: "",
-                            receptionLocation: "",
-                            assignedDj: "",
-                            packageName: "",
-                            plannerName: "",
-                            plannerEmail: "",
-                            internalNotes: "",
-                          });
+                          setEventDraft(buildNewEventDraft());
                           setEventModalStatus(null);
                           setEventModalOpen(true);
                         }}
@@ -11888,7 +12120,7 @@ export default function Home() {
                             <button
                               type="button"
                               key={`next-${task.id}`}
-                              onClick={() => setActiveScreen(task.linkedSection)}
+                              onClick={() => navigateToChecklistTask(task.id)}
                               className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50"
                             >
                               <p className="font-semibold text-stone-900">{task.title}</p>
@@ -16669,10 +16901,20 @@ export default function Home() {
                 </div>
                 <div className="mt-3">
                   <PrimaryButton
-                    onClick={() => setActiveScreen(task.linkedSection)}
-                    className="w-full rounded-xl border border-stone-400 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+                    onClick={() => navigateToChecklistTask(task.id)}
+                    className="min-h-11 w-full rounded-xl border border-stone-400 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10"
                   >
-                    Go to {navLabel(task.linkedSection)}
+                    {task.id === "add-grand-entrance-details"
+                      ? "Open Grand Entrance details"
+                      : task.id === "add-formal-dance-songs"
+                        ? "Add songs on timeline"
+                        : task.id === "choose-ceremony-songs"
+                          ? "Add ceremony music"
+                          : task.id === "build-must-play-list"
+                            ? "Share music taste"
+                            : task.id === "approve-guest-requests"
+                              ? "Review guest requests"
+                              : `Go to ${navLabel(task.linkedSection)}`}
                   </PrimaryButton>
                 </div>
               </PremiumCard>
@@ -17387,39 +17629,6 @@ export default function Home() {
           >
             <EventModalBody>
             <EventModalContent>
-            <EventBasicDetailsFields
-              eventName={eventDraft.eventName}
-              coupleNames={eventDraft.coupleNames}
-              weddingDate={eventDraft.weddingDate}
-              venue={eventDraft.venue}
-              packageName={eventDraft.packageName}
-              primaryPartyLabel={PRIMARY_PARTY_FIELD_LABEL[eventDraft.eventLayoutProfile]}
-              dateLabel={
-                eventDraft.eventLayoutProfile === "Wedding" ||
-                  eventDraft.eventLayoutProfile === "Gender-Neutral Wedding"
-                  ? "Wedding Date"
-                  : "Event Date"
-              }
-              onEventNameChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, eventName: value }))
-              }
-              onCoupleNamesChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, coupleNames: value }))
-              }
-              onWeddingDateChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, weddingDate: value }))
-              }
-              onVenueChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, venue: value }))
-              }
-              onPackageNameChange={(value) =>
-                setEventDraft((prev) => ({ ...prev, packageName: value }))
-              }
-              TextInputComponent={TextInput}
-            />
-
-
-
             <EventTypeSection>
               <label htmlFor="event-type" className={lightUiFormLabelClass}>
                 Event Type
@@ -17427,13 +17636,14 @@ export default function Home() {
               <select
                 id="event-type"
                 value={eventDraft.eventLayoutProfile}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextProfile = event.target.value as EventLayoutProfile;
                   setEventDraft((prev) => ({
                     ...prev,
-                    eventLayoutProfile: event.target.value as EventLayoutProfile,
-                    eventType: event.target.value as EventLayoutProfile,
-                  }))
-                }
+                    eventLayoutProfile: nextProfile,
+                    eventType: nextProfile,
+                  }));
+                }}
                 className={lightUiSelectClass}
               >
                 {EVENT_TYPES.map((profile) => (
@@ -17445,6 +17655,11 @@ export default function Home() {
               <p className="text-xs leading-relaxed text-stone-600">
                 {LAYOUT_PROFILE_DESCRIPTIONS[eventDraft.eventLayoutProfile]}
               </p>
+              {eventModalMode === "new" ? (
+                <p className="text-[11px] text-stone-500">
+                  Choose the event type first — it sets your timeline, checklist, and planning sections.
+                </p>
+              ) : null}
               <div className="rounded-xl border border-stone-200 bg-white p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
                   Event Type Preview
@@ -17476,25 +17691,40 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-stone-600">
-                  Sections enabled by default
-                </p>
-                <ul className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-stone-700 sm:grid-cols-2">
-                  {getEnabledLayoutSectionLabels(
-                    getLayoutProfileDefaults(eventDraft.eventLayoutProfile),
-                  ).map((label) => (
-                    <li key={`draft-section-${label}`} className="flex gap-2">
-                      <span className="text-[#00D4FF]" aria-hidden>
-                        ✓
-                      </span>
-                      <span>{label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </EventTypeSection>
 
+            <EventBasicDetailsFields
+              eventName={eventDraft.eventName}
+              coupleNames={eventDraft.coupleNames}
+              weddingDate={eventDraft.weddingDate}
+              venue={eventDraft.venue}
+              packageName={eventDraft.packageName}
+              primaryPartyLabel={eventCreationFields.primaryPartyLabel}
+              dateLabel={eventCreationFields.dateLabel}
+              showEventName={eventCreationFields.showEventName}
+              showPrimaryParty={eventCreationFields.showPrimaryParty}
+              showPackage={eventCreationFields.showPackage}
+              eventNameLabel={eventCreationFields.eventNameLabel}
+              eventNameOptional={eventCreationFields.eventNameOptional}
+              onEventNameChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, eventName: value }))
+              }
+              onCoupleNamesChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, coupleNames: value }))
+              }
+              onWeddingDateChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, weddingDate: value }))
+              }
+              onVenueChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, venue: value }))
+              }
+              onPackageNameChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, packageName: value }))
+              }
+              TextInputComponent={TextInput}
+            />
+
+            {eventCreationFields.showCeremonyLocations ? (
             <EventLocationsFields
               ceremonyLocation={eventDraft.ceremonyLocation}
               receptionLocation={eventDraft.receptionLocation}
@@ -17512,6 +17742,7 @@ export default function Home() {
               }
               TextInputComponent={TextInput}
             />
+            ) : null}
             <EventAssignedDjField
               value={eventDraft.assignedDj}
               onChange={(value) =>

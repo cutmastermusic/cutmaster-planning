@@ -14,6 +14,26 @@ model User {
   createdAt DateTime @default(now())
 
   events Event[]
+  companyTeamMembers CompanyTeamMember[]
+}
+
+model CompanyTeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  email     String?
+  phone     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  order     Int
+
+  ownerId String
+  owner   User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }
 
 model Event {

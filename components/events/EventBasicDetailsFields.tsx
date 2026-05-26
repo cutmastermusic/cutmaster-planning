@@ -8,6 +8,11 @@ type EventBasicDetailsFieldsProps = {
   packageName: string;
   primaryPartyLabel: string;
   dateLabel: string;
+  showEventName?: boolean;
+  showPrimaryParty?: boolean;
+  showPackage?: boolean;
+  eventNameLabel?: string;
+  eventNameOptional?: boolean;
   onEventNameChange: (value: string) => void;
   onCoupleNamesChange: (value: string) => void;
   onWeddingDateChange: (value: string) => void;
@@ -30,6 +35,11 @@ export function EventBasicDetailsFields({
   packageName,
   primaryPartyLabel,
   dateLabel,
+  showEventName = true,
+  showPrimaryParty = true,
+  showPackage = true,
+  eventNameLabel = "Event Name",
+  eventNameOptional = false,
   onEventNameChange,
   onCoupleNamesChange,
   onWeddingDateChange,
@@ -41,21 +51,31 @@ export function EventBasicDetailsFields({
 
   return (
     <>
-      <TextInput
-        id="event-name"
-        label="Event Name"
-        value={eventName}
-        onChange={onEventNameChange}
-        placeholder="e.g. Jordan Graduation Celebration"
-      />
+      {showEventName ? (
+        <TextInput
+          id="event-name"
+          label={
+            eventNameOptional ? `${eventNameLabel} (optional)` : eventNameLabel
+          }
+          value={eventName}
+          onChange={onEventNameChange}
+          placeholder={
+            showPrimaryParty
+              ? "e.g. Smith–Lee Wedding"
+              : "e.g. Lincoln High Homecoming Dance"
+          }
+        />
+      ) : null}
 
-      <TextInput
-        id="event-couple-names"
-        label={primaryPartyLabel}
-        value={coupleNames}
-        onChange={onCoupleNamesChange}
-        placeholder="e.g. Jordan Vega"
-      />
+      {showPrimaryParty ? (
+        <TextInput
+          id="event-couple-names"
+          label={primaryPartyLabel}
+          value={coupleNames}
+          onChange={onCoupleNamesChange}
+          placeholder="e.g. Alex & Jordan"
+        />
+      ) : null}
 
       <TextInput
         id="event-date"
@@ -73,13 +93,15 @@ export function EventBasicDetailsFields({
         placeholder="e.g. The Grand Willow Estate"
       />
 
-      <TextInput
-        id="event-package"
-        label="Package"
-        value={packageName}
-        onChange={onPackageNameChange}
-        placeholder="e.g. Signature Wedding Experience"
-      />
+      {showPackage ? (
+        <TextInput
+          id="event-package"
+          label="Package"
+          value={packageName}
+          onChange={onPackageNameChange}
+          placeholder="e.g. Signature Wedding Experience"
+        />
+      ) : null}
     </>
   );
 }
