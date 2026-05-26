@@ -68,6 +68,7 @@ export async function getCompanyTeamMembers() {
 
 export async function replaceCompanyTeamMembers(
   teamMembers: Array<{
+    id?: string;
     name: string;
     role: string;
     email?: string | null;
@@ -78,18 +79,30 @@ export async function replaceCompanyTeamMembers(
   }>,
 ) {
   const demoUser = await getDemoUser();
-
-  await prisma.companyTeamMember.deleteMany({
+  const existingRows = await prisma.companyTeamMember.findMany({
     where: { ownerId: demoUser.id },
   });
+  const existingIdSet = new Set(existingRows.map((row) => row.id));
 
-  if (teamMembers.length === 0) {
-    return [];
+  const preserveIds = teamMembers
+    .map((member) => member.id)
+    .filter((id): id is string => Boolean(id && existingIdSet.has(id)));
+
+  const idsToDelete = existingRows
+    .map((row) => row.id)
+    .filter((id) => !preserveIds.includes(id));
+
+  if (idsToDelete.length > 0) {
+    await prisma.companyTeamMember.deleteMany({
+      where: {
+        ownerId: demoUser.id,
+        id: { in: idsToDelete },
+      },
+    });
   }
 
-  await prisma.companyTeamMember.createMany({
-    data: teamMembers.map((member) => ({
-      ownerId: demoUser.id,
+  for (const member of teamMembers) {
+    const data = {
       name: member.name,
       role: member.role,
       email: member.email ?? null,
@@ -97,8 +110,23 @@ export async function replaceCompanyTeamMembers(
       notes: member.notes ?? null,
       isActive: member.isActive ?? true,
       order: member.order,
-    })),
-  });
+    };
+
+    if (member.id && existingIdSet.has(member.id)) {
+      await prisma.companyTeamMember.update({
+        where: { id: member.id },
+        data,
+      });
+      continue;
+    }
+
+    await prisma.companyTeamMember.create({
+      data: {
+        ...data,
+        ownerId: demoUser.id,
+      },
+    });
+  }
 
   return prisma.companyTeamMember.findMany({
     where: { ownerId: demoUser.id },

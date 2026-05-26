@@ -4872,6 +4872,7 @@ export default function Home() {
     try {
       const savedRows = await replaceCompanyTeamMembers(
         nextTeamMembers.map((member, index) => ({
+          id: member.id,
           name: member.name,
           role: member.role,
           email: member.email || null,
@@ -4882,19 +4883,46 @@ export default function Home() {
         })),
       );
 
-      if (
-        Array.isArray(savedRows) &&
-        savedRows.length === nextTeamMembers.length
-      ) {
-        const reconciled = savedRows
-          .slice()
-          .sort((a, b) => a.order - b.order)
-          .map((row, index) => ({
-            ...nextTeamMembers[index],
+      if (Array.isArray(savedRows) && savedRows.length > 0) {
+        const sortedRows = savedRows.slice().sort((a, b) => a.order - b.order);
+        const idRemap = new Map<string, string>();
+        const reconciled = sortedRows.map((row, index) => {
+          const previous = nextTeamMembers[index];
+          if (previous?.id && previous.id !== row.id) {
+            idRemap.set(previous.id, row.id);
+          }
+          return {
+            ...previous,
             id: row.id,
+            name: row.name,
+            role: row.role as TeamMember["role"],
+            email: row.email ?? "",
+            phone: row.phone ?? "",
+            notes: row.notes ?? "",
             isActive: row.isActive,
-          }));
+          };
+        });
         setCompanyTeamMembers(reconciled);
+        if (idRemap.size > 0) {
+          setEvents((prev) =>
+            prev.map((evt) => {
+              const assignedDj = evt.settings.assignedDj;
+              if (!assignedDj || !idRemap.has(assignedDj)) return evt;
+              return {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  assignedDj: idRemap.get(assignedDj) ?? assignedDj,
+                },
+              };
+            }),
+          );
+          setEventSettings((prev) =>
+            prev.assignedDj && idRemap.has(prev.assignedDj)
+              ? { ...prev, assignedDj: idRemap.get(prev.assignedDj)! }
+              : prev,
+          );
+        }
       }
 
       return { ok: true, rows: savedRows };
@@ -7039,10 +7067,7 @@ export default function Home() {
           })),
         );
       }
-      if (Array.isArray(parsed.teamMembers)) setCompanyTeamMembers(parsed.teamMembers);
-      if (Array.isArray(parsed.companyTeamMembers)) {
-        setCompanyTeamMembers(parsed.companyTeamMembers);
-      }
+      // Company team roster is loaded from the database; do not restore from localStorage.
       if (Array.isArray(parsed.activities)) setActivities(parsed.activities);
       if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
       if (parsed.appState) {
@@ -7676,6 +7701,7 @@ export default function Home() {
     setCompanyTeamMembers(restoredCompanyTeamMembers);
     void replaceCompanyTeamMembers(
       restoredCompanyTeamMembers.map((member, index) => ({
+        id: member.id,
         name: member.name,
         role: member.role,
         email: member.email || null,
