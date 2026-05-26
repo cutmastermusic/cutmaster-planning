@@ -64,6 +64,17 @@ export function mergeGrandEntranceDbIntoPlanningAnswers(
   );
 }
 
+export function mergeGrandEntranceOperationalIntoAnswers(
+  answers: Record<string, string>,
+  operational: Pick<GrandEntranceDetailFields, "script">,
+): Record<string, string> {
+  const next = { ...answers };
+  const trimmed = operational.script.trim();
+  if (trimmed) next[GRAND_ENTRANCE_MC_SCRIPT_KEY] = trimmed;
+  else delete next[GRAND_ENTRANCE_MC_SCRIPT_KEY];
+  return next;
+}
+
 export function mergeGrandEntranceDetailIntoAnswers(
   answers: Record<string, string>,
   detail: GrandEntranceDetailFields,

@@ -166,6 +166,40 @@ export async function updateEvent(id: string, data: EventData) {
     },
   });
 }
+
+export async function deleteEvent(id: string) {
+  logActionPayload("deleteEvent", { id });
+
+  const eventExists = await prisma.event.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!eventExists) {
+    return { deleted: false as const };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const timelines = await tx.timeline.findMany({
+      where: { eventId: id },
+      select: { id: true },
+    });
+    const timelineIds = timelines.map((timeline) => timeline.id);
+
+    if (timelineIds.length > 0) {
+      await tx.timelineItem.deleteMany({
+        where: { timelineId: { in: timelineIds } },
+      });
+    }
+
+    await tx.timeline.deleteMany({ where: { eventId: id } });
+    await tx.eventSong.deleteMany({ where: { eventId: id } });
+    await tx.guestRequest.deleteMany({ where: { eventId: id } });
+    await tx.event.delete({ where: { id } });
+  });
+
+  return { deleted: true as const };
+}
 export async function replaceMainTimelineItems(
   eventId: string,
   items: Array<{

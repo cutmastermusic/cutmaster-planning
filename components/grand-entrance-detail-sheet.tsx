@@ -6,6 +6,7 @@ import {
   grandEntranceDetailDraftsEqual,
   type GrandEntranceDetailFields,
 } from "@/lib/grandEntranceDetail";
+import { formatWeddingPartyLineupForDisplay } from "@/lib/weddingPartyLineup";
 
 export type GrandEntranceDetailDraft = GrandEntranceDetailFields & {
   sideNote: string;
@@ -21,7 +22,7 @@ type GrandEntranceDetailSheetProps = {
   onChange: (patch: Partial<GrandEntranceDetailDraft>) => void;
   onDone: () => void;
   onCancel: () => void;
-  canEditDetail: boolean;
+  canEditOperationalDetail: boolean;
   canEditSideNote: boolean;
 };
 
@@ -38,7 +39,7 @@ const lineupTextareaClass =
 const sideNoteTextareaClass =
   "block min-h-[5rem] max-h-[min(20dvh,12rem)] w-full resize-none touch-manipulation overflow-y-auto overscroll-y-contain rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3.5 text-base leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60";
 
-/** Focused Grand Entrance moment detail — script, lineup, couple, side note. */
+/** DJ/Admin operational Grand Entrance sheet — MC script and run-of-show notes; lineup is read-only from planning. */
 export function GrandEntranceDetailSheet({
   open,
   title,
@@ -49,7 +50,7 @@ export function GrandEntranceDetailSheet({
   onChange,
   onDone,
   onCancel,
-  canEditDetail,
+  canEditOperationalDetail,
   canEditSideNote,
 }: GrandEntranceDetailSheetProps) {
   const isDirty = !grandEntranceDetailDraftsEqual(draft, savedDraft);
@@ -133,13 +134,13 @@ export function GrandEntranceDetailSheet({
                   id="ge-detail-script"
                   value={draft.script}
                   onChange={(e) => onChange({ script: e.target.value })}
-                  disabled={!canEditDetail}
+                  disabled={!canEditOperationalDetail}
                   placeholder="Intro wording, staging cues, energy notes…"
                   rows={14}
                   className={scriptTextareaClass}
                 />
                 <p className="text-[11px] leading-snug text-stone-400 md:text-xs">
-                  Scroll inside the script area to read long notes. Type or use Apple Pencil Scribble.
+                  Operational MC script for show day — not visible to clients for editing.
                 </p>
               </div>
             </section>
@@ -151,18 +152,17 @@ export function GrandEntranceDetailSheet({
                     Wedding party lineup
                   </label>
                   <p className="mt-1 text-xs leading-snug text-stone-500">
-                    One name per line — order is introduction order. Edit directly below.
+                    From client planning — introduction order. Couples edit this in Planning Questions.
                   </p>
                 </div>
                 <textarea
                   id="ge-detail-lineup"
-                  value={draft.lineup}
-                  onChange={(e) => onChange({ lineup: e.target.value })}
-                  disabled={!canEditDetail}
+                  value={formatWeddingPartyLineupForDisplay(draft.lineup) || draft.lineup}
+                  readOnly
                   placeholder={"Best man — Alex\nMaid of honor — Jordan\nBridesmaids…"}
                   rows={8}
                   spellCheck={false}
-                  className={lineupTextareaClass}
+                  className={`${lineupTextareaClass} cursor-default bg-stone-100/80 text-stone-800`}
                 />
               </div>
             </section>
@@ -172,14 +172,16 @@ export function GrandEntranceDetailSheet({
                 <label htmlFor="ge-detail-couple" className={fieldLabel()}>
                   Couple entrance
                 </label>
+                <p className="text-xs leading-snug text-stone-500">
+                  Announcement line from event details — reference only.
+                </p>
                 <input
                   id="ge-detail-couple"
                   type="text"
                   value={draft.coupleEntrance}
-                  onChange={(e) => onChange({ coupleEntrance: e.target.value })}
-                  disabled={!canEditDetail}
+                  readOnly
                   placeholder="Alex & Jordan"
-                  className="block min-h-12 w-full touch-manipulation rounded-2xl border border-stone-200/90 bg-white px-4 py-3 text-xl font-semibold leading-snug text-stone-950 placeholder:text-stone-400 focus:border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60 sm:text-2xl md:min-h-14 md:text-[1.75rem]"
+                  className="block min-h-12 w-full cursor-default rounded-2xl border border-stone-200/90 bg-stone-100/80 px-4 py-3 text-xl font-semibold leading-snug text-stone-800 sm:text-2xl md:min-h-14 md:text-[1.75rem]"
                 />
               </div>
             </section>

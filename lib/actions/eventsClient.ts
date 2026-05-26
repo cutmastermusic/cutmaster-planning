@@ -17,6 +17,7 @@
 
 import {
   createEvent,
+  deleteEvent,
   getEvents,
   replaceCeremonyTimelineItems,
   replaceEventNotes,
@@ -49,6 +50,11 @@ export async function createEventGuarded(data: CreateEventArgs) {
 export async function updateEventGuarded(id: string, data: UpdateEventArgs) {
   assertPayloadFitsServerAction("updateEvent", data);
   return updateEvent(id, data);
+}
+
+export async function deleteEventGuarded(id: string) {
+  assertPayloadFitsServerAction("deleteEvent", { id });
+  return deleteEvent(id);
 }
 
 export async function updateGrandEntranceDetailGuarded(

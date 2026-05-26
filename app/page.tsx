@@ -25,6 +25,7 @@ import {
  */
 import {
   createEventGuarded as createDatabaseEvent,
+  deleteEventGuarded as deleteDatabaseEvent,
   getEvents as getDatabaseEvents,
   updateEventGuarded as updateDatabaseEvent,
   replaceGuestRequestsGuarded as replaceGuestRequests,
@@ -241,8 +242,10 @@ import {
 } from "@/lib/weddingDefaultTimelineMoments";
 import {
   isGrandEntranceTimelineItem,
+  GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
   mergeGrandEntranceDbIntoPlanningAnswers,
   mergeGrandEntranceDetailIntoAnswers,
+  mergeGrandEntranceOperationalIntoAnswers,
   readGrandEntranceDetail,
 } from "@/lib/grandEntranceDetail";
 import {
@@ -253,6 +256,17 @@ import {
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
+import {
+  WeddingPartyLineupSheet,
+} from "@/components/wedding-party-lineup-sheet";
+import {
+  createEmptyWeddingPartyLineupEntry,
+  formatWeddingPartyLineupForDisplay,
+  parseWeddingPartyLineup,
+  serializeWeddingPartyLineup,
+  WEDDING_PARTY_LINEUP_HELPER_COPY,
+  type WeddingPartyLineupEntry,
+} from "@/lib/weddingPartyLineup";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
 import {
@@ -2388,6 +2402,13 @@ export default function Home() {
       coupleEntrance: "",
       sideNote: "",
     });
+  const [weddingPartyLineupOpen, setWeddingPartyLineupOpen] = useState(false);
+  const [weddingPartyLineupDraft, setWeddingPartyLineupDraft] = useState<WeddingPartyLineupEntry[]>(
+    [],
+  );
+  const [weddingPartyLineupSavedDraft, setWeddingPartyLineupSavedDraft] = useState<
+    WeddingPartyLineupEntry[]
+  >([]);
   /**
    * Sections that are still all-done but the operator chose to expand again (prevents immediate
    * re-collapse until at least one moment in that section is marked not done).
@@ -3241,6 +3262,48 @@ export default function Home() {
     setAppMode("event");
   };
 
+  const deleteEventFromWorkspace = async (eventId: string) => {
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt) return;
+
+    const label =
+      evt.settings?.eventName || evt.meta.couple || "this event";
+    const ok = window.confirm(`Delete "${label}"?`);
+    if (!ok) return;
+
+    commitActiveEventPlanningToEventsState();
+
+    if (databaseEventIdsRef.current.has(eventId)) {
+      try {
+        await deleteDatabaseEvent(eventId);
+        databaseEventIdsRef.current.delete(eventId);
+      } catch (error) {
+        console.error("Failed to delete event from database:", error);
+        window.alert(
+          "Could not delete this event. It was not removed. Please try again.",
+        );
+        return;
+      }
+    }
+
+    const remaining = events.filter((e) => e.id !== eventId);
+    setEvents(remaining);
+
+    if (eventId === activeEventId) {
+      const next = remaining[0];
+      if (next) {
+        setActiveEventId(next.id);
+        loadEventPlanningIntoWorkingState(next);
+        setAppMode("event");
+        setActiveScreen("Dashboard");
+      } else {
+        setActiveEventId("");
+        setAppMode("events");
+        setActiveScreen("All Events");
+      }
+    }
+  };
+
   const getEventName = useCallback(
     (eventId: string) =>
       events.find((evt) => evt.id === eventId)?.settings?.eventName ||
@@ -3796,6 +3859,17 @@ export default function Home() {
     () => groupPlanningQuestionsBySection(planningQuestionsForEvent, layoutProfileForActiveEvent),
     [planningQuestionsForEvent, layoutProfileForActiveEvent],
   );
+  const showWeddingPartyLineupSection = useMemo(
+    () =>
+      planningQuestionsForEvent.some((question) => question.id === GRAND_ENTRANCE_PLANNING_LINEUP_KEY),
+    [planningQuestionsForEvent],
+  );
+  const weddingPartyLineupSummary = useMemo(() => {
+    const raw = eventSettings.planningQuestionAnswers?.[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "";
+    const entries = parseWeddingPartyLineup(raw);
+    if (entries.length === 0) return "No entrances added yet";
+    return `${entries.length} entrance${entries.length === 1 ? "" : "s"} planned`;
+  }, [eventSettings.planningQuestionAnswers]);
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
     Record<string, boolean>
@@ -4081,6 +4155,8 @@ export default function Home() {
     effectiveRole === "DJ" ||
     effectiveRole === "Planner" ||
     effectiveRole === "Couple";
+  const canAccessGrandEntranceOperations =
+    effectiveRole === "Admin" || effectiveRole === "DJ";
   const canManageGuestRequests = effectiveRole === "Admin" || effectiveRole === "Couple";
   const canEditNotes = effectiveRole === "Admin" || effectiveRole === "Planner";
   const canManageEvents = effectiveRole === "Admin";
@@ -6636,6 +6712,18 @@ export default function Home() {
     if (screen === "Event Prep") return "Event Document";
     return screen;
   };
+
+  const isWorkspaceContext = appMode === "events";
+  const headerWeddingDetails: WeddingDetails = isWorkspaceContext
+    ? { couple: "", date: "", venue: "" }
+    : weddingDetails;
+  const headerScreenTitle = isWorkspaceContext
+    ? navLabel(activeScreen)
+    : appMode === "event" &&
+        (currentRole ?? rolePreview) === "Couple" &&
+        activeScreen === "Dashboard"
+      ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
+      : screenTitle;
 
   const getTeamMemberName = (value: string) => {
     if (!value.trim()) return "TBD";
@@ -9464,10 +9552,16 @@ export default function Home() {
 
   const doneGrandEntranceDetail = useCallback(async () => {
     if (!grandEntranceDetailEditor) return;
-    const { script, lineup, coupleEntrance, sideNote } = grandEntranceDetailDraft;
-    const mergedAnswers = mergeGrandEntranceDetailIntoAnswers(
+    const { script, sideNote } = grandEntranceDetailDraft;
+    const coupleDefault =
+      eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
+    const planningDetail = readGrandEntranceDetail(
       eventSettings.planningQuestionAnswers ?? {},
-      { script, lineup, coupleEntrance },
+      coupleDefault,
+    );
+    const mergedAnswers = mergeGrandEntranceOperationalIntoAnswers(
+      eventSettings.planningQuestionAnswers ?? {},
+      { script },
     );
     setEventSettings((prev) => ({
       ...prev,
@@ -9492,8 +9586,8 @@ export default function Home() {
       try {
         await updateGrandEntranceDetail(activeEventId, {
           script,
-          lineup,
-          coupleEntrance,
+          lineup: planningDetail.lineup,
+          coupleEntrance: planningDetail.coupleEntrance,
         });
       } catch (error) {
         console.error("Failed to persist Grand Entrance detail to database:", error);
@@ -9503,10 +9597,91 @@ export default function Home() {
     grandEntranceDetailEditor,
     grandEntranceDetailDraft,
     eventSettings.planningQuestionAnswers,
+    eventSettings.coupleNames,
+    weddingDetails.couple,
     activeEventId,
     setRunOfShowCardNote,
     closeGrandEntranceDetailEditor,
   ]);
+
+  const openWeddingPartyLineupEditor = useCallback(() => {
+    const raw = eventSettings.planningQuestionAnswers?.[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "";
+    const entries = parseWeddingPartyLineup(raw);
+    const draft = entries.length > 0 ? entries : [createEmptyWeddingPartyLineupEntry(0)];
+    setWeddingPartyLineupDraft(draft);
+    setWeddingPartyLineupSavedDraft(draft);
+    setWeddingPartyLineupOpen(true);
+  }, [eventSettings.planningQuestionAnswers]);
+
+  const closeWeddingPartyLineupEditor = useCallback(() => {
+    setWeddingPartyLineupOpen(false);
+    setWeddingPartyLineupDraft([]);
+    setWeddingPartyLineupSavedDraft([]);
+  }, []);
+
+  const doneWeddingPartyLineup = useCallback(async () => {
+    const serialized = serializeWeddingPartyLineup(weddingPartyLineupDraft);
+    const coupleDefault =
+      eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
+    setEventSettings((prev) => ({
+      ...prev,
+      planningQuestionAnswers: {
+        ...(prev.planningQuestionAnswers ?? {}),
+        [GRAND_ENTRANCE_PLANNING_LINEUP_KEY]: serialized,
+      },
+    }));
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              settings: {
+                ...evt.settings,
+                planningQuestionAnswers: {
+                  ...(evt.settings.planningQuestionAnswers ?? {}),
+                  [GRAND_ENTRANCE_PLANNING_LINEUP_KEY]: serialized,
+                },
+              },
+            }
+          : evt,
+      ),
+    );
+    closeWeddingPartyLineupEditor();
+    if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+      const mergedAnswers = {
+        ...(eventSettings.planningQuestionAnswers ?? {}),
+        [GRAND_ENTRANCE_PLANNING_LINEUP_KEY]: serialized,
+      };
+      const detail = readGrandEntranceDetail(mergedAnswers, coupleDefault);
+      try {
+        await updateGrandEntranceDetail(activeEventId, {
+          script: detail.script,
+          lineup: serialized,
+          coupleEntrance: detail.coupleEntrance,
+        });
+      } catch (error) {
+        console.error("Failed to persist wedding party lineup to database:", error);
+      }
+    }
+  }, [
+    weddingPartyLineupDraft,
+    eventSettings.planningQuestionAnswers,
+    eventSettings.coupleNames,
+    weddingDetails.couple,
+    activeEventId,
+    closeWeddingPartyLineupEditor,
+  ]);
+
+  const updatePlanningQuestionAnswer = useCallback((questionId: string, next: string) => {
+    if (questionId === GRAND_ENTRANCE_PLANNING_LINEUP_KEY) return;
+    setEventSettings((prev) => ({
+      ...prev,
+      planningQuestionAnswers: {
+        ...(prev.planningQuestionAnswers ?? {}),
+        [questionId]: next,
+      },
+    }));
+  }, []);
 
   const applyChecklistTaskFocus = useCallback(
     (focus: ChecklistTaskFocus) => {
@@ -9539,7 +9714,7 @@ export default function Home() {
           if (focus.expand) {
             openReceptionTimelineCardExpanded(row);
           }
-          if (focus.openGrandEntrance) {
+          if (focus.openGrandEntrance && canAccessGrandEntranceOperations) {
             window.setTimeout(
               () => openGrandEntranceDetail(row),
               focus.expand ? 180 : 80,
@@ -9587,6 +9762,7 @@ export default function Home() {
       openReceptionTimelineCardExpanded,
       openCeremonyTimelineCardExpanded,
       openGrandEntranceDetail,
+      canAccessGrandEntranceOperations,
       setNewSongListType,
       setGuestRequestView,
     ],
@@ -9594,6 +9770,14 @@ export default function Home() {
 
   const navigateToChecklistTask = useCallback(
     (taskId: string) => {
+      if (
+        taskId === "add-grand-entrance-details" &&
+        !canAccessGrandEntranceOperations
+      ) {
+        openWeddingPartyLineupEditor();
+        return;
+      }
+
       let nav = resolveChecklistTaskNavigation(taskId, planningChecklistInput, {
         unifiedEventTimeline,
       });
@@ -9618,6 +9802,8 @@ export default function Home() {
       activeScreen,
       applyChecklistTaskFocus,
       setActiveScreen,
+      canAccessGrandEntranceOperations,
+      openWeddingPartyLineupEditor,
     ],
   );
 
@@ -10063,16 +10249,8 @@ export default function Home() {
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
         <main className="mx-auto w-full max-w-md overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
           <AppHeader
-            screenTitle={
-              appMode === "events"
-                ? navLabel(activeScreen)
-                : appMode === "event" &&
-                  (currentRole ?? rolePreview) === "Couple" &&
-                  activeScreen === "Dashboard"
-                  ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
-                  : screenTitle
-            }
-            weddingDetails={weddingDetails}
+            screenTitle={headerScreenTitle}
+            weddingDetails={headerWeddingDetails}
             persistFeedback={{ phase: "idle", hasBaseline: false }}
             appSettings={{
               ...appSettings,
@@ -10099,16 +10277,8 @@ export default function Home() {
     <div className={cmAppShellClass}>
       <div className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pt-6 sm:px-6">
         <AppHeader
-          screenTitle={
-            appMode === "events"
-              ? navLabel(activeScreen)
-              : appMode === "event" &&
-                (currentRole ?? rolePreview) === "Couple" &&
-                activeScreen === "Dashboard"
-                ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
-                : screenTitle
-          }
-          weddingDetails={weddingDetails}
+          screenTitle={headerScreenTitle}
+          weddingDetails={headerWeddingDetails}
           persistFeedback={persistFeedback}
           appSettings={{
             ...appSettings,
@@ -11657,25 +11827,7 @@ export default function Home() {
                               {canManageEvents && (
                                 <PrimaryButton
                                   onClick={() => {
-                                    const ok = window.confirm(
-                                      `Delete "${evt.meta.couple || "this event"}"?`,
-                                    );
-                                    if (!ok) return;
-                                    commitActiveEventPlanningToEventsState();
-                                    setEvents((prev) => prev.filter((e) => e.id !== evt.id));
-                                    if (evt.id === activeEventId) {
-                                      const remaining = events.filter((e) => e.id !== evt.id);
-                                      const next = remaining[0];
-                                      if (next) {
-                                        setActiveEventId(next.id);
-                                        loadEventPlanningIntoWorkingState(next);
-                                        setAppMode("event");
-                                        setActiveScreen("Dashboard");
-                                      } else {
-                                        setAppMode("events");
-                                        setActiveScreen("All Events");
-                                      }
-                                    }
+                                    void deleteEventFromWorkspace(evt.id);
                                   }}
                                   className={`col-span-2 ${lightUiDestructiveButtonClass}`}
                                 >
@@ -14298,13 +14450,24 @@ export default function Home() {
                                 </div>
                                 <div className={TIMELINE_CARD_ACTION_ROW_CLASS}>
                                   {isGrandEntrance ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openGrandEntranceDetail(item)}
-                                      className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} w-full lg:w-auto`}
-                                    >
-                                      Open Entrance Details
-                                    </button>
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={openWeddingPartyLineupEditor}
+                                        className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} w-full lg:w-auto`}
+                                      >
+                                        Edit Wedding Party Lineup
+                                      </button>
+                                      {canAccessGrandEntranceOperations ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => openGrandEntranceDetail(item)}
+                                          className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} w-full lg:w-auto`}
+                                        >
+                                          Open Entrance Details
+                                        </button>
+                                      ) : null}
+                                    </>
                                   ) : null}
                                   <PrimaryButton
                                     type="button"
@@ -14421,13 +14584,24 @@ export default function Home() {
                               </div>
                               <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                                 {isGrandEntrance ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openGrandEntranceDetail(item)}
-                                    className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} col-span-2 w-full`}
-                                  >
-                                    Open Entrance Details
-                                  </button>
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={openWeddingPartyLineupEditor}
+                                      className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} col-span-2 w-full`}
+                                    >
+                                      Edit Wedding Party Lineup
+                                    </button>
+                                    {canAccessGrandEntranceOperations ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => openGrandEntranceDetail(item)}
+                                        className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} col-span-2 w-full`}
+                                      >
+                                        Open Entrance Details
+                                      </button>
+                                    ) : null}
+                                  </>
                                 ) : null}
                                 <PrimaryButton
                                   type="button"
@@ -16040,7 +16214,13 @@ export default function Home() {
                           .map((q) => (
                             <tr key={`live-planned-q-${q.id}`}>
                               <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
-                              <td>{(eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}</td>
+                              <td>
+                                {q.id === GRAND_ENTRANCE_PLANNING_LINEUP_KEY
+                                  ? formatWeddingPartyLineupForDisplay(
+                                      eventSettings.planningQuestionAnswers[q.id],
+                                    ) || "—"
+                                  : (eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}
+                              </td>
                             </tr>
                           ))}
                       </tbody>
@@ -16931,7 +17111,9 @@ export default function Home() {
                     className="min-h-11 w-full rounded-xl border border-stone-400 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10"
                   >
                     {task.id === "add-grand-entrance-details"
-                      ? "Open Grand Entrance details"
+                      ? canAccessGrandEntranceOperations
+                        ? "Open Grand Entrance details"
+                        : "Edit Wedding Party Lineup"
                       : task.id === "add-formal-dance-songs"
                         ? "Add songs on timeline"
                         : task.id === "choose-ceremony-songs"
@@ -16993,9 +17175,29 @@ export default function Home() {
                 />
               ) : (
                 <div id="planning-questions-anchor" className="space-y-5">
+                  {showWeddingPartyLineupSection ? (
+                    <PremiumCard className={premiumFormSectionCardClass}>
+                      <SectionTitle className="text-stone-950">Wedding Party Lineup</SectionTitle>
+                      <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                        {WEDDING_PARTY_LINEUP_HELPER_COPY}
+                      </p>
+                      <p className="mt-4 text-sm font-medium text-stone-900">{weddingPartyLineupSummary}</p>
+                      <PrimaryButton
+                        type="button"
+                        onClick={openWeddingPartyLineupEditor}
+                        className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+                      >
+                        Edit Wedding Party Lineup
+                      </PrimaryButton>
+                    </PremiumCard>
+                  ) : null}
                   {planningQuestionsGroupedBySection.map((row) => {
+                    const visibleQuestions = row.questions.filter(
+                      (question) => question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
+                    );
+                    if (visibleQuestions.length === 0) return null;
                     const pct = computePlanningQuestionGroupCompletion(
-                      row.questions,
+                      visibleQuestions,
                       eventSettings.planningQuestionAnswers,
                     );
                     const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
@@ -17014,8 +17216,8 @@ export default function Home() {
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
                             <p className="text-[11px] font-medium leading-relaxed text-stone-600">
-                              {pct}% answered · {row.questions.length}{" "}
-                              {row.questions.length === 1 ? "question" : "questions"}
+                              {pct}% answered · {visibleQuestions.length}{" "}
+                              {visibleQuestions.length === 1 ? "question" : "questions"}
                             </p>
                             <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
                               <div
@@ -17031,20 +17233,12 @@ export default function Home() {
                         {isExpanded ? (
                           <div className="mt-6 border-t border-stone-200 pt-6">
                             <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
-                              {row.questions.map((q) => (
+                              {visibleQuestions.map((q) => (
                                 <PlanningQuestionAnswerEditor
                                   key={q.id}
                                   q={q}
                                   value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                                  onChange={(next) =>
-                                    setEventSettings((prev) => ({
-                                      ...prev,
-                                      planningQuestionAnswers: {
-                                        ...(prev.planningQuestionAnswers ?? {}),
-                                        [q.id]: next,
-                                      },
-                                    }))
-                                  }
+                                  onChange={(next) => updatePlanningQuestionAnswer(q.id, next)}
                                 />
                               ))}
                             </div>
@@ -17169,6 +17363,18 @@ export default function Home() {
         )}
       </main>
 
+      <WeddingPartyLineupSheet
+        open={weddingPartyLineupOpen}
+        savedEntries={weddingPartyLineupSavedDraft}
+        entries={weddingPartyLineupDraft}
+        onChange={setWeddingPartyLineupDraft}
+        onDone={() => {
+          void doneWeddingPartyLineup();
+        }}
+        onCancel={closeWeddingPartyLineupEditor}
+        canEdit={canEditTimeline}
+      />
+
       <GrandEntranceDetailSheet
         open={grandEntranceDetailEditor != null}
         title={grandEntranceDetailEditor?.title ?? "Grand Entrance"}
@@ -17179,7 +17385,7 @@ export default function Home() {
         onChange={(patch) => setGrandEntranceDetailDraft((prev) => ({ ...prev, ...patch }))}
         onDone={doneGrandEntranceDetail}
         onCancel={closeGrandEntranceDetailEditor}
-        canEditDetail={canEditTimeline}
+        canEditOperationalDetail={canAccessGrandEntranceOperations}
         canEditSideNote={canAccessRunOfShow}
       />
 
@@ -18409,13 +18615,24 @@ export default function Home() {
                                             </p>
                                           ) : null}
                                           {isGrandEntrance ? (
-                                            <button
-                                              type="button"
-                                              onClick={() => openGrandEntranceDetail(item)}
-                                              className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} mt-5`}
-                                            >
-                                              Open Entrance Details
-                                            </button>
+                                            <div className="mt-5 flex flex-wrap gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={openWeddingPartyLineupEditor}
+                                                className={GRAND_ENTRANCE_DETAIL_BTN_CLASS}
+                                              >
+                                                Edit Wedding Party Lineup
+                                              </button>
+                                              {canAccessGrandEntranceOperations ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => openGrandEntranceDetail(item)}
+                                                  className={GRAND_ENTRANCE_DETAIL_BTN_CLASS}
+                                                >
+                                                  Open Entrance Details
+                                                </button>
+                                              ) : null}
+                                            </div>
                                           ) : null}
                                         </div>
                                         <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">

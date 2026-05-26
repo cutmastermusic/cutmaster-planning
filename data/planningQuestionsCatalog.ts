@@ -3,7 +3,7 @@ import type { EventSettings, PlanningQuestionDef } from "@/types/planning";
 export type PlanningLayoutProfile = EventSettings["eventLayoutProfile"];
 
 const WEDDING_QUESTIONS: PlanningQuestionDef[] = [
-  { id: "pq_grand_entrance", label: "Grand entrance details", helpText: "Order and staging cues.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Order, vibe, staging…", sectionGroup: "reception_timeline" },
+  { id: "pq_grand_entrance", label: "Wedding party lineup", helpText: "Introduction order for the wedding party. One person or pair per line — include role/title and pronunciation notes if helpful.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Best man — Alex (AL-eks)\nMaid of honor — Jordan\nBridesmaids — Sam & Riley\n…", sectionGroup: "reception_timeline" },
   { id: "pq_formal_dances", label: "Formal dances / family dances", helpText: "List sequence and songs.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Who, order, songs…", sectionGroup: "special_moments" },
   { id: "pq_toasts", label: "Toasts / speeches", helpText: "Who speaks and when.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Who speaks and when…", sectionGroup: "reception_timeline" },
   { id: "pq_ceremony", label: "Ceremony details", helpText: "Processional and transition notes.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Music moments, transitions…", sectionGroup: "ceremony" },

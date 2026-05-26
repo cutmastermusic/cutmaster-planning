@@ -1,5 +1,6 @@
 import { musicTasteProfileHasSelections, normalizeMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
 import { isGrandEntranceTimelineItem, readGrandEntranceDetail } from "@/lib/grandEntranceDetail";
+import { weddingPartyLineupHasEntries } from "@/lib/weddingPartyLineup";
 import type {
   CeremonyPlan,
   CeremonyTimelineItem,
@@ -107,7 +108,7 @@ export const DEFAULT_PLANNING_CHECKLIST_TEMPLATE: ChecklistTemplateItem[] = [
     id: "add-grand-entrance-details",
     label: "Add Grand Entrance",
     title: "Add Grand Entrance",
-    description: "Add MC script, wedding party lineup, or couple entrance details.",
+    description: "Add wedding party lineup (Planning Questions) and MC script for show day.",
     linkedSection: "Timeline",
     dueOffsetDays: -21,
     autoCompleteRule: "add-grand-entrance-details",
@@ -585,13 +586,13 @@ export function deriveGrandEntranceChecklistProgress(input: Pick<
   const detail = readGrandEntranceDetail(input.planningQuestionAnswers, input.coupleNames);
 
   if (!geRow) {
-    const started = Boolean(detail.script.trim() || detail.lineup.trim());
+    const started = Boolean(detail.script.trim() || weddingPartyLineupHasEntries(detail.lineup));
     return started ? "in-progress" : "not-started";
   }
 
   const filled = [
     detail.script.trim(),
-    detail.lineup.trim(),
+    weddingPartyLineupHasEntries(detail.lineup) ? "lineup" : "",
     geRow.songTitle?.trim() || geRow.artist?.trim() || "",
   ].filter(Boolean).length;
   return deriveTimelineSlotsProgress(filled, 3);
@@ -608,7 +609,7 @@ export function deriveGrandEntranceMissingNotes(input: Pick<
   if (!geRow) notes.push("Add Grand Entrance to reception timeline");
   else if (!timelineItemHasSong(geRow)) notes.push(formatTimelineMissingSongNote("Grand Entrance"));
   if (!detail.script.trim()) notes.push("MC script missing");
-  if (!detail.lineup.trim()) notes.push("Wedding party lineup missing");
+  if (!weddingPartyLineupHasEntries(detail.lineup)) notes.push("Wedding party lineup missing");
 
   return notes;
 }
@@ -664,7 +665,7 @@ function timelineAnchorOperationalReady(
   if (isGrandEntranceTimelineItem(item.title)) {
     const detail = readGrandEntranceDetail(planningQuestionAnswers, "");
     return Boolean(
-      detail.script.trim() || detail.lineup.trim() || timelineItemHasSong(item),
+      detail.script.trim() || weddingPartyLineupHasEntries(detail.lineup) || timelineItemHasSong(item),
     );
   }
 
