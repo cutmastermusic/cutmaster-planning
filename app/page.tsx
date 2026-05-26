@@ -137,6 +137,7 @@ import type {
   EventRecord,
   GuestRequestEntry,
   GuestRequestStatus,
+  ChecklistDueDate,
   ChecklistStatus,
   PlanningQuestionAnswerType,
   PlanningQuestionDef,
@@ -192,6 +193,7 @@ import {
   mapDatabaseRowsToCeremonyTimelineItems,
   mapDatabaseRowsToMainTimelineItems,
   mapMainTimelineItemsForDatabase,
+  dedupeSongEntries,
   receptionTimelineHasClockOrderConflict,
   sortTimelineItemsChronologically,
 } from "@/utils/planning";
@@ -201,6 +203,26 @@ import {
   type PastedTimelineImportDraft,
 } from "@/utils/timelinePasteImport";
 import { buildCouplePlanningGaps } from "@/utils/couplePlanningGaps";
+import {
+  buildPlanningChecklist,
+  CHECKLIST_DUE_OFFSET_PRESETS,
+  DEFAULT_PLANNING_CHECKLIST_TEMPLATE,
+  formatChecklistDueOffsetDescription,
+  getDefaultChecklistDueDateSets,
+  getDefaultChecklistDueDateSetsForProfiles,
+  hasCeremonyMusic as computeCeremonyMusicComplete,
+  hasEventDetailsComplete as computeEventDetailsComplete,
+  hasFinalDjNotes as computeFinalDjNotesComplete,
+  hasKeyFormalDanceSongs as computeKeyFormalDanceSongs,
+  hasKeyTimelineMoments as computeKeyTimelineMoments,
+  hasMusicTasteSignal as computeMusicTasteSignal,
+  normalizeChecklistDueDatesRecord,
+  planningChecklistCompletionPercent,
+  shouldShowPlanningChecklistMissingNotes,
+  templateDefaultDueDate,
+  type PlanningChecklistDueConfig,
+  type PlanningChecklistInput,
+} from "@/lib/planningChecklist";
 import { buildPlanningProgressChecks } from "@/utils/planningProgress";
 import {
   buildNewWeddingCeremonyTimelineItems,
@@ -1086,6 +1108,7 @@ const EVENT_TYPES: EventLayoutProfile[] = [
 const GLOBAL_SETTINGS_SECTIONS = [
   "Event Types",
   "Planning Questions",
+  "Planning Checklist",
   "Timeline Presets",
   "Event Document",
   "Team Management",
@@ -1665,36 +1688,17 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   return coupleNav;
 }
 
-function countPlaylistSongs(evt: EventRecord): number {
-  return (
-    (evt.mustPlaySongs?.length ?? 0) +
-    (evt.doNotPlaySongs?.length ?? 0) +
-    (evt.playIfPossibleSongs?.length ?? 0)
-  );
-}
-
-/** When DB hydration races ahead of a local save, keep LS playlist data on the event record used for reopen. */
+/** When DB hydration completes, use DB playlist rows (deduped) as source of truth. */
 function mergeHydratedEventsPreservingPlaylists(
-  priorEvents: EventRecord[],
+  _priorEvents: EventRecord[],
   hydratedEvents: EventRecord[],
 ): EventRecord[] {
-  const priorMap = new Map(priorEvents.map((e) => [e.id, e]));
-  return hydratedEvents.map((hydrated) => {
-    const prior = priorMap.get(hydrated.id);
-    if (!prior) return hydrated;
-
-    const hydratedSongCount = countPlaylistSongs(hydrated);
-    const priorSongCount = countPlaylistSongs(prior);
-
-    if (hydratedSongCount > 0 || priorSongCount === 0) return hydrated;
-
-    return {
-      ...hydrated,
-      mustPlaySongs: prior.mustPlaySongs,
-      doNotPlaySongs: prior.doNotPlaySongs,
-      playIfPossibleSongs: prior.playIfPossibleSongs ?? [],
-    };
-  });
+  return hydratedEvents.map((hydrated) => ({
+    ...hydrated,
+    mustPlaySongs: dedupeSongEntries(hydrated.mustPlaySongs ?? []),
+    doNotPlaySongs: dedupeSongEntries(hydrated.doNotPlaySongs ?? []),
+    playIfPossibleSongs: dedupeSongEntries(hydrated.playIfPossibleSongs ?? []),
+  }));
 }
 
 /** Keep browser-local Grand Entrance detail until the event has DB-backed values. */
@@ -2053,6 +2057,168 @@ function TimelineMomentHeadline({
   );
 }
 
+function ChecklistGlobalRelativeDueSelect({
+  idPrefix,
+  offsetDays,
+  onChange,
+  disabled = false,
+}: {
+  idPrefix: string;
+  offsetDays: number;
+  onChange: (offsetDays: number) => void;
+  disabled?: boolean;
+}) {
+  const options =
+    !CHECKLIST_DUE_OFFSET_PRESETS.some((days) => -days === offsetDays)
+      ? [offsetDays, ...CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days)]
+      : CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days);
+
+  return (
+    <div>
+      <label htmlFor={`${idPrefix}-global-offset`} className={lightUiFormLabelClass}>
+        Relative to event date
+      </label>
+      <select
+        id={`${idPrefix}-global-offset`}
+        value={offsetDays}
+        disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className={lightUiSelectClass}
+      >
+        {options.map((value) => (
+          <option key={`${idPrefix}-global-${value}`} value={value}>
+            {formatChecklistDueOffsetDescription(value)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ChecklistDueDateFields({
+  idPrefix,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  idPrefix: string;
+  value: ChecklistDueDate;
+  onChange: (next: ChecklistDueDate) => void;
+  disabled?: boolean;
+}) {
+  const relativeOptions =
+    value.type === "relative" &&
+    !CHECKLIST_DUE_OFFSET_PRESETS.some((days) => -days === value.offsetDays)
+      ? [value.offsetDays, ...CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days)]
+      : CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days);
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <label htmlFor={`${idPrefix}-due-type`} className={lightUiFormLabelClass}>
+          Due date type
+        </label>
+        <select
+          id={`${idPrefix}-due-type`}
+          value={value.type}
+          disabled={disabled}
+          onChange={(event) => {
+            const nextType = event.target.value;
+            if (nextType === "custom") {
+              onChange({
+                type: "custom",
+                date: value.type === "custom" ? value.date : "",
+              });
+              return;
+            }
+            onChange({
+              type: "relative",
+              offsetDays: value.type === "relative" ? value.offsetDays : -14,
+            });
+          }}
+          className={lightUiSelectClass}
+        >
+          <option value="relative">Relative to event date</option>
+          <option value="custom">Custom date</option>
+        </select>
+      </div>
+      {value.type === "relative" ? (
+        <div>
+          <label htmlFor={`${idPrefix}-due-offset`} className={lightUiFormLabelClass}>
+            Relative timing
+          </label>
+          <select
+            id={`${idPrefix}-due-offset`}
+            value={value.offsetDays}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({ type: "relative", offsetDays: Number(event.target.value) })
+            }
+            className={lightUiSelectClass}
+          >
+            {relativeOptions.map((offsetDays) => (
+              <option key={`${idPrefix}-offset-${offsetDays}`} value={offsetDays}>
+                {formatChecklistDueOffsetDescription(offsetDays)}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor={`${idPrefix}-due-custom`} className={lightUiFormLabelClass}>
+            Custom date
+          </label>
+          <input
+            id={`${idPrefix}-due-custom`}
+            type="date"
+            value={value.date}
+            disabled={disabled}
+            onChange={(event) => onChange({ type: "custom", date: event.target.value })}
+            className={lightUiInputClass}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanningChecklistMissingNotesBlock({ notes }: { notes: string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <div
+      className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2"
+      role="status"
+    >
+      <div className="flex items-start gap-2">
+        <svg
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600"
+        >
+          <path
+            fillRule="evenodd"
+            d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 00-.75.75v3.5a.75.75 0 001.5 0v-3.5A.75.75 0 0010 6zm0 8a1 1 0 100-2 1 1 0 000 2z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+            Attention needed
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {notes.map((note) => (
+              <li key={note} className="text-[11px] font-medium leading-snug text-amber-900/90">
+                {note}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TimelineSongCueLine({
   kind,
   preview,
@@ -2111,6 +2277,7 @@ export default function Home() {
     setInviteAccessPreview,
   } = usePlanningApp();
   const persistUiSuppressBootCountRef = useRef(0);
+  const databaseHydrationCompleteRef = useRef(false);
   const persistPhaseHideTimeoutRef = useRef<number | null>(null);
   const [mustPlaySongs, setMustPlaySongs] = useState<SongEntry[]>(initialMustPlaySongs);
   const [doNotPlaySongs, setDoNotPlaySongs] = useState<SongEntry[]>(initialDoNotPlaySongs);
@@ -2686,7 +2853,7 @@ export default function Home() {
         await replaceEventSongs(
           eventId,
           "mustPlay",
-          mustPlay.map((song, index) => ({
+          dedupeSongEntries(mustPlay).map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -2697,7 +2864,7 @@ export default function Home() {
         await replaceEventSongs(
           eventId,
           "doNotPlay",
-          doNotPlay.map((song, index) => ({
+          dedupeSongEntries(doNotPlay).map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -2708,7 +2875,7 @@ export default function Home() {
         await replaceEventSongs(
           eventId,
           "playIfPossible",
-          playIfPossible.map((song, index) => ({
+          dedupeSongEntries(playIfPossible).map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -2917,9 +3084,9 @@ export default function Home() {
     }
     setTimelineItems(nextTimelineItems);
     setCeremonyTimelineItems(nextCeremonyTimelineItems);
-    setMustPlaySongs(cloneJson(normalized.mustPlaySongs));
-    setDoNotPlaySongs(cloneJson(normalized.doNotPlaySongs));
-    setPlayIfPossibleSongs(cloneJson(normalized.playIfPossibleSongs ?? []));
+    setMustPlaySongs(dedupeSongEntries(cloneJson(normalized.mustPlaySongs)));
+    setDoNotPlaySongs(dedupeSongEntries(cloneJson(normalized.doNotPlaySongs)));
+    setPlayIfPossibleSongs(dedupeSongEntries(cloneJson(normalized.playIfPossibleSongs ?? [])));
     setMusicPlaylistLinks(cloneJson(normalized.musicPlaylistLinks ?? []));
     setMusicGenreEraSelections(cloneJson(normalized.musicGenreEraSelections ?? []));
     setMusicTasteProfile(normalizeMusicTasteProfile(normalized.musicTasteProfile));
@@ -3018,7 +3185,10 @@ export default function Home() {
         sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-        checklistDueDates: evt.settings?.checklistDueDates ?? {},
+        checklistDueDates: normalizeChecklistDueDatesRecord(
+          evt.settings?.checklistDueDates,
+          evt.settings?.checklistDueOffsets,
+        ),
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         eventStatus: normalizeEventStatus(
@@ -3636,6 +3806,56 @@ export default function Home() {
     }, {} as Record<EventLayoutProfile, PlanningQuestionDef[]>);
   }, [appSettings.planningQuestionSets]);
 
+  const checklistDueDateSetsForSettings = useMemo(() => {
+    const defaults = getDefaultChecklistDueDateSetsForProfiles();
+    return EVENT_TYPES.reduce((acc, profile) => {
+      acc[profile] = normalizeChecklistDueDatesRecord(
+        appSettings.checklistDueDateSets?.[profile],
+        appSettings.checklistDueOffsetSets?.[profile],
+      );
+      if (Object.keys(acc[profile]).length === 0) {
+        acc[profile] = defaults[profile] ?? getDefaultChecklistDueDateSets();
+      }
+      return acc;
+    }, {} as Record<EventLayoutProfile, Record<string, ChecklistDueDate>>);
+  }, [appSettings.checklistDueDateSets, appSettings.checklistDueOffsetSets]);
+
+  const updateChecklistGlobalDueDate = useCallback(
+    (profile: EventLayoutProfile, taskId: string, offsetDays: number) => {
+      setAppSettings((prev) => {
+        const defaults = getDefaultChecklistDueDateSetsForProfiles();
+        const current = {
+          ...(prev.checklistDueDateSets?.[profile] ??
+            normalizeChecklistDueDatesRecord(undefined, prev.checklistDueOffsetSets?.[profile]) ??
+            defaults[profile] ??
+            getDefaultChecklistDueDateSets()),
+        };
+        current[taskId] = { type: "relative", offsetDays };
+        return {
+          ...prev,
+          checklistDueDateSets: {
+            ...(prev.checklistDueDateSets ?? {}),
+            [profile]: current,
+          },
+        };
+      });
+    },
+    [setAppSettings],
+  );
+
+  const resetChecklistGlobalDueDateSet = useCallback(
+    (profile: EventLayoutProfile) => {
+      setAppSettings((prev) => ({
+        ...prev,
+        checklistDueDateSets: {
+          ...(prev.checklistDueDateSets ?? {}),
+          [profile]: { ...getDefaultChecklistDueDateSets() },
+        },
+      }));
+    },
+    [setAppSettings],
+  );
+
   const updatePlanningQuestionSet = useCallback(
     (
       profile: EventLayoutProfile,
@@ -4059,134 +4279,95 @@ export default function Home() {
   const acceptedCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Accepted") ?? [];
   const pendingCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Pending") ?? [];
 
-  const hasKeyCeremonySongs = Boolean(
-    weddingPartyProcessional.title.trim() &&
-    brideGroomProcessional.title.trim() &&
-    recessionalSong.title.trim(),
-  );
-  const hasKeyFormalDanceSongs = Boolean(
-    timelineItems.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
-    timelineItems.some(
-      (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
-    ) &&
-    timelineItems.some(
-      (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
-    ),
-  );
-  const combinedTimelineTitles = timelineItems.map((item) => item.title.toLowerCase());
-  const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every(
-    (needle) => combinedTimelineTitles.some((title) => title.includes(needle)),
-  );
-  const noPendingGuestRequests = guestRequests.every((request) => request.status !== "Pending");
-  const hasFinalDjNotes = Boolean(generalDjNotes.trim().length >= 16);
-  const hasEventDetailsComplete = Boolean(
-    eventSettings.eventName.trim() &&
-    eventSettings.coupleNames.trim() &&
-    eventSettings.venue.trim() &&
-    eventSettings.weddingDate.trim(),
-  );
-
-  const checklistTasks = useMemo(() => {
-    const hasMusicTasteForChecklist =
-      mustPlaySongs.length > 0 ||
-      playIfPossibleSongs.length > 0 ||
-      musicPlaylistLinks.length > 0 ||
-      musicGenreEraSelections.length > 0 ||
-      musicTasteProfileHasSelections(musicTasteProfile) ||
-      PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
-
-    return [
-      {
-        id: "complete-event-details",
-        title: "Complete Event Details",
-        description: "Finalize names, date, venue, and key event basics.",
-        linkedSection: "Event Settings" as Screen,
-        autoStatus: hasEventDetailsComplete ? "Complete" : "Not Started",
-      },
-      {
-        id: "choose-ceremony-songs",
-        title: "Choose Ceremony Songs",
-        description: "Set processional and recessional songs for ceremony cues.",
-        linkedSection: "Ceremony" as Screen,
-        autoStatus: hasKeyCeremonySongs ? "Complete" : "Not Started",
-      },
-      {
-        id: "add-formal-dance-songs",
-        title: "Add Key Formal Dances (Timeline)",
-        description: "Set first dance and parent dance songs on your reception timeline.",
-        linkedSection: (receptionHubEligibleNav ? "Reception Timeline" : "Timeline") as Screen,
-        autoStatus: hasKeyFormalDanceSongs ? "Complete" : "Not Started",
-      },
-      {
-        id: "build-must-play-list",
-        title: "Share your music taste",
-        description: "Playlist links, genre picks, or a few favorite songs help your DJ read the room.",
-        linkedSection: "Music Hub" as Screen,
-        autoStatus: hasMusicTasteForChecklist ? "Complete" : "Not Started",
-      },
-      {
-        id: "add-do-not-play-songs",
-        title: "Add Do Not Play Songs",
-        description: "Capture songs and genres to avoid.",
-        linkedSection: "Music Hub" as Screen,
-        autoStatus: doNotPlaySongs.length > 0 ? "Complete" : "Not Started",
-      },
-      {
-        id: "review-timeline",
-        title: "Review Timeline",
-        description: "Confirm key reception flow and transitions.",
-        linkedSection: (receptionHubEligibleNav && sectionReceptionTimelineEnabled
-          ? "Reception Timeline"
-          : "Timeline") as Screen,
-        autoStatus: hasKeyTimelineMoments ? "Complete" : "Not Started",
-      },
-      {
-        id: "approve-guest-requests",
-        title: "Approve Guest Requests",
-        description: "Review and resolve all pending guest requests.",
-        linkedSection: "Guest Requests" as Screen,
-        autoStatus:
-          guestRequests.length > 0 && noPendingGuestRequests ? "Complete" : "Not Started",
-      },
-      {
-        id: "add-final-dj-notes",
-        title: "Add Final DJ Notes",
-        description: "Document final cues and handoff notes for event day.",
-        linkedSection: "Event Prep" as Screen,
-        autoStatus: hasFinalDjNotes ? "Complete" : "Not Started",
-      },
-    ];
-  }, [
-    hasEventDetailsComplete,
-    hasKeyCeremonySongs,
-    hasKeyFormalDanceSongs,
-    hasKeyTimelineMoments,
-    hasFinalDjNotes,
-    mustPlaySongs.length,
-    playIfPossibleSongs.length,
-    musicPlaylistLinks.length,
-    musicGenreEraSelections.length,
-    musicTasteProfile,
-    playlistVibeOverrides,
-    doNotPlaySongs.length,
-    guestRequests,
-    noPendingGuestRequests,
-    receptionHubEligibleNav,
-    sectionReceptionTimelineEnabled,
-  ],
+  const planningChecklistInput = useMemo(
+    (): PlanningChecklistInput => ({
+      eventName: eventSettings.eventName,
+      coupleNames: eventSettings.coupleNames,
+      venue: eventSettings.venue,
+      weddingDate: eventSettings.weddingDate,
+      plannerName: eventSettings.plannerName,
+      plannerEmail: eventSettings.plannerEmail,
+      teamMembers,
+      planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
+      mustPlaySongs,
+      doNotPlaySongs,
+      playIfPossibleSongs,
+      musicPlaylistLinks,
+      musicGenreEraSelections,
+      musicTasteProfile,
+      playlistVibeOverrides,
+      weddingPartyProcessional,
+      brideGroomProcessional,
+      recessionalSong,
+      ceremonyTimelineItems,
+      timelineItems,
+      guestRequests,
+      generalDjNotes,
+      sectionReceptionTimelineEnabled,
+      receptionHubEligibleNav,
+    }),
+    [
+      eventSettings.eventName,
+      eventSettings.coupleNames,
+      eventSettings.venue,
+      eventSettings.weddingDate,
+      eventSettings.plannerName,
+      eventSettings.plannerEmail,
+      eventSettings.planningQuestionAnswers,
+      teamMembers,
+      mustPlaySongs,
+      doNotPlaySongs,
+      playIfPossibleSongs,
+      musicPlaylistLinks,
+      musicGenreEraSelections,
+      musicTasteProfile,
+      playlistVibeOverrides,
+      weddingPartyProcessional,
+      brideGroomProcessional,
+      recessionalSong,
+      ceremonyTimelineItems,
+      timelineItems,
+      guestRequests,
+      generalDjNotes,
+      sectionReceptionTimelineEnabled,
+      receptionHubEligibleNav,
+    ],
   );
 
-  const planningChecklist = checklistTasks.map((task) => {
-    const dueDate = eventSettings.checklistDueDates?.[task.id] || "";
-    const manualStatus = eventSettings.checklistManualStatuses?.[task.id];
-    const status = manualStatus ?? task.autoStatus;
-    return { ...task, dueDate, status };
-  });
+  const hasKeyCeremonySongs = computeCeremonyMusicComplete(planningChecklistInput);
+  const hasKeyFormalDanceSongs = computeKeyFormalDanceSongs(planningChecklistInput);
+  const hasKeyTimelineMoments = computeKeyTimelineMoments(planningChecklistInput);
+  const hasFinalDjNotes = computeFinalDjNotesComplete(planningChecklistInput);
+  const hasEventDetailsComplete = computeEventDetailsComplete(planningChecklistInput);
 
-  const completionPercent = Math.round(
-    (planningChecklist.filter((item) => item.status === "Complete").length / planningChecklist.length) *
-    100,
+  const planningChecklistDueConfig = useMemo(
+    (): PlanningChecklistDueConfig => ({
+      eventDueOverrides: eventSettings.checklistDueDates,
+      globalDefaultDueDates: checklistDueDateSetsForSettings[layoutProfileForActiveEvent],
+    }),
+    [
+      eventSettings.checklistDueDates,
+      checklistDueDateSetsForSettings,
+      layoutProfileForActiveEvent,
+    ],
   );
+
+  const planningChecklist = useMemo(
+    () =>
+      buildPlanningChecklist(
+        planningChecklistInput,
+        planningChecklistDueConfig,
+        eventSettings.checklistManualStatuses,
+      ),
+    [
+      planningChecklistInput,
+      planningChecklistDueConfig,
+      eventSettings.checklistManualStatuses,
+    ],
+  );
+
+  const completionPercent = planningChecklistCompletionPercent(planningChecklist);
+  const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
   const canAccessRunOfShow = effectiveRole !== "Couple";
@@ -5563,20 +5744,7 @@ export default function Home() {
       (q) => !answers[q.id]?.trim(),
     ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
-    const hasMusicTasteProfileSignal = musicTasteProfileHasSelections(musicTasteProfile);
-    const hasMusicTasteSignal =
-      musicPlaylistLinks.length > 0 ||
-      musicGenreEraSelections.length > 0 ||
-      mustPlaySongs.length > 0 ||
-      playIfPossibleSongs.length > 0 ||
-      hasMomentPlaylistLines ||
-      hasMusicTasteProfileSignal;
-
-    const mergedChecklist = checklistTasks.map((task) => {
-      const manualStatus = eventSettings.checklistManualStatuses?.[task.id];
-      const status = manualStatus ?? task.autoStatus;
-      return { ...task, status };
-    });
+    const hasMusicTasteSignal = computeMusicTasteSignal(planningChecklistInput);
 
     if (!hasEventDetailsComplete) return "Event Settings";
     if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return unifiedEventTimeline ? "Timeline" : "Ceremony";
@@ -5597,14 +5765,14 @@ export default function Home() {
     }
     if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Guest Requests";
 
-    const nextIncomplete = mergedChecklist.find((t) => t.status !== "Complete");
+    const nextIncomplete = planningChecklist.find((t) => t.status !== "Complete");
     if (nextIncomplete) return nextIncomplete.linkedSection;
 
     if (sectionPlanningChecklistEnabled) return "Planning Checklist";
     return eventNavItems.includes("Event Prep") ? "Event Prep" : "Music Hub";
   }, [
-    checklistTasks,
-    eventSettings.checklistManualStatuses,
+    planningChecklist,
+    planningChecklistInput,
     eventSettings.planningQuestionAnswers,
     eventNavItems,
     guestRequests,
@@ -5612,12 +5780,6 @@ export default function Home() {
     hasKeyCeremonySongs,
     hasKeyFormalDanceSongs,
     hasKeyTimelineMoments,
-    mustPlaySongs.length,
-    playIfPossibleSongs.length,
-    musicPlaylistLinks.length,
-    musicGenreEraSelections.length,
-    musicTasteProfile,
-    hasMomentPlaylistLines,
     sectionMustPlayEnabled,
     sectionPlaylistsEnabled,
     planningQuestionsForEvent,
@@ -6450,38 +6612,44 @@ export default function Home() {
             venue: dbEvent.venue || "",
           };
 
-          seededEvent.mustPlaySongs = (dbEvent.songs || [])
-            .filter((song) => song.listType === "mustPlay")
-            .sort((a, b) => a.order - b.order)
-            .map((song) => ({
-              id: song.id,
-              title: song.title,
-              artist: song.artist || "",
-              notes: song.notes || "",
-              highPriority: song.highPriority,
-            }));
+          seededEvent.mustPlaySongs = dedupeSongEntries(
+            (dbEvent.songs || [])
+              .filter((song) => song.listType === "mustPlay")
+              .sort((a, b) => a.order - b.order)
+              .map((song) => ({
+                id: song.id,
+                title: song.title,
+                artist: song.artist || "",
+                notes: song.notes || "",
+                highPriority: song.highPriority,
+              })),
+          );
 
-          seededEvent.doNotPlaySongs = (dbEvent.songs || [])
-            .filter((song) => song.listType === "doNotPlay")
-            .sort((a, b) => a.order - b.order)
-            .map((song) => ({
-              id: song.id,
-              title: song.title,
-              artist: song.artist || "",
-              notes: song.notes || "",
-              highPriority: song.highPriority,
-            }));
+          seededEvent.doNotPlaySongs = dedupeSongEntries(
+            (dbEvent.songs || [])
+              .filter((song) => song.listType === "doNotPlay")
+              .sort((a, b) => a.order - b.order)
+              .map((song) => ({
+                id: song.id,
+                title: song.title,
+                artist: song.artist || "",
+                notes: song.notes || "",
+                highPriority: song.highPriority,
+              })),
+          );
 
-          seededEvent.playIfPossibleSongs = (dbEvent.songs || [])
-            .filter((song) => song.listType === "playIfPossible")
-            .sort((a, b) => a.order - b.order)
-            .map((song) => ({
-              id: song.id,
-              title: song.title,
-              artist: song.artist || "",
-              notes: song.notes || "",
-              highPriority: song.highPriority,
-            }));
+          seededEvent.playIfPossibleSongs = dedupeSongEntries(
+            (dbEvent.songs || [])
+              .filter((song) => song.listType === "playIfPossible")
+              .sort((a, b) => a.order - b.order)
+              .map((song) => ({
+                id: song.id,
+                title: song.title,
+                artist: song.artist || "",
+                notes: song.notes || "",
+                highPriority: song.highPriority,
+              })),
+          );
 
           seededEvent.guestRequests = (dbEvent.guestRequests ?? [])
             .slice()
@@ -6580,14 +6748,18 @@ export default function Home() {
               eventNotes?: EventNote[];
             }).eventNotes;
             setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
-            setMustPlaySongs(cloneJson(resolvedEvent.mustPlaySongs ?? []));
-            setDoNotPlaySongs(cloneJson(resolvedEvent.doNotPlaySongs ?? []));
-            setPlayIfPossibleSongs(cloneJson(resolvedEvent.playIfPossibleSongs ?? []));
+            setMustPlaySongs(dedupeSongEntries(cloneJson(resolvedEvent.mustPlaySongs ?? [])));
+            setDoNotPlaySongs(dedupeSongEntries(cloneJson(resolvedEvent.doNotPlaySongs ?? [])));
+            setPlayIfPossibleSongs(
+              dedupeSongEntries(cloneJson(resolvedEvent.playIfPossibleSongs ?? [])),
+            );
             return resolvedId;
           });
         }
       } catch (error) {
         console.error("Failed to load database events:", error);
+      } finally {
+        databaseHydrationCompleteRef.current = true;
       }
     };
 
@@ -6650,6 +6822,11 @@ export default function Home() {
         collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
         ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
+        mustPlaySongs: dedupeSongEntries(Array.isArray(evt.mustPlaySongs) ? evt.mustPlaySongs : []),
+        doNotPlaySongs: dedupeSongEntries(Array.isArray(evt.doNotPlaySongs) ? evt.doNotPlaySongs : []),
+        playIfPossibleSongs: dedupeSongEntries(
+          Array.isArray(evt.playIfPossibleSongs) ? evt.playIfPossibleSongs : [],
+        ),
         settings: {
           eventLayoutProfile: migrateLegacyLayoutProfile(
             evt.settings?.eventLayoutProfile,
@@ -6703,7 +6880,10 @@ export default function Home() {
           sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
           sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
           planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-          checklistDueDates: evt.settings?.checklistDueDates ?? {},
+          checklistDueDates: normalizeChecklistDueDatesRecord(
+          evt.settings?.checklistDueDates,
+          evt.settings?.checklistDueOffsets,
+        ),
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
           coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
           eventStatus: normalizeEventStatus(
@@ -6879,7 +7059,11 @@ export default function Home() {
           GLOBAL_SETTINGS_STORAGE_KEY,
           JSON.stringify(appSettings),
         );
-        if (databaseEventIdsRef.current.has(activeEventId)) {
+        if (
+          databaseEventIdsRef.current.has(activeEventId) &&
+          databaseHydrationCompleteRef.current &&
+          persistUiSuppressBootCountRef.current <= 0
+        ) {
           void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore);
           void persistSongsToDatabase(
             activeEventId,
@@ -7310,7 +7494,10 @@ export default function Home() {
         sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-        checklistDueDates: evt.settings?.checklistDueDates ?? {},
+        checklistDueDates: normalizeChecklistDueDatesRecord(
+          evt.settings?.checklistDueDates,
+          evt.settings?.checklistDueOffsets,
+        ),
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         eventStatus: normalizeEventStatus(
@@ -10179,6 +10366,67 @@ export default function Home() {
                     </div>
                   )}
 
+                  {activeGlobalSettingsSection === "Planning Checklist" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Planning Checklist Defaults</SectionTitle>
+                      <p className="max-w-xl text-xs leading-relaxed text-stone-600">
+                        Set default due-date timing for checklist items by Event Type. New events inherit these
+                        defaults automatically; DJs can override timing per event.
+                      </p>
+                      {EVENT_TYPES.map((profile) => {
+                        const dueDates = checklistDueDateSetsForSettings[profile] ?? {};
+                        return (
+                          <div
+                            key={`checklist-due-set-${profile}`}
+                            className="rounded-xl border border-stone-200 bg-stone-50 p-3"
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-sm font-semibold text-stone-950">{profile}</p>
+                              <PrimaryButton
+                                onClick={() => resetChecklistGlobalDueDateSet(profile)}
+                                disabled={!canManageEvents}
+                                className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-100 disabled:opacity-50"
+                              >
+                                Reset Defaults
+                              </PrimaryButton>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              {DEFAULT_PLANNING_CHECKLIST_TEMPLATE.map((item) => {
+                                const due =
+                                  dueDates[item.id] ?? templateDefaultDueDate(item);
+                                const offsetDays =
+                                  due?.type === "relative"
+                                    ? due.offsetDays
+                                    : (item.dueOffsetDays ?? -14);
+                                return (
+                                  <div
+                                    key={`checklist-global-${profile}-${item.id}`}
+                                    className="rounded-lg border border-stone-200 bg-white p-2.5"
+                                  >
+                                    <p className="text-sm font-semibold text-stone-950">{item.label}</p>
+                                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-600">
+                                      {item.description}
+                                    </p>
+                                    <div className="mt-2">
+                                      <ChecklistGlobalRelativeDueSelect
+                                        idPrefix={`checklist-global-${profile}-${item.id}`}
+                                        offsetDays={offsetDays}
+                                        onChange={(nextOffset) =>
+                                          updateChecklistGlobalDueDate(profile, item.id, nextOffset)
+                                        }
+                                        disabled={!canManageEvents}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {activeGlobalSettingsSection === "Timeline Presets" && (
                     <div className="mt-4 space-y-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -11718,7 +11966,7 @@ export default function Home() {
                         <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-stone-900">{item.title}</span>
-                            <span className="text-stone-600">{item.dueDate}</span>
+                            <span className="text-stone-600">{item.dueDateLabel}</span>
                           </div>
                           <p className="mt-1 text-stone-600">{item.description}</p>
                         </div>
@@ -11727,7 +11975,7 @@ export default function Home() {
                       planningChecklist.slice(0, 3).map((item) => (
                         <div key={item.id} className="flex items-center justify-between rounded-xl border border-stone-100 bg-white px-3 py-2 text-xs shadow-sm">
                           <span className="font-medium text-stone-800">{item.title}</span>
-                          <span className="text-stone-600">{item.dueDate || "Set date"}</span>
+                          <span className="text-stone-600">{item.dueDateLabel || "No due timing"}</span>
                         </div>
                       ))
                     )}
@@ -16318,6 +16566,9 @@ export default function Home() {
                   <div>
                     <SectionTitle className="text-stone-950">{task.title}</SectionTitle>
                     <p className="mt-1 text-xs text-stone-600">{task.description}</p>
+                    {shouldShowPlanningChecklistMissingNotes(task.status, task.missingNotes) ? (
+                      <PlanningChecklistMissingNotesBlock notes={task.missingNotes} />
+                    ) : null}
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
@@ -16332,21 +16583,59 @@ export default function Home() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <TextInput
-                    id={`task-due-${task.id}`}
-                    label="Due Date"
-                    value={task.dueDate}
-                    onChange={(value) =>
-                      setEventSettings((prev) => ({
-                        ...prev,
-                        checklistDueDates: {
-                          ...(prev.checklistDueDates ?? {}),
-                          [task.id]: value,
-                        },
-                      }))
-                    }
-                    placeholder="e.g. 2 weeks before event"
-                  />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                      Recommended due date
+                    </p>
+                    {canEditChecklistDueTiming ? (
+                      <div className="mt-1">
+                        {task.dueDateSource === "event" ? (
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-stone-500">Event override</p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEventSettings((prev) => {
+                                  const nextDueDates = { ...(prev.checklistDueDates ?? {}) };
+                                  delete nextDueDates[task.id];
+                                  return { ...prev, checklistDueDates: nextDueDates };
+                                })
+                              }
+                              className="text-[11px] font-semibold text-stone-700 hover:text-stone-950 hover:underline"
+                            >
+                              Reset to default
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="mb-1.5 text-[11px] text-stone-500">
+                            {task.dueDateSource === "global"
+                              ? "Using global default"
+                              : "Using built-in default"}
+                          </p>
+                        )}
+                        <ChecklistDueDateFields
+                          idPrefix={`task-due-${task.id}`}
+                          value={
+                            eventSettings.checklistDueDates?.[task.id] ??
+                            task.dueDateConfig ?? { type: "relative", offsetDays: -14 }
+                          }
+                          onChange={(next) =>
+                            setEventSettings((prev) => ({
+                              ...prev,
+                              checklistDueDates: {
+                                ...(prev.checklistDueDates ?? {}),
+                                [task.id]: next,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <p className="mt-1 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800">
+                        {task.dueDateLabel}
+                      </p>
+                    )}
+                  </div>
                   <div>
                     <label
                       htmlFor={`task-status-${task.id}`}

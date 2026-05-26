@@ -1,7 +1,6 @@
 import type {
   CeremonySongPlan,
   CeremonyTimelineItem,
-  ChecklistStatus,
   DisplayTimelineItem,
   EventRecord,
   Formality,
@@ -12,9 +11,35 @@ import type {
   TimelineItem,
   TimelinePresetItem,
 } from "@/types/planning";
-import { PLAYLIST_BUCKET_IDS } from "@/types/planning";
-import { musicTasteProfileHasSelections, normalizeMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
+import {
+  buildPlanningChecklist,
+  normalizeChecklistDueDatesRecord,
+  planningChecklistCompletionPercent,
+  planningChecklistInputFromEventRecord,
+} from "@/lib/planningChecklist";
 import { normalizeVendorsArray } from "@/utils/vendors";
+
+export function songEntryFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
+  return `${song.title.trim().toLowerCase()}|${(song.artist ?? "").trim().toLowerCase()}`;
+}
+
+/** Drop duplicate playlist rows by id and by title/artist (preserves first occurrence). */
+export function dedupeSongEntries(songs: SongEntry[]): SongEntry[] {
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
+  const next: SongEntry[] = [];
+  for (const song of songs) {
+    if (!song?.title?.trim()) continue;
+    const id = song.id?.trim();
+    if (id && seenIds.has(id)) continue;
+    const fingerprint = songEntryFingerprint(song);
+    if (seenFingerprints.has(fingerprint)) continue;
+    if (id) seenIds.add(id);
+    seenFingerprints.add(fingerprint);
+    next.push(song);
+  }
+  return next;
+}
 
 export function parseTimeToMinutesValue(rawTime: string): number {
   const value = rawTime.trim().toUpperCase();
@@ -556,99 +581,25 @@ export function eventCoverFallbackClasses(layoutProfile: string): string {
  * Mirrors Dashboard checklist completion for any persisted event (used on All Events cards).
  */
 export function approximatePlanningProgressPercent(evt: EventRecord): number {
-  const s = evt.settings;
   const timelineItems = migrateFormalitiesIntoTimelineItems(
     evt.timelineItems ?? [],
     evt.formalities ?? [],
   );
-
-  const hasEventDetailsComplete = Boolean(
-    (s?.eventName ?? "").trim() &&
-      (s?.coupleNames ?? "").trim() &&
-      (s?.venue ?? "").trim() &&
-      (s?.weddingDate ?? "").trim(),
-  );
-
-  const wp = evt.weddingPartyProcessional?.title?.trim();
-  const bp = evt.brideGroomProcessional?.title?.trim();
-  const rs = evt.recessionalSong?.title?.trim();
-  const hasKeyCeremonySongs = Boolean(wp && bp && rs);
-
-  const hasKeyFormalDanceSongs = Boolean(
-    timelineItems.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
-      timelineItems.some(
-        (t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
-      ) &&
-      timelineItems.some(
-        (t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0,
+  const input = planningChecklistInputFromEventRecord({
+    ...evt,
+    timelineItems,
+  });
+  const checklist = buildPlanningChecklist(
+    input,
+    {
+      eventDueOverrides: normalizeChecklistDueDatesRecord(
+        evt.settings?.checklistDueDates,
+        evt.settings?.checklistDueOffsets,
       ),
+    },
+    evt.settings?.checklistManualStatuses,
   );
-
-  const combinedTimelineTitles = timelineItems.map((item) => item.title.toLowerCase());
-  const hasKeyTimelineMoments = ["cocktail", "dinner", "toast", "open danc", "last"].every((needle) =>
-    combinedTimelineTitles.some((title) => title.includes(needle)),
-  );
-
-  const guestRequests = evt.guestRequests ?? [];
-  const noPendingGuestRequests = guestRequests.every((request) => request.status !== "Pending");
-
-  const hasFinalDjNotes = Boolean((evt.generalDjNotes ?? "").trim().length >= 16);
-
-  const hasMomentPlaylistLines = PLAYLIST_BUCKET_IDS.some(
-    (id) => (evt.playlistVibeOverrides?.[id]?.length ?? 0) > 0,
-  );
-  const tasteNorm = normalizeMusicTasteProfile(evt.musicTasteProfile);
-  const hasMusicDirection =
-    (evt.mustPlaySongs?.length ?? 0) > 0 ||
-    (evt.playIfPossibleSongs?.length ?? 0) > 0 ||
-    (evt.musicPlaylistLinks?.length ?? 0) > 0 ||
-    (evt.musicGenreEraSelections?.length ?? 0) > 0 ||
-    musicTasteProfileHasSelections(tasteNorm) ||
-    hasMomentPlaylistLines;
-
-  const tasks: { id: string; autoStatus: ChecklistStatus }[] = [
-    {
-      id: "complete-event-details",
-      autoStatus: hasEventDetailsComplete ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "choose-ceremony-songs",
-      autoStatus: hasKeyCeremonySongs ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "add-formal-dance-songs",
-      autoStatus: hasKeyFormalDanceSongs ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "build-must-play-list",
-      autoStatus: hasMusicDirection ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "add-do-not-play-songs",
-      autoStatus: (evt.doNotPlaySongs?.length ?? 0) > 0 ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "review-timeline",
-      autoStatus: hasKeyTimelineMoments ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "approve-guest-requests",
-      autoStatus:
-        guestRequests.length > 0 && noPendingGuestRequests ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-    {
-      id: "add-final-dj-notes",
-      autoStatus: hasFinalDjNotes ? ("Complete" as ChecklistStatus) : ("Not Started" as ChecklistStatus),
-    },
-  ];
-
-  const manual = s?.checklistManualStatuses ?? {};
-  let complete = 0;
-  for (const t of tasks) {
-    const status = manual[t.id] ?? t.autoStatus;
-    if (status === "Complete") complete++;
-  }
-  return tasks.length === 0 ? 0 : Math.round((complete / tasks.length) * 100);
+  return planningChecklistCompletionPercent(checklist);
 }
 
 export function readImageFileAsDataUrl(file: File, maxBytes: number): Promise<string> {

@@ -2,6 +2,10 @@ import type { EventStatus } from "@/lib/eventStatus";
 
 export type { EventStatus };
 
+export type ChecklistDueDate =
+  | { type: "relative"; offsetDays: number }
+  | { type: "custom"; date: string };
+
 export type Screen =
   | "All Events"
   | "Team"
@@ -340,6 +344,10 @@ export type AppSettings = {
   globalTemplateDefaults: string;
   planningQuestionSets: Partial<Record<EventSettings["eventLayoutProfile"], PlanningQuestionDef[]>>;
   timelinePresetSets: Partial<Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]>>;
+  /** Admin default checklist due dates per event type. */
+  checklistDueDateSets?: Partial<Record<EventSettings["eventLayoutProfile"], Record<string, ChecklistDueDate>>>;
+  /** @deprecated Use checklistDueDateSets. */
+  checklistDueOffsetSets?: Partial<Record<EventSettings["eventLayoutProfile"], Record<string, number>>>;
 };
 
 export type PlanningQuestionAnswerType =
@@ -426,7 +434,10 @@ export type EventSettings = {
   sectionPlanningChecklistEnabled: boolean;
   sectionPlanningQuestionsEnabled: boolean;
   planningQuestionAnswers: Record<string, string>;
-  checklistDueDates: Record<string, string>;
+  /** Per-task checklist due date (relative to event or custom fixed date). */
+  checklistDueDates: Record<string, ChecklistDueDate>;
+  /** @deprecated Use checklistDueDates with ChecklistDueDate objects. */
+  checklistDueOffsets?: Record<string, number>;
   checklistManualStatuses: Record<string, ChecklistStatus>;
   /** Base64 data URL of event cover/banner image (local browser storage only). */
   coverPhotoDataUrl?: string;

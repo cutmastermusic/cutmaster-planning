@@ -17,6 +17,7 @@ import type {
   Vendor,
 } from "@/types/planning";
 import { getDefaultPlanningQuestionSets } from "@/data/planningQuestionsCatalog";
+import { getDefaultChecklistDueDateSetsForProfiles } from "@/lib/planningChecklist";
 import { migrateFormalitiesIntoTimelineItems } from "@/utils/planning";
 
 type SeedEventPlanningPayload = {
@@ -705,4 +706,5 @@ export const defaultAppSettings: AppSettings = {
   globalTemplateDefaults: "Wedding, Corporate, Private Party",
   planningQuestionSets: getDefaultPlanningQuestionSets(),
   timelinePresetSets: getDefaultTimelinePresetSets(),
+  checklistDueDateSets: getDefaultChecklistDueDateSetsForProfiles(),
 };
