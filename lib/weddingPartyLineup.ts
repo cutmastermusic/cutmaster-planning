@@ -134,3 +134,48 @@ export function weddingPartyLineupEntriesEqual(
     );
   });
 }
+
+export type WeddingPartyLineupPreviewLine = {
+  primary: string;
+  secondary?: string;
+};
+
+export type WeddingPartyLineupPreviewContent = {
+  previewLines: WeddingPartyLineupPreviewLine[];
+  moreCount: number;
+  isEmpty: boolean;
+};
+
+/** Compact read-only preview for timeline / Run Of Show surfaces. */
+export function getWeddingPartyLineupPreviewContent(
+  raw: string | undefined | null,
+  maxVisible = 2,
+): WeddingPartyLineupPreviewContent {
+  const entries = parseWeddingPartyLineup(raw);
+  if (entries.length === 0) {
+    return { previewLines: [], moreCount: 0, isEmpty: true };
+  }
+
+  const visible = entries.slice(0, maxVisible);
+  const previewLines = visible.map((entry, index) => {
+    const primary = `${index + 1}. ${entry.introDisplayName.trim()}`;
+    const secondaryParts: string[] = [];
+    if (entry.role.trim()) secondaryParts.push(entry.role.trim());
+    if (entry.pronunciationNotes.trim()) {
+      secondaryParts.push(`Pronunciation: ${entry.pronunciationNotes.trim()}`);
+    }
+    if (entry.entranceNotes.trim()) {
+      secondaryParts.push(entry.entranceNotes.trim());
+    }
+    return {
+      primary,
+      secondary: secondaryParts.length > 0 ? secondaryParts.join(" · ") : undefined,
+    };
+  });
+
+  return {
+    previewLines,
+    moreCount: Math.max(0, entries.length - maxVisible),
+    isEmpty: false,
+  };
+}

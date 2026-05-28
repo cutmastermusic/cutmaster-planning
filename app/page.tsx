@@ -259,6 +259,7 @@ import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/compo
 import {
   WeddingPartyLineupSheet,
 } from "@/components/wedding-party-lineup-sheet";
+import { WeddingPartyLineupPreview } from "@/components/wedding-party-lineup-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
   formatWeddingPartyLineupForDisplay,
@@ -3864,12 +3865,15 @@ export default function Home() {
       planningQuestionsForEvent.some((question) => question.id === GRAND_ENTRANCE_PLANNING_LINEUP_KEY),
     [planningQuestionsForEvent],
   );
+  const weddingPartyLineupRaw = useMemo(
+    () => eventSettings.planningQuestionAnswers?.[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "",
+    [eventSettings.planningQuestionAnswers],
+  );
   const weddingPartyLineupSummary = useMemo(() => {
-    const raw = eventSettings.planningQuestionAnswers?.[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "";
-    const entries = parseWeddingPartyLineup(raw);
+    const entries = parseWeddingPartyLineup(weddingPartyLineupRaw);
     if (entries.length === 0) return "No entrances added yet";
     return `${entries.length} entrance${entries.length === 1 ? "" : "s"} planned`;
-  }, [eventSettings.planningQuestionAnswers]);
+  }, [weddingPartyLineupRaw]);
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
     Record<string, boolean>
@@ -14428,6 +14432,13 @@ export default function Home() {
                                   preview={songPreview}
                                   hasSong={Boolean(songArtistCompact)}
                                 />
+                                {isGrandEntrance ? (
+                                  <WeddingPartyLineupPreview
+                                    lineupRaw={weddingPartyLineupRaw}
+                                    onEdit={openWeddingPartyLineupEditor}
+                                    variant="timeline"
+                                  />
+                                ) : null}
                                 {item.notes?.trim() ? (
                                   <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
                                 ) : null}
@@ -14567,6 +14578,13 @@ export default function Home() {
                                     preview={songArtistCompact}
                                     hasSong
                                     className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
+                                  />
+                                ) : null}
+                                {isGrandEntrance ? (
+                                  <WeddingPartyLineupPreview
+                                    lineupRaw={weddingPartyLineupRaw}
+                                    onEdit={openWeddingPartyLineupEditor}
+                                    variant="timeline"
                                   />
                                 ) : null}
                                 {item.notes?.trim() ? (
@@ -18613,6 +18631,13 @@ export default function Home() {
                                             >
                                               {notesLabel}
                                             </p>
+                                          ) : null}
+                                          {isGrandEntrance ? (
+                                            <WeddingPartyLineupPreview
+                                              lineupRaw={weddingPartyLineupRaw}
+                                              onEdit={openWeddingPartyLineupEditor}
+                                              variant="runOfShow"
+                                            />
                                           ) : null}
                                           {isGrandEntrance ? (
                                             <div className="mt-5 flex flex-wrap gap-2">
