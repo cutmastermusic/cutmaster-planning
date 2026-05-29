@@ -268,6 +268,67 @@ export function sortVendorsForEventDocument(vendors: Vendor[]): Vendor[] {
   return copy;
 }
 
+/** Internal Cutmaster staff on the event team roster (not external partners with a company). */
+export function isCutmasterEventTeamMember(member: Pick<TeamMember, "role" | "company">): boolean {
+  if (member.role === "Admin" || member.role === "DJ") return true;
+  if (member.role === "Planner" && !(member.company?.trim() ?? "")) return true;
+  return false;
+}
+
+function docTeamRoleBand(role: TeamMemberRole | string): number {
+  if (role === "Planner") return 1;
+  if (
+    ["Venue", "Caterer", "Photographer", "Videographer", "DJ/Entertainment"].includes(role)
+  ) {
+    return 2;
+  }
+  return 3;
+}
+
+/** Event Document ordering — mirrors vendor sort using unified Event Team roles. */
+export function sortTeamMembersForEventDocument(members: TeamMember[]): TeamMember[] {
+  const copy = members.filter((member) => member.isActive !== false);
+  copy.sort((a, b) => {
+    const ac = isCutmasterEventTeamMember(a) ? 0 : 1;
+    const bc = isCutmasterEventTeamMember(b) ? 0 : 1;
+    if (ac !== bc) return ac - bc;
+
+    const ar = docTeamRoleBand(a.role);
+    const br = docTeamRoleBand(b.role);
+    if (ar !== br) return ar - br;
+
+    const aRank = DOC_TYPE_RANK[a.role as VendorType] ?? 50;
+    const bRank = DOC_TYPE_RANK[b.role as VendorType] ?? 50;
+    if (aRank !== bRank) return aRank - bRank;
+
+    const aLabel = (a.company?.trim() || a.name.trim()).toLowerCase();
+    const bLabel = (b.company?.trim() || b.name.trim()).toLowerCase();
+    return aLabel.localeCompare(bLabel, undefined, { sensitivity: "base" });
+  });
+  return copy;
+}
+
+export function formatTeamMemberContactLines(member: TeamMember): string[] {
+  const lines: string[] = [];
+  const role = teamMemberRoleLabel(member.role);
+  const primaryName = member.name.trim() || member.company?.trim() || "Contact";
+  lines.push(primaryName);
+  if (member.company?.trim() && member.name.trim()) {
+    lines.push(member.company.trim());
+  }
+  lines.push(role);
+  if (member.phone.trim()) lines.push(`Phone: ${member.phone.trim()}`);
+  if (member.email.trim()) lines.push(`Email: ${member.email.trim()}`);
+  if (member.website?.trim()) lines.push(`Web: ${member.website.trim()}`);
+  if (member.instagram?.trim()) lines.push(`Social: ${member.instagram.trim()}`);
+  if (member.arrivalTime?.trim()) lines.push(`Arrival: ${member.arrivalTime.trim()}`);
+  if (member.specialCoordinationNotes?.trim()) {
+    lines.push(`Coordination: ${member.specialCoordinationNotes.trim()}`);
+  }
+  if (member.notes.trim()) lines.push(`Notes: ${member.notes.trim()}`);
+  return lines;
+}
+
 export function formatVendorContactLines(vendor: Vendor): string[] {
   const lines: string[] = [];
   const role = vendorTypeLabel(vendor.vendorType);

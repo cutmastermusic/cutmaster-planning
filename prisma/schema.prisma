@@ -57,6 +57,11 @@ model Event {
   grandEntranceLineup  String?
   grandEntranceCouple  String?
 
+  /** DB-backed planning questionnaire answers (pq_* / ge_* keys). */
+  planningQuestionAnswers Json?
+  /** DB-backed ceremony planning fields (times, notes, processional songs). */
+  ceremonyPlan            Json?
+
   ownerId String
   owner   User @relation(fields: [ownerId], references: [id])
 

@@ -19,12 +19,14 @@ import {
   createEvent,
   deleteEvent,
   getEvents,
+  replaceCeremonyPlan,
   replaceCeremonyTimelineItems,
   replaceEventNotes,
   replaceEventSongs,
   replaceEventTeamMembers,
   replaceGuestRequests,
   replaceMainTimelineItems,
+  replacePlanningQuestionAnswers,
   updateEvent,
   updateGrandEntranceDetail,
 } from "@/lib/actions/events";
@@ -36,6 +38,8 @@ type ReplaceEventSongsArgs = Parameters<typeof replaceEventSongs>[2];
 type ReplaceGuestRequestsArgs = Parameters<typeof replaceGuestRequests>[1];
 type ReplaceEventTeamMembersArgs = Parameters<typeof replaceEventTeamMembers>[1];
 type ReplaceEventNotesArgs = Parameters<typeof replaceEventNotes>[1];
+type ReplacePlanningQuestionAnswersArgs = Parameters<typeof replacePlanningQuestionAnswers>[1];
+type ReplaceCeremonyPlanArgs = Parameters<typeof replaceCeremonyPlan>[1];
 type CreateEventArgs = Parameters<typeof createEvent>[0];
 type UpdateEventArgs = Parameters<typeof updateEvent>[1];
 type UpdateGrandEntranceDetailArgs = Parameters<typeof updateGrandEntranceDetail>[1];
@@ -112,4 +116,20 @@ export async function replaceEventNotesGuarded(
 ) {
   assertPayloadFitsServerAction("replaceEventNotes", notes);
   return replaceEventNotes(eventId, notes);
+}
+
+export async function replacePlanningQuestionAnswersGuarded(
+  eventId: string,
+  answers: ReplacePlanningQuestionAnswersArgs,
+) {
+  assertPayloadFitsServerAction("replacePlanningQuestionAnswers", answers);
+  return replacePlanningQuestionAnswers(eventId, answers);
+}
+
+export async function replaceCeremonyPlanGuarded(
+  eventId: string,
+  plan: ReplaceCeremonyPlanArgs,
+) {
+  assertPayloadFitsServerAction("replaceCeremonyPlan", plan);
+  return replaceCeremonyPlan(eventId, plan);
 }

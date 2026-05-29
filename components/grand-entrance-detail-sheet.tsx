@@ -189,10 +189,11 @@ export function GrandEntranceDetailSheet({
             <section className="rounded-2xl border border-stone-100 bg-stone-50/30 p-4 sm:p-5">
               <div className="space-y-2">
                 <label htmlFor="ge-detail-side-note" className={fieldLabel()}>
-                  Side note
+                  Device scratch pad
                 </label>
                 <p className="text-xs leading-snug text-stone-500">
-                  Run Of Show scratch pad — local to this device.
+                  This iPad only — not shared with the team. Use Timeline shared team cues for
+                  synced notes.
                 </p>
                 <textarea
                   id="ge-detail-side-note"

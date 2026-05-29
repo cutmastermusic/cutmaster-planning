@@ -185,6 +185,9 @@ export function WeddingPartyLineupSheet({
                       <label htmlFor={`wpl-intro-${entry.id}`} className={fieldLabel()}>
                         Intro / display name
                       </label>
+                      <p className="mt-1 text-[11px] leading-snug text-stone-500">
+                        Exact words you want the DJ/MC to say for this entrance.
+                      </p>
                       <input
                         id={`wpl-intro-${entry.id}`}
                         type="text"
@@ -217,6 +220,9 @@ export function WeddingPartyLineupSheet({
                       <label htmlFor={`wpl-pronunciation-${entry.id}`} className={fieldLabel()}>
                         Pronunciation notes (optional)
                       </label>
+                      <p className="mt-1 text-[11px] leading-snug text-stone-500">
+                        Phonetic help only — not the full introduction line.
+                      </p>
                       <textarea
                         id={`wpl-pronunciation-${entry.id}`}
                         value={entry.pronunciationNotes}
@@ -234,6 +240,9 @@ export function WeddingPartyLineupSheet({
                       <label htmlFor={`wpl-entrance-${entry.id}`} className={fieldLabel()}>
                         Entrance notes (optional)
                       </label>
+                      <p className="mt-1 text-[11px] leading-snug text-stone-500">
+                        Staging or how they enter — not the full intro wording.
+                      </p>
                       <textarea
                         id={`wpl-entrance-${entry.id}`}
                         value={entry.entranceNotes}
@@ -241,7 +250,7 @@ export function WeddingPartyLineupSheet({
                           patchEntry(entry.id, { entranceNotes: e.target.value })
                         }
                         disabled={!canEdit}
-                        placeholder="Entering together · Coming in solo · Please announce as Dr. Martinez"
+                        placeholder="Entering together · Coming in solo · Wait for coordinator cue"
                         rows={2}
                         className={`${textareaClass} mt-1.5`}
                       />

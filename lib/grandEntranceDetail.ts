@@ -102,3 +102,36 @@ export function grandEntranceDetailDraftsEqual(
     a.sideNote.trim() === b.sideNote.trim()
   );
 }
+
+export type GrandEntranceMcScriptPreviewContent = {
+  previewLines: string[];
+  moreLineCount: number;
+  isEmpty: boolean;
+};
+
+/** Compact read-only preview for timeline / Run Of Show surfaces. */
+export function getGrandEntranceMcScriptPreviewContent(
+  script: string | undefined | null,
+  maxVisible = 2,
+): GrandEntranceMcScriptPreviewContent {
+  const trimmed = script?.trim() ?? "";
+  if (!trimmed) {
+    return { previewLines: [], moreLineCount: 0, isEmpty: true };
+  }
+
+  const lines = trimmed
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return { previewLines: [], moreLineCount: 0, isEmpty: true };
+  }
+
+  const visible = lines.slice(0, maxVisible);
+  return {
+    previewLines: visible,
+    moreLineCount: Math.max(0, lines.length - maxVisible),
+    isEmpty: false,
+  };
+}

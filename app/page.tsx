@@ -34,6 +34,8 @@ import {
   replaceMainTimelineItemsGuarded as replaceMainTimelineItems,
   replaceCeremonyTimelineItemsGuarded as replaceCeremonyTimelineItems,
   replaceEventSongsGuarded as replaceEventSongs,
+  replacePlanningQuestionAnswersGuarded as replacePlanningQuestionAnswers,
+  replaceCeremonyPlanGuarded as replaceCeremonyPlan,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
 import {
@@ -179,11 +181,14 @@ import {
   VENDOR_TYPES_ORDERED,
   canActorManageEventTeamMember,
   eventTeamRoleGroupsForActor,
+  formatTeamMemberContactLines,
   formatVendorContactLines,
   isCutmasterEventTeam,
+  isCutmasterEventTeamMember,
   isInternalTeamRole,
   normalizeVendorsArray,
   smsHref,
+  sortTeamMembersForEventDocument,
   sortVendorsForEventDocument,
   teamMemberRoleLabel,
   vendorTypeLabel,
@@ -243,11 +248,32 @@ import {
 import {
   isGrandEntranceTimelineItem,
   GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
-  mergeGrandEntranceDbIntoPlanningAnswers,
   mergeGrandEntranceDetailIntoAnswers,
   mergeGrandEntranceOperationalIntoAnswers,
   readGrandEntranceDetail,
 } from "@/lib/grandEntranceDetail";
+import {
+  applyCeremonyPlanSnapshotToEventFields,
+  applyClientEventDetailsToEventSettings,
+  attachClientEventDetailsToCeremonyPlan,
+  buildCeremonyPlanSnapshot,
+  buildClientEventDetailsFromSettings,
+  buildPlanningQuestionAnswersFromDbRow,
+  hasNonEmptyCeremonyPlanFields,
+  hasNonEmptyPlanningQuestionAnswers,
+  isCeremonyPlanSnapshotEmpty,
+  isDbPlanningQuestionAnswersEmpty,
+  normalizePlanningQuestionAnswersForDb,
+  parseCeremonyPlanJson,
+} from "@/lib/planningPersistence";
+import {
+  buildDatabaseEventUpdateForRole,
+  canUseRolePreviewSwitcher,
+  isActualCoupleSession,
+  mergeCoupleSafeEventSettings,
+  resolveEffectiveRole,
+  restoreRolePreviewForSession,
+} from "@/lib/coupleSafety";
 import {
   buildRunOfShowDoneKeysFromTimeline,
   mergeLocalRunOfShowDoneKeysIntoTimeline,
@@ -256,10 +282,10 @@ import {
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
-import {
-  WeddingPartyLineupSheet,
-} from "@/components/wedding-party-lineup-sheet";
+import { WeddingPartyLineupSheet } from "@/components/wedding-party-lineup-sheet";
+import { buildRunOfShowQuickContacts } from "@/lib/runOfShowLiveReference";
 import { WeddingPartyLineupPreview } from "@/components/wedding-party-lineup-preview";
+import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
   formatWeddingPartyLineupForDisplay,
@@ -268,6 +294,7 @@ import {
   WEDDING_PARTY_LINEUP_HELPER_COPY,
   type WeddingPartyLineupEntry,
 } from "@/lib/weddingPartyLineup";
+import { RunOfShowLiveReference } from "@/components/run-of-show-live-reference";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
 import {
@@ -1738,6 +1765,10 @@ function mergeHydratedEventsPreservingGrandEntranceDetail(
     const prior = priorMap.get(hydrated.id);
     if (!prior?.settings) return hydrated;
 
+    if (hasNonEmptyPlanningQuestionAnswers(hydrated.settings?.planningQuestionAnswers)) {
+      return hydrated;
+    }
+
     const hydratedDetail = readGrandEntranceDetail(
       hydrated.settings?.planningQuestionAnswers ?? {},
       "",
@@ -1769,6 +1800,73 @@ function mergeHydratedEventsPreservingGrandEntranceDetail(
   });
 }
 
+/** One-release: prefer localStorage planning data when DB JSON is still empty. */
+function mergeHydratedEventsPreservingLocalPlanningData(
+  priorEvents: EventRecord[],
+  hydratedEvents: EventRecord[],
+  dbEmptyPlanningByEventId: Map<string, boolean>,
+  dbEmptyCeremonyByEventId: Map<string, boolean>,
+): EventRecord[] {
+  const priorMap = new Map(priorEvents.map((e) => [e.id, e]));
+  return hydratedEvents.map((hydrated) => {
+    const prior = priorMap.get(hydrated.id);
+    if (!prior) return hydrated;
+
+    let next: EventRecord = hydrated;
+
+    if (dbEmptyPlanningByEventId.get(hydrated.id)) {
+      const priorAnswers = prior.settings?.planningQuestionAnswers ?? {};
+      if (hasNonEmptyPlanningQuestionAnswers(priorAnswers)) {
+        next = {
+          ...next,
+          settings: {
+            ...next.settings,
+            planningQuestionAnswers: { ...priorAnswers },
+          },
+        };
+      }
+    }
+
+    if (dbEmptyCeremonyByEventId.get(hydrated.id) && !hasNonEmptyCeremonyPlanFields(hydrated)) {
+      const hasPriorCeremony =
+        Boolean(prior.ceremonyStartTime?.trim()) ||
+        Boolean(prior.ceremonyGuestArrivalTime?.trim()) ||
+        Boolean(prior.officiantName?.trim()) ||
+        Boolean(prior.ceremonyNotes?.trim()) ||
+        Boolean(prior.microphoneNeeds?.trim()) ||
+        Boolean(prior.weddingPartyProcessional?.title?.trim()) ||
+        Boolean(prior.weddingPartyProcessional?.artist?.trim()) ||
+        Boolean(prior.weddingPartyProcessional?.notes?.trim()) ||
+        Boolean(prior.brideGroomProcessional?.title?.trim()) ||
+        Boolean(prior.brideGroomProcessional?.artist?.trim()) ||
+        Boolean(prior.brideGroomProcessional?.notes?.trim()) ||
+        Boolean(prior.unityCeremonySong?.title?.trim()) ||
+        Boolean(prior.unityCeremonySong?.artist?.trim()) ||
+        Boolean(prior.unityCeremonySong?.notes?.trim()) ||
+        Boolean(prior.recessionalSong?.title?.trim()) ||
+        Boolean(prior.recessionalSong?.artist?.trim()) ||
+        Boolean(prior.recessionalSong?.notes?.trim());
+
+      if (hasPriorCeremony) {
+        next = {
+          ...next,
+          ceremonyStartTime: prior.ceremonyStartTime,
+          ceremonyGuestArrivalTime: prior.ceremonyGuestArrivalTime,
+          officiantName: prior.officiantName,
+          ceremonyNotes: prior.ceremonyNotes,
+          microphoneNeeds: prior.microphoneNeeds,
+          weddingPartyProcessional: cloneJson(prior.weddingPartyProcessional),
+          brideGroomProcessional: cloneJson(prior.brideGroomProcessional),
+          unityCeremonySong: cloneJson(prior.unityCeremonySong),
+          recessionalSong: cloneJson(prior.recessionalSong),
+        };
+      }
+    }
+
+    return next;
+  });
+}
+
 function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
   if (role === "Admin") {
     return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
@@ -1781,6 +1879,29 @@ function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
 
 function perspectiveRoleLabel(role: UserRole): string {
   return role === "Couple" ? "Client" : role;
+}
+
+function perspectiveBannerLabel(
+  sessionRole: UserRole | null,
+  previewRole: UserRole,
+): string {
+  if (sessionRole === "Couple") {
+    return `Viewing as ${perspectiveRoleLabel("Couple")}`;
+  }
+  if (sessionRole === "Admin" && previewRole !== "Admin") {
+    return `${perspectiveRoleLabel("Admin")} previewing ${perspectiveRoleLabel(previewRole)}`;
+  }
+  return `Viewing as ${perspectiveRoleLabel(previewRole)}`;
+}
+
+function buildCeremonyPlanWithClientDetails(
+  ceremonyInput: Parameters<typeof buildCeremonyPlanSnapshot>[0],
+  settingsForClientDetails: EventSettings,
+) {
+  return attachClientEventDetailsToCeremonyPlan(
+    buildCeremonyPlanSnapshot(ceremonyInput),
+    buildClientEventDetailsFromSettings(settingsForClientDetails),
+  );
 }
 
 function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
@@ -2470,6 +2591,9 @@ export default function Home() {
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
   const [rolePreview, setRolePreview] = useState<UserRole>("Admin");
+  const effectiveRole = resolveEffectiveRole(currentRole, rolePreview);
+  const showRolePreviewSwitcher = canUseRolePreviewSwitcher(currentRole);
+  const isActualCouple = isActualCoupleSession(currentRole);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -2918,6 +3042,84 @@ export default function Home() {
     [],
   );
 
+  const persistPlanningQuestionAnswersToDatabase = useCallback(
+    async (
+      eventId: string,
+      answers: Record<string, string | undefined>,
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replacePlanningQuestionAnswers(
+          eventId,
+          normalizePlanningQuestionAnswersForDb(answers),
+        );
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist planning question answers to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
+  const persistCeremonyPlanToDatabase = useCallback(
+    async (
+      eventId: string,
+      plan: Parameters<typeof replaceCeremonyPlan>[1],
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceCeremonyPlan(eventId, plan);
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist ceremony plan to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
+  const persistEventMetadataToDatabase = useCallback(
+    async (
+      eventId: string,
+      workingSettings: EventSettings,
+      sessionIsCouple: boolean,
+      preservedSettings: EventSettings | undefined,
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await updateDatabaseEvent(
+          eventId,
+          buildDatabaseEventUpdateForRole(
+            sessionIsCouple ? "Couple" : "Admin",
+            workingSettings,
+            preservedSettings,
+          ),
+        );
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist event metadata to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
   const commitActiveEventPlanningToEventsState = useCallback(async () => {
     const recvDraft = receptionTimelineInlineEditDraftRef.current;
     const timelinePayload =
@@ -2935,22 +3137,15 @@ export default function Home() {
         );
 
         try {
-          await updateDatabaseEvent(activeEventId, {
-            title: eventSettings.eventName,
-            date: eventSettings.weddingDate
-              ? new Date(eventSettings.weddingDate)
-              : null,
-            type: eventSettings.eventType,
-            venue: eventSettings.venue,
-            assignedDj: eventSettings.assignedDj,
-            packageName: eventSettings.packageName,
-            plannerName: eventSettings.plannerName,
-            plannerEmail: eventSettings.plannerEmail,
-            ceremonyLocation: eventSettings.ceremonyLocation,
-            receptionLocation: eventSettings.receptionLocation,
-            internalNotes: eventSettings.internalNotes,
-            eventStatus: normalizeEventStatus(eventSettings.eventStatus),
-          });
+          const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
+          await updateDatabaseEvent(
+            activeEventId,
+            buildDatabaseEventUpdateForRole(
+              isActualCouple ? "Couple" : "Admin",
+              eventSettings,
+              preservedSettings,
+            ),
+          );
 
           await replaceGuestRequests(
             activeEventId,
@@ -2993,6 +3188,33 @@ export default function Home() {
             doNotPlaySongs,
             playIfPossibleSongs,
           );
+
+          await persistPlanningQuestionAnswersToDatabase(
+            activeEventId,
+            eventSettings.planningQuestionAnswers ?? {},
+          );
+
+          const settingsForCeremonyDb = isActualCouple
+            ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
+            : eventSettings;
+
+          await persistCeremonyPlanToDatabase(
+            activeEventId,
+            buildCeremonyPlanWithClientDetails(
+              {
+                ceremonyStartTime,
+                ceremonyGuestArrivalTime,
+                officiantName,
+                ceremonyNotes,
+                microphoneNeeds,
+                weddingPartyProcessional,
+                brideGroomProcessional,
+                unityCeremonySong,
+                recessionalSong,
+              },
+              settingsForCeremonyDb,
+            ),
+          );
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -3034,7 +3256,10 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
-            settings: eventSettings,
+            settings:
+              isActualCouple
+                ? mergeCoupleSafeEventSettings(eventSettings, evt.settings)
+                : eventSettings,
           }
           : evt,
       ),
@@ -3079,6 +3304,12 @@ export default function Home() {
     weddingPartyProcessional,
     persistTimelinesToDatabase,
     persistSongsToDatabase,
+    persistPlanningQuestionAnswersToDatabase,
+    persistCeremonyPlanToDatabase,
+    currentRole,
+    rolePreview,
+    events,
+    isActualCouple,
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
@@ -3314,19 +3545,18 @@ export default function Home() {
   );
 
   const logActivity = useCallback((type: ActivityType, summary: string, eventId = activeEventId) => {
-    const role = currentRole ?? rolePreview;
     const item: ActivityItem = {
       id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       type,
       summary,
-      userRole: role,
+      userRole: effectiveRole,
       eventId,
       eventName: getEventName(eventId),
       timestamp: Date.now(),
       unread: true,
     };
     setActivities((prev) => [item, ...prev].slice(0, 220));
-  }, [activeEventId, currentRole, getEventName, rolePreview]);
+  }, [activeEventId, effectiveRole, getEventName]);
 
   const pushNotification = useCallback((summary: string, type: ActivityType | "system", eventId = activeEventId) => {
     const eventName = getEventName(eventId);
@@ -3794,7 +4024,7 @@ export default function Home() {
   const screenTitle =
     activeScreen === "Dashboard"
       ? `${appSettings.appName} Dashboard`
-      : (currentRole ?? rolePreview) === "Couple" && activeScreen === "Reception Timeline"
+      : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
         ? "Timeline"
         : activeScreen;
   const effectiveTimezone = appSettings.defaultEventTimezone;
@@ -3874,6 +4104,18 @@ export default function Home() {
     if (entries.length === 0) return "No entrances added yet";
     return `${entries.length} entrance${entries.length === 1 ? "" : "s"} planned`;
   }, [weddingPartyLineupRaw]);
+  const grandEntranceMcScript = useMemo(() => {
+    const coupleDefault =
+      eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
+    return readGrandEntranceDetail(
+      eventSettings.planningQuestionAnswers ?? {},
+      coupleDefault,
+    ).script;
+  }, [
+    eventSettings.planningQuestionAnswers,
+    eventSettings.coupleNames,
+    weddingDetails.couple,
+  ]);
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
     Record<string, boolean>
@@ -4128,17 +4370,16 @@ export default function Home() {
   );
 
   const dashboardEyebrowText = useMemo(() => {
-    const role = currentRole ?? rolePreview;
-    if (role === "Couple") {
+    if (effectiveRole === "Couple") {
       if (layoutProfileForActiveEvent === "Wedding") return "Your wedding planning journey";
       if (layoutProfileForActiveEvent === "Gender-Neutral Wedding") return "Your wedding planning journey";
       return "Your event planning journey";
     }
-    if (role === "Planner") return "Coordination & logistics";
-    if (role === "DJ") return "Performance & execution";
-    if (role === "Admin") return "Operations & full editing";
+    if (effectiveRole === "Planner") return "Coordination & logistics";
+    if (effectiveRole === "DJ") return "Performance & execution";
+    if (effectiveRole === "Admin") return "Operations & full editing";
     return "Event planning dashboard";
-  }, [currentRole, rolePreview, layoutProfileForActiveEvent]);
+  }, [effectiveRole, layoutProfileForActiveEvent]);
 
   const invitePreviewEvent = useMemo(() => {
     if (!inviteAccessPreview) return undefined;
@@ -4152,7 +4393,6 @@ export default function Home() {
       : ("Wedding" satisfies EventLayoutProfile);
   }, [inviteAccessPreview, invitePreviewEvent, appSettings.defaultEventType]);
 
-  const effectiveRole = currentRole ?? rolePreview;
   const canManageMusic = effectiveRole === "Admin" || effectiveRole === "DJ" || effectiveRole === "Couple";
   const canEditTimeline =
     effectiveRole === "Admin" ||
@@ -4228,6 +4468,7 @@ export default function Home() {
 
   const applyEventStatus = useCallback(
     async (status: EventStatus) => {
+      if (isActualCouple) return;
       setEventSettings((prev) => ({ ...prev, eventStatus: status }));
       if (!activeEventId) return;
       setEvents((prev) =>
@@ -4261,7 +4502,7 @@ export default function Home() {
         console.error("Failed to persist event status:", error);
       }
     },
-    [activeEventId, eventSettings],
+    [activeEventId, eventSettings, isActualCouple],
   );
 
   const activeEventStatus = useMemo(
@@ -6636,8 +6877,8 @@ export default function Home() {
 
   const switchPerspectiveRole = useCallback(
     (nextRole: UserRole) => {
+      if (!canUseRolePreviewSwitcher(currentRole)) return;
       commitActiveEventPlanningToEventsState();
-      setCurrentRole(nextRole);
       setRolePreview(nextRole);
 
       const flags: EventNavSectionFlags = {
@@ -6703,8 +6944,8 @@ export default function Home() {
       appMode,
       receptionHubEligibleNav,
       setActiveScreen,
-      setCurrentRole,
       setRolePreview,
+      currentRole,
     ],
   );
 
@@ -6724,7 +6965,7 @@ export default function Home() {
   const headerScreenTitle = isWorkspaceContext
     ? navLabel(activeScreen)
     : appMode === "event" &&
-        (currentRole ?? rolePreview) === "Couple" &&
+        effectiveRole === "Couple" &&
         activeScreen === "Dashboard"
       ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
       : screenTitle;
@@ -6785,6 +7026,9 @@ export default function Home() {
           return;
         }
 
+        const dbEmptyPlanningByEventId = new Map<string, boolean>();
+        const dbEmptyCeremonyByEventId = new Map<string, boolean>();
+
         const hydratedEvents: EventRecord[] = databaseEvents.map((dbEvent) => {
           const seededEvent = buildEventFromTemplate(
             {
@@ -6824,14 +7068,30 @@ export default function Home() {
             eventStatus: normalizeEventStatus(dbEvent.eventStatus),
           };
 
-          seededEvent.settings.planningQuestionAnswers =
-            mergeGrandEntranceDbIntoPlanningAnswers(
-              seededEvent.settings.planningQuestionAnswers ?? {},
-              dbEvent,
-            );
+          seededEvent.settings.planningQuestionAnswers = buildPlanningQuestionAnswersFromDbRow(
+            dbEvent.planningQuestionAnswers,
+            dbEvent,
+          );
+
+          dbEmptyPlanningByEventId.set(
+            dbEvent.id,
+            isDbPlanningQuestionAnswersEmpty(dbEvent.planningQuestionAnswers, dbEvent),
+          );
+
+          const ceremonyPlanFromDb = parseCeremonyPlanJson(dbEvent.ceremonyPlan);
+          dbEmptyCeremonyByEventId.set(
+            dbEvent.id,
+            isCeremonyPlanSnapshotEmpty(ceremonyPlanFromDb),
+          );
+          if (ceremonyPlanFromDb && !isCeremonyPlanSnapshotEmpty(ceremonyPlanFromDb)) {
+            applyCeremonyPlanSnapshotToEventFields(seededEvent, ceremonyPlanFromDb);
+          }
+          if (ceremonyPlanFromDb) {
+            applyClientEventDetailsToEventSettings(seededEvent.settings, ceremonyPlanFromDb);
+          }
 
           seededEvent.meta = {
-            couple: dbEvent.title,
+            couple: seededEvent.settings.coupleNames || dbEvent.title,
             date: dbEvent.date
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
@@ -6935,10 +7195,14 @@ export default function Home() {
         });
 
         setEvents((prev) => {
-          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(
+          const withPlaylists = mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents);
+          const withLocalPlanning = mergeHydratedEventsPreservingLocalPlanningData(
             prev,
-            mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents),
+            withPlaylists,
+            dbEmptyPlanningByEventId,
+            dbEmptyCeremonyByEventId,
           );
+          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalPlanning);
           lastMergedHydratedEventsRef.current = merged;
           return merged;
         });
@@ -6979,13 +7243,25 @@ export default function Home() {
             setPlayIfPossibleSongs(
               dedupeSongEntries(cloneJson(resolvedEvent.playIfPossibleSongs ?? [])),
             );
+            // DB is source of truth once JSON columns exist — replace stale
+            // localStorage working state (planning answers + ceremony plan) and
+            // defer DB autosave until after this sync completes.
+            queueMicrotask(() => {
+              loadEventPlanningIntoWorkingState(resolvedEvent);
+              persistUiSuppressBootCountRef.current += 1;
+              databaseHydrationCompleteRef.current = true;
+            });
             return resolvedId;
           });
+        } else {
+          databaseHydrationCompleteRef.current = true;
         }
       } catch (error) {
         console.error("Failed to load database events:", error);
       } finally {
-        databaseHydrationCompleteRef.current = true;
+        if (!databaseHydrationCompleteRef.current) {
+          databaseHydrationCompleteRef.current = true;
+        }
       }
     };
 
@@ -7172,7 +7448,12 @@ export default function Home() {
             : "app",
         );
         setCurrentRole(isValidUserRole(parsed.appState.currentRole) ? parsed.appState.currentRole : null);
-        setRolePreview(isValidUserRole(parsed.appState.rolePreview) ? parsed.appState.rolePreview : "Admin");
+        setRolePreview(
+          restoreRolePreviewForSession(
+            isValidUserRole(parsed.appState.currentRole) ? parsed.appState.currentRole : null,
+            isValidUserRole(parsed.appState.rolePreview) ? parsed.appState.rolePreview : null,
+          ),
+        );
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
         setActiveScreen(migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard"));
@@ -7246,6 +7527,13 @@ export default function Home() {
         e.id === activeEventId
           ? {
             ...e,
+            lastUpdatedAt: Date.now(),
+            meta: {
+              ...e.meta,
+              couple: eventSettings.coupleNames || e.meta.couple,
+              date: eventSettings.weddingDate || e.meta.date,
+              venue: eventSettings.venue || e.meta.venue,
+            },
             timelineItems: timelineForStore,
             ceremonyTimelineItems: ceremonyForStore,
             formalities: [],
@@ -7271,7 +7559,10 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
-            settings: eventSettings,
+            settings:
+              isActualCouple
+                ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
+                : eventSettings,
           }
           : e;
       return merged.settings
@@ -7315,12 +7606,44 @@ export default function Home() {
           databaseHydrationCompleteRef.current &&
           persistUiSuppressBootCountRef.current <= 0
         ) {
+          const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
+          const settingsForCeremonyDb = isActualCouple
+            ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
+            : eventSettings;
+
+          void persistEventMetadataToDatabase(
+            activeEventId,
+            eventSettings,
+            isActualCouple,
+            preservedSettings,
+          );
           void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore);
           void persistSongsToDatabase(
             activeEventId,
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
+          );
+          void persistPlanningQuestionAnswersToDatabase(
+            activeEventId,
+            eventSettings.planningQuestionAnswers ?? {},
+          );
+          void persistCeremonyPlanToDatabase(
+            activeEventId,
+            buildCeremonyPlanWithClientDetails(
+              {
+                ceremonyStartTime,
+                ceremonyGuestArrivalTime,
+                officiantName,
+                ceremonyNotes,
+                microphoneNeeds,
+                weddingPartyProcessional,
+                brideGroomProcessional,
+                unityCeremonySong,
+                recessionalSong,
+              },
+              settingsForCeremonyDb,
+            ),
           );
         }
         setPersistBaseline(true);
@@ -7366,6 +7689,9 @@ export default function Home() {
     ceremonyTimelineInlineEditDraft,
     persistTimelinesToDatabase,
     persistSongsToDatabase,
+    persistPlanningQuestionAnswersToDatabase,
+    persistCeremonyPlanToDatabase,
+    persistEventMetadataToDatabase,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -7390,6 +7716,7 @@ export default function Home() {
     mcAnnouncements,
     eventSettings,
     appSettings,
+    isActualCouple,
     setPersistPhase,
     setPersistBaseline,
   ]);
@@ -7579,7 +7906,10 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
-            settings: eventSettings,
+            settings:
+              isActualCouple
+                ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
+                : eventSettings,
           }
           : e,
       ),
@@ -7610,6 +7940,7 @@ export default function Home() {
       musicTasteProfile,
       mcAnnouncements,
       eventSettings,
+      isActualCouple,
     ],
   );
 
@@ -7837,7 +8168,12 @@ export default function Home() {
         : "app",
     );
     setCurrentRole(isValidUserRole(backupAppState.currentRole) ? backupAppState.currentRole : null);
-    setRolePreview(isValidUserRole(backupAppState.rolePreview) ? backupAppState.rolePreview : "Admin");
+    setRolePreview(
+      restoreRolePreviewForSession(
+        isValidUserRole(backupAppState.currentRole) ? backupAppState.currentRole : null,
+        isValidUserRole(backupAppState.rolePreview) ? backupAppState.rolePreview : null,
+      ),
+    );
     setGuestRequestView(backupAppState.guestRequestView === "guest" ? "guest" : "admin");
     setInviteAccessPreview(backupAppState.inviteAccessPreview ?? null);
     setActiveScreen(migrateLegacyScreenId(backupAppState.activeScreen ?? "Dashboard"));
@@ -8726,6 +9062,39 @@ export default function Home() {
     return null;
   }, [runOfShowUpNextMeta, ceremonyTimelineItems, mergedTimelineItems]);
 
+  const runOfShowQuickContacts = useMemo(
+    () =>
+      buildRunOfShowQuickContacts({
+        vendors,
+        assignedDjId: eventSettings.assignedDj ?? "",
+        plannerName: eventSettings.plannerName ?? "",
+        plannerEmail: eventSettings.plannerEmail ?? "",
+        venueFallback:
+          eventSettings.receptionLocation?.trim() ||
+          eventSettings.venue?.trim() ||
+          weddingDetails.venue?.trim() ||
+          "",
+        companyTeamMembers,
+        teamMembers,
+      }),
+    [
+      vendors,
+      eventSettings.assignedDj,
+      eventSettings.plannerName,
+      eventSettings.plannerEmail,
+      eventSettings.receptionLocation,
+      eventSettings.venue,
+      weddingDetails.venue,
+      companyTeamMembers,
+      teamMembers,
+    ],
+  );
+
+  const eventDocumentTeamMembers = useMemo(
+    () => sortTeamMembersForEventDocument(teamMembers),
+    [teamMembers],
+  );
+
   useLayoutEffect(() => {
     if (!runOfShowOverlayActive) {
       window.setTimeout(() => setRunOfShowUpNextRowInView(true), 0);
@@ -9303,12 +9672,23 @@ export default function Home() {
     }
 
     if (showVendors) {
-      const sorted = sortVendorsForEventDocument(vendors);
-      lines.push(
-        "EVENT TEAM",
-        ...sorted.flatMap((vendor) => ["", ...formatVendorContactLines(vendor)]),
-        "",
-      );
+      if (eventDocumentTeamMembers.length > 0) {
+        lines.push(
+          "EVENT TEAM",
+          ...eventDocumentTeamMembers.flatMap((member) => [
+            "",
+            ...formatTeamMemberContactLines(member),
+          ]),
+          "",
+        );
+      } else {
+        const sorted = sortVendorsForEventDocument(vendors);
+        lines.push(
+          "EVENT TEAM",
+          ...sorted.flatMap((vendor) => ["", ...formatVendorContactLines(vendor)]),
+          "",
+        );
+      }
     }
 
     if (showMc) {
@@ -9335,9 +9715,9 @@ export default function Home() {
     }
 
     lines.push(
-      "INTERNAL NOTES",
-      eventSettings.internalNotes || "None",
-      "",
+      ...(isCoupleView
+        ? []
+        : ["INTERNAL NOTES", eventSettings.internalNotes || "None", ""]),
       "CLIENT-FACING NOTES",
       eventSettings.clientFacingNotes || "None",
       "",
@@ -9401,11 +9781,13 @@ export default function Home() {
     sectionPlaylistsEnabled,
     sectionReceptionTimelineEnabled,
     sectionVendorContactsEnabled,
+    eventDocumentTeamMembers,
     teamMembers,
     vendors,
     weddingDetails.couple,
     weddingDetails.date,
     weddingDetails.venue,
+    isCoupleView,
   ]);
 
   const persistFeedback: PersistFeedback = useMemo(
@@ -10295,18 +10677,18 @@ export default function Home() {
           <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs shadow-none sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-stone-600">
-                Viewing as{" "}
                 <span className="font-semibold text-stone-950">
-                  {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                  {perspectiveBannerLabel(currentRole, rolePreview)}
                 </span>
               </span>
+              {showRolePreviewSwitcher ? (
               <div className="flex flex-wrap gap-1.5">
                 {PERSPECTIVE_ROLES.map((role) => (
                   <PrimaryButton
                     key={`perspective-${role}`}
                     type="button"
                     onClick={() => switchPerspectiveRole(role)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] ${(currentRole ?? rolePreview) === role
+                    className={`rounded-lg px-2.5 py-1 text-[11px] ${rolePreview === role
                       ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
                       : "border border-stone-300 bg-white font-medium text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
                       }`}
@@ -10315,6 +10697,7 @@ export default function Home() {
                   </PrimaryButton>
                 ))}
               </div>
+              ) : null}
             </div>
             <div className="flex w-full shrink-0 flex-col items-end gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
               <PersistEcho
@@ -12091,7 +12474,7 @@ export default function Home() {
                   <p className="text-[11px] font-medium text-stone-600">
                     Viewing as{" "}
                     <span className="font-semibold text-stone-900">
-                      {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                      {perspectiveBannerLabel(currentRole, rolePreview)}
                     </span>
                   </p>
                   {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
@@ -12266,7 +12649,7 @@ export default function Home() {
                         <p className="mt-1 text-[11px] font-medium text-stone-600">
                           Viewing as{" "}
                           <span className="font-semibold text-stone-900">
-                            {perspectiveRoleLabel(currentRole ?? rolePreview)}
+                            {perspectiveBannerLabel(currentRole, rolePreview)}
                           </span>
                         </p>
                       </div>
@@ -13611,7 +13994,12 @@ export default function Home() {
                               />
                               <TimelineSongCueLine kind="Song" preview={songLine || "—"} hasSong={Boolean(songLine)} />
                               {item.notes?.trim() ? (
-                                <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
+                                <div className="mt-1 md:mt-1.5">
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                                    Shared team cue
+                                  </p>
+                                  <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
+                                </div>
                               ) : null}
                             </div>
                             <div className={TIMELINE_CARD_ACTION_RAIL_CLASS}>
@@ -13717,9 +14105,14 @@ export default function Home() {
                                 />
                               ) : null}
                               {item.notes?.trim() ? (
-                                <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
-                                  {item.notes.trim()}
-                                </p>
+                                <div className="mt-2">
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                                    Shared team cue
+                                  </p>
+                                  <p className={`${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
+                                    {item.notes.trim()}
+                                  </p>
+                                </div>
                               ) : null}
                               {canEditTimeline ? (
                                 <p className="mt-2.5 text-[10px] font-medium text-stone-400">
@@ -13860,7 +14253,7 @@ export default function Home() {
                           </div>
                           <TextArea
                             id={`ceremony-inline-notes-${item.id}`}
-                            label="Notes"
+                            label="Shared team cue"
                             value={cerNotes}
                             textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
                             labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
@@ -14439,8 +14832,20 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
+                                {isGrandEntrance && canAccessGrandEntranceOperations ? (
+                                  <GrandEntranceMcScriptPreview
+                                    script={grandEntranceMcScript}
+                                    onEdit={() => openGrandEntranceDetail(item)}
+                                    variant="timeline"
+                                  />
+                                ) : null}
                                 {item.notes?.trim() ? (
-                                  <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
+                                  <div className="mt-1 md:mt-1.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                                      Shared team cue
+                                    </p>
+                                    <p className={TIMELINE_CARD_NOTES_CLASS}>{item.notes}</p>
+                                  </div>
                                 ) : null}
                               </div>
                               <div className={TIMELINE_CARD_ACTION_RAIL_CLASS}>
@@ -14587,10 +14992,22 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
+                                {isGrandEntrance && canAccessGrandEntranceOperations ? (
+                                  <GrandEntranceMcScriptPreview
+                                    script={grandEntranceMcScript}
+                                    onEdit={() => openGrandEntranceDetail(item)}
+                                    variant="timeline"
+                                  />
+                                ) : null}
                                 {item.notes?.trim() ? (
-                                  <p className={`mt-2 ${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
-                                    {item.notes.trim()}
-                                  </p>
+                                  <div className="mt-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                                      Shared team cue
+                                    </p>
+                                    <p className={`${TIMELINE_CARD_NOTES_CLASS} line-clamp-3`}>
+                                      {item.notes.trim()}
+                                    </p>
+                                  </div>
                                 ) : null}
                                 {canEditTimeline ? (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">
@@ -14778,7 +15195,7 @@ export default function Home() {
                               </div>
                               <TextArea
                                 id={`timeline-inline-notes-${item.id}`}
-                                label="Notes"
+                                label="Shared team cue"
                                 value={recvNotes}
                                 textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
                                 labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
@@ -15816,6 +16233,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            {!isCoupleView ? (
             <PremiumCard className="no-print border border-stone-200 bg-white py-4 shadow-none sm:py-3">
               <details className="group rounded-xl">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2 text-left sm:min-h-0 sm:py-1 [&::-webkit-details-marker]:hidden">
@@ -16056,6 +16474,7 @@ export default function Home() {
                 </div>
               </details>
             </PremiumCard>
+            ) : null}
             <div
               className={`-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 sm:mx-0 sm:max-w-none sm:overflow-visible sm:px-0 print:!m-0 print:!max-w-none print:!overflow-visible print:!p-0`}
             >
@@ -16463,7 +16882,7 @@ export default function Home() {
                 )}
                 {sectionVendorContactsEnabled &&
                   eventSettings.liveEventShowVendorContacts &&
-                  vendors.length > 0 && (
+                  (eventDocumentTeamMembers.length > 0 || vendors.length > 0) && (
                     <div className="doc-section print-break-avoid">
                       <h3>Event Team</h3>
                       <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
@@ -16471,50 +16890,102 @@ export default function Home() {
                         are prioritized at the top for fast scanning.
                       </p>
                       <div className="space-y-3">
-                        {sortVendorsForEventDocument(vendors).map((vendor) => {
-                          const headline =
-                            vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
-                          const companyLine =
-                            vendor.contactName.trim() && vendor.companyName.trim()
-                              ? vendor.companyName.trim()
-                              : null;
-                          return (
-                            <div
-                              key={`live-vendor-${vendor.id}`}
-                              className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
-                                <div className="min-w-0">
-                                  <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
-                                    {headline}
-                                  </p>
-                                  {companyLine ? (
-                                    <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
-                                  ) : null}
+                        {eventDocumentTeamMembers.length > 0
+                          ? eventDocumentTeamMembers.map((member) => {
+                              const headline = member.name.trim() || member.company?.trim() || "Contact";
+                              const companyLine =
+                                member.name.trim() && member.company?.trim()
+                                  ? member.company.trim()
+                                  : null;
+                              return (
+                                <div
+                                  key={`live-event-team-${member.id}`}
+                                  className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
+                                    <div className="min-w-0">
+                                      <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
+                                        {headline}
+                                      </p>
+                                      {companyLine ? (
+                                        <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">
+                                          {companyLine}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
+                                        {teamMemberRoleLabel(member.role)}
+                                      </p>
+                                      {isCutmasterEventTeamMember(member) ? (
+                                        <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
+                                          Cutmaster event team
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
+                                    {member.phone.trim() ? <li>Phone: {member.phone.trim()}</li> : null}
+                                    {member.email.trim() ? <li>Email: {member.email.trim()}</li> : null}
+                                    {member.website?.trim() ? <li>Web: {member.website.trim()}</li> : null}
+                                    {member.instagram?.trim() ? (
+                                      <li>Social: {member.instagram.trim()}</li>
+                                    ) : null}
+                                    {member.arrivalTime?.trim() ? (
+                                      <li>Arrival: {member.arrivalTime.trim()}</li>
+                                    ) : null}
+                                    {member.specialCoordinationNotes?.trim() ? (
+                                      <li>Coordination: {member.specialCoordinationNotes.trim()}</li>
+                                    ) : null}
+                                    {member.notes.trim() ? <li>Notes: {member.notes.trim()}</li> : null}
+                                  </ul>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
-                                    {vendorTypeLabel(vendor.vendorType)}
-                                  </p>
-                                  {isCutmasterEventTeam(vendor) ? (
-                                    <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
-                                      Cutmaster event team
-                                    </p>
-                                  ) : null}
+                              );
+                            })
+                          : sortVendorsForEventDocument(vendors).map((vendor) => {
+                              const headline =
+                                vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
+                              const companyLine =
+                                vendor.contactName.trim() && vendor.companyName.trim()
+                                  ? vendor.companyName.trim()
+                                  : null;
+                              return (
+                                <div
+                                  key={`live-vendor-${vendor.id}`}
+                                  className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
+                                    <div className="min-w-0">
+                                      <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
+                                        {headline}
+                                      </p>
+                                      {companyLine ? (
+                                        <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
+                                      ) : null}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
+                                        {vendorTypeLabel(vendor.vendorType)}
+                                      </p>
+                                      {isCutmasterEventTeam(vendor) ? (
+                                        <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
+                                          Cutmaster event team
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
+                                    {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
+                                    {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
+                                    {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
+                                    {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
+                                    {vendor.arrivalTime.trim() ? (
+                                      <li>Arrival: {vendor.arrivalTime.trim()}</li>
+                                    ) : null}
+                                  </ul>
                                 </div>
-                              </div>
-                              <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
-                                {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
-                                {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
-                                {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
-                                {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
-                                {vendor.arrivalTime.trim() ? (
-                                  <li>Arrival: {vendor.arrivalTime.trim()}</li>
-                                ) : null}
-                              </ul>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
                       </div>
                     </div>
                   )}
@@ -16553,7 +17024,9 @@ export default function Home() {
                     </table>
                   </div>
                 )}
+                {!isCoupleView ? (
                 <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
+                ) : null}
                 {(eventSettings.clientFacingNotes ?? "").trim() ? (
                   <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
                 ) : null}
@@ -16630,6 +17103,7 @@ export default function Home() {
                 <p className="mt-3 text-xs leading-relaxed text-stone-600">Cover editing is not available for the DJ role in this build.</p>
               ) : null}
             </PremiumCard>
+            {!isCoupleView ? (
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event status</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
@@ -16667,6 +17141,8 @@ export default function Home() {
                 <p className="mt-2 text-xs leading-relaxed text-stone-600">Only Admin and Planner can change event status.</p>
               ) : null}
             </PremiumCard>
+            ) : null}
+            {!isCoupleView ? (
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event Type & Sections</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
@@ -16763,6 +17239,7 @@ export default function Home() {
                 </div>
               </div>
             </PremiumCard>
+            ) : null}
             <PremiumCard>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <SectionTitle className="text-stone-950">Event Settings</SectionTitle>
@@ -16784,6 +17261,7 @@ export default function Home() {
                   value={eventSettings.coupleNames}
                   onChange={(value) => setEventSettings((prev) => ({ ...prev, coupleNames: value }))}
                 />
+                {!isCoupleView ? (
                 <div className="relative z-10 isolate">
                   <label
                     htmlFor="event-settings-event-type"
@@ -16813,6 +17291,7 @@ export default function Home() {
                     ))}
                   </select>
                 </div>
+                ) : null}
                 <TextInput
                   id="event-settings-date"
                   label={eventDateFieldLabel}
@@ -16859,6 +17338,16 @@ export default function Home() {
                     }
                   />
                 </div>
+                {isCoupleView ? (
+                  <div>
+                    <p className={lightUiFormLabelClass}>Assigned DJ</p>
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800">
+                      {eventSettings.assignedDj?.trim()
+                        ? getTeamMemberName(eventSettings.assignedDj)
+                        : "DJ not assigned yet."}
+                    </div>
+                  </div>
+                ) : (
                 <div className="relative z-10 isolate">
                   <label
                     htmlFor="event-settings-assigned-dj-select"
@@ -16903,6 +17392,9 @@ export default function Home() {
                     </div>
                   ) : null}
                 </div>
+                )}
+                {!isCoupleView ? (
+                <>
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput
                     id="event-settings-planner-name"
@@ -16953,6 +17445,8 @@ export default function Home() {
                   }
                   rows={3}
                 />
+                </>
+                ) : null}
                 {!isCoupleView ? (
                   <TextArea
                     id="event-settings-client-notes"
@@ -16974,6 +17468,8 @@ export default function Home() {
                   rows={2}
                   placeholder={appSettings.publicGuestRequestMessage}
                 />
+                {!isCoupleView ? (
+                <>
                 <TextArea
                   id="event-settings-prep"
                   label="Event-specific Prep Footer Override"
@@ -16993,6 +17489,8 @@ export default function Home() {
                   }
                   placeholder={appSettings.coupleWelcomeMessage}
                 />
+                </>
+                ) : null}
                 <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-700">
                   App access and day-of contacts are managed together under Event Team.
                 </div>
@@ -18424,12 +18922,20 @@ export default function Home() {
                                     </p>
                                   ) : null}
                                   {row.notes ? (
-                                    <p
-                                      className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                        }`}
-                                    >
-                                      {row.notes}
-                                    </p>
+                                    <div className="mt-4 max-w-4xl">
+                                      <p
+                                        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${done ? "text-stone-400" : "text-stone-500"
+                                          }`}
+                                      >
+                                        Shared team cue
+                                      </p>
+                                      <p
+                                        className={`mt-1.5 text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
+                                          }`}
+                                      >
+                                        {row.notes}
+                                      </p>
+                                    </div>
                                   ) : null}
                                 </div>
                                 <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
@@ -18624,20 +19130,35 @@ export default function Home() {
                                               {songCell}
                                             </p>
                                           ) : null}
-                                          {notesLabel ? (
-                                            <p
-                                              className={`mt-4 max-w-4xl text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                                }`}
-                                            >
-                                              {notesLabel}
-                                            </p>
-                                          ) : null}
                                           {isGrandEntrance ? (
                                             <WeddingPartyLineupPreview
                                               lineupRaw={weddingPartyLineupRaw}
                                               onEdit={openWeddingPartyLineupEditor}
                                               variant="runOfShow"
                                             />
+                                          ) : null}
+                                          {isGrandEntrance && canAccessGrandEntranceOperations ? (
+                                            <GrandEntranceMcScriptPreview
+                                              script={grandEntranceMcScript}
+                                              onEdit={() => openGrandEntranceDetail(item)}
+                                              variant="runOfShow"
+                                            />
+                                          ) : null}
+                                          {notesLabel ? (
+                                            <div className="mt-4 max-w-4xl">
+                                              <p
+                                                className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${done ? "text-stone-400" : "text-stone-500"
+                                                  }`}
+                                              >
+                                                Shared team cue
+                                              </p>
+                                              <p
+                                                className={`mt-1.5 text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
+                                                  }`}
+                                              >
+                                                {notesLabel}
+                                              </p>
+                                            </div>
                                           ) : null}
                                           {isGrandEntrance ? (
                                             <div className="mt-5 flex flex-wrap gap-2">
@@ -18774,6 +19295,16 @@ export default function Home() {
                     </div>
                   </section>
                 ) : null}
+
+                <RunOfShowLiveReference
+                  doNotPlaySongs={doNotPlaySongs}
+                  mustPlaySongs={mustPlaySongs}
+                  quickContacts={runOfShowQuickContacts}
+                  showDoNotPlay={
+                    sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay
+                  }
+                  showMustPlay={sectionMustPlayEnabled}
+                />
 
                 {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
                   <p className="py-12 text-center text-base text-stone-600">

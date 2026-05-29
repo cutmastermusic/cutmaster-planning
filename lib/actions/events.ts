@@ -3,6 +3,15 @@
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { describePayload } from "@/lib/payloadSize";
+import { mergeGrandEntranceDetailIntoAnswers } from "@/lib/grandEntranceDetail";
+import {
+  normalizePlanningQuestionAnswersForDb,
+  parseCeremonyPlanJson,
+  parsePlanningQuestionAnswersJson,
+  planningQuestionAnswersWithLegacyGrandEntranceColumns,
+  type PlanningQuestionAnswersRecord,
+} from "@/lib/planningPersistence";
+import type { EventCeremonyPlanSnapshot } from "@/types/planning";
 
 /**
  * Log a single line per Server Action invocation describing the size of the
@@ -124,22 +133,72 @@ export async function updateGrandEntranceDetail(
   },
 ) {
   logActionPayload("updateGrandEntranceDetail", detail);
-  const trimOrNull = (value: string) => {
-    const trimmed = value.trim();
-    return trimmed || null;
-  };
+  const existing = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { planningQuestionAnswers: true },
+  });
+  const priorAnswers = parsePlanningQuestionAnswersJson(existing?.planningQuestionAnswers);
+  const mergedAnswers = normalizePlanningQuestionAnswersForDb(
+    mergeGrandEntranceDetailIntoAnswers(priorAnswers, {
+      script: detail.script,
+      lineup: detail.lineup,
+      coupleEntrance: detail.coupleEntrance,
+    }),
+  );
+  const legacy = planningQuestionAnswersWithLegacyGrandEntranceColumns(mergedAnswers);
   return prisma.event.update({
     where: { id: eventId },
     data: {
-      grandEntranceScript: trimOrNull(detail.script),
-      grandEntranceLineup: trimOrNull(detail.lineup),
-      grandEntranceCouple: trimOrNull(detail.coupleEntrance),
+      planningQuestionAnswers: legacy.answers,
+      grandEntranceScript: legacy.grandEntranceScript,
+      grandEntranceLineup: legacy.grandEntranceLineup,
+      grandEntranceCouple: legacy.grandEntranceCouple,
     },
     select: {
       id: true,
       grandEntranceScript: true,
       grandEntranceLineup: true,
       grandEntranceCouple: true,
+      planningQuestionAnswers: true,
+    },
+  });
+}
+
+export async function replacePlanningQuestionAnswers(
+  eventId: string,
+  answers: PlanningQuestionAnswersRecord,
+) {
+  logActionPayload("replacePlanningQuestionAnswers", answers);
+  const legacy = planningQuestionAnswersWithLegacyGrandEntranceColumns(answers);
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      planningQuestionAnswers: legacy.answers,
+      grandEntranceScript: legacy.grandEntranceScript,
+      grandEntranceLineup: legacy.grandEntranceLineup,
+      grandEntranceCouple: legacy.grandEntranceCouple,
+    },
+    select: {
+      id: true,
+      planningQuestionAnswers: true,
+      grandEntranceScript: true,
+      grandEntranceLineup: true,
+      grandEntranceCouple: true,
+    },
+  });
+}
+
+export async function replaceCeremonyPlan(eventId: string, plan: EventCeremonyPlanSnapshot) {
+  logActionPayload("replaceCeremonyPlan", plan);
+  const normalized = parseCeremonyPlanJson(plan) ?? plan;
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      ceremonyPlan: normalized as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      ceremonyPlan: true,
     },
   });
 }

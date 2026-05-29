@@ -113,6 +113,28 @@ export type CeremonyPlan = {
   notes: string;
 };
 
+/** DB-backed ceremony planning fields (Event.ceremonyPlan JSON). */
+export type ClientEventDetailsSnapshot = {
+  coupleNames: string;
+  eventStartTime: string;
+  eventEndTime: string;
+  guestRequestMessageOverride: string;
+};
+
+export type EventCeremonyPlanSnapshot = {
+  ceremonyStartTime: string;
+  ceremonyGuestArrivalTime: string;
+  officiantName: string;
+  ceremonyNotes: string;
+  microphoneNeeds: string;
+  weddingPartyProcessional: CeremonyPlan;
+  brideGroomProcessional: CeremonyPlan;
+  unityCeremonySong: CeremonyPlan;
+  recessionalSong: CeremonyPlan;
+  /** Client-safe Event Settings fields without dedicated DB columns. */
+  clientEventDetails?: ClientEventDetailsSnapshot;
+};
+
 export type CeremonyTimelineItem = {
   id: string;
   timeOrOrder: string;
