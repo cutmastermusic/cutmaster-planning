@@ -34,6 +34,7 @@ const STAFF_OWNED_EVENT_SETTINGS_KEYS = [
   "sectionFormalitiesEnabled",
   "sectionPlanningChecklistEnabled",
   "sectionPlanningQuestionsEnabled",
+  "ceremonyCoverageStatus",
 ] as const satisfies readonly (keyof EventSettings)[];
 
 export type StaffOwnedEventSettingsSnapshot = Pick<

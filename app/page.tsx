@@ -253,8 +253,8 @@ import {
   readGrandEntranceDetail,
 } from "@/lib/grandEntranceDetail";
 import {
+  applyCeremonyPlanExtensionsToEventSettings,
   applyCeremonyPlanSnapshotToEventFields,
-  applyClientEventDetailsToEventSettings,
   attachClientEventDetailsToCeremonyPlan,
   buildCeremonyPlanSnapshot,
   buildClientEventDetailsFromSettings,
@@ -266,6 +266,12 @@ import {
   normalizePlanningQuestionAnswersForDb,
   parseCeremonyPlanJson,
 } from "@/lib/planningPersistence";
+import {
+  defaultCeremonyCoverageStatus,
+  isCeremonyCoverageNotProvided,
+  normalizeCeremonyCoverageStatus,
+  type CeremonyCoverageStatus,
+} from "@/lib/ceremonyCoverage";
 import {
   buildDatabaseEventUpdateForRole,
   canUseRolePreviewSwitcher,
@@ -281,6 +287,8 @@ import {
   RUN_OF_SHOW_DONE_STORAGE_KEY,
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
+import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
+import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
 import { WeddingPartyLineupSheet } from "@/components/wedding-party-lineup-sheet";
 import { buildRunOfShowQuickContacts } from "@/lib/runOfShowLiveReference";
@@ -1898,10 +1906,15 @@ function buildCeremonyPlanWithClientDetails(
   ceremonyInput: Parameters<typeof buildCeremonyPlanSnapshot>[0],
   settingsForClientDetails: EventSettings,
 ) {
-  return attachClientEventDetailsToCeremonyPlan(
-    buildCeremonyPlanSnapshot(ceremonyInput),
-    buildClientEventDetailsFromSettings(settingsForClientDetails),
-  );
+  return {
+    ...attachClientEventDetailsToCeremonyPlan(
+      buildCeremonyPlanSnapshot(ceremonyInput),
+      buildClientEventDetailsFromSettings(settingsForClientDetails),
+    ),
+    ceremonyCoverageStatus:
+      settingsForClientDetails.ceremonyCoverageStatus ??
+      defaultCeremonyCoverageStatus(settingsForClientDetails.eventLayoutProfile),
+  };
 }
 
 function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
@@ -2645,6 +2658,7 @@ export default function Home() {
     checklistDueDates: {},
     checklistManualStatuses: {},
     eventStatus: "Planning",
+    ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
   });
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
@@ -3452,6 +3466,10 @@ export default function Home() {
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
         ),
+        ceremonyCoverageStatus: normalizeCeremonyCoverageStatus(
+          evt.settings?.ceremonyCoverageStatus,
+          (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+        ),
       }),
     );
 
@@ -3705,6 +3723,7 @@ export default function Home() {
         checklistDueDates: {},
         checklistManualStatuses: {},
         eventStatus: "Planning",
+        ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
       },
     };
   };
@@ -3839,6 +3858,7 @@ export default function Home() {
         ...profileDefaults,
         ...getLiveEventDocumentDefaults(createLayoutProfile),
         eventStatus: "Planning",
+        ceremonyCoverageStatus: defaultCeremonyCoverageStatus(createLayoutProfile),
       };
       newEvent.meta = {
         couple,
@@ -3882,7 +3902,7 @@ export default function Home() {
             date: date ? new Date(date) : null,
             type: createLayoutProfile,
             venue,
-            assignedDj: draft.assignedDj,
+            assignedDj: draft.assignedDj || null,
             packageName: draft.packageName.trim(),
             plannerName: draft.plannerName.trim(),
             plannerEmail: draft.plannerEmail.trim(),
@@ -3891,15 +3911,20 @@ export default function Home() {
             internalNotes: draft.internalNotes.trim(),
             eventStatus: "Planning",
           });
-        
+
           newEvent.id = savedDatabaseEvent.id;
           databaseEventIdsRef.current.add(savedDatabaseEvent.id);
         } catch (error) {
           console.error("Failed to save event to database:", error);
+          const detail =
+            error instanceof Error && error.message.trim()
+              ? error.message.trim()
+              : "Check Vercel function logs for details.";
           setEventModalStatus({
             kind: "error",
-            message: "Event was created locally, but failed to save to the database.",
+            message: `Could not save this event to the database. No event was created. ${detail}`,
           });
+          return;
         }
 
       // Initialize the per-event team-member shadow field so this event has a
@@ -4505,6 +4530,26 @@ export default function Home() {
     [activeEventId, eventSettings, isActualCouple],
   );
 
+  const updateCeremonyCoverageStatus = useCallback(
+    (status: CeremonyCoverageStatus) => {
+      if (isActualCouple) return;
+      setEventSettings((prev) => ({ ...prev, ceremonyCoverageStatus: status }));
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+              ...evt,
+              lastUpdatedAt: Date.now(),
+              settings: { ...evt.settings, ceremonyCoverageStatus: status },
+            }
+            : evt,
+        ),
+      );
+    },
+    [activeEventId, isActualCouple],
+  );
+
   const activeEventStatus = useMemo(
     () => normalizeEventStatus(eventSettings.eventStatus),
     [eventSettings.eventStatus],
@@ -4563,6 +4608,7 @@ export default function Home() {
 
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
+  const showCeremonyCoverageNotice = isCeremonyCoverageNotProvided(eventSettings);
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
   const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
   const isTimelineWorkspaceScreen =
@@ -7087,7 +7133,9 @@ export default function Home() {
             applyCeremonyPlanSnapshotToEventFields(seededEvent, ceremonyPlanFromDb);
           }
           if (ceremonyPlanFromDb) {
-            applyClientEventDetailsToEventSettings(seededEvent.settings, ceremonyPlanFromDb);
+            applyCeremonyPlanExtensionsToEventSettings(seededEvent.settings, ceremonyPlanFromDb);
+          } else {
+            applyCeremonyPlanExtensionsToEventSettings(seededEvent.settings, null);
           }
 
           seededEvent.meta = {
@@ -7416,6 +7464,10 @@ export default function Home() {
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
         ),
+          ceremonyCoverageStatus: normalizeCeremonyCoverageStatus(
+            evt.settings?.ceremonyCoverageStatus,
+            (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
+          ),
         },
       }));
       const migratedEvents = loadedEvents.map((evt) =>
@@ -8085,6 +8137,10 @@ export default function Home() {
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        ),
+        ceremonyCoverageStatus: normalizeCeremonyCoverageStatus(
+          evt.settings?.ceremonyCoverageStatus,
+          (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
         ),
       },
     }));
@@ -13827,6 +13883,20 @@ export default function Home() {
                   addLabel="+ Ceremony moment"
                   addDisabled={!canEditTimeline}
                 />
+                {showCeremonyCoverageNotice ? (
+                  <CeremonyCoverageNotice className="mt-3" />
+                ) : null}
+                {!isCoupleView ? (
+                  <CeremonyCoverageControl
+                    className="mt-4 max-w-xl"
+                    value={
+                      eventSettings.ceremonyCoverageStatus ??
+                      defaultCeremonyCoverageStatus(eventSettings.eventLayoutProfile)
+                    }
+                    onChange={updateCeremonyCoverageStatus}
+                    id="ceremony-coverage-status-unified"
+                  />
+                ) : null}
               </>
             ) : (
               <>
@@ -13855,6 +13925,9 @@ export default function Home() {
                 <p className="mt-2 max-w-prose text-sm text-stone-700 sm:mt-1 sm:text-xs md:text-sm">
                   Read top-to-bottom like the ceremony itself—time, moment, music, then cues. Expand a row to edit.
                 </p>
+                {showCeremonyCoverageNotice ? (
+                  <CeremonyCoverageNotice className="mt-4" />
+                ) : null}
               </div>
             </div>
               </>
@@ -14405,6 +14478,17 @@ export default function Home() {
             {!showUnifiedTimelineWorkspace ? (
             <PremiumCard className={premiumFormSectionCardClass}>
               <SectionTitle className="text-stone-950">Ceremony Details</SectionTitle>
+              {!isCoupleView ? (
+                <CeremonyCoverageControl
+                  className="mt-5 max-w-xl"
+                  value={
+                    eventSettings.ceremonyCoverageStatus ??
+                    defaultCeremonyCoverageStatus(eventSettings.eventLayoutProfile)
+                  }
+                  onChange={updateCeremonyCoverageStatus}
+                  id="ceremony-coverage-status-details"
+                />
+              ) : null}
               <div className="mt-6 space-y-4">
                 <TextInput
                   id="ceremony-location"
@@ -17237,6 +17321,17 @@ export default function Home() {
                     );
                   })}
                 </div>
+                {eventSettings.sectionCeremonyEnabled && !isCoupleView ? (
+                  <CeremonyCoverageControl
+                    className="mt-5 max-w-xl border-t border-stone-200/80 pt-5"
+                    value={
+                      eventSettings.ceremonyCoverageStatus ??
+                      defaultCeremonyCoverageStatus(eventSettings.eventLayoutProfile)
+                    }
+                    onChange={updateCeremonyCoverageStatus}
+                    id="ceremony-coverage-status-settings"
+                  />
+                ) : null}
               </div>
             </PremiumCard>
             ) : null}
@@ -18762,6 +18857,9 @@ export default function Home() {
                     <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       Ceremony
                     </h3>
+                    {showCeremonyCoverageNotice ? (
+                      <CeremonyCoverageNotice className="mt-5" />
+                    ) : null}
                     <div className="mt-6 grid gap-3 text-sm leading-relaxed text-stone-700 sm:grid-cols-2 sm:gap-x-10 md:gap-4 md:text-base md:leading-relaxed">
                       <p>
                         <span className="font-semibold text-stone-900">Ceremony start</span>{" "}

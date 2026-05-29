@@ -6,7 +6,9 @@ import {
   mergeGrandEntranceDetailIntoAnswers,
   type GrandEntranceDetailDbRow,
 } from "@/lib/grandEntranceDetail";
+import { normalizeCeremonyCoverageStatus } from "@/lib/ceremonyCoverage";
 import type {
+  CeremonyCoverageStatus,
   CeremonyPlan,
   ClientEventDetailsSnapshot,
   EventCeremonyPlanSnapshot,
@@ -165,6 +167,32 @@ export function applyClientEventDetailsToEventSettings(
   settings.guestRequestMessageOverride = details.guestRequestMessageOverride;
 }
 
+export function applyCeremonyCoverageFromPlan(
+  settings: EventSettings,
+  plan: EventCeremonyPlanSnapshot | null | undefined,
+): void {
+  settings.ceremonyCoverageStatus = normalizeCeremonyCoverageStatus(
+    plan?.ceremonyCoverageStatus,
+    settings.eventLayoutProfile,
+  );
+}
+
+export function applyCeremonyPlanExtensionsToEventSettings(
+  settings: EventSettings,
+  plan: EventCeremonyPlanSnapshot | null | undefined,
+): void {
+  applyClientEventDetailsToEventSettings(settings, plan);
+  applyCeremonyCoverageFromPlan(settings, plan);
+}
+
+function readCeremonyCoverageStatus(raw: Record<string, unknown>): CeremonyCoverageStatus | undefined {
+  const value = raw.ceremonyCoverageStatus;
+  if (value === "provided" || value === "not_provided" || value === "unknown") {
+    return value;
+  }
+  return undefined;
+}
+
 export function parseCeremonyPlanJson(value: unknown): EventCeremonyPlanSnapshot | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
@@ -181,6 +209,7 @@ export function parseCeremonyPlanJson(value: unknown): EventCeremonyPlanSnapshot
     };
   };
   const clientEventDetails = readClientEventDetails(raw);
+  const ceremonyCoverageStatus = readCeremonyCoverageStatus(raw);
   return {
     ceremonyStartTime: typeof raw.ceremonyStartTime === "string" ? raw.ceremonyStartTime : "",
     ceremonyGuestArrivalTime:
@@ -193,6 +222,7 @@ export function parseCeremonyPlanJson(value: unknown): EventCeremonyPlanSnapshot
     unityCeremonySong: readPlan("unityCeremonySong"),
     recessionalSong: readPlan("recessionalSong"),
     ...(clientEventDetails ? { clientEventDetails } : {}),
+    ...(ceremonyCoverageStatus ? { ceremonyCoverageStatus } : {}),
   };
 }
 

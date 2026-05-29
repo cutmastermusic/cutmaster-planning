@@ -89,39 +89,44 @@ export async function getEvents() {
 
 export async function createEvent(data: EventData) {
   logActionPayload("createEvent", data);
-  const demoUser = await prisma.user.upsert({
-    where: {
-      email: "demo@cutmasterplanning.com",
-    },
-    update: {},
-    create: {
-      email: "demo@cutmasterplanning.com",
-      name: "Demo User",
-    },
-  });
+  try {
+    const demoUser = await prisma.user.upsert({
+      where: {
+        email: "demo@cutmasterplanning.com",
+      },
+      update: {},
+      create: {
+        email: "demo@cutmasterplanning.com",
+        name: "Demo User",
+      },
+    });
 
-  return prisma.event.create({
-    data: {
-      title: data.title,
-      date: data.date,
-      type: data.type,
-      venue: data.venue,
-      assignedDj: data.assignedDj,
-      packageName: data.packageName,
-      plannerName: data.plannerName,
-      plannerEmail: data.plannerEmail,
-      ceremonyLocation: data.ceremonyLocation,
-      receptionLocation: data.receptionLocation,
-      internalNotes: data.internalNotes,
-      eventStatus: data.eventStatus ?? "Planning",
-      ownerId: demoUser.id,
-      timelines: {
-        create: {
-          title: "Main Timeline",
+    return await prisma.event.create({
+      data: {
+        title: data.title,
+        date: data.date,
+        type: data.type,
+        venue: data.venue,
+        assignedDj: data.assignedDj,
+        packageName: data.packageName,
+        plannerName: data.plannerName,
+        plannerEmail: data.plannerEmail,
+        ceremonyLocation: data.ceremonyLocation,
+        receptionLocation: data.receptionLocation,
+        internalNotes: data.internalNotes,
+        eventStatus: data.eventStatus ?? "Planning",
+        ownerId: demoUser.id,
+        timelines: {
+          create: {
+            title: "Main Timeline",
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error("[createEvent] database insert failed:", error);
+    throw error;
+  }
 }
 
 export async function updateGrandEntranceDetail(

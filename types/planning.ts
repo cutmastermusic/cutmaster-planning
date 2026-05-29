@@ -113,6 +113,8 @@ export type CeremonyPlan = {
   notes: string;
 };
 
+export type CeremonyCoverageStatus = "provided" | "not_provided" | "unknown";
+
 /** DB-backed ceremony planning fields (Event.ceremonyPlan JSON). */
 export type ClientEventDetailsSnapshot = {
   coupleNames: string;
@@ -133,6 +135,8 @@ export type EventCeremonyPlanSnapshot = {
   recessionalSong: CeremonyPlan;
   /** Client-safe Event Settings fields without dedicated DB columns. */
   clientEventDetails?: ClientEventDetailsSnapshot;
+  /** Staff-owned: whether Cutmaster provides ceremony audio for this event. */
+  ceremonyCoverageStatus?: CeremonyCoverageStatus;
 };
 
 export type CeremonyTimelineItem = {
@@ -465,6 +469,8 @@ export type EventSettings = {
   coverPhotoDataUrl?: string;
   /** Planning/execution stage; defaults to Planning when missing. */
   eventStatus?: EventStatus;
+  /** Whether Cutmaster provides ceremony audio; defaults by event type when missing. */
+  ceremonyCoverageStatus?: CeremonyCoverageStatus;
 };
 
 export type ActivityType =

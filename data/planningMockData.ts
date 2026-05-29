@@ -473,6 +473,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     checklistDueDates: {},
     checklistManualStatuses: {},
     eventStatus: "Planning",
+    ceremonyCoverageStatus: "provided",
   };
   const seedNow = Date.now();
   const common = {
