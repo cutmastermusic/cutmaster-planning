@@ -305,13 +305,21 @@ export const initialRecessionalSong: CeremonySongPlan = {
   notes: "Start right after first kiss announcement.",
 };
 
-export const initialCeremonyNotes =
-  "Coordinate with planner for final cue confirmations 10 minutes before start.";
-export const initialOfficiantName = "Reverend Taylor Brooks";
-export const initialCeremonyStartTime = "4:00 PM";
-export const initialCeremonyGuestArrivalTime = "3:30 PM";
-export const initialMicrophoneNeeds =
-  "Wireless lav for officiant, handheld backup near first row.";
+export const initialCeremonyNotes = "";
+export const initialOfficiantName = "";
+export const initialCeremonyStartTime = "";
+export const initialCeremonyGuestArrivalTime = "";
+export const initialMicrophoneNeeds = "";
+
+/** Demo ceremony details for local seed events only — not applied to newly created events. */
+export const seedCeremonyPlanningDetails = {
+  ceremonyStartTime: "4:00 PM",
+  ceremonyGuestArrivalTime: "3:30 PM",
+  officiantName: "Reverend Taylor Brooks",
+  ceremonyNotes:
+    "Coordinate with planner for final cue confirmations 10 minutes before start.",
+  microphoneNeeds: "Wireless lav for officiant, handheld backup near first row.",
+};
 export const initialGeneralDjNotes =
   "Check in with planner 60 minutes before guest arrival. Confirm wireless backups and ceremony speakers.";
 export const initialMcAnnouncements =
