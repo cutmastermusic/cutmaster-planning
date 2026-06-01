@@ -5,6 +5,7 @@ type EventBasicDetailsFieldsProps = {
   coupleNames: string;
   weddingDate: string;
   venue: string;
+  venueAddress: string;
   packageName: string;
   primaryPartyLabel: string;
   dateLabel: string;
@@ -17,6 +18,7 @@ type EventBasicDetailsFieldsProps = {
   onCoupleNamesChange: (value: string) => void;
   onWeddingDateChange: (value: string) => void;
   onVenueChange: (value: string) => void;
+  onVenueAddressChange: (value: string) => void;
   onPackageNameChange: (value: string) => void;
   TextInputComponent: React.ComponentType<{
     id: string;
@@ -32,6 +34,7 @@ export function EventBasicDetailsFields({
   coupleNames,
   weddingDate,
   venue,
+  venueAddress,
   packageName,
   primaryPartyLabel,
   dateLabel,
@@ -44,6 +47,7 @@ export function EventBasicDetailsFields({
   onCoupleNamesChange,
   onWeddingDateChange,
   onVenueChange,
+  onVenueAddressChange,
   onPackageNameChange,
   TextInputComponent,
 }: EventBasicDetailsFieldsProps) {
@@ -92,6 +96,19 @@ export function EventBasicDetailsFields({
         onChange={onVenueChange}
         placeholder="e.g. The Grand Willow Estate"
       />
+
+      <div>
+        <TextInput
+          id="event-venue-address"
+          label="Venue Address"
+          value={venueAddress}
+          onChange={onVenueAddressChange}
+          placeholder="Street address, city, state, ZIP"
+        />
+        <p className="mt-1 text-xs leading-snug text-stone-500">
+          Used for the Google Maps link on the Event Document.
+        </p>
+      </div>
 
       {showPackage ? (
         <TextInput

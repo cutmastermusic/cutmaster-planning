@@ -5,6 +5,7 @@ import { EventModalBody } from "@/components/events/EventModalBody";
 import { EventInternalNotesField } from "@/components/events/EventInternalNotesField";
 import { EventBasicDetailsFields } from "@/components/events/EventBasicDetailsFields";
 import { EventLocationsFields } from "@/components/events/EventLocationsFields";
+import { EventSettingsVenueFields } from "@/components/events/EventSettingsVenueFields";
 import { EventAssignedDjField } from "@/components/events/EventAssignedDjField";
 import { EventPlannerFields } from "@/components/events/EventPlannerFields";
 import { EventModalStatus } from "@/components/events/EventModalStatus";
@@ -208,10 +209,16 @@ import {
   mapDatabaseRowsToCeremonyTimelineItems,
   mapDatabaseRowsToMainTimelineItems,
   mapMainTimelineItemsForDatabase,
+  formatEventDateForDisplay,
   dedupeSongEntries,
   receptionTimelineHasClockOrderConflict,
   sortTimelineItemsChronologically,
 } from "@/utils/planning";
+import { buildGoogleMapsSearchUrl } from "@/utils/venueLinks";
+import {
+  EventDocumentLocationLink,
+  EventDocumentVenueOverview,
+} from "@/components/event-document-location-link";
 import {
   parsePastedTimelineText,
   timelineItemsFromImportDrafts,
@@ -1146,6 +1153,7 @@ type EventModalDraft = {
   eventLayoutProfile: EventLayoutProfile;
   weddingDate: string;
   venue: string;
+  venueAddress: string;
   ceremonyLocation: string;
   receptionLocation: string;
   assignedDj: string;
@@ -2620,6 +2628,7 @@ export default function Home() {
     eventType: "Wedding",
     weddingDate: "",
     venue: "",
+    venueAddress: "",
     ceremonyLocation: "",
     receptionLocation: "",
     eventStartTime: "",
@@ -3431,6 +3440,7 @@ export default function Home() {
         ),
         weddingDate: evt.settings?.weddingDate ?? evt.meta.date ?? "",
         venue: evt.settings?.venue ?? evt.meta.venue ?? "",
+        venueAddress: evt.settings?.venueAddress ?? "",
         ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
         receptionLocation: evt.settings?.receptionLocation ?? "",
         eventStartTime: evt.settings?.eventStartTime ?? "",
@@ -3700,6 +3710,7 @@ export default function Home() {
         eventType: appSettings.defaultEventType,
         weddingDate: meta.date,
         venue: meta.venue,
+        venueAddress: "",
         ceremonyLocation: "",
         receptionLocation: "",
         eventStartTime: "",
@@ -3833,6 +3844,7 @@ export default function Home() {
     const draft = eventDraft;
     const date = draft.weddingDate.trim();
     const venue = draft.venue.trim();
+    const venueAddress = draft.venueAddress.trim();
     const createLayoutProfile = draft.eventLayoutProfile;
     const profileDefaults = getLayoutProfileDefaults(createLayoutProfile);
 
@@ -3863,6 +3875,7 @@ export default function Home() {
         eventType: createLayoutProfile,
         weddingDate: date,
         venue,
+        venueAddress,
         ceremonyLocation: draft.ceremonyLocation.trim(),
         receptionLocation: draft.receptionLocation.trim(),
         assignedDj: draft.assignedDj,
@@ -3917,6 +3930,7 @@ export default function Home() {
             date: date ? new Date(date) : null,
             type: createLayoutProfile,
             venue,
+            venueAddress: venueAddress || null,
             assignedDj: draft.assignedDj || null,
             packageName: draft.packageName.trim(),
             plannerName: draft.plannerName.trim(),
@@ -3986,6 +4000,7 @@ export default function Home() {
           date: date ? new Date(date) : null,
           type: createLayoutProfile,
           venue,
+          venueAddress: venueAddress || null,
           assignedDj: draft.assignedDj,
           packageName: draft.packageName.trim(),
           plannerName: draft.plannerName.trim(),
@@ -4016,6 +4031,7 @@ export default function Home() {
                 eventType: createLayoutProfile,
                 weddingDate: date,
                 venue,
+                venueAddress,
                 ceremonyLocation: draft.ceremonyLocation.trim(),
                 receptionLocation: draft.receptionLocation.trim(),
                 assignedDj: draft.assignedDj,
@@ -4541,6 +4557,7 @@ export default function Home() {
           date: eventSettings.weddingDate ? new Date(eventSettings.weddingDate) : null,
           type: eventSettings.eventType,
           venue: eventSettings.venue,
+          venueAddress: eventSettings.venueAddress,
           assignedDj: eventSettings.assignedDj,
           packageName: eventSettings.packageName,
           plannerName: eventSettings.plannerName,
@@ -4799,8 +4816,15 @@ export default function Home() {
     return "/cmm-logo-white.png";
   }, [appSettings.logoUrl]);
   const coupleDisplayName = eventSettings.coupleNames || weddingDetails.couple;
-  const eventDateDisplay = eventSettings.weddingDate || weddingDetails.date || "TBD";
+  const eventDateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
+  const eventDateDisplay = formatEventDateForDisplay(eventDateRaw, "TBD");
   const eventVenueDisplay = eventSettings.venue || weddingDetails.venue || "TBD";
+  const eventVenueAddress = eventSettings.venueAddress?.trim() ?? "";
+  const eventCeremonyLocation = eventSettings.ceremonyLocation?.trim() ?? "";
+  const eventReceptionLocation = eventSettings.receptionLocation?.trim() ?? "";
+  const eventHeaderMapsUrl = eventVenueAddress
+    ? buildGoogleMapsSearchUrl(eventVenueAddress)
+    : null;
 
   const runOfShowHeadline = useMemo(() => {
     const weddingLike =
@@ -4834,9 +4858,11 @@ export default function Home() {
 
   const runOfShowSubline = useMemo(() => {
     const bits: string[] = ["Run Of Show"];
-    const date = (eventSettings.weddingDate || weddingDetails.date || "").trim();
+    const dateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
     const venue = (eventSettings.venue || weddingDetails.venue || "").trim();
-    if (date && date !== "TBD") bits.push(date);
+    if (dateRaw && dateRaw !== "TBD") {
+      bits.push(formatEventDateForDisplay(dateRaw, dateRaw));
+    }
     if (venue && venue !== "TBD") bits.push(venue);
     return bits.join(" · ");
   }, [eventSettings.weddingDate, eventSettings.venue, weddingDetails.date, weddingDetails.venue]);
@@ -4851,7 +4877,7 @@ export default function Home() {
     [appSettings.companyName, resolvedDocLogoSrc],
   );
 
-  const parsedWeddingDate = eventDateDisplay && eventDateDisplay !== "TBD" ? new Date(eventDateDisplay) : null;
+  const parsedWeddingDate = eventDateRaw && eventDateRaw !== "TBD" ? new Date(eventDateRaw) : null;
   const hasValidWeddingDate = Boolean(parsedWeddingDate && !Number.isNaN(parsedWeddingDate.getTime()));
   const safeWeddingTimestamp = hasValidWeddingDate && parsedWeddingDate ? parsedWeddingDate.getTime() : null;
   const millisecondsUntilWedding = safeWeddingTimestamp === null ? null : safeWeddingTimestamp - nowTick;
@@ -7138,6 +7164,7 @@ export default function Home() {
             coupleNames: dbEvent.title,
             eventType: dbEvent.type || "Wedding",
             venue: dbEvent.venue || "",
+            venueAddress: dbEvent.venueAddress || "",
             assignedDj: dbEvent.assignedDj || "",
             packageName: dbEvent.packageName || "",
             plannerName: dbEvent.plannerName || "",
@@ -7300,12 +7327,30 @@ export default function Home() {
           setActiveEventId((prev) => {
             const mergedEvents =
               lastMergedHydratedEventsRef.current ?? hydratedEvents;
-            const resolvedId = databaseEventIdsRef.current.has(prev)
+            const prevExistsInMergedEvents = mergedEvents.some((evt) => evt.id === prev);
+            const prevInDbRef = databaseEventIdsRef.current.has(prev);
+            const resolvedId = prevExistsInMergedEvents
               ? prev
-              : mergedEvents[0].id;
+              : mergedEvents[0]?.id ?? prev;
             const resolvedEvent =
               mergedEvents.find((evt) => evt.id === resolvedId) ??
               mergedEvents[0];
+            console.log("[EVENT-RESTORE-DEBUG] DB hydration → reconcile activeEventId", {
+              prevActiveEventId: prev,
+              prevExistsInMergedEvents,
+              prevInDatabaseEventIdsRef: prevInDbRef,
+              resolvedActiveEventId: resolvedId,
+              fallbackReason: prevExistsInMergedEvents
+                ? null
+                : prev
+                  ? "prev activeEventId not in mergedEvents — using mergedEvents[0] (newest DB event by createdAt desc)"
+                  : "no prev activeEventId — using mergedEvents[0]",
+              mergedEventIds: mergedEvents.map((evt) => ({
+                id: evt.id,
+                title: evt.meta?.couple ?? evt.settings?.eventName ?? null,
+              })),
+              resolvedEventTitle: resolvedEvent.meta?.couple ?? null,
+            });
             const evtTeam = (resolvedEvent as EventRecord & {
               eventTeamMembers?: TeamMember[];
             }).eventTeamMembers;
@@ -7399,6 +7444,19 @@ export default function Home() {
     try {
       const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
       const rawGlobal = window.localStorage.getItem(GLOBAL_SETTINGS_STORAGE_KEY);
+      console.log("[EVENT-RESTORE-DEBUG] localStorage hydration → start", {
+        hasEventsPayload: Boolean(raw),
+        storedActiveEventId: raw
+          ? (() => {
+              try {
+                return (JSON.parse(raw) as { activeEventId?: string }).activeEventId ?? null;
+              } catch {
+                return "(parse error)";
+              }
+            })()
+          : null,
+        url: window.location.href,
+      });
       if (!raw) {
         if (rawGlobal) {
           const parsedGlobal = JSON.parse(rawGlobal) as Partial<AppSettings>;
@@ -7451,6 +7509,7 @@ export default function Home() {
           ),
           weddingDate: evt.settings?.weddingDate ?? evt.meta.date ?? "",
           venue: evt.settings?.venue ?? evt.meta.venue ?? "",
+          venueAddress: evt.settings?.venueAddress ?? "",
           ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
           receptionLocation: evt.settings?.receptionLocation ?? "",
           eventStartTime: evt.settings?.eventStartTime ?? "",
@@ -7550,13 +7609,33 @@ export default function Home() {
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
       if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
 
-      const nextActiveId =
-        parsed.activeEventId || (migratedEvents[0] ? migratedEvents[0].id : "");
-      if (nextActiveId) setActiveEventId(nextActiveId);
+      const storedActiveId = parsed.activeEventId?.trim() || "";
+      const activeEventFoundInList = Boolean(
+        storedActiveId && migratedEvents.some((e) => e.id === storedActiveId),
+      );
+      const activeForPlanning =
+        (storedActiveId
+          ? migratedEvents.find((e) => e.id === storedActiveId)
+          : undefined) ?? migratedEvents[0];
+      const resolvedActiveId = activeForPlanning?.id ?? "";
+      console.log("[EVENT-RESTORE-DEBUG] localStorage hydration → resolved", {
+        storedActiveEventId: storedActiveId || null,
+        resolvedActiveEventId: resolvedActiveId,
+        activeEventFoundInList,
+        planningEventId: activeForPlanning?.id ?? null,
+        planningEventTitle: activeForPlanning?.meta?.couple ?? null,
+        fallbackReason: !storedActiveId
+          ? "no stored activeEventId — used events[0]"
+          : !activeEventFoundInList
+            ? "stored activeEventId missing from events list — activeEventId aligned to events[0]"
+            : null,
+        eventIdsInStorage: migratedEvents.map((e) => e.id),
+        restoredActiveScreen: parsed.appState?.activeScreen ?? null,
+        restoredAppMode: parsed.appState?.appMode ?? null,
+      });
+      if (resolvedActiveId) setActiveEventId(resolvedActiveId);
 
-      const active = nextActiveId
-        ? migratedEvents.find((e) => e.id === nextActiveId) ?? migratedEvents[0]
-        : undefined;
+      const active = activeForPlanning;
 
       if (active) {
         loadEventPlanningIntoWorkingState(active);
@@ -8145,6 +8224,7 @@ export default function Home() {
         ),
         weddingDate: evt.settings?.weddingDate ?? evt.meta?.date ?? "",
         venue: evt.settings?.venue ?? evt.meta?.venue ?? "",
+        venueAddress: evt.settings?.venueAddress ?? "",
         ceremonyLocation: evt.settings?.ceremonyLocation ?? "",
         receptionLocation: evt.settings?.receptionLocation ?? "",
         eventStartTime: evt.settings?.eventStartTime ?? "",
@@ -9607,8 +9687,11 @@ export default function Home() {
       "EVENT OVERVIEW",
       `Event Name: ${eventSettings.eventName || weddingDetails.couple || "TBD"}`,
       `${primaryPartyShortLabel}: ${eventSettings.coupleNames || weddingDetails.couple || "TBD"}`,
-      `Date: ${eventSettings.weddingDate || weddingDetails.date || "TBD"}`,
+      `Date: ${formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}`,
       `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
+      ...(eventVenueAddress ? [`Venue Address: ${eventVenueAddress}`] : []),
+      ...(eventCeremonyLocation ? [`Ceremony Location: ${eventCeremonyLocation}`] : []),
+      ...(eventReceptionLocation ? [`Reception Location: ${eventReceptionLocation}`] : []),
       `Timezone: ${effectiveTimezone || "TBD"}`,
       `Event Type: ${effectiveEventType || "TBD"}`,
       `Package: ${eventSettings.packageName || "TBD"}`,
@@ -9867,6 +9950,9 @@ export default function Home() {
     eventSettings.packageName,
     eventSettings.planningQuestionAnswers,
     eventSettings.venue,
+    eventVenueAddress,
+    eventCeremonyLocation,
+    eventReceptionLocation,
     eventSettings.weddingDate,
     generalDjNotes,
     getPlaylistLines,
@@ -9976,6 +10062,11 @@ export default function Home() {
         for (const [key, value] of Object.entries(notes)) {
           if (value.trim()) cleaned[key] = value;
         }
+        console.log("[EVENT-RESTORE-DEBUG] scratch pad persist", {
+          activeEventId,
+          cardKeys: Object.keys(cleaned),
+          noteCount: Object.keys(cleaned).length,
+        });
         map[activeEventId] = cleaned;
         window.localStorage.setItem(RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY, JSON.stringify(map));
       } catch {
@@ -10324,12 +10415,45 @@ export default function Home() {
 
   const doneRunOfShowCardNoteEditor = useCallback(() => {
     if (runOfShowCardNoteEditor) {
+      console.log("[EVENT-RESTORE-DEBUG] scratch pad save (Done in editor)", {
+        activeEventId,
+        cardKey: runOfShowCardNoteEditor.cardKey,
+        cardLabel: runOfShowCardNoteEditor.cardLabel,
+        draftLength: runOfShowCardNoteEditorDraft.length,
+      });
       setRunOfShowCardNote(runOfShowCardNoteEditor.cardKey, runOfShowCardNoteEditorDraft);
     }
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
     setRunOfShowCardNoteEditorSavedValue("");
-  }, [runOfShowCardNoteEditor, runOfShowCardNoteEditorDraft, setRunOfShowCardNote]);
+  }, [runOfShowCardNoteEditor, runOfShowCardNoteEditorDraft, setRunOfShowCardNote, activeEventId]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const matched = events.find((e) => e.id === activeEventId);
+    const displayEvent = matched ?? events[0];
+    console.log("[EVENT-RESTORE-DEBUG] active event context", {
+      activeEventId,
+      matchedEventId: matched?.id ?? null,
+      displayEventId: displayEvent?.id ?? null,
+      displayEventTitle: displayEvent?.meta?.couple ?? null,
+      usingEventsFallback: !matched && events.length > 0,
+      runOfShowOpen,
+      activeScreen,
+      appMode,
+    });
+  }, [hasHydrated, activeEventId, events, runOfShowOpen, activeScreen, appMode]);
+
+  useEffect(() => {
+    if (!runOfShowOpen) return;
+    const matched = events.find((e) => e.id === activeEventId);
+    console.log("[EVENT-RESTORE-DEBUG] Run Of Show overlay active", {
+      activeEventId,
+      matchedEventId: matched?.id ?? null,
+      matchedEventTitle: matched?.meta?.couple ?? null,
+      fallbackEventId: !matched ? events[0]?.id ?? null : null,
+    });
+  }, [runOfShowOpen, activeEventId, events]);
 
   const clearRunOfShowCardNoteEditorDraft = useCallback(() => {
     setRunOfShowCardNoteEditorDraft("");
@@ -10468,6 +10592,12 @@ export default function Home() {
         } else {
           const mapNotes = JSON.parse(rawNotes) as Record<string, Record<string, string>>;
           const notes = mapNotes[activeEventId];
+          console.log("[EVENT-RESTORE-DEBUG] scratch pad load for active event", {
+            activeEventId,
+            hasNotesForEvent: Boolean(notes && typeof notes === "object"),
+            cardKeys: notes && typeof notes === "object" ? Object.keys(notes) : [],
+            knownEventIdsInStorage: Object.keys(mapNotes),
+          });
           if (notes && typeof notes === "object" && !Array.isArray(notes)) {
             const cleaned: Record<string, string> = {};
             for (const [key, value] of Object.entries(notes)) {
@@ -10993,7 +11123,10 @@ export default function Home() {
                   Event: {invitePreviewEvent?.settings?.eventName || invitePreviewEvent?.meta.couple || "Event"}
                 </p>
                 <p>
-                  Date: {invitePreviewEvent?.settings?.weddingDate || invitePreviewEvent?.meta.date || "TBD"}
+                  Date: {formatEventDateForDisplay(
+                    invitePreviewEvent?.settings?.weddingDate || invitePreviewEvent?.meta.date || "",
+                    "TBD",
+                  )}
                 </p>
                 <p>Venue: {invitePreviewEvent?.settings?.venue || invitePreviewEvent?.meta.venue || "TBD"}</p>
                 <p>Role: {inviteAccessPreview.role}</p>
@@ -12214,7 +12347,10 @@ export default function Home() {
                       const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
                       const cardEventType = evt.settings?.eventType || "Event";
                       const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
-                      const cardEventDate = evt.settings?.weddingDate || evt.meta.date || "Date TBD";
+                      const cardEventDate = formatEventDateForDisplay(
+                        evt.settings?.weddingDate || evt.meta.date || "",
+                        "Date TBD",
+                      );
                       const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
                       const cardProgress = approximatePlanningProgressPercent(evt);
                       const cardCover = evt.settings?.coverPhotoDataUrl;
@@ -12301,6 +12437,7 @@ export default function Home() {
                                       eventLayoutProfile: migratedProfile,
                                       weddingDate: evt.settings?.weddingDate || evt.meta.date,
                                       venue: evt.settings?.venue || evt.meta.venue,
+                                      venueAddress: evt.settings?.venueAddress || "",
                                       ceremonyLocation: evt.settings?.ceremonyLocation || "",
                                       receptionLocation: evt.settings?.receptionLocation || "",
                                       assignedDj: evt.settings?.assignedDj || "",
@@ -12425,7 +12562,11 @@ export default function Home() {
                                 </span>
                               </p>
                               <p className="mt-1 text-xs text-stone-600">
-                                {evt.settings.weddingDate || evt.meta.date || "TBD"} · {evt.settings.venue || evt.meta.venue || "TBD"}
+                                {formatEventDateForDisplay(
+                                  evt.settings.weddingDate || evt.meta.date || "",
+                                  "TBD",
+                                )}{" "}
+                                · {evt.settings.venue || evt.meta.venue || "TBD"}
                               </p>
                               <p className="mt-1 text-xs text-stone-600">
                                 DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
@@ -16644,11 +16785,26 @@ export default function Home() {
                       </h1>
                       {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
                         <p className="doc-header-event-date">
-                          {eventSettings.weddingDate || weddingDetails.date}
+                          {formatEventDateForDisplay(
+                            eventSettings.weddingDate || weddingDetails.date || "",
+                            "",
+                          )}
                         </p>
                       ) : null}
                       {(eventSettings.venue || weddingDetails.venue)?.trim() ? (
                         <p className="doc-header-event-venue">{eventSettings.venue || weddingDetails.venue}</p>
+                      ) : null}
+                      {eventHeaderMapsUrl ? (
+                        <p className="doc-header-event-venue doc-header-event-venue-address">
+                          <a
+                            href={eventHeaderMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="doc-venue-address-link"
+                          >
+                            {eventVenueAddress}
+                          </a>
+                        </p>
                       ) : null}
                       {(effectiveEventType ?? "").trim() ? (
                         <p className="doc-event-type-pill doc-header-event-type">{effectiveEventType}</p>
@@ -16672,7 +16828,8 @@ export default function Home() {
                   <table className="doc-table">
                     <tbody>
                       <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
-                      <tr><th>Date</th><td>{eventSettings.weddingDate || weddingDetails.date || "TBD"}</td><th>Venue</th><td>{eventSettings.venue || weddingDetails.venue || "TBD"}</td></tr>
+                      <tr><th>Date</th><td>{formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}</td><th>Venue</th><td><EventDocumentVenueOverview venueName={eventSettings.venue || weddingDetails.venue || ""} venueAddress={eventVenueAddress} /></td></tr>
+                      <tr><th>Ceremony Location</th><td><EventDocumentLocationLink value={eventCeremonyLocation} /></td><th>Reception Location</th><td><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
                       <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Event type</th><td>{effectiveEventType || "TBD"}</td></tr>
                       <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
                     </tbody>
@@ -16687,7 +16844,7 @@ export default function Home() {
                       <table className="doc-table">
                         <tbody>
                           <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                          <tr><th>Location</th><td>{eventSettings.ceremonyLocation || eventSettings.venue || weddingDetails.venue || "TBD"}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                          <tr><th>Location</th><td>{eventCeremonyLocation ? (<EventDocumentLocationLink value={eventCeremonyLocation} />) : (eventSettings.venue || weddingDetails.venue || "TBD")}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
                           <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
                         </tbody>
                       </table>
@@ -17444,33 +17601,29 @@ export default function Home() {
                   </select>
                 </div>
                 ) : null}
-                <TextInput
-                  id="event-settings-date"
-                  label={eventDateFieldLabel}
-                  value={eventSettings.weddingDate}
-                  onChange={(value) => setEventSettings((prev) => ({ ...prev, weddingDate: value }))}
-                />
-                <TextInput
-                  id="event-settings-venue"
-                  label="Venue"
-                  value={eventSettings.venue}
-                  onChange={(value) => setEventSettings((prev) => ({ ...prev, venue: value }))}
-                />
-                <TextInput
-                  id="event-settings-ceremony-location"
-                  label="Ceremony Location"
-                  value={eventSettings.ceremonyLocation}
-                  onChange={(value) =>
+                <EventSettingsVenueFields
+                  dateLabel={eventDateFieldLabel}
+                  weddingDate={eventSettings.weddingDate}
+                  venue={eventSettings.venue}
+                  venueAddress={eventSettings.venueAddress ?? ""}
+                  ceremonyLocation={eventSettings.ceremonyLocation}
+                  receptionLocation={eventSettings.receptionLocation}
+                  onWeddingDateChange={(value) =>
+                    setEventSettings((prev) => ({ ...prev, weddingDate: value }))
+                  }
+                  onVenueChange={(value) =>
+                    setEventSettings((prev) => ({ ...prev, venue: value }))
+                  }
+                  onVenueAddressChange={(value) =>
+                    setEventSettings((prev) => ({ ...prev, venueAddress: value }))
+                  }
+                  onCeremonyLocationChange={(value) =>
                     setEventSettings((prev) => ({ ...prev, ceremonyLocation: value }))
                   }
-                />
-                <TextInput
-                  id="event-settings-reception-location"
-                  label="Reception Location"
-                  value={eventSettings.receptionLocation}
-                  onChange={(value) =>
+                  onReceptionLocationChange={(value) =>
                     setEventSettings((prev) => ({ ...prev, receptionLocation: value }))
                   }
+                  TextInputComponent={TextInput}
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <TextInput
@@ -18598,6 +18751,7 @@ export default function Home() {
               coupleNames={eventDraft.coupleNames}
               weddingDate={eventDraft.weddingDate}
               venue={eventDraft.venue}
+              venueAddress={eventDraft.venueAddress}
               packageName={eventDraft.packageName}
               primaryPartyLabel={eventCreationFields.primaryPartyLabel}
               dateLabel={eventCreationFields.dateLabel}
@@ -18617,6 +18771,9 @@ export default function Home() {
               }
               onVenueChange={(value) =>
                 setEventDraft((prev) => ({ ...prev, venue: value }))
+              }
+              onVenueAddressChange={(value) =>
+                setEventDraft((prev) => ({ ...prev, venueAddress: value }))
               }
               onPackageNameChange={(value) =>
                 setEventDraft((prev) => ({ ...prev, packageName: value }))
@@ -19096,8 +19253,7 @@ export default function Home() {
                                 <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
                                   <RunOfShowCardNote
                                     value={runOfShowCardNotes[doneKey] ?? ""}
-                                    onChange={(value) => setRunOfShowCardNote(doneKey, value)}
-                                    onExpandEditor={() =>
+                                    onOpenEditor={() =>
                                       openRunOfShowCardNoteEditor(
                                         doneKey,
                                         row.moment,
@@ -19339,8 +19495,7 @@ export default function Home() {
                                         <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
                                           <RunOfShowCardNote
                                             value={runOfShowCardNotes[doneKey] ?? ""}
-                                            onChange={(value) => setRunOfShowCardNote(doneKey, value)}
-                                            onExpandEditor={() =>
+                                            onOpenEditor={() =>
                                               openRunOfShowCardNoteEditor(
                                                 doneKey,
                                                 item.title,
