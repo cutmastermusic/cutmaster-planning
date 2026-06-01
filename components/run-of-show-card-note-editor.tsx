@@ -65,7 +65,7 @@ export function RunOfShowCardNoteEditor({
       className="fixed inset-0 z-[210] flex items-end justify-center pointer-events-none md:items-stretch md:justify-end md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
       role="dialog"
       aria-modal="true"
-      aria-label={`Device scratch pad for ${cardLabel}`}
+      aria-label={`Day-of scratch pad for ${cardLabel}`}
     >
       <div
         className="pointer-events-none absolute inset-0 bg-black/50 md:bg-black/45"
@@ -76,9 +76,11 @@ export function RunOfShowCardNoteEditor({
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">
-                Device scratch pad
+                Day-of scratch pad
               </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-stone-500">This iPad only</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-stone-500">
+                Temporary notes saved only on this device.
+              </p>
               <SectionTitle className="mt-1 text-stone-950">{cardLabel}</SectionTitle>
               {cardSubline?.trim() ? (
                 <p className="mt-1 text-sm font-medium leading-snug text-stone-500">{cardSubline.trim()}</p>
@@ -124,11 +126,11 @@ export function RunOfShowCardNoteEditor({
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="This iPad only — last-minute reminder…"
+            placeholder="Last-minute reminder…"
             className="min-h-[min(14rem,36vh)] w-full flex-1 resize-none touch-manipulation rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-4 text-base leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 md:min-h-[16rem] md:text-lg md:leading-relaxed"
           />
           <p className="mt-3 text-[11px] font-medium leading-snug text-stone-400 md:text-xs">
-            Type or use Apple Pencil Scribble. Saved on this device only — use Timeline shared
+            Type or use Apple Pencil Scribble. Does not sync across devices — use Timeline shared
             team cues for notes the whole team should see.
           </p>
         </div>
