@@ -2960,19 +2960,34 @@ export default function Home() {
       ceremonyItems: CeremonyTimelineItem[],
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
       if (!databaseEventIdsRef.current.has(eventId)) {
+        console.log("[PERSIST-DEBUG] persistTimelinesToDatabase skipped", {
+          eventId,
+          reason: "eventId not in databaseEventIdsRef",
+          dbEventIds: Array.from(databaseEventIdsRef.current),
+        });
         return {
           ok: false,
           error: new Error(`Event "${eventId}" is not a database-backed event.`),
         };
       }
+      console.log("[PERSIST-DEBUG] persistTimelinesToDatabase running", {
+        eventId,
+        mainItemCount: mainItems.length,
+        ceremonyItemCount: ceremonyItems.length,
+      });
       try {
         await replaceMainTimelineItems(eventId, mapMainTimelineItemsForDatabase(mainItems));
         await replaceCeremonyTimelineItems(
           eventId,
           mapCeremonyTimelineItemsForDatabase(ceremonyItems),
         );
+        console.log("[PERSIST-DEBUG] persistTimelinesToDatabase success", { eventId });
         return { ok: true };
       } catch (error) {
+        console.error("[PERSIST-DEBUG] persistTimelinesToDatabase server action error", {
+          eventId,
+          error,
+        });
         console.error("Failed to persist timelines to database:", error);
         return { ok: false, error };
       }
@@ -3914,6 +3929,18 @@ export default function Home() {
 
           newEvent.id = savedDatabaseEvent.id;
           databaseEventIdsRef.current.add(savedDatabaseEvent.id);
+
+          const initialTimelinePersist = await persistTimelinesToDatabase(
+            savedDatabaseEvent.id,
+            newEvent.timelineItems,
+            newEvent.ceremonyTimelineItems ?? [],
+          );
+          if (!initialTimelinePersist.ok) {
+            console.error(
+              "[PERSIST-DEBUG] create → initial timeline persist failed",
+              initialTimelinePersist.error,
+            );
+          }
         } catch (error) {
           console.error("Failed to save event to database:", error);
           const detail =
@@ -7048,9 +7075,19 @@ export default function Home() {
       try {
         const databaseEvents = await getDatabaseEvents();
 
-        // Always populate the DB-event-id set, even when the database is empty,
-        // so any per-event-id guards consult an accurate snapshot.
-        databaseEventIdsRef.current = new Set(databaseEvents.map((evt) => evt.id));
+        // Merge server ids with any ids already registered this session (e.g. a
+        // create that finished while getEvents was in flight) so guards stay accurate.
+        const priorDbIds = databaseEventIdsRef.current;
+        databaseEventIdsRef.current = new Set([
+          ...priorDbIds,
+          ...databaseEvents.map((evt) => evt.id),
+        ]);
+        console.log("[PERSIST-DEBUG] DB hydration → merged databaseEventIdsRef", {
+          priorCount: priorDbIds.size,
+          serverCount: databaseEvents.length,
+          mergedCount: databaseEventIdsRef.current.size,
+          mergedIds: Array.from(databaseEventIdsRef.current),
+        });
 
         console.log(
           "[HYDRATE-DEBUG] DB hydration → events from server:",
@@ -7653,11 +7690,18 @@ export default function Home() {
           GLOBAL_SETTINGS_STORAGE_KEY,
           JSON.stringify(appSettings),
         );
-        if (
-          databaseEventIdsRef.current.has(activeEventId) &&
-          databaseHydrationCompleteRef.current &&
-          persistUiSuppressBootCountRef.current <= 0
-        ) {
+        const timelineDbBacked = databaseEventIdsRef.current.has(activeEventId);
+        const timelineHydrationComplete = databaseHydrationCompleteRef.current;
+        const timelineSuppressBoot = persistUiSuppressBootCountRef.current;
+        console.log("[PERSIST-DEBUG] autosave timeline gate", {
+          activeEventId,
+          dbBacked: timelineDbBacked,
+          hydrationComplete: timelineHydrationComplete,
+          suppressBoot: timelineSuppressBoot,
+          dbEventIds: Array.from(databaseEventIdsRef.current),
+        });
+
+        if (timelineDbBacked && timelineHydrationComplete && timelineSuppressBoot <= 0) {
           const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
           const settingsForCeremonyDb = isActualCouple
             ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
@@ -7669,7 +7713,13 @@ export default function Home() {
             isActualCouple,
             preservedSettings,
           );
-          void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore);
+          void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore).then(
+            (result) => {
+              if (!result.ok) {
+                console.error("[PERSIST-DEBUG] autosave timeline persist failed", result.error);
+              }
+            },
+          );
           void persistSongsToDatabase(
             activeEventId,
             mustPlaySongs,
@@ -7697,6 +7747,13 @@ export default function Home() {
               settingsForCeremonyDb,
             ),
           );
+        } else {
+          console.log("[PERSIST-DEBUG] autosave timeline persist skipped", {
+            activeEventId,
+            dbBacked: timelineDbBacked,
+            hydrationComplete: timelineHydrationComplete,
+            suppressBoot: timelineSuppressBoot,
+          });
         }
         setPersistBaseline(true);
         if (persistUiSuppressBootCountRef.current > 0) {
