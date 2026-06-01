@@ -12,7 +12,7 @@ export function EventModalForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="mt-4 space-y-4"
+      className="flex min-h-0 flex-1 flex-col"
     >
       {children}
     </form>
