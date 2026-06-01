@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import type { PersistFeedbackPhase } from "@/hooks/usePlanningApp";
+import { formatEventDateForDisplay } from "@/utils/planning";
 import type {
   AppSettings,
   PlanningInsight,
@@ -665,7 +666,9 @@ export function AppHeader({
           <p className="mt-4 text-sm font-medium text-stone-800">
             {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
           </p>
-          <p className="mt-1 text-sm text-stone-600">Wedding Date: {weddingDetails.date}</p>
+          <p className="mt-1 text-sm text-stone-600">
+            Wedding Date: {formatEventDateForDisplay(weddingDetails.date, weddingDetails.date || "TBD")}
+          </p>
           <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
         </>
       ) : null}

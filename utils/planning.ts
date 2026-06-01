@@ -41,6 +41,54 @@ export function dedupeSongEntries(songs: SongEntry[]): SongEntry[] {
   return next;
 }
 
+/** Format stored event date strings for UI display (does not mutate storage). */
+export function formatEventDateForDisplay(
+  raw: string | null | undefined,
+  fallback = "TBD",
+): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed || trimmed.toLowerCase() === "tbd" || trimmed.toLowerCase() === "date tbd") {
+    return fallback;
+  }
+
+  // Preserve already-human-readable free-text dates.
+  if (/[A-Za-z]/.test(trimmed) && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const date = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T12:00:00`);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString(undefined, {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+    }
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isNaN(parsed)) {
+    const date = new Date(parsed);
+    const year = date.getFullYear();
+    if (year >= 1900 && year <= 2100) {
+      return date.toLocaleDateString(undefined, {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  }
+
+  return trimmed;
+}
+
 export function parseTimeToMinutesValue(rawTime: string): number {
   const value = rawTime.trim().toUpperCase();
   const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
