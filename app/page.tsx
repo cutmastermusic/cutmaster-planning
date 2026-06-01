@@ -4095,7 +4095,6 @@ export default function Home() {
       : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
         ? "Timeline"
         : activeScreen;
-  const effectiveTimezone = appSettings.defaultEventTimezone;
   const effectiveEventType = eventSettings.eventType || appSettings.defaultEventType;
   const effectivePrepSheetFooter =
     eventSettings.prepSheetFooterOverride || appSettings.prepSheetFooterText;
@@ -9692,7 +9691,6 @@ export default function Home() {
       ...(eventVenueAddress ? [`Venue Address: ${eventVenueAddress}`] : []),
       ...(eventCeremonyLocation ? [`Ceremony Location: ${eventCeremonyLocation}`] : []),
       ...(eventReceptionLocation ? [`Reception Location: ${eventReceptionLocation}`] : []),
-      `Timezone: ${effectiveTimezone || "TBD"}`,
       `Event Type: ${effectiveEventType || "TBD"}`,
       `Package: ${eventSettings.packageName || "TBD"}`,
       `Assigned DJ: ${assignedDjLabel}`,
@@ -9932,7 +9930,6 @@ export default function Home() {
     doNotPlaySongs,
     effectiveEventType,
     effectivePrepSheetFooter,
-    effectiveTimezone,
     eventSettings.assignedDj,
     eventSettings.clientFacingNotes,
     eventSettings.coupleNames,
@@ -16830,8 +16827,8 @@ export default function Home() {
                       <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
                       <tr><th>Date</th><td>{formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}</td><th>Venue</th><td><EventDocumentVenueOverview venueName={eventSettings.venue || weddingDetails.venue || ""} venueAddress={eventVenueAddress} /></td></tr>
                       <tr><th>Ceremony Location</th><td><EventDocumentLocationLink value={eventCeremonyLocation} /></td><th>Reception Location</th><td><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
-                      <tr><th>Timezone</th><td>{effectiveTimezone || "TBD"}</td><th>Event type</th><td>{effectiveEventType || "TBD"}</td></tr>
-                      <tr><th>Package</th><td>{eventSettings.packageName || "TBD"}</td><th>Assigned DJ</th><td>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
+                      <tr><th>Event type</th><td>{effectiveEventType || "TBD"}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
+                      <tr><th>Assigned DJ</th><td colSpan={3}>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
                     </tbody>
                   </table>
                 </div>
