@@ -62,16 +62,17 @@ export function RunOfShowCardNoteEditor({
 
   return (
     <div
-      className="fixed inset-0 z-[210] flex items-end justify-center bg-black/50 md:items-stretch md:justify-end md:bg-black/45 md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
+      className="fixed inset-0 z-[210] flex items-end justify-center pointer-events-none md:items-stretch md:justify-end md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
       role="dialog"
       aria-modal="true"
       aria-label={`Device scratch pad for ${cardLabel}`}
     >
       <div
-        className="flex max-h-[min(84dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-xl md:rounded-3xl lg:max-w-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex shrink-0 flex-col gap-3 border-b border-stone-200 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4 md:pt-4">
+        className="pointer-events-none absolute inset-0 bg-black/50 md:bg-black/45"
+        aria-hidden
+      />
+      <div className="pointer-events-auto relative flex max-h-[min(84dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-xl md:rounded-3xl lg:max-w-2xl">
+        <header className="relative z-10 flex shrink-0 flex-col gap-3 border-b border-stone-200 bg-white px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4 md:pt-4">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">
@@ -116,9 +117,9 @@ export function RunOfShowCardNoteEditor({
               </button>
             </div>
           ) : null}
-        </div>
+        </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
           <textarea
             ref={textareaRef}
             value={value}

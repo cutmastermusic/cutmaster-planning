@@ -89,16 +89,17 @@ export function WeddingPartyLineupSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[215] flex items-end justify-center bg-black/50 md:items-stretch md:justify-end md:bg-black/45 md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
+      className="fixed inset-0 z-[215] flex items-end justify-center pointer-events-none md:items-stretch md:justify-end md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
       role="dialog"
       aria-modal="true"
       aria-label="Wedding Party Lineup"
     >
       <div
-        className="flex h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-2xl md:rounded-3xl lg:max-w-3xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="shrink-0 border-b border-stone-200 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4 md:pt-4">
+        className="pointer-events-none absolute inset-0 bg-black/50 md:bg-black/45"
+        aria-hidden
+      />
+      <div className="pointer-events-auto relative flex h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-2xl md:rounded-3xl lg:max-w-3xl">
+        <header className="relative z-10 shrink-0 border-b border-stone-200 bg-white px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4 md:pt-4">
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
