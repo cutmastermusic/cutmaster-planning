@@ -11,6 +11,7 @@ export type EventCreationDraft = {
   eventLayoutProfile: EventLayoutProfile;
   weddingDate: string;
   venue: string;
+  venueAddress: string;
   ceremonyLocation: string;
   receptionLocation: string;
   assignedDj: string;
@@ -99,6 +100,7 @@ export function buildNewEventDraft(): EventCreationDraft {
     eventLayoutProfile: DEFAULT_NEW_EVENT_LAYOUT_PROFILE,
     weddingDate: "",
     venue: "",
+    venueAddress: "",
     ceremonyLocation: "",
     receptionLocation: "",
     assignedDj: "",

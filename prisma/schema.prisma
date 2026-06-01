@@ -42,6 +42,7 @@ model Event {
   date      DateTime?
   type      String?
   venue     String?
+  venueAddress String?
 
   assignedDj        String?
   packageName       String?

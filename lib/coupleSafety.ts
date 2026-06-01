@@ -69,6 +69,7 @@ export type DatabaseEventMetadataUpdate = {
   date: Date | null;
   type?: string | null;
   venue?: string | null;
+  venueAddress?: string | null;
   assignedDj?: string | null;
   packageName?: string | null;
   plannerName?: string | null;
@@ -91,6 +92,7 @@ export function buildDatabaseEventUpdateForRole(
     date: settings.weddingDate ? new Date(settings.weddingDate) : null,
     type: settings.eventType,
     venue: settings.venue,
+    venueAddress: settings.venueAddress || null,
     assignedDj: settings.assignedDj || null,
     packageName: settings.packageName || null,
     plannerName: settings.plannerName || null,

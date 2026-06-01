@@ -265,6 +265,21 @@ select.cm-select-dark {
   color: #374151;
 }
 
+.doc-header-event-venue-address {
+  margin-top: 2px;
+}
+
+.doc-venue-address-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-decoration-color: rgba(29, 78, 216, 0.35);
+  text-underline-offset: 2px;
+}
+
+.doc-venue-address-link:hover {
+  color: #1e3a8a;
+}
+
 .doc-header-event-placeholder {
   margin: 0;
   font-size: 12px;

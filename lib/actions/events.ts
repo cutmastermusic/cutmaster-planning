@@ -35,6 +35,7 @@ type EventData = {
   date?: Date | null;
   type?: string | null;
   venue?: string | null;
+  venueAddress?: string | null;
   assignedDj?: string | null;
   packageName?: string | null;
   plannerName?: string | null;
@@ -107,6 +108,7 @@ export async function createEvent(data: EventData) {
         date: data.date,
         type: data.type,
         venue: data.venue,
+        venueAddress: data.venueAddress,
         assignedDj: data.assignedDj,
         packageName: data.packageName,
         plannerName: data.plannerName,
@@ -219,6 +221,7 @@ export async function updateEvent(id: string, data: EventData) {
       date: data.date,
       type: data.type,
       venue: data.venue,
+      venueAddress: data.venueAddress,
       assignedDj: data.assignedDj,
       packageName: data.packageName,
       plannerName: data.plannerName,

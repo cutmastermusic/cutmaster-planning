@@ -435,6 +435,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     eventType: "Wedding",
     weddingDate: "",
     venue: "",
+    venueAddress: "",
     ceremonyLocation: "Ceremony Lawn",
     receptionLocation: "Main Ballroom",
     eventStartTime: "4:00 PM",

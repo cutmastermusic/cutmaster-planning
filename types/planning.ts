@@ -425,6 +425,7 @@ export type EventSettings = {
   eventType: string;
   weddingDate: string;
   venue: string;
+  venueAddress: string;
   ceremonyLocation: string;
   receptionLocation: string;
   eventStartTime: string;
