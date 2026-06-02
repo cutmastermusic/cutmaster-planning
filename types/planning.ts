@@ -304,6 +304,8 @@ export type MusicTasteProfile = {
   danceFloorStyles: string[];
   crowdPreferences: string[];
   musicBehavior: string[];
+  /** Line dances & group songs the couple welcomes (or not). */
+  lineDancesAndGroupSongs?: string[];
   /** Optional freeform dance-floor vibe. */
   danceFloorVibeNotes?: string;
 };

@@ -126,11 +126,12 @@ import {
   initialWeddingPartyProcessional,
   timelineCategories,
 } from "@/data/planningMockData";
-import { MUSIC_GENRE_ERA_OPTIONS } from "@/data/musicGenreEraOptions";
+import { MUSIC_GENRE_ERA_OPTIONS, MUSIC_GENRE_ERA_OTHER_CHIP } from "@/data/musicGenreEraOptions";
 import {
   MUSIC_TASTE_BEHAVIOR_OPTIONS,
   MUSIC_TASTE_CROWD_OPTIONS,
   MUSIC_TASTE_DANCE_FLOOR_OPTIONS,
+  MUSIC_TASTE_LINE_DANCE_OPTIONS,
   emptyMusicTasteProfile,
   musicTasteProfileHasSelections,
   normalizeMusicTasteProfile,
@@ -6505,7 +6506,8 @@ export default function Home() {
       const tp =
         musicTasteProfile.danceFloorStyles.length +
         musicTasteProfile.crowdPreferences.length +
-        musicTasteProfile.musicBehavior.length;
+        musicTasteProfile.musicBehavior.length +
+        (musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0);
       const tpNotes = Boolean(musicTasteProfile.danceFloorVibeNotes?.trim());
       const tasteParts: string[] = [];
       if (pl > 0) tasteParts.push(`${pl} playlist${pl === 1 ? "" : "s"}`);
@@ -8535,15 +8537,17 @@ export default function Home() {
   };
 
   const toggleMusicTasteChip = (
-    field: "danceFloorStyles" | "crowdPreferences" | "musicBehavior",
+    field: "danceFloorStyles" | "crowdPreferences" | "musicBehavior" | "lineDancesAndGroupSongs",
     label: string,
   ) => {
     setMusicTasteProfile((prev) => {
-      const arr = prev[field];
+      const arr = prev[field] ?? [];
       if (arr.includes(label)) return { ...prev, [field]: arr.filter((x) => x !== label) };
       return { ...prev, [field]: [...arr, label] };
     });
   };
+
+  const genreOtherSelected = musicGenreEraSelections.includes(MUSIC_GENRE_ERA_OTHER_CHIP);
 
   const removeSong = (listType: SongListType, songId: string) => {
     if (listType === "mustPlay") {
@@ -9995,11 +9999,22 @@ export default function Home() {
         if (musicTasteProfile.musicBehavior.length > 0) {
           lines.push(`Music behavior: ${musicTasteProfile.musicBehavior.join(", ")}`);
         }
+        if ((musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0) {
+          lines.push(
+            `Line dances & group songs: ${musicTasteProfile.lineDancesAndGroupSongs!.join(", ")}`,
+          );
+        }
         if (musicTasteProfile.danceFloorVibeNotes?.trim()) {
           lines.push(`Ideal dance floor vibe: ${musicTasteProfile.danceFloorVibeNotes.trim()}`);
         }
       }
-      if (musicVibeDetail.genres?.trim()) lines.push(`Extra genre notes: ${musicVibeDetail.genres.trim()}`);
+      if (musicVibeDetail.genres?.trim()) {
+        lines.push(
+          genreOtherSelected
+            ? `Other styles: ${musicVibeDetail.genres.trim()}`
+            : `Extra genre notes: ${musicVibeDetail.genres.trim()}`,
+        );
+      }
       if (musicVibeDetail.energy?.trim()) lines.push(`Energy: ${musicVibeDetail.energy.trim()}`);
       if (musicVibeDetail.crowdNotes?.trim()) lines.push(`Crowd: ${musicVibeDetail.crowdNotes.trim()}`);
       if (musicVibeDetail.cleanMusicPrefs?.trim())
@@ -10176,6 +10191,7 @@ export default function Home() {
     playIfPossibleSongs,
     musicPlaylistLinks,
     musicGenreEraSelections,
+    genreOtherSelected,
     officiantName,
     parsePlaylistSongLine,
     planningQuestionsForEvent,
@@ -13727,6 +13743,31 @@ export default function Home() {
                     })}
                   </div>
                 </div>
+                <div>
+                  <p className={lightUiFormLabelClass}>Line dances &amp; group songs</p>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                    No judgement here — check all that apply.
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {MUSIC_TASTE_LINE_DANCE_OPTIONS.map((label) => {
+                      const selected = (musicTasteProfile.lineDancesAndGroupSongs ?? []).includes(label);
+                      return (
+                        <button
+                          key={`taste-line-dance-${label}`}
+                          type="button"
+                          disabled={!canManageMusic}
+                          onClick={() => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
+                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${selected
+                            ? "border-black bg-[#00D4FF] text-black shadow-none"
+                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
+                            } disabled:opacity-45`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <div className="mt-6 border-t border-stone-100 pt-6">
                 <TextArea
@@ -13768,6 +13809,21 @@ export default function Home() {
                   );
                 })}
               </div>
+              {genreOtherSelected ? (
+                <div className="mt-5 border-t border-stone-100 pt-5">
+                  <TextArea
+                    id="music-genre-other-styles"
+                    label="Other styles (describe)"
+                    value={musicVibeDetail.genres ?? ""}
+                    onChange={(value) =>
+                      setMusicVibeDetail((prev) => ({ ...prev, genres: value }))
+                    }
+                    rows={2}
+                    placeholder="e.g. Afrobeats, K-pop, classic rock deep cuts…"
+                    disabled={!canManageMusic}
+                  />
+                </div>
+              ) : null}
             </PremiumCard>
 
             <PremiumCard id="music-hub-quick-add" className="border border-dashed border-stone-300 bg-stone-50/60 shadow-none">
@@ -17331,6 +17387,14 @@ export default function Home() {
                             {musicTasteProfile.musicBehavior.join(", ")}
                           </p>
                         ) : null}
+                        {(musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0 ? (
+                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
+                            <span className="font-medium text-zinc-700 print:text-black">
+                              Line dances &amp; group songs:{" "}
+                            </span>
+                            {musicTasteProfile.lineDancesAndGroupSongs!.join(", ")}
+                          </p>
+                        ) : null}
                         {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
                           <p className="mt-2 text-sm text-zinc-800 print:text-black">
                             <span className="font-medium text-zinc-700 print:text-black">Ideal dance floor vibe: </span>
@@ -17341,7 +17405,9 @@ export default function Home() {
                     ) : null}
                     {(musicVibeDetail.genres ?? "").trim() ? (
                       <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">Extra genre notes: </span>
+                        <span className="font-medium text-zinc-700 print:text-black">
+                          {genreOtherSelected ? "Other styles: " : "Extra genre notes: "}
+                        </span>
                         {musicVibeDetail.genres}
                       </p>
                     ) : null}
@@ -19947,6 +20013,14 @@ export default function Home() {
                               {musicTasteProfile.musicBehavior.join(", ")}
                             </p>
                           ) : null}
+                          {(musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0 ? (
+                            <p className="mt-2">
+                              <span className="font-semibold text-stone-900">
+                                Line dances &amp; group songs ·{" "}
+                              </span>
+                              {musicTasteProfile.lineDancesAndGroupSongs!.join(", ")}
+                            </p>
+                          ) : null}
                           {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
                             <p className="mt-2">
                               <span className="font-semibold text-stone-900">Ideal dance floor vibe · </span>
@@ -19957,7 +20031,9 @@ export default function Home() {
                       ) : null}
                       {(musicVibeDetail.genres ?? "").trim() ? (
                         <p>
-                          <span className="font-semibold text-stone-900">Genres / eras · </span>
+                          <span className="font-semibold text-stone-900">
+                            {genreOtherSelected ? "Other styles · " : "Genres / eras · "}
+                          </span>
                           {musicVibeDetail.genres}
                         </p>
                       ) : null}
