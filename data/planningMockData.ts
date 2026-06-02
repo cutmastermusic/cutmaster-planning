@@ -5,6 +5,7 @@ import type {
   EventRecord,
   FormalityItem,
   GuestRequestEntry,
+  PlaylistBucketId,
   Screen,
   SongEntry,
   TimelineCategory,
@@ -413,6 +414,16 @@ export const vibeBuckets = [
   { title: "Open Dancing Vibe", songs: ["Pepas - Farruko", "Yeah! - Usher", "Levitating - Dua Lipa"] },
 ];
 
+/** Demo moment-playlist lines for local seed events only — not used for brand-new events. */
+export function getSeedPlaylistVibeOverrides(): Partial<Record<PlaylistBucketId, string[]>> {
+  const songsFor = (title: string) => vibeBuckets.find((bucket) => bucket.title === title)?.songs ?? [];
+  return {
+    cocktailHour: [...songsFor("Cocktail Hour Vibe")],
+    dinner: [...songsFor("Dinner Vibe")],
+    openDancing: [...songsFor("Open Dancing Vibe")],
+  };
+}
+
 export const timelineCategories: TimelineCategory[] = [
   "Ceremony",
   "Cocktail Hour",
@@ -505,6 +516,8 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     guestRequests: payload.guestRequests,
     generalDjNotes: payload.generalDjNotes,
     mcAnnouncements: payload.mcAnnouncements,
+    playlistVibeOverrides: getSeedPlaylistVibeOverrides(),
+    playIfPossibleSongs: [],
     settings: defaultEventSettings,
   };
 

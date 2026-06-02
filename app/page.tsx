@@ -125,7 +125,6 @@ import {
   initialUnityCeremonySong,
   initialWeddingPartyProcessional,
   timelineCategories,
-  vibeBuckets,
 } from "@/data/planningMockData";
 import { MUSIC_GENRE_ERA_OPTIONS } from "@/data/musicGenreEraOptions";
 import {
@@ -3719,11 +3718,12 @@ export default function Home() {
       timelineItems: templateTimeline,
       ceremonyTimelineItems: cloneJson(ceremonyTimelineItems),
       formalities: [],
-      mustPlaySongs: cloneJson(mustPlaySongs),
-      doNotPlaySongs: cloneJson(doNotPlaySongs),
-      playIfPossibleSongs: cloneJson(playIfPossibleSongs),
-      musicPlaylistLinks: cloneJson(musicPlaylistLinks),
-      musicGenreEraSelections: cloneJson(musicGenreEraSelections),
+      mustPlaySongs: [],
+      doNotPlaySongs: [],
+      playIfPossibleSongs: [],
+      musicPlaylistLinks: [],
+      playlistVibeOverrides: {},
+      musicGenreEraSelections: [],
       ceremonyStartTime: "",
       ceremonyGuestArrivalTime: "",
       officiantName: "",
@@ -3737,7 +3737,6 @@ export default function Home() {
       vendors: cloneJson(vendors),
       guestRequests: cloneJson(guestRequests),
       generalDjNotes,
-      playlistVibeOverrides: cloneJson(playlistVibeOverrides),
       musicVibeDetail: cloneJson(musicVibeDetail),
       musicTasteProfile: cloneJson(musicTasteProfile),
       mcAnnouncements,
@@ -4962,20 +4961,13 @@ export default function Home() {
   const recentActivityForActiveEvent = activities
     .filter((item) => item.eventId === activeEventId)
     .slice(0, 4);
-  const defaultPlaylistLinesById = useMemo((): Record<PlaylistBucketId, string[]> => {
-    const cocktailSeed =
-      vibeBuckets.find((bucket) => bucket.title === "Cocktail Hour Vibe")?.songs ?? [];
-    const dinnerSeed = vibeBuckets.find((bucket) => bucket.title === "Dinner Vibe")?.songs ?? [];
-    const openSeed =
-      vibeBuckets.find((bucket) => bucket.title === "Open Dancing Vibe")?.songs ?? [];
-    return {
-      cocktailHour: [...cocktailSeed],
-      dinner: [...dinnerSeed],
-      openDancing: [...openSeed],
-      afterparty: [],
-      custom: [],
-    };
-  }, []);
+  const defaultPlaylistLinesById = useMemo((): Record<PlaylistBucketId, string[]> => ({
+    cocktailHour: [],
+    dinner: [],
+    openDancing: [],
+    afterparty: [],
+    custom: [],
+  }), []);
 
   const hasMomentPlaylistLines = useMemo(
     () => PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0),
