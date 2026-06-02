@@ -14125,6 +14125,22 @@ export default function Home() {
               </>
             )}
 
+            <PremiumCard variant="accent" className={`${premiumFormSectionCardClass} no-print`}>
+              <div className="max-w-md">
+                <TextInput
+                  id="official-ceremony-start-time"
+                  label="Official Ceremony Start Time"
+                  value={ceremonyStartTime}
+                  onChange={setCeremonyStartTime}
+                  placeholder="e.g. 5:00 PM"
+                />
+                <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                  High-level reference for the ceremony. Timeline moments below keep their own
+                  operational times (prelude, processional, etc.).
+                </p>
+              </div>
+            </PremiumCard>
+
             {ceremonyTimelineComposerOpen && (
               <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
                 <div ref={ceremonyTimelineComposerRef}>
@@ -14690,13 +14706,6 @@ export default function Home() {
                     setEventSettings((prev) => ({ ...prev, ceremonyLocation: value }))
                   }
                   placeholder="e.g. Garden Courtyard"
-                />
-                <TextInput
-                  id="ceremony-start-time"
-                  label="Ceremony Start Time"
-                  value={ceremonyStartTime}
-                  onChange={setCeremonyStartTime}
-                  placeholder="e.g. 4:00 PM"
                 />
                 <TextInput
                   id="ceremony-guest-arrival-time"
