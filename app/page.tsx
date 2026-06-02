@@ -522,6 +522,34 @@ const SPOTIFY_IMPORT_TARGET_LABELS: Record<SongListType, string> = {
   doNotPlay: "Do Not Play",
 };
 
+/** Bypass hydration / empty-data guards for explicit user actions. */
+type DbPersistGuardOptions = {
+  force?: boolean;
+};
+
+function countEventSongs(
+  evt: Pick<EventRecord, "mustPlaySongs" | "doNotPlaySongs" | "playIfPossibleSongs">,
+): number {
+  return (
+    (evt.mustPlaySongs?.length ?? 0) +
+    (evt.doNotPlaySongs?.length ?? 0) +
+    (evt.playIfPossibleSongs?.length ?? 0)
+  );
+}
+
+/** Demo seed timeline row ids (not Prisma cuids) — used to block accidental seed overwrites. */
+const SEED_TIMELINE_ID_PATTERN =
+  /^(timeline-\d+|tw\d+|tgn\d+|co\d+|hp\d+|gc\d+|bd\d+|pp\d+|sd-main-\d+)$/;
+
+function timelineLooksLikeSeedOnly(items: TimelineItem[]): boolean {
+  if (items.length === 0) return false;
+  return items.every((item) => SEED_TIMELINE_ID_PATTERN.test(item.id));
+}
+
+function logDbPersistGuard(message: string, context: Record<string, unknown>): void {
+  console.log(`[DB-PERSIST-GUARD] ${message}`, context);
+}
+
 type MusicHubPrepSnapshotProps = {
   playlistCount: number;
   mustPlayCount: number;
@@ -2475,6 +2503,9 @@ export default function Home() {
   } = usePlanningApp();
   const persistUiSuppressBootCountRef = useRef(0);
   const databaseHydrationCompleteRef = useRef(false);
+  /** Active event id whose working state was loaded from DB (or explicit switch). */
+  const dbWorkingStateReadyEventIdRef = useRef<string | null>(null);
+  const eventsRef = useRef<EventRecord[]>([]);
   const persistPhaseHideTimeoutRef = useRef<number | null>(null);
   const [mustPlaySongs, setMustPlaySongs] = useState<SongEntry[]>(initialMustPlaySongs);
   const [doNotPlaySongs, setDoNotPlaySongs] = useState<SongEntry[]>(initialDoNotPlaySongs);
@@ -2754,6 +2785,7 @@ export default function Home() {
       mcAnnouncements,
     }),
   );
+  eventsRef.current = events;
 
   const [allEventsSearch, setAllEventsSearch] = useState("");
   const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
@@ -2998,8 +3030,10 @@ export default function Home() {
       eventId: string,
       mainItems: TimelineItem[],
       ceremonyItems: CeremonyTimelineItem[],
+      options?: DbPersistGuardOptions,
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
-      if (!databaseEventIdsRef.current.has(eventId)) {
+      const dbBacked = databaseEventIdsRef.current.has(eventId);
+      if (!dbBacked) {
         console.log("[PERSIST-DEBUG] persistTimelinesToDatabase skipped", {
           eventId,
           reason: "eventId not in databaseEventIdsRef",
@@ -3010,10 +3044,79 @@ export default function Home() {
           error: new Error(`Event "${eventId}" is not a database-backed event.`),
         };
       }
+
+      const force = options?.force === true;
+      const snapshot = eventsRef.current.find((evt) => evt.id === eventId);
+      const snapshotMainCount = snapshot?.timelineItems?.length ?? 0;
+      const snapshotCeremonyCount = snapshot?.ceremonyTimelineItems?.length ?? 0;
+
+      if (!force) {
+        if (dbWorkingStateReadyEventIdRef.current !== eventId) {
+          console.warn(
+            "[DB-PERSIST-GUARD] skip replaceMainTimelineItems/replaceCeremonyTimelineItems — working state not ready",
+            {
+              eventId,
+              dbWorkingStateReadyEventId: dbWorkingStateReadyEventIdRef.current,
+              mainItemCount: mainItems.length,
+              ceremonyItemCount: ceremonyItems.length,
+              snapshotMainCount,
+              snapshotCeremonyCount,
+            },
+          );
+          return {
+            ok: false,
+            error: new Error(`DB working state not ready for event "${eventId}".`),
+          };
+        }
+        if (
+          mainItems.length === 0 &&
+          ceremonyItems.length === 0 &&
+          (snapshotMainCount > 0 || snapshotCeremonyCount > 0)
+        ) {
+          console.warn(
+            "[DB-PERSIST-GUARD] skip timeline replace — refusing empty replace over snapshot rows",
+            {
+              eventId,
+              mainItemCount: mainItems.length,
+              ceremonyItemCount: ceremonyItems.length,
+              snapshotMainCount,
+              snapshotCeremonyCount,
+            },
+          );
+          return {
+            ok: false,
+            error: new Error(`Refusing empty timeline replace for event "${eventId}".`),
+          };
+        }
+        if (
+          snapshot &&
+          mainItems.length > 0 &&
+          timelineLooksLikeSeedOnly(mainItems) &&
+          snapshotMainCount > 0 &&
+          !timelineLooksLikeSeedOnly(snapshot.timelineItems ?? [])
+        ) {
+          console.warn(
+            "[DB-PERSIST-GUARD] skip timeline replace — seed-shaped working timeline vs DB snapshot",
+            {
+              eventId,
+              mainItemCount: mainItems.length,
+              snapshotMainCount,
+              workingMainIds: mainItems.map((item) => item.id),
+              snapshotMainIds: (snapshot.timelineItems ?? []).map((item) => item.id),
+            },
+          );
+          return {
+            ok: false,
+            error: new Error(`Refusing seed timeline replace for event "${eventId}".`),
+          };
+        }
+      }
+
       console.log("[PERSIST-DEBUG] persistTimelinesToDatabase running", {
         eventId,
         mainItemCount: mainItems.length,
         ceremonyItemCount: ceremonyItems.length,
+        force,
       });
       try {
         await replaceMainTimelineItems(eventId, mapMainTimelineItemsForDatabase(mainItems));
@@ -3038,7 +3141,9 @@ export default function Home() {
   const persistRunOfShowTimelineFlags = useCallback(
     async (mainItems: TimelineItem[], ceremonyItems: CeremonyTimelineItem[]) => {
       if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
-      const result = await persistTimelinesToDatabase(activeEventId, mainItems, ceremonyItems);
+      const result = await persistTimelinesToDatabase(activeEventId, mainItems, ceremonyItems, {
+        force: true,
+      });
       if (!result.ok) return;
       setEvents((prev) =>
         prev.map((evt) =>
@@ -3061,18 +3166,65 @@ export default function Home() {
       mustPlay: SongEntry[],
       doNotPlay: SongEntry[],
       playIfPossible: SongEntry[],
+      options?: DbPersistGuardOptions,
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
-      if (!databaseEventIdsRef.current.has(eventId)) {
+      const dbBacked = databaseEventIdsRef.current.has(eventId);
+      if (!dbBacked) {
         return {
           ok: false,
           error: new Error(`Event "${eventId}" is not a database-backed event.`),
         };
       }
+
+      const force = options?.force === true;
+      const incomingMust = dedupeSongEntries(mustPlay);
+      const incomingDoNot = dedupeSongEntries(doNotPlay);
+      const incomingPif = dedupeSongEntries(playIfPossible);
+      const incomingTotal = incomingMust.length + incomingDoNot.length + incomingPif.length;
+
+      if (!force) {
+        if (dbWorkingStateReadyEventIdRef.current !== eventId) {
+          console.warn(
+            "[DB-PERSIST-GUARD] skip replaceEventSongs — working state not ready",
+            {
+              eventId,
+              dbWorkingStateReadyEventId: dbWorkingStateReadyEventIdRef.current,
+              incomingTotal,
+              mustPlayCount: incomingMust.length,
+              doNotPlayCount: incomingDoNot.length,
+              playIfPossibleCount: incomingPif.length,
+            },
+          );
+          return {
+            ok: false,
+            error: new Error(`DB working state not ready for event "${eventId}".`),
+          };
+        }
+        if (incomingTotal === 0) {
+          const snapshot = eventsRef.current.find((evt) => evt.id === eventId);
+          const snapshotSongCount = snapshot ? countEventSongs(snapshot) : 0;
+          if (snapshotSongCount > 0) {
+            console.warn(
+              "[DB-PERSIST-GUARD] skip replaceEventSongs — refusing empty replace over snapshot songs",
+              {
+                eventId,
+                incomingTotal,
+                snapshotSongCount,
+              },
+            );
+            return {
+              ok: false,
+              error: new Error(`Refusing empty song replace for event "${eventId}".`),
+            };
+          }
+        }
+      }
+
       try {
         await replaceEventSongs(
           eventId,
           "mustPlay",
-          dedupeSongEntries(mustPlay).map((song, index) => ({
+          incomingMust.map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -3083,7 +3235,7 @@ export default function Home() {
         await replaceEventSongs(
           eventId,
           "doNotPlay",
-          dedupeSongEntries(doNotPlay).map((song, index) => ({
+          incomingDoNot.map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -3094,7 +3246,7 @@ export default function Home() {
         await replaceEventSongs(
           eventId,
           "playIfPossible",
-          dedupeSongEntries(playIfPossible).map((song, index) => ({
+          incomingPif.map((song, index) => ({
             title: song.title,
             artist: song.artist,
             notes: song.notes,
@@ -3249,13 +3401,16 @@ export default function Home() {
           );
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
 
-          await persistTimelinesToDatabase(activeEventId, timelinePayload, ceremonyPayload);
+          await persistTimelinesToDatabase(activeEventId, timelinePayload, ceremonyPayload, {
+            force: true,
+          });
 
           await persistSongsToDatabase(
             activeEventId,
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
+            { force: true },
           );
 
           await persistPlanningQuestionAnswersToDatabase(
@@ -3382,6 +3537,13 @@ export default function Home() {
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
+    const isDbBackedEvent = databaseEventIdsRef.current.has(evt.id);
+    if (isDbBackedEvent) {
+      dbWorkingStateReadyEventIdRef.current = null;
+    } else if (dbWorkingStateReadyEventIdRef.current === evt.id) {
+      dbWorkingStateReadyEventIdRef.current = null;
+    }
+
     const normalized = normalizeEventRecordAfterFormalitiesMerge(evt);
     let nextTimelineItems = cloneJson(normalized.timelineItems);
     let nextCeremonyTimelineItems = cloneJson(normalized.ceremonyTimelineItems ?? []);
@@ -3420,7 +3582,9 @@ export default function Home() {
       nextTimelineItems = applied.items;
       if (applied.changed && databaseEventIdsRef.current.has(evt.id)) {
         queueMicrotask(() => {
-          void persistTimelinesToDatabase(evt.id, nextTimelineItems, nextCeremonyTimelineItems);
+          void persistTimelinesToDatabase(evt.id, nextTimelineItems, nextCeremonyTimelineItems, {
+            force: true,
+          });
         });
       }
     }
@@ -3552,6 +3716,27 @@ export default function Home() {
     setCeremonyTimelineInlineEditDraft(null);
     setReceptionTimelineExpandedId(null);
     setCeremonyTimelineExpandedId(null);
+
+    if (isDbBackedEvent) {
+      dbWorkingStateReadyEventIdRef.current = evt.id;
+      databaseHydrationCompleteRef.current = true;
+      logDbPersistGuard("working state ready after loadEventPlanningIntoWorkingState", {
+        activeEventId: evt.id,
+        dbBacked: true,
+        databaseHydrationComplete: databaseHydrationCompleteRef.current,
+        dbWorkingStateReadyEventId: dbWorkingStateReadyEventIdRef.current,
+        suppressBoot: persistUiSuppressBootCountRef.current,
+        songCounts: {
+          mustPlay: normalized.mustPlaySongs?.length ?? 0,
+          doNotPlay: normalized.doNotPlaySongs?.length ?? 0,
+          playIfPossible: normalized.playIfPossibleSongs?.length ?? 0,
+        },
+        timelineCounts: {
+          main: nextTimelineItems.length,
+          ceremony: nextCeremonyTimelineItems.length,
+        },
+      });
+    }
   };
 
   const switchToEvent = (nextEventId: string) => {
@@ -3995,6 +4180,7 @@ export default function Home() {
             savedDatabaseEvent.id,
             newEvent.timelineItems,
             newEvent.ceremonyTimelineItems ?? [],
+            { force: true },
           );
           if (!initialTimelinePersist.ok) {
             console.error(
@@ -7172,6 +7358,9 @@ export default function Home() {
   }, [activeEventId, eventSettings.plannerEmail, eventSettings.plannerName, teamMembers]);
   useEffect(() => {
     const loadDatabaseEvents = async () => {
+      dbWorkingStateReadyEventIdRef.current = null;
+      databaseHydrationCompleteRef.current = false;
+
       try {
         const databaseEvents = await getDatabaseEvents();
 
@@ -7206,6 +7395,7 @@ export default function Home() {
         );
 
         if (!databaseEvents.length) {
+          databaseHydrationCompleteRef.current = true;
           return;
         }
 
@@ -7453,7 +7643,6 @@ export default function Home() {
             queueMicrotask(() => {
               loadEventPlanningIntoWorkingState(resolvedEvent);
               persistUiSuppressBootCountRef.current += 1;
-              databaseHydrationCompleteRef.current = true;
             });
             return resolvedId;
           });
@@ -7462,15 +7651,25 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Failed to load database events:", error);
-      } finally {
-        if (!databaseHydrationCompleteRef.current) {
-          databaseHydrationCompleteRef.current = true;
-        }
+        databaseHydrationCompleteRef.current = true;
       }
     };
 
     loadDatabaseEvents();
   }, []);
+
+  useEffect(() => {
+    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) {
+      dbWorkingStateReadyEventIdRef.current = null;
+      return;
+    }
+    if (
+      dbWorkingStateReadyEventIdRef.current !== null &&
+      dbWorkingStateReadyEventIdRef.current !== activeEventId
+    ) {
+      dbWorkingStateReadyEventIdRef.current = null;
+    }
+  }, [activeEventId]);
 
   useEffect(() => {
     const loadCompanyTeam = async () => {
@@ -7845,16 +8044,34 @@ export default function Home() {
         );
         const timelineDbBacked = databaseEventIdsRef.current.has(activeEventId);
         const timelineHydrationComplete = databaseHydrationCompleteRef.current;
+        const dbWorkingStateReadyEventId = dbWorkingStateReadyEventIdRef.current;
         const timelineSuppressBoot = persistUiSuppressBootCountRef.current;
-        console.log("[PERSIST-DEBUG] autosave timeline gate", {
-          activeEventId,
-          dbBacked: timelineDbBacked,
-          hydrationComplete: timelineHydrationComplete,
-          suppressBoot: timelineSuppressBoot,
-          dbEventIds: Array.from(databaseEventIdsRef.current),
-        });
+        const songCounts = {
+          mustPlay: mustPlaySongs.length,
+          doNotPlay: doNotPlaySongs.length,
+          playIfPossible: playIfPossibleSongs.length,
+        };
+        const timelineCounts = {
+          main: timelineForStore.length,
+          ceremony: ceremonyForStore.length,
+        };
+        const dbPersistAllowed =
+          timelineDbBacked &&
+          timelineHydrationComplete &&
+          dbWorkingStateReadyEventId === activeEventId &&
+          timelineSuppressBoot <= 0;
 
-        if (timelineDbBacked && timelineHydrationComplete && timelineSuppressBoot <= 0) {
+        if (dbPersistAllowed) {
+          logDbPersistGuard("autosave DB persist running", {
+            activeEventId,
+            dbBacked: timelineDbBacked,
+            databaseHydrationComplete: timelineHydrationComplete,
+            dbWorkingStateReadyEventId,
+            suppressBoot: timelineSuppressBoot,
+            songCounts,
+            timelineCounts,
+          });
+
           const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
           const settingsForCeremonyDb = isActualCouple
             ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
@@ -7901,11 +8118,14 @@ export default function Home() {
             ),
           );
         } else {
-          console.log("[PERSIST-DEBUG] autosave timeline persist skipped", {
+          logDbPersistGuard("autosave DB persist skipped", {
             activeEventId,
             dbBacked: timelineDbBacked,
-            hydrationComplete: timelineHydrationComplete,
+            databaseHydrationComplete: timelineHydrationComplete,
+            dbWorkingStateReadyEventId,
             suppressBoot: timelineSuppressBoot,
+            songCounts,
+            timelineCounts,
           });
         }
         setPersistBaseline(true);
@@ -8893,7 +9113,9 @@ export default function Home() {
           : ceremonyTimelineItems.map((t) =>
               t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
             );
-      void persistTimelinesToDatabase(activeEventId, nextTimelineItems, ceremonyPayload);
+      void persistTimelinesToDatabase(activeEventId, nextTimelineItems, ceremonyPayload, {
+        force: true,
+      });
       if (suppressSpeechesToastsTimeline) {
         void persistPlanningQuestionAnswersToDatabase(activeEventId, nextPlanningAnswers);
       }
