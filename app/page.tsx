@@ -127,6 +127,7 @@ import {
   timelineCategories,
 } from "@/data/planningMockData";
 import { MUSIC_GENRE_ERA_OPTIONS, MUSIC_GENRE_ERA_OTHER_CHIP } from "@/data/musicGenreEraOptions";
+import { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 import {
   MUSIC_TASTE_BEHAVIOR_OPTIONS,
   MUSIC_TASTE_CROWD_OPTIONS,
@@ -514,6 +515,12 @@ function musicPlaylistLinkHost(url: string): string {
     return trimmed.length > 36 ? `${trimmed.slice(0, 36)}…` : trimmed || "Link";
   }
 }
+
+const SPOTIFY_IMPORT_TARGET_LABELS: Record<SongListType, string> = {
+  mustPlay: "Must Play",
+  playIfPossible: "Play If Possible",
+  doNotPlay: "Do Not Play",
+};
 
 type MusicHubPrepSnapshotProps = {
   playlistCount: number;
@@ -2482,6 +2489,8 @@ export default function Home() {
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
+  const [spotifyImportUrl, setSpotifyImportUrl] = useState("");
+  const [spotifyImportTarget, setSpotifyImportTarget] = useState<SongListType>("mustPlay");
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -13665,6 +13674,60 @@ export default function Home() {
                   />
                 </div>
               )}
+            </PremiumCard>
+
+            <PremiumCard
+              id="music-hub-spotify-import"
+              className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
+            >
+              <SectionTitle className="text-stone-950">Spotify playlist import</SectionTitle>
+              <p className="mt-1 text-sm leading-snug text-stone-600">
+                Import songs from a Spotify playlist into Must Play, Play If Possible, or Do Not Play.
+              </p>
+              <div
+                className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3"
+                role="status"
+              >
+                <p className="text-sm font-semibold text-amber-950">Coming soon</p>
+                <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+                  {SPOTIFY_IMPORT_SIGN_IN_MESSAGE}
+                </p>
+              </div>
+              <div className="mt-4 space-y-3 opacity-60">
+                <TextInput
+                  id="spotify-import-url"
+                  label="Spotify playlist URL"
+                  value={spotifyImportUrl}
+                  onChange={setSpotifyImportUrl}
+                  placeholder="https://open.spotify.com/playlist/…"
+                  disabled
+                />
+                <div>
+                  <label htmlFor="spotify-import-target" className={lightUiFormLabelClass}>
+                    Import target
+                  </label>
+                  <select
+                    id="spotify-import-target"
+                    value={spotifyImportTarget}
+                    disabled
+                    onChange={(event) => setSpotifyImportTarget(event.target.value as SongListType)}
+                    className={`${lightUiSelectClass} mt-1.5`}
+                  >
+                    {(Object.keys(SPOTIFY_IMPORT_TARGET_LABELS) as SongListType[]).map((key) => (
+                      <option key={key} value={key}>
+                        {SPOTIFY_IMPORT_TARGET_LABELS[key]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <PrimaryButton
+                  type="button"
+                  disabled
+                  className="w-full border border-stone-300 bg-stone-100 py-2.5 text-sm font-semibold text-stone-500 shadow-none disabled:opacity-100"
+                >
+                  Preview playlist — coming soon
+                </PrimaryButton>
+              </div>
             </PremiumCard>
 
             <PremiumCard

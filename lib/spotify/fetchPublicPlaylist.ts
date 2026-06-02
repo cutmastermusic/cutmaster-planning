@@ -1,11 +1,17 @@
 /**
  * Server-only: fetch public Spotify playlist track previews.
  * Import only from server actions or other server-side code.
+ *
+ * Note: Client credentials cannot read arbitrary public playlists under current
+ * Spotify dev-mode policy. User OAuth will be required for reliable import.
  */
 
 import { getSpotifyAccessToken, spotifyApiGet } from "@/lib/spotify/clientCredentials";
+import { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 import { parseSpotifyPlaylistId } from "@/lib/spotify/parsePlaylistUrl";
 import type { FetchPublicSpotifyPlaylistResult, SpotifyPlaylistTrackPreview } from "@/lib/spotify/types";
+
+export { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 
 type SpotifyPlaylistMeta = {
   name?: string;
@@ -88,8 +94,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
       return {
         ok: false,
         code: "playlist_unavailable",
-        message:
-          "This playlist is private, unavailable, or could not be found. Public playlists only for now.",
+        message: SPOTIFY_IMPORT_SIGN_IN_MESSAGE,
       };
     }
     return {
@@ -112,8 +117,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
         return {
           ok: false,
           code: "playlist_unavailable",
-          message:
-            "This playlist is private, unavailable, or could not be found. Public playlists only for now.",
+          message: SPOTIFY_IMPORT_SIGN_IN_MESSAGE,
         };
       }
       return {
