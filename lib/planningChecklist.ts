@@ -1,5 +1,6 @@
 import { musicTasteProfileHasSelections, normalizeMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
 import { isGrandEntranceTimelineItem, readGrandEntranceDetail } from "@/lib/grandEntranceDetail";
+import { speechesToastsHasEntries } from "@/lib/speechesToasts";
 import { weddingPartyLineupHasEntries } from "@/lib/weddingPartyLineup";
 import type {
   CeremonyPlan,
@@ -636,7 +637,7 @@ function timelineAnchorLabel(needle: (typeof TIMELINE_REVIEW_ANCHORS)[number]): 
     case "dinner":
       return "Dinner";
     case "toast":
-      return "Toasts";
+      return "Speeches / Toasts";
     case "open danc":
       return "Open dancing";
     default:
@@ -659,7 +660,7 @@ function timelineAnchorOperationalReady(
   const title = item.title.toLowerCase();
 
   if (/toast/.test(title)) {
-    return Boolean(item.notes?.trim() || planningQuestionAnswers.pq_toasts?.trim());
+    return Boolean(item.notes?.trim() || speechesToastsHasEntries(planningQuestionAnswers.pq_toasts));
   }
 
   if (isGrandEntranceTimelineItem(item.title)) {
@@ -680,7 +681,7 @@ function timelineAnchorGapNote(
   item: TimelineItem,
   planningQuestionAnswers: Record<string, string | undefined>,
 ): string {
-  if (/toast/i.test(item.title)) return "Toasts need speakers or notes";
+  if (/toast/i.test(item.title)) return "Speeches / Toasts need speakers or notes";
   if (isGrandEntranceTimelineItem(item.title)) {
     return "Grand Entrance needs script, lineup, or song";
   }

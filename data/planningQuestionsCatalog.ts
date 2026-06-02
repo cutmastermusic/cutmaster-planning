@@ -1,11 +1,15 @@
 import type { EventSettings, PlanningQuestionDef } from "@/types/planning";
+import {
+  formatSpeechesToastsForDisplay,
+  SPEECHES_TOASTS_PLANNING_KEY,
+} from "@/lib/speechesToasts";
 
 export type PlanningLayoutProfile = EventSettings["eventLayoutProfile"];
 
 const WEDDING_QUESTIONS: PlanningQuestionDef[] = [
   { id: "pq_grand_entrance", label: "Wedding party lineup", helpText: "Introduction order for the wedding party. One person or pair per line — include role/title and pronunciation notes if helpful.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Best man — Alex (AL-eks)\nMaid of honor — Jordan\nBridesmaids — Sam & Riley\n…", sectionGroup: "reception_timeline" },
   { id: "pq_formal_dances", label: "Formal dances / family dances", helpText: "List sequence and songs.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Who, order, songs…", sectionGroup: "special_moments" },
-  { id: "pq_toasts", label: "Toasts / speeches", helpText: "Who speaks and when.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Who speaks and when…", sectionGroup: "reception_timeline" },
+  { id: "pq_toasts", label: "Speeches / Toasts", helpText: "Who speaks and in what order.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Add speakers with role and name…", sectionGroup: "reception_timeline" },
   { id: "pq_ceremony", label: "Ceremony details", helpText: "Processional and transition notes.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Music moments, transitions…", sectionGroup: "ceremony" },
   { id: "pq_traditions", label: "Special traditions", helpText: "Cultural/family rituals to support.", answerType: "long_text", required: false, showInLiveEventMode: true, placeholder: "Cultural or family rituals…", sectionGroup: "special_moments" },
   { id: "pq_last_dance", label: "Last dance", helpText: "Closing moment direction.", answerType: "song", required: false, showInLiveEventMode: true, placeholder: "Song, vibe, closing moment…", sectionGroup: "special_moments" },
@@ -49,7 +53,11 @@ export function formatPlanningQuestionsPlainTextLines(
   const safe = answers ?? {};
   const lines: string[] = ["PLANNING QUESTIONS"];
   for (const q of questions) {
-    const v = (safe[q.id] ?? "").trim();
+    const raw = (safe[q.id] ?? "").trim();
+    const v =
+      q.id === SPEECHES_TOASTS_PLANNING_KEY
+        ? formatSpeechesToastsForDisplay(safe[q.id]) || raw
+        : raw;
     lines.push(`${q.label}: ${v || "None"}`);
   }
   return lines;

@@ -18,7 +18,7 @@ export const NEW_WEDDING_MAIN_TIMELINE_MOMENTS = [
   "Grand Entrance",
   "First Dance",
   "Dinner",
-  "Toasts",
+  "Speeches / Toasts",
   "Cake Cutting",
   "Father-Daughter Dance",
   "Mother-Son Dance",
@@ -27,13 +27,13 @@ export const NEW_WEDDING_MAIN_TIMELINE_MOMENTS = [
   "Last Dance",
 ] as const;
 
-function categoryForWeddingMoment(title: (typeof NEW_WEDDING_MAIN_TIMELINE_MOMENTS)[number]): TimelineCategory {
+export function categoryForWeddingMoment(title: (typeof NEW_WEDDING_MAIN_TIMELINE_MOMENTS)[number]): TimelineCategory {
   switch (title) {
     case "Cocktail Hour":
       return "Cocktail Hour";
     case "Grand Entrance":
     case "First Dance":
-    case "Toasts":
+    case "Speeches / Toasts":
     case "Cake Cutting":
     case "Father-Daughter Dance":
     case "Mother-Son Dance":
