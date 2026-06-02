@@ -299,8 +299,17 @@ import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control"
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
 import { WeddingPartyLineupSheet } from "@/components/wedding-party-lineup-sheet";
+import { RestoreDefaultTimelineMoments } from "@/components/restore-default-timeline-moments";
+import { SpeechesToastsSheet } from "@/components/speeches-toasts-sheet";
+import { SpeechesToastsPreview } from "@/components/speeches-toasts-preview";
 import { buildRunOfShowQuickContacts } from "@/lib/runOfShowLiveReference";
 import { WeddingPartyLineupPreview } from "@/components/wedding-party-lineup-preview";
+import {
+  findMissingDefaultMainTimelineMoments,
+  getDefaultMainTimelineMoments,
+  insertRestoredDefaultTimelineMoment,
+  isSpeechesToastsDefaultMoment,
+} from "@/lib/restoreDefaultTimelineMoments";
 import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -310,6 +319,17 @@ import {
   WEDDING_PARTY_LINEUP_HELPER_COPY,
   type WeddingPartyLineupEntry,
 } from "@/lib/weddingPartyLineup";
+import {
+  createEmptySpeechesToastEntry,
+  formatSpeechesToastsForDisplay,
+  isToastTimelineItem,
+  parseSpeechesToasts,
+  serializeSpeechesToasts,
+  applyWeddingSpeechesToastsTimelineDefaults,
+  withSpeechesToastsTimelineSuppressed,
+  SPEECHES_TOASTS_PLANNING_KEY,
+  type SpeechesToastEntry,
+} from "@/lib/speechesToasts";
 import { RunOfShowLiveReference } from "@/components/run-of-show-live-reference";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
@@ -2553,6 +2573,11 @@ export default function Home() {
   const [weddingPartyLineupSavedDraft, setWeddingPartyLineupSavedDraft] = useState<
     WeddingPartyLineupEntry[]
   >([]);
+  const [speechesToastsOpen, setSpeechesToastsOpen] = useState(false);
+  const [speechesToastsDraft, setSpeechesToastsDraft] = useState<SpeechesToastEntry[]>([]);
+  const [speechesToastsSavedDraft, setSpeechesToastsSavedDraft] = useState<SpeechesToastEntry[]>(
+    [],
+  );
   /**
    * Sections that are still all-done but the operator chose to expand again (prevents immediate
    * re-collapse until at least one moment in that section is marked not done).
@@ -3374,6 +3399,22 @@ export default function Home() {
         }
       }
     }
+    const layoutProfile = migrateLegacyLayoutProfile(
+      evt.settings?.eventLayoutProfile,
+      evt.settings?.eventType ?? "",
+    );
+    if (layoutProfile === "Wedding" || layoutProfile === "Gender-Neutral Wedding") {
+      const applied = applyWeddingSpeechesToastsTimelineDefaults(
+        nextTimelineItems,
+        evt.settings?.planningQuestionAnswers,
+      );
+      nextTimelineItems = applied.items;
+      if (applied.changed && databaseEventIdsRef.current.has(evt.id)) {
+        queueMicrotask(() => {
+          void persistTimelinesToDatabase(evt.id, nextTimelineItems, nextCeremonyTimelineItems);
+        });
+      }
+    }
     setTimelineItems(nextTimelineItems);
     setCeremonyTimelineItems(nextCeremonyTimelineItems);
     setMustPlaySongs(dedupeSongEntries(cloneJson(normalized.mustPlaySongs)));
@@ -4168,6 +4209,28 @@ export default function Home() {
     if (entries.length === 0) return "No entrances added yet";
     return `${entries.length} entrance${entries.length === 1 ? "" : "s"} planned`;
   }, [weddingPartyLineupRaw]);
+  const showSpeechesToastsSection = useMemo(
+    () =>
+      planningQuestionsForEvent.some((question) => question.id === SPEECHES_TOASTS_PLANNING_KEY),
+    [planningQuestionsForEvent],
+  );
+  const speechesToastsRaw = useMemo(
+    () => eventSettings.planningQuestionAnswers?.[SPEECHES_TOASTS_PLANNING_KEY] ?? "",
+    [eventSettings.planningQuestionAnswers],
+  );
+  const speechesToastsSummary = useMemo(() => {
+    const entries = parseSpeechesToasts(speechesToastsRaw);
+    if (entries.length === 0) return "No speakers added yet";
+    return entries
+      .slice(0, 3)
+      .map((entry, index) => {
+        const role = entry.role.trim();
+        const name = entry.name.trim();
+        if (role && name) return `${index + 1}. ${role} — ${name}`;
+        return `${index + 1}. ${role || name}`;
+      })
+      .join(" · ");
+  }, [speechesToastsRaw]);
   const grandEntranceMcScript = useMemo(() => {
     const coupleDefault =
       eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
@@ -4308,6 +4371,18 @@ export default function Home() {
   const mainTimelinePresetsForActiveEvent = useMemo(
     () => timelinePresetsForActiveEvent.filter((item) => item.timelineType === "main"),
     [timelinePresetsForActiveEvent],
+  );
+  const defaultMainTimelineMoments = useMemo(
+    () =>
+      getDefaultMainTimelineMoments(
+        layoutProfileForActiveEvent,
+        mainTimelinePresetsForActiveEvent,
+      ),
+    [layoutProfileForActiveEvent, mainTimelinePresetsForActiveEvent],
+  );
+  const missingDefaultMainTimelineMoments = useMemo(
+    () => findMissingDefaultMainTimelineMoments(timelineItems, defaultMainTimelineMoments),
+    [timelineItems, defaultMainTimelineMoments],
   );
 
   const buildTimelineItemsFromPresets = useCallback(
@@ -8675,6 +8750,40 @@ export default function Home() {
     }
     setTimelineComposerError(null);
 
+    const clearSpeechesToastsTimelineSuppressed = () => {
+      if (!isToastTimelineItem(cleanTitle)) return;
+      setEventSettings((prev) => ({
+        ...prev,
+        planningQuestionAnswers: withSpeechesToastsTimelineSuppressed(
+          prev.planningQuestionAnswers ?? {},
+          false,
+        ),
+      }));
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  planningQuestionAnswers: withSpeechesToastsTimelineSuppressed(
+                    evt.settings.planningQuestionAnswers ?? {},
+                    false,
+                  ),
+                },
+              }
+            : evt,
+        ),
+      );
+      if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+        const nextAnswers = withSpeechesToastsTimelineSuppressed(
+          eventSettings.planningQuestionAnswers ?? {},
+          false,
+        );
+        void persistPlanningQuestionAnswersToDatabase(activeEventId, nextAnswers);
+      }
+    };
+
     if (editingTimelineId) {
       setTimelineItems((prev) =>
         prev.map((item) =>
@@ -8694,6 +8803,7 @@ export default function Home() {
       );
       logActivity("timeline_updated", `Updated timeline item: ${cleanTitle}`);
       pushNotification("Timeline updated", "timeline_updated");
+      clearSpeechesToastsTimelineSuppressed();
       resetTimelineForm();
       setTimelineComposerOpen(false);
       return;
@@ -8718,13 +8828,72 @@ export default function Home() {
     );
     logActivity("timeline_item_added", `Added timeline moment: ${cleanTitle}`);
     pushNotification("Timeline moment added", "timeline_item_added");
+    clearSpeechesToastsTimelineSuppressed();
     resetTimelineForm();
     setTimelineInsertAfterId(null);
     setTimelineComposerOpen(false);
   };
 
   const deleteTimelineItem = (itemId: string) => {
-    setTimelineItems((prev) => prev.filter((item) => item.id !== itemId));
+    const recvDraft = receptionTimelineInlineEditDraftRef.current;
+    const currentMain =
+      recvDraft === null
+        ? timelineItems
+        : timelineItems.map((t) =>
+            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+          );
+    const removed = currentMain.find((item) => item.id === itemId);
+    if (!removed) return;
+
+    const nextTimelineItems = currentMain.filter((item) => item.id !== itemId);
+    const suppressSpeechesToastsTimeline = isToastTimelineItem(removed.title);
+    const nextPlanningAnswers = suppressSpeechesToastsTimeline
+      ? withSpeechesToastsTimelineSuppressed(eventSettings.planningQuestionAnswers ?? {}, true)
+      : eventSettings.planningQuestionAnswers ?? {};
+
+    setTimelineItems(nextTimelineItems);
+
+    if (suppressSpeechesToastsTimeline) {
+      setEventSettings((prev) => ({
+        ...prev,
+        planningQuestionAnswers: withSpeechesToastsTimelineSuppressed(
+          prev.planningQuestionAnswers ?? {},
+          true,
+        ),
+      }));
+    }
+
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              timelineItems: nextTimelineItems,
+              settings: suppressSpeechesToastsTimeline
+                ? {
+                    ...evt.settings,
+                    planningQuestionAnswers: nextPlanningAnswers,
+                  }
+                : evt.settings,
+            }
+          : evt,
+      ),
+    );
+
+    if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+      const cerDraft = ceremonyTimelineInlineEditDraftRef.current;
+      const ceremonyPayload =
+        cerDraft === null
+          ? ceremonyTimelineItems
+          : ceremonyTimelineItems.map((t) =>
+              t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+            );
+      void persistTimelinesToDatabase(activeEventId, nextTimelineItems, ceremonyPayload);
+      if (suppressSpeechesToastsTimeline) {
+        void persistPlanningQuestionAnswersToDatabase(activeEventId, nextPlanningAnswers);
+      }
+    }
+
     if (editingTimelineId === itemId) {
       resetTimelineForm();
     }
@@ -8849,6 +9018,61 @@ export default function Home() {
     logActivity("timeline_updated", `Added preset: ${preset.momentName}`);
     pushNotification("Timeline updated", "timeline_updated");
   };
+
+  const restoreDefaultMainTimelineMoment = useCallback(
+    (momentKey: string) => {
+      const restored = defaultMainTimelineMoments.find((moment) => moment.key === momentKey);
+      if (!restored) return;
+
+      setTimelineItems((prev) =>
+        insertRestoredDefaultTimelineMoment(prev, restored, defaultMainTimelineMoments),
+      );
+
+      if (isSpeechesToastsDefaultMoment(restored)) {
+        setEventSettings((prev) => ({
+          ...prev,
+          planningQuestionAnswers: withSpeechesToastsTimelineSuppressed(
+            prev.planningQuestionAnswers ?? {},
+            false,
+          ),
+        }));
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? {
+                  ...evt,
+                  settings: {
+                    ...evt.settings,
+                    planningQuestionAnswers: withSpeechesToastsTimelineSuppressed(
+                      evt.settings.planningQuestionAnswers ?? {},
+                      false,
+                    ),
+                  },
+                }
+              : evt,
+          ),
+        );
+        if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+          void persistPlanningQuestionAnswersToDatabase(
+            activeEventId,
+            withSpeechesToastsTimelineSuppressed(
+              eventSettings.planningQuestionAnswers ?? {},
+              false,
+            ),
+          );
+        }
+      }
+
+      logActivity("timeline_item_added", `Restored default moment: ${restored.title}`);
+      pushNotification(`Restored ${restored.title}`, "timeline_item_added");
+    },
+    [
+      activeEventId,
+      defaultMainTimelineMoments,
+      eventSettings.planningQuestionAnswers,
+      persistPlanningQuestionAnswersToDatabase,
+    ],
+  );
 
   const applyTimelinePresetsForActiveEvent = () => {
     const ok = window.confirm(
@@ -10256,8 +10480,68 @@ export default function Home() {
     closeWeddingPartyLineupEditor,
   ]);
 
+  const openSpeechesToastsEditor = useCallback(() => {
+    const raw = eventSettings.planningQuestionAnswers?.[SPEECHES_TOASTS_PLANNING_KEY] ?? "";
+    const entries = parseSpeechesToasts(raw);
+    const draft = entries.length > 0 ? entries : [createEmptySpeechesToastEntry(0)];
+    setSpeechesToastsDraft(draft);
+    setSpeechesToastsSavedDraft(draft);
+    setSpeechesToastsOpen(true);
+  }, [eventSettings.planningQuestionAnswers]);
+
+  const closeSpeechesToastsEditor = useCallback(() => {
+    setSpeechesToastsOpen(false);
+    setSpeechesToastsDraft([]);
+    setSpeechesToastsSavedDraft([]);
+  }, []);
+
+  const doneSpeechesToasts = useCallback(async () => {
+    const serialized = serializeSpeechesToasts(speechesToastsDraft);
+    setEventSettings((prev) => ({
+      ...prev,
+      planningQuestionAnswers: {
+        ...(prev.planningQuestionAnswers ?? {}),
+        [SPEECHES_TOASTS_PLANNING_KEY]: serialized,
+      },
+    }));
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              settings: {
+                ...evt.settings,
+                planningQuestionAnswers: {
+                  ...(evt.settings.planningQuestionAnswers ?? {}),
+                  [SPEECHES_TOASTS_PLANNING_KEY]: serialized,
+                },
+              },
+            }
+          : evt,
+      ),
+    );
+    closeSpeechesToastsEditor();
+    if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+      try {
+        await persistPlanningQuestionAnswersToDatabase(activeEventId, {
+          ...(eventSettings.planningQuestionAnswers ?? {}),
+          [SPEECHES_TOASTS_PLANNING_KEY]: serialized,
+        });
+      } catch (error) {
+        console.error("Failed to persist speeches / toasts to database:", error);
+      }
+    }
+  }, [
+    speechesToastsDraft,
+    eventSettings.planningQuestionAnswers,
+    activeEventId,
+    closeSpeechesToastsEditor,
+    persistPlanningQuestionAnswersToDatabase,
+  ]);
+
   const updatePlanningQuestionAnswer = useCallback((questionId: string, next: string) => {
     if (questionId === GRAND_ENTRANCE_PLANNING_LINEUP_KEY) return;
+    if (questionId === SPEECHES_TOASTS_PLANNING_KEY) return;
     setEventSettings((prev) => ({
       ...prev,
       planningQuestionAnswers: {
@@ -15064,6 +15348,7 @@ export default function Home() {
                     const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                     const timelineDragActive = draggingTimelineId !== null;
                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
+                    const isToast = isToastTimelineItem(item.title);
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
@@ -15124,6 +15409,13 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
+                                {isToast ? (
+                                  <SpeechesToastsPreview
+                                    toastsRaw={speechesToastsRaw}
+                                    onEdit={openSpeechesToastsEditor}
+                                    variant="timeline"
+                                  />
+                                ) : null}
                                 {item.notes?.trim() ? (
                                   <div className="mt-1 md:mt-1.5">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
@@ -15169,6 +15461,15 @@ export default function Home() {
                                         </button>
                                       ) : null}
                                     </>
+                                  ) : null}
+                                  {isToast ? (
+                                    <button
+                                      type="button"
+                                      onClick={openSpeechesToastsEditor}
+                                      className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} w-full lg:w-auto`}
+                                    >
+                                      Edit Speeches / Toasts
+                                    </button>
                                   ) : null}
                                   <PrimaryButton
                                     type="button"
@@ -15284,6 +15585,13 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
+                                {isToast ? (
+                                  <SpeechesToastsPreview
+                                    toastsRaw={speechesToastsRaw}
+                                    onEdit={openSpeechesToastsEditor}
+                                    variant="timeline"
+                                  />
+                                ) : null}
                                 {item.notes?.trim() ? (
                                   <div className="mt-2">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
@@ -15322,6 +15630,15 @@ export default function Home() {
                                       </button>
                                     ) : null}
                                   </>
+                                ) : null}
+                                {isToast ? (
+                                  <button
+                                    type="button"
+                                    onClick={openSpeechesToastsEditor}
+                                    className={`${GRAND_ENTRANCE_DETAIL_BTN_CLASS} col-span-2 w-full`}
+                                  >
+                                    Edit Speeches / Toasts
+                                  </button>
                                 ) : null}
                                 <PrimaryButton
                                   type="button"
@@ -15478,6 +15795,13 @@ export default function Home() {
                                   disabled={!canEditTimeline}
                                 />
                               </div>
+                              {isToast ? (
+                                <SpeechesToastsPreview
+                                  toastsRaw={speechesToastsRaw}
+                                  onEdit={openSpeechesToastsEditor}
+                                  variant="timeline"
+                                />
+                              ) : null}
                               <TextArea
                                 id={`timeline-inline-notes-${item.id}`}
                                 label="Shared team cue"
@@ -15641,6 +15965,13 @@ export default function Home() {
                       </Fragment>
                     )
                   })}
+                  {missingDefaultMainTimelineMoments.length > 0 && canEditTimeline ? (
+                    <RestoreDefaultTimelineMoments
+                      missingMoments={missingDefaultMainTimelineMoments}
+                      onRestore={restoreDefaultMainTimelineMoment}
+                      disabled={!canEditTimeline}
+                    />
+                  ) : null}
                   {mergedTimelineItems.length >= 1 && mergedTimelineItems.length <= 3 ? (
                     <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
                       <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
@@ -16957,7 +17288,11 @@ export default function Home() {
                                   ? formatWeddingPartyLineupForDisplay(
                                       eventSettings.planningQuestionAnswers[q.id],
                                     ) || "—"
-                                  : (eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}
+                                  : q.id === SPEECHES_TOASTS_PLANNING_KEY
+                                    ? formatSpeechesToastsForDisplay(
+                                        eventSettings.planningQuestionAnswers[q.id],
+                                      ) || "—"
+                                    : (eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}
                               </td>
                             </tr>
                           ))}
@@ -18015,9 +18350,29 @@ export default function Home() {
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
+                  {showSpeechesToastsSection ? (
+                    <PremiumCard className={premiumFormSectionCardClass}>
+                      <SectionTitle className="text-stone-950">Speeches / Toasts</SectionTitle>
+                      <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                        Add each speaker with their role and name in toast order.
+                      </p>
+                      <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
+                        {speechesToastsSummary}
+                      </p>
+                      <PrimaryButton
+                        type="button"
+                        onClick={openSpeechesToastsEditor}
+                        className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+                      >
+                        Edit Speeches / Toasts
+                      </PrimaryButton>
+                    </PremiumCard>
+                  ) : null}
                   {planningQuestionsGroupedBySection.map((row) => {
                     const visibleQuestions = row.questions.filter(
-                      (question) => question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
+                      (question) =>
+                        question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
+                        question.id !== SPEECHES_TOASTS_PLANNING_KEY,
                     );
                     if (visibleQuestions.length === 0) return null;
                     const pct = computePlanningQuestionGroupCompletion(
@@ -18196,6 +18551,18 @@ export default function Home() {
           void doneWeddingPartyLineup();
         }}
         onCancel={closeWeddingPartyLineupEditor}
+        canEdit={canEditTimeline}
+      />
+
+      <SpeechesToastsSheet
+        open={speechesToastsOpen}
+        savedEntries={speechesToastsSavedDraft}
+        entries={speechesToastsDraft}
+        onChange={setSpeechesToastsDraft}
+        onDone={() => {
+          void doneSpeechesToasts();
+        }}
+        onCancel={closeSpeechesToastsEditor}
         canEdit={canEditTimeline}
       />
 
@@ -19371,6 +19738,7 @@ export default function Home() {
                                       .filter(Boolean)
                                       .join(" · ");
                                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
+                                    const isToast = isToastTimelineItem(item.title);
                                     const rowSurface = done
                                       ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
@@ -19458,6 +19826,13 @@ export default function Home() {
                                               variant="runOfShow"
                                             />
                                           ) : null}
+                                          {isToast ? (
+                                            <SpeechesToastsPreview
+                                              toastsRaw={speechesToastsRaw}
+                                              onEdit={openSpeechesToastsEditor}
+                                              variant="runOfShow"
+                                            />
+                                          ) : null}
                                           {notesLabel ? (
                                             <div className="mt-4 max-w-4xl">
                                               <p
@@ -19492,6 +19867,17 @@ export default function Home() {
                                                   Open Entrance Details
                                                 </button>
                                               ) : null}
+                                            </div>
+                                          ) : null}
+                                          {isToast ? (
+                                            <div className="mt-5 flex flex-wrap gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={openSpeechesToastsEditor}
+                                                className={GRAND_ENTRANCE_DETAIL_BTN_CLASS}
+                                              >
+                                                Edit Speeches / Toasts
+                                              </button>
                                             </div>
                                           ) : null}
                                         </div>
