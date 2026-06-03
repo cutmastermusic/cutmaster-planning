@@ -3797,17 +3797,11 @@ export default function Home() {
     setEvents(remaining);
 
     if (eventId === activeEventId) {
-      const next = remaining[0];
-      if (next) {
-        setActiveEventId(next.id);
-        loadEventPlanningIntoWorkingState(next);
-        setAppMode("event");
-        setActiveScreen("Dashboard");
-      } else {
-        setActiveEventId("");
-        setAppMode("events");
-        setActiveScreen("All Events");
-      }
+      // After deleting the active event, clear the selection and return to the
+      // All Events view rather than auto-opening another event.
+      setActiveEventId("");
+      setAppMode("events");
+      setActiveScreen("All Events");
     }
   };
 
