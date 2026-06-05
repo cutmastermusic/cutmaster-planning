@@ -106,6 +106,9 @@ model TimelineItem {
   /** Run Of Show execution: moment marked complete/crossed off (DB-backed). */
   runOfShowDone Boolean @default(false)
 
+  /** How the Shared Team Cue (notes) renders in Run Of Show: plain | bullets | numbered. */
+  teamCueFormat String? @default("plain")
+
   order Int
 
   timelineId String

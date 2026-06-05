@@ -280,6 +280,7 @@ export async function replaceMainTimelineItems(
     fadeOutEarly?: boolean;
     fadeOutTimestamp?: string | null;
     runOfShowDone?: boolean;
+    teamCueFormat?: string | null;
     order: number;
   }>,
 ) {
@@ -298,27 +299,32 @@ export async function replaceMainTimelineItems(
     },
   });
 
-  await prisma.timelineItem.deleteMany({
-    where: {
-      timelineId: timeline.id,
-    },
-  });
+  // Atomic replace: delete + recreate run in one transaction so a failed
+  // createMany can never leave the timeline emptied by a committed deleteMany.
+  await prisma.$transaction(async (tx) => {
+    await tx.timelineItem.deleteMany({
+      where: {
+        timelineId: timeline.id,
+      },
+    });
 
-  await prisma.timelineItem.createMany({
-    data: items.map((item) => ({
-      timelineId: timeline.id,
-      time: item.time,
-      title: item.title,
-      category: item.category,
-      notes: item.notes,
-      needsDjMcAttention: item.needsDjMcAttention ?? false,
-      songTitle: item.songTitle,
-      artist: item.artist,
-      fadeOutEarly: item.fadeOutEarly ?? false,
-      fadeOutTimestamp: item.fadeOutTimestamp,
-      runOfShowDone: item.runOfShowDone ?? false,
-      order: item.order,
-    })),
+    await tx.timelineItem.createMany({
+      data: items.map((item) => ({
+        timelineId: timeline.id,
+        time: item.time,
+        title: item.title,
+        category: item.category,
+        notes: item.notes,
+        needsDjMcAttention: item.needsDjMcAttention ?? false,
+        songTitle: item.songTitle,
+        artist: item.artist,
+        fadeOutEarly: item.fadeOutEarly ?? false,
+        fadeOutTimestamp: item.fadeOutTimestamp,
+        runOfShowDone: item.runOfShowDone ?? false,
+        teamCueFormat: item.teamCueFormat ?? "plain",
+        order: item.order,
+      })),
+    });
   });
 }
 
@@ -335,6 +341,7 @@ export async function replaceCeremonyTimelineItems(
     fadeOutEarly?: boolean;
     fadeOutTimestamp?: string | null;
     runOfShowDone?: boolean;
+    teamCueFormat?: string | null;
     order: number;
   }>,
 ) {
@@ -353,27 +360,32 @@ export async function replaceCeremonyTimelineItems(
     },
   });
 
-  await prisma.timelineItem.deleteMany({
-    where: {
-      timelineId: timeline.id,
-    },
-  });
+  // Atomic replace: delete + recreate run in one transaction so a failed
+  // createMany can never leave the timeline emptied by a committed deleteMany.
+  await prisma.$transaction(async (tx) => {
+    await tx.timelineItem.deleteMany({
+      where: {
+        timelineId: timeline.id,
+      },
+    });
 
-  await prisma.timelineItem.createMany({
-    data: items.map((item) => ({
-      timelineId: timeline.id,
-      time: item.time,
-      title: item.title,
-      category: item.category,
-      notes: item.notes,
-      needsDjMcAttention: item.needsDjMcAttention ?? false,
-      songTitle: item.songTitle,
-      artist: item.artist,
-      fadeOutEarly: item.fadeOutEarly ?? false,
-      fadeOutTimestamp: item.fadeOutTimestamp,
-      runOfShowDone: item.runOfShowDone ?? false,
-      order: item.order,
-    })),
+    await tx.timelineItem.createMany({
+      data: items.map((item) => ({
+        timelineId: timeline.id,
+        time: item.time,
+        title: item.title,
+        category: item.category,
+        notes: item.notes,
+        needsDjMcAttention: item.needsDjMcAttention ?? false,
+        songTitle: item.songTitle,
+        artist: item.artist,
+        fadeOutEarly: item.fadeOutEarly ?? false,
+        fadeOutTimestamp: item.fadeOutTimestamp,
+        runOfShowDone: item.runOfShowDone ?? false,
+        teamCueFormat: item.teamCueFormat ?? "plain",
+        order: item.order,
+      })),
+    });
   });
 }
 

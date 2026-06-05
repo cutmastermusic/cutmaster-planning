@@ -44,6 +44,12 @@ export type TimelineCategory =
 export type UserRole = "Couple" | "DJ" | "Planner" | "Admin";
 export type InviteStatus = "Pending" | "Accepted";
 
+/**
+ * How a timeline item's Shared Team Cue (notes) should render in Run Of Show.
+ * Missing/null is treated as "plain" everywhere.
+ */
+export type TeamCueFormat = "plain" | "bullets" | "numbered";
+
 export type SongEntry = {
   id: string;
   title: string;
@@ -78,6 +84,8 @@ export type TimelineItem = {
   fadeOutTimestamp?: string;
   /** Run Of Show execution: moment marked complete (persisted on timeline row). */
   runOfShowDone?: boolean;
+  /** How the Shared Team Cue (notes) renders in Run Of Show. Defaults to "plain". */
+  teamCueFormat?: TeamCueFormat;
 };
 
 export type Formality = {
@@ -105,6 +113,7 @@ export type DisplayTimelineItem = {
   artist?: string;
   fadeOutEarly?: boolean;
   fadeOutTimestamp?: string;
+  teamCueFormat?: TeamCueFormat;
 };
 
 export type CeremonyPlan = {
@@ -148,6 +157,8 @@ export type CeremonyTimelineItem = {
   notes: string;
   needsDjMcAttention: boolean;
   runOfShowDone?: boolean;
+  /** How the Shared Team Cue (notes) renders in Run Of Show. Defaults to "plain". */
+  teamCueFormat?: TeamCueFormat;
 };
 
 export type PlanningInsight = {

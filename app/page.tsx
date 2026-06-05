@@ -161,6 +161,7 @@ import type {
   SharedPlaylistLink,
   SongEntry,
   SongListType,
+  TeamCueFormat,
   TimelineCategory,
   TimelineItem,
   TimelinePresetItem,
@@ -211,6 +212,7 @@ import {
   mapDatabaseRowsToCeremonyTimelineItems,
   mapDatabaseRowsToMainTimelineItems,
   mapMainTimelineItemsForDatabase,
+  normalizeTeamCueFormat,
   formatEventDateForDisplay,
   dedupeSongEntries,
   receptionTimelineHasClockOrderConflict,
@@ -1122,6 +1124,7 @@ type ReceptionTimelineInlineEditDraftValues = {
   needsDjMcAttention: boolean;
   fadeOutEarly: boolean;
   fadeOutTimestamp: string;
+  teamCueFormat: TeamCueFormat;
 };
 
 type CeremonyTimelineInlineEditDraftValues = {
@@ -1131,6 +1134,7 @@ type CeremonyTimelineInlineEditDraftValues = {
   artist: string;
   notes: string;
   needsDjMcAttention: boolean;
+  teamCueFormat: TeamCueFormat;
 };
 
 function receptionTimelineInlineDraftFromRow(row: TimelineItem): ReceptionTimelineInlineEditDraftValues {
@@ -1144,6 +1148,7 @@ function receptionTimelineInlineDraftFromRow(row: TimelineItem): ReceptionTimeli
     needsDjMcAttention: row.needsDjMcAttention,
     fadeOutEarly: row.fadeOutEarly ?? false,
     fadeOutTimestamp: row.fadeOutTimestamp ?? "",
+    teamCueFormat: normalizeTeamCueFormat(row.teamCueFormat),
   };
 }
 
@@ -1162,6 +1167,7 @@ function applyReceptionTimelineInlineDraftToRow(
     needsDjMcAttention: v.needsDjMcAttention,
     fadeOutEarly: v.fadeOutEarly,
     fadeOutTimestamp: v.fadeOutTimestamp.trim() ? v.fadeOutTimestamp : undefined,
+    teamCueFormat: v.teamCueFormat,
   };
 }
 
@@ -1173,6 +1179,7 @@ function ceremonyTimelineInlineDraftFromRow(row: CeremonyTimelineItem): Ceremony
     artist: row.artist,
     notes: row.notes,
     needsDjMcAttention: row.needsDjMcAttention,
+    teamCueFormat: normalizeTeamCueFormat(row.teamCueFormat),
   };
 }
 
@@ -1188,7 +1195,118 @@ function applyCeremonyTimelineInlineDraftToRow(
     artist: v.artist,
     notes: v.notes,
     needsDjMcAttention: v.needsDjMcAttention,
+    teamCueFormat: v.teamCueFormat,
   };
+}
+
+/**
+ * Renders a timeline item's Shared Team Cue in Run Of Show. `plain` preserves the
+ * prior single-paragraph behavior (cue text + optional attention label joined with
+ * " · "); `bullets`/`numbered` split the cue text by line into a list, with any
+ * attention label shown beneath. Returns null when there is nothing to show.
+ */
+function TeamCueNotes({
+  notes,
+  format,
+  attentionLabel,
+  done,
+}: {
+  notes: string;
+  format: TeamCueFormat;
+  attentionLabel: string;
+  done: boolean;
+}) {
+  const trimmed = notes?.trim() ?? "";
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const asList = (format === "bullets" || format === "numbered") && lines.length > 0;
+  const plainLabel = [trimmed, attentionLabel].filter(Boolean).join(" · ");
+  if (!asList && !plainLabel) return null;
+
+  const headerClass = `text-[10px] font-semibold uppercase tracking-[0.14em] ${
+    done ? "text-stone-400" : "text-stone-500"
+  }`;
+  const bodyClass = `mt-1.5 text-base leading-relaxed sm:text-lg ${
+    done ? "text-stone-500" : "text-stone-600"
+  }`;
+
+  return (
+    <div className="mt-4 max-w-4xl">
+      <p className={headerClass}>Shared team cue</p>
+      {asList ? (
+        <>
+          {format === "numbered" ? (
+            <ol className={`${bodyClass} list-decimal space-y-1 pl-6`}>
+              {lines.map((line, index) => (
+                <li key={index}>{line}</li>
+              ))}
+            </ol>
+          ) : (
+            <ul className={`${bodyClass} list-disc space-y-1 pl-6`}>
+              {lines.map((line, index) => (
+                <li key={index}>{line}</li>
+              ))}
+            </ul>
+          )}
+          {attentionLabel ? (
+            <p className={`${bodyClass} font-semibold`}>{attentionLabel}</p>
+          ) : null}
+        </>
+      ) : (
+        <p className={bodyClass}>{plainLabel}</p>
+      )}
+    </div>
+  );
+}
+
+const TEAM_CUE_FORMAT_OPTIONS: { value: TeamCueFormat; label: string }[] = [
+  { value: "plain", label: "Plain" },
+  { value: "bullets", label: "Bullets" },
+  { value: "numbered", label: "Numbered" },
+];
+
+/** Compact 3-way selector controlling how a Shared Team Cue renders in Run Of Show. */
+function TeamCueFormatSelector({
+  value,
+  onChange,
+  disabled,
+  labelClassName,
+}: {
+  value: TeamCueFormat;
+  onChange: (next: TeamCueFormat) => void;
+  disabled?: boolean;
+  labelClassName?: string;
+}) {
+  return (
+    <div className="mt-2">
+      <p className={labelClassName ?? "text-[11px] font-semibold uppercase tracking-wide text-stone-500"}>
+        Cue display
+      </p>
+      <div className="mt-1 flex gap-1.5">
+        {TEAM_CUE_FORMAT_OPTIONS.map((option) => {
+          const active = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              disabled={disabled}
+              aria-pressed={active}
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold shadow-none transition disabled:opacity-50 ${
+                active
+                  ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                  : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 type EventLayoutProfile =
@@ -9216,10 +9334,17 @@ export default function Home() {
       draft && draft.itemId === item.id
         ? applyReceptionTimelineInlineDraftToRow(item, draft.values)
         : item;
+    // Structured cards (e.g. Speeches / Toasts) are identified solely by their
+    // title via isToastTimelineItem(). Appending "(Copy)" breaks that match and
+    // strips the structured workflow, so preserve the matching title for those
+    // items. The structured speaker/toast list is stored at the event level
+    // (planningQuestionAnswers), so the duplicate shares it without mutating the
+    // original card.
+    const isStructuredToast = isToastTimelineItem(base.title);
     const duplicate: TimelineItem = {
       ...base,
       id: `timeline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      title: `${base.title} (Copy)`,
+      title: isStructuredToast ? base.title : `${base.title} (Copy)`,
       songTitle: base.songTitle,
       artist: base.artist,
       fadeOutEarly: base.fadeOutEarly,
@@ -9605,6 +9730,7 @@ export default function Home() {
         artist: item.artist?.trim() || "",
         fadeOutEarly: item.fadeOutEarly,
         fadeOutTimestamp: item.fadeOutTimestamp,
+        teamCueFormat: normalizeTeamCueFormat(item.teamCueFormat),
       })),
     [timelineItems],
   );
@@ -9799,6 +9925,9 @@ export default function Home() {
       ]
         .filter(Boolean)
         .join(" · "),
+      rawNotes: item.notes?.trim() || "",
+      needsDjMcAttention: item.needsDjMcAttention,
+      teamCueFormat: normalizeTeamCueFormat(item.teamCueFormat),
     }));
   }, [ceremonyTimelineItems]);
 
@@ -14836,6 +14965,9 @@ export default function Home() {
                   const cerArtist = cerInlineVals?.artist ?? item.artist;
                   const cerNotes = cerInlineVals?.notes ?? item.notes;
                   const cerNeedsMc = cerInlineVals?.needsDjMcAttention ?? item.needsDjMcAttention;
+                  const cerTeamCueFormat = normalizeTeamCueFormat(
+                    cerInlineVals?.teamCueFormat ?? item.teamCueFormat,
+                  );
                   const isDragging = draggingCeremonyTimelineId === item.id;
                   const isDropTarget =
                     dropTargetCeremonyTimelineId === item.id && draggingCeremonyTimelineId !== item.id;
@@ -15154,6 +15286,14 @@ export default function Home() {
                             }
                             rows={2}
                             disabled={!canEditTimeline}
+                          />
+                          <TeamCueFormatSelector
+                            value={cerTeamCueFormat}
+                            onChange={(next) =>
+                              patchCeremonyTimelineInlineDraft(item.id, { teamCueFormat: next }, item)
+                            }
+                            disabled={!canEditTimeline}
+                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                           />
                           <PrimaryButton
                             type="button"
@@ -15671,6 +15811,9 @@ export default function Home() {
                     const recvNeedsMc = recvInlineVals?.needsDjMcAttention ?? timelineRow?.needsDjMcAttention ?? false;
                     const recvFadeEarly = recvInlineVals?.fadeOutEarly ?? timelineRow?.fadeOutEarly ?? false;
                     const recvFadeTs = recvInlineVals?.fadeOutTimestamp ?? timelineRow?.fadeOutTimestamp ?? "";
+                    const recvTeamCueFormat = normalizeTeamCueFormat(
+                      recvInlineVals?.teamCueFormat ?? timelineRow?.teamCueFormat ?? item.teamCueFormat,
+                    );
                     const isDragging = draggingTimelineId === item.id;
                     const isDropTarget = dropTargetTimelineId === item.id && draggingTimelineId !== item.id;
                     const timelineDragActive = draggingTimelineId !== null;
@@ -16138,6 +16281,14 @@ export default function Home() {
                                 onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)}
                                 rows={2}
                                 disabled={!canEditTimeline}
+                              />
+                              <TeamCueFormatSelector
+                                value={recvTeamCueFormat}
+                                onChange={(next) =>
+                                  patchReceptionTimelineInlineDraft(item.id, { teamCueFormat: next }, timelineRow ?? null)
+                                }
+                                disabled={!canEditTimeline}
+                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               />
                               <PrimaryButton
                                 type="button"
@@ -19940,22 +20091,12 @@ export default function Home() {
                                       {row.song}
                                     </p>
                                   ) : null}
-                                  {row.notes ? (
-                                    <div className="mt-4 max-w-4xl">
-                                      <p
-                                        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${done ? "text-stone-400" : "text-stone-500"
-                                          }`}
-                                      >
-                                        Shared team cue
-                                      </p>
-                                      <p
-                                        className={`mt-1.5 text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                          }`}
-                                      >
-                                        {row.notes}
-                                      </p>
-                                    </div>
-                                  ) : null}
+                                  <TeamCueNotes
+                                    notes={row.rawNotes}
+                                    format={row.teamCueFormat}
+                                    attentionLabel={row.needsDjMcAttention ? "MC/DJ Attention" : ""}
+                                    done={done}
+                                  />
                                 </div>
                                 <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
                                   <RunOfShowCardNote
@@ -20068,12 +20209,6 @@ export default function Home() {
                                         : " (Fade early)"
                                       : "";
                                     const songCell = `${songLabel}${fadeSuffix}`.trim();
-                                    const notesLabel = [
-                                      item.notes?.trim() || "",
-                                      item.needsDjMcAttention ? "MC/DJ attention" : "",
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" · ");
                                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                                     const isToast = isToastTimelineItem(item.title);
                                     const rowSurface = done
@@ -20170,22 +20305,12 @@ export default function Home() {
                                               variant="runOfShow"
                                             />
                                           ) : null}
-                                          {notesLabel ? (
-                                            <div className="mt-4 max-w-4xl">
-                                              <p
-                                                className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${done ? "text-stone-400" : "text-stone-500"
-                                                  }`}
-                                              >
-                                                Shared team cue
-                                              </p>
-                                              <p
-                                                className={`mt-1.5 text-base leading-relaxed sm:text-lg ${done ? "text-stone-500" : "text-stone-600"
-                                                  }`}
-                                              >
-                                                {notesLabel}
-                                              </p>
-                                            </div>
-                                          ) : null}
+                                          <TeamCueNotes
+                                            notes={item.notes ?? ""}
+                                            format={normalizeTeamCueFormat(item.teamCueFormat)}
+                                            attentionLabel={item.needsDjMcAttention ? "MC/DJ attention" : ""}
+                                            done={done}
+                                          />
                                           {isGrandEntrance ? (
                                             <div className="mt-5 flex flex-wrap gap-2">
                                               <button

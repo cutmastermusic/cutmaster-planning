@@ -7,6 +7,7 @@ import type {
   GuestRequestEntry,
   PlanningInsight,
   SongEntry,
+  TeamCueFormat,
   TimelineCategory,
   TimelineItem,
   TimelinePresetItem,
@@ -183,6 +184,11 @@ export function insertReceptionTimelineItemChronologically(
   return next;
 }
 
+/** Coerce any stored/loaded value into a valid TeamCueFormat; missing/invalid → "plain". */
+export function normalizeTeamCueFormat(value: unknown): TeamCueFormat {
+  return value === "bullets" || value === "numbered" ? value : "plain";
+}
+
 /** Prisma `TimelineItem` row shape used when hydrating events from the database. */
 export type DbTimelineItemRow = {
   id: string;
@@ -196,6 +202,7 @@ export type DbTimelineItemRow = {
   fadeOutEarly: boolean;
   fadeOutTimestamp: string | null;
   runOfShowDone: boolean;
+  teamCueFormat: string | null;
   order: number;
 };
 
@@ -211,6 +218,7 @@ export function mapMainTimelineItemsForDatabase(items: TimelineItem[]) {
     fadeOutEarly: item.fadeOutEarly ?? false,
     fadeOutTimestamp: item.fadeOutTimestamp?.trim() || null,
     runOfShowDone: item.runOfShowDone ?? false,
+    teamCueFormat: normalizeTeamCueFormat(item.teamCueFormat),
     order: index,
   }));
 }
@@ -227,6 +235,7 @@ export function mapCeremonyTimelineItemsForDatabase(items: CeremonyTimelineItem[
     fadeOutEarly: false,
     fadeOutTimestamp: null,
     runOfShowDone: item.runOfShowDone ?? false,
+    teamCueFormat: normalizeTeamCueFormat(item.teamCueFormat),
     order: index,
   }));
 }
@@ -251,6 +260,8 @@ export function mapDatabaseRowsToMainTimelineItems(rows: DbTimelineItemRow[]): T
       if (artist) item.artist = artist;
       if (row.fadeOutEarly) item.fadeOutEarly = row.fadeOutEarly;
       if (row.fadeOutTimestamp?.trim()) item.fadeOutTimestamp = row.fadeOutTimestamp.trim();
+      const teamCueFormat = normalizeTeamCueFormat(row.teamCueFormat);
+      if (teamCueFormat !== "plain") item.teamCueFormat = teamCueFormat;
       return item;
     });
 }
@@ -261,16 +272,21 @@ export function mapDatabaseRowsToCeremonyTimelineItems(
   return rows
     .slice()
     .sort((a, b) => a.order - b.order)
-    .map((row) => ({
-      id: row.id,
-      timeOrOrder: row.time ?? "",
-      moment: row.title,
-      songTitle: row.songTitle ?? "",
-      artist: row.artist ?? "",
-      notes: row.notes ?? "",
-      needsDjMcAttention: row.needsDjMcAttention ?? false,
-      runOfShowDone: row.runOfShowDone ?? false,
-    }));
+    .map((row) => {
+      const item: CeremonyTimelineItem = {
+        id: row.id,
+        timeOrOrder: row.time ?? "",
+        moment: row.title,
+        songTitle: row.songTitle ?? "",
+        artist: row.artist ?? "",
+        notes: row.notes ?? "",
+        needsDjMcAttention: row.needsDjMcAttention ?? false,
+        runOfShowDone: row.runOfShowDone ?? false,
+      };
+      const teamCueFormat = normalizeTeamCueFormat(row.teamCueFormat);
+      if (teamCueFormat !== "plain") item.teamCueFormat = teamCueFormat;
+      return item;
+    });
 }
 
 /** Reception timeline row from a Global Settings preset (structure-first: blank fields stay blank). */
