@@ -187,7 +187,6 @@ import {
   eventTeamRoleGroupsForActor,
   formatTeamMemberContactLines,
   formatVendorContactLines,
-  isCutmasterEventTeam,
   isCutmasterEventTeamMember,
   isInternalTeamRole,
   normalizeVendorsArray,
@@ -7678,6 +7677,19 @@ export default function Home() {
           seededEvent.ceremonyTimelineItems = mapDatabaseRowsToCeremonyTimelineItems(
             ceremonyDbTimeline?.items ?? [],
           );
+
+          // Event Document data-integrity: these fields have no column on the
+          // DB Event model, so buildEventFromTemplate seeds them with demo
+          // content from planningMockData. For real DB-backed events we must
+          // never surface that placeholder content, so reset them to empty.
+          // The Event Document then renders true empty-state text instead of
+          // mock data. (Seed/demo events that never reach this path keep their
+          // mock content.)
+          seededEvent.generalDjNotes = "";
+          seededEvent.mcAnnouncements = "";
+          seededEvent.musicVibeDetail = {};
+          seededEvent.vendors = [];
+          seededEvent.plannerNotes = [];
 
           return seededEvent;
         });
@@ -18005,8 +18017,7 @@ export default function Home() {
                   </div>
                 )}
                 {sectionVendorContactsEnabled &&
-                  eventSettings.liveEventShowVendorContacts &&
-                  (eventDocumentTeamMembers.length > 0 || vendors.length > 0) && (
+                  eventSettings.liveEventShowVendorContacts && (
                     <div className="doc-section print-break-avoid">
                       <h3>Event Team</h3>
                       <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
@@ -18014,8 +18025,8 @@ export default function Home() {
                         are prioritized at the top for fast scanning.
                       </p>
                       <div className="space-y-3">
-                        {eventDocumentTeamMembers.length > 0
-                          ? eventDocumentTeamMembers.map((member) => {
+                        {eventDocumentTeamMembers.length > 0 ? (
+                          eventDocumentTeamMembers.map((member) => {
                               const headline = member.name.trim() || member.company?.trim() || "Contact";
                               const companyLine =
                                 member.name.trim() && member.company?.trim()
@@ -18066,50 +18077,11 @@ export default function Home() {
                                 </div>
                               );
                             })
-                          : sortVendorsForEventDocument(vendors).map((vendor) => {
-                              const headline =
-                                vendor.contactName.trim() || vendor.companyName.trim() || "Contact";
-                              const companyLine =
-                                vendor.contactName.trim() && vendor.companyName.trim()
-                                  ? vendor.companyName.trim()
-                                  : null;
-                              return (
-                                <div
-                                  key={`live-vendor-${vendor.id}`}
-                                  className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
-                                >
-                                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
-                                    <div className="min-w-0">
-                                      <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
-                                        {headline}
-                                      </p>
-                                      {companyLine ? (
-                                        <p className="mt-0.5 text-[11px] text-zinc-600 print:text-black">{companyLine}</p>
-                                      ) : null}
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
-                                        {vendorTypeLabel(vendor.vendorType)}
-                                      </p>
-                                      {isCutmasterEventTeam(vendor) ? (
-                                        <p className="text-[10px] font-medium text-[#8f6b2f] print:text-black">
-                                          Cutmaster event team
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                  <ul className="mt-2 list-none space-y-0.5 pl-0 text-[11px] text-zinc-700 print:text-black">
-                                    {vendor.phone.trim() ? <li>Phone: {vendor.phone.trim()}</li> : null}
-                                    {vendor.email.trim() ? <li>Email: {vendor.email.trim()}</li> : null}
-                                    {vendor.website.trim() ? <li>Web: {vendor.website.trim()}</li> : null}
-                                    {vendor.instagram.trim() ? <li>Social: {vendor.instagram.trim()}</li> : null}
-                                    {vendor.arrivalTime.trim() ? (
-                                      <li>Arrival: {vendor.arrivalTime.trim()}</li>
-                                    ) : null}
-                                  </ul>
-                                </div>
-                              );
-                            })}
+                        ) : (
+                          <p className="doc-note text-[11px] leading-snug text-zinc-600 print:text-black">
+                            No event team members added yet — add them under Event Team.
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
