@@ -38,6 +38,7 @@ import {
   replacePlanningQuestionAnswersGuarded as replacePlanningQuestionAnswers,
   replaceCeremonyPlanGuarded as replaceCeremonyPlan,
   replaceDjScriptsGuarded as replaceDjScripts,
+  replaceDjMusicNotesGuarded as replaceDjMusicNotes,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
 import {
@@ -149,6 +150,7 @@ import type {
   Collaborator,
   DisplayTimelineItem,
   DjScripts,
+  DjMusicNotes,
   EventStatus,
   EventSettings,
   EventRecord,
@@ -284,6 +286,12 @@ import {
   normalizeDjScriptsForDb,
   parseDjScriptsJson,
 } from "@/lib/djScripts";
+import {
+  createDjMusicNote,
+  defaultDjMusicNotes,
+  normalizeDjMusicNotesForDb,
+  parseDjMusicNotesJson,
+} from "@/lib/djMusicNotes";
 import {
   defaultCeremonyCoverageStatus,
   isCeremonyCoverageNotProvided,
@@ -2857,6 +2865,7 @@ export default function Home() {
   );
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
   const [djScripts, setDjScripts] = useState<DjScripts>(() => defaultDjScripts());
+  const [djMusicNotes, setDjMusicNotes] = useState<DjMusicNotes>(() => defaultDjMusicNotes());
   const [djScriptModalOpen, setDjScriptModalOpen] = useState(false);
   const [djScriptDraftTitle, setDjScriptDraftTitle] = useState("");
   const [djScriptDraftBody, setDjScriptDraftBody] = useState("");
@@ -3556,6 +3565,65 @@ export default function Home() {
     };
   }, [activeEventId, djScripts, persistDjScriptsToDatabase]);
 
+  const persistDjMusicNotesToDatabase = useCallback(
+    async (
+      eventId: string,
+      notes: DjMusicNotes,
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceDjMusicNotes(eventId, normalizeDjMusicNotesForDb(notes));
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist DJ music notes to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
+  // Mirrors persistDjScriptsNow: operational music notes persist immediately on
+  // add/edit/delete (not just via the debounced autosave) and mirror into the
+  // local events backup.
+  const persistDjMusicNotesNow = useCallback(
+    (next: DjMusicNotes) => {
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? ({ ...evt, djMusicNotes: cloneJson(next) } as EventRecord)
+            : evt,
+        ),
+      );
+      void persistDjMusicNotesToDatabase(activeEventId, next);
+    },
+    [activeEventId, persistDjMusicNotesToDatabase],
+  );
+
+  // Safety net flush for in-flight music-note edits on hide/refresh/close.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flushDjMusicNotes = () => {
+      if (!activeEventId) return;
+      if (!databaseEventIdsRef.current.has(activeEventId)) return;
+      void persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushDjMusicNotes();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flushDjMusicNotes);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flushDjMusicNotes);
+    };
+  }, [activeEventId, djMusicNotes, persistDjMusicNotesToDatabase]);
+
   const persistEventMetadataToDatabase = useCallback(
     async (
       eventId: string,
@@ -3687,6 +3755,7 @@ export default function Home() {
           );
 
           await persistDjScriptsToDatabase(activeEventId, djScripts);
+          await persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -3729,6 +3798,7 @@ export default function Home() {
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
             djScripts: cloneJson(djScripts),
+            djMusicNotes: cloneJson(djMusicNotes),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, evt.settings)
@@ -3759,6 +3829,7 @@ export default function Home() {
     guestRequests,
     mcAnnouncements,
     djScripts,
+    djMusicNotes,
     microphoneNeeds,
     musicVibeDetail,
     musicTasteProfile,
@@ -3781,6 +3852,7 @@ export default function Home() {
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
     persistDjScriptsToDatabase,
+    persistDjMusicNotesToDatabase,
     currentRole,
     rolePreview,
     events,
@@ -3889,6 +3961,7 @@ export default function Home() {
     setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
     setMcAnnouncements(evt.mcAnnouncements);
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
+    setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
     setEventSettings(
       cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
@@ -4182,6 +4255,7 @@ export default function Home() {
       musicTasteProfile: cloneJson(musicTasteProfile),
       mcAnnouncements,
       djScripts: defaultDjScripts(),
+      djMusicNotes: defaultDjMusicNotes(),
       settings: {
         eventLayoutProfile: "Wedding",
         eventName: meta.couple || "New Event",
@@ -6347,6 +6421,12 @@ export default function Home() {
     closeDjScriptModal();
   };
 
+  const addDjMusicNote = () => {
+    const next = [...djMusicNotes, createDjMusicNote(djMusicNotes.length)];
+    setDjMusicNotes(next);
+    persistDjMusicNotesNow(next);
+  };
+
   const sortEventNotesForDisplay = (notes: EventNote[]) =>
     notes
       .slice()
@@ -7583,6 +7663,7 @@ export default function Home() {
     if (screen === "Reception Hub") return "Reception & timeline";
     if (screen === "Reception Timeline") return "Reception timeline";
     if (screen === "Event Prep") return "Event Document";
+    if (screen === "Scripts") return "Show Book";
     return screen;
   };
 
@@ -7852,6 +7933,7 @@ export default function Home() {
           // DJ Scripts ARE DB-backed (Event.djScripts JSON column), so hydrate
           // them from the row rather than resetting to empty.
           seededEvent.djScripts = parseDjScriptsJson(dbEvent.djScripts);
+          seededEvent.djMusicNotes = parseDjMusicNotesJson(dbEvent.djMusicNotes);
 
           return seededEvent;
         });
@@ -8258,6 +8340,7 @@ export default function Home() {
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
             djScripts: cloneJson(djScripts),
+            djMusicNotes: cloneJson(djMusicNotes),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
@@ -8376,6 +8459,7 @@ export default function Home() {
             ),
           );
           void persistDjScriptsToDatabase(activeEventId, djScripts);
+          void persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
         } else {
           logDbPersistGuard("autosave DB persist skipped", {
             activeEventId,
@@ -8433,8 +8517,10 @@ export default function Home() {
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
     persistDjScriptsToDatabase,
+    persistDjMusicNotesToDatabase,
     persistEventMetadataToDatabase,
     djScripts,
+    djMusicNotes,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -8650,6 +8736,7 @@ export default function Home() {
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
             djScripts: cloneJson(djScripts),
+            djMusicNotes: cloneJson(djMusicNotes),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
@@ -8684,6 +8771,7 @@ export default function Home() {
       musicTasteProfile,
       mcAnnouncements,
       djScripts,
+      djMusicNotes,
       eventSettings,
       isActualCouple,
     ],
@@ -17150,28 +17238,34 @@ export default function Home() {
           (effectiveRole === "Admin" || effectiveRole === "DJ") && (
             <section className={workspaceSectionClass}>
               <EventHomeNav
-                trail={["Scripts"]}
+                trail={["Show Book"]}
                 onBack={() => setActiveScreen("Dashboard")}
               />
               <PremiumCard variant="accent">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <SectionTitle className="text-stone-950">DJ Scripts</SectionTitle>
-                    <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                      Private operational scripts for the DJ booth. Add, rename, or delete scripts
-                      per event. Saved to the database and synced across your devices. Never shown to
-                      clients and not included in the Event Document. Changes save automatically.
-                    </p>
-                  </div>
-                  <PrimaryButton
-                    type="button"
-                    onClick={openAddDjScriptModal}
-                    className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
-                  >
-                    Add Script
-                  </PrimaryButton>
-                </div>
+                <SectionTitle className="text-stone-950">Show Book</SectionTitle>
+                <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                  Private, DJ/admin-only operational content for the booth. Saved to the database and
+                  synced across your devices. Never shown to clients and not included in the Event
+                  Document or Run Of Show. Changes save automatically.
+                </p>
               </PremiumCard>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <SectionTitle className="text-stone-950">DJ Scripts</SectionTitle>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                    Add, rename, or delete scripts per event—grand entrance, welcome, last call, and
+                    more.
+                  </p>
+                </div>
+                <PrimaryButton
+                  type="button"
+                  onClick={openAddDjScriptModal}
+                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                >
+                  Add Script
+                </PrimaryButton>
+              </div>
               <div className="mt-4 space-y-4">
                 {djScripts.map((entry) => (
                   <PremiumCard key={entry.id}>
@@ -17235,6 +17329,71 @@ export default function Home() {
                     primaryAction={{
                       label: "Add Script",
                       onClick: openAddDjScriptModal,
+                    }}
+                  />
+                )}
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <SectionTitle className="text-stone-950">Music Notes</SectionTitle>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                    Operational music guidance—genres, eras, dedications, and reminders (e.g. “play
+                    Lean On Me at dinner”). This is not the Must Play / Do Not Play playlist.
+                  </p>
+                </div>
+                <PrimaryButton
+                  type="button"
+                  onClick={addDjMusicNote}
+                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                >
+                  Add note
+                </PrimaryButton>
+              </div>
+              <div className="mt-4 space-y-3">
+                {djMusicNotes.map((note) => (
+                  <PremiumCard key={note.id}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <input
+                        type="text"
+                        value={note.text}
+                        onChange={(event) => {
+                          const nextText = event.target.value;
+                          setDjMusicNotes((prev) =>
+                            prev.map((item) =>
+                              item.id === note.id ? { ...item, text: nextText } : item,
+                            ),
+                          );
+                        }}
+                        onBlur={() => persistDjMusicNotesNow(djMusicNotes)}
+                        placeholder="e.g. Latin / Bad Bunny, or “Play Lean On Me at dinner”"
+                        aria-label="Music note"
+                        className={`${lightUiTextControlClass} flex-1`}
+                      />
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          const next = djMusicNotes
+                            .filter((item) => item.id !== note.id)
+                            .map((item, index) => ({ ...item, order: index }));
+                          setDjMusicNotes(next);
+                          persistDjMusicNotesNow(next);
+                        }}
+                        className="shrink-0 rounded-lg border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
+                      >
+                        Delete
+                      </PrimaryButton>
+                    </div>
+                  </PremiumCard>
+                ))}
+                {djMusicNotes.length === 0 && (
+                  <SectionEmptyState
+                    wrapWithCard
+                    title="No music notes yet"
+                    description="Add operational music guidance for the booth—genres, eras, dedications, and reminders."
+                    primaryAction={{
+                      label: "Add note",
+                      onClick: addDjMusicNote,
                     }}
                   />
                 )}

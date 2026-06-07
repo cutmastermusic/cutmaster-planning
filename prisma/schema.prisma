@@ -64,6 +64,8 @@ model Event {
   ceremonyPlan            Json?
   /** DB-backed DJ-only operational scripts (Show Book). Not client-facing. */
   djScripts               Json?
+  /** DB-backed DJ-only operational music notes (Show Book). Not client-facing. */
+  djMusicNotes            Json?
 
   ownerId String
   owner   User @relation(fields: [ownerId], references: [id])

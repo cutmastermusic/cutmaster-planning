@@ -232,6 +232,27 @@ export async function replaceDjScripts(
   });
 }
 
+export async function replaceDjMusicNotes(
+  eventId: string,
+  notes: Array<{
+    id: string;
+    text: string;
+    order: number;
+  }>,
+) {
+  logActionPayload("replaceDjMusicNotes", notes);
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      djMusicNotes: notes as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      djMusicNotes: true,
+    },
+  });
+}
+
 export async function updateEvent(id: string, data: EventData) {
   logActionPayload("updateEvent", data);
   return prisma.event.update({

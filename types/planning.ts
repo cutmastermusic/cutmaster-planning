@@ -361,6 +361,8 @@ export type Event = {
   vendors: Vendor[];
   /** DJ/admin operational scripts (DB-backed via Event.djScripts JSON column). */
   djScripts?: DjScripts;
+  /** DJ/admin operational music notes (DB-backed via Event.djMusicNotes JSON column). */
+  djMusicNotes?: DjMusicNotes;
   settings: EventSettings;
 };
 
@@ -380,6 +382,24 @@ export type DjScriptEntry = {
  * Event.djScripts. Never shown to clients and excluded from the Event Document.
  */
 export type DjScripts = DjScriptEntry[];
+
+/**
+ * A single DJ-only operational music note (Show Book Phase 1).
+ * Operational guidance like genres, eras, or reminders — not the Must/Do-Not
+ * Play playlist and not client-facing music planning.
+ */
+export type DjMusicNote = {
+  id: string;
+  text: string;
+  order: number;
+};
+
+/**
+ * DJ-only operational music notes. Stored as a single JSON array on
+ * Event.djMusicNotes. Never shown to clients and excluded from the Event
+ * Document. Defaults to an empty list (no seeded sample content).
+ */
+export type DjMusicNotes = DjMusicNote[];
 
 export type TimelineTemplate = {
   id: string;
