@@ -7878,29 +7878,12 @@ export default function Home() {
             const mergedEvents =
               lastMergedHydratedEventsRef.current ?? hydratedEvents;
             const prevExistsInMergedEvents = mergedEvents.some((evt) => evt.id === prev);
-            const prevInDbRef = databaseEventIdsRef.current.has(prev);
             const resolvedId = prevExistsInMergedEvents
               ? prev
               : mergedEvents[0]?.id ?? prev;
             const resolvedEvent =
               mergedEvents.find((evt) => evt.id === resolvedId) ??
               mergedEvents[0];
-            console.log("[EVENT-RESTORE-DEBUG] DB hydration → reconcile activeEventId", {
-              prevActiveEventId: prev,
-              prevExistsInMergedEvents,
-              prevInDatabaseEventIdsRef: prevInDbRef,
-              resolvedActiveEventId: resolvedId,
-              fallbackReason: prevExistsInMergedEvents
-                ? null
-                : prev
-                  ? "prev activeEventId not in mergedEvents — using mergedEvents[0] (newest DB event by createdAt desc)"
-                  : "no prev activeEventId — using mergedEvents[0]",
-              mergedEventIds: mergedEvents.map((evt) => ({
-                id: evt.id,
-                title: evt.meta?.couple ?? evt.settings?.eventName ?? null,
-              })),
-              resolvedEventTitle: resolvedEvent.meta?.couple ?? null,
-            });
             const evtTeam = (resolvedEvent as EventRecord & {
               eventTeamMembers?: TeamMember[];
             }).eventTeamMembers;
@@ -8005,19 +7988,6 @@ export default function Home() {
     try {
       const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
       const rawGlobal = window.localStorage.getItem(GLOBAL_SETTINGS_STORAGE_KEY);
-      console.log("[EVENT-RESTORE-DEBUG] localStorage hydration → start", {
-        hasEventsPayload: Boolean(raw),
-        storedActiveEventId: raw
-          ? (() => {
-              try {
-                return (JSON.parse(raw) as { activeEventId?: string }).activeEventId ?? null;
-              } catch {
-                return "(parse error)";
-              }
-            })()
-          : null,
-        url: window.location.href,
-      });
       if (!raw) {
         if (rawGlobal) {
           const parsedGlobal = JSON.parse(rawGlobal) as Partial<AppSettings>;
@@ -8171,29 +8141,11 @@ export default function Home() {
       if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
 
       const storedActiveId = parsed.activeEventId?.trim() || "";
-      const activeEventFoundInList = Boolean(
-        storedActiveId && migratedEvents.some((e) => e.id === storedActiveId),
-      );
       const activeForPlanning =
         (storedActiveId
           ? migratedEvents.find((e) => e.id === storedActiveId)
           : undefined) ?? migratedEvents[0];
       const resolvedActiveId = activeForPlanning?.id ?? "";
-      console.log("[EVENT-RESTORE-DEBUG] localStorage hydration → resolved", {
-        storedActiveEventId: storedActiveId || null,
-        resolvedActiveEventId: resolvedActiveId,
-        activeEventFoundInList,
-        planningEventId: activeForPlanning?.id ?? null,
-        planningEventTitle: activeForPlanning?.meta?.couple ?? null,
-        fallbackReason: !storedActiveId
-          ? "no stored activeEventId — used events[0]"
-          : !activeEventFoundInList
-            ? "stored activeEventId missing from events list — activeEventId aligned to events[0]"
-            : null,
-        eventIdsInStorage: migratedEvents.map((e) => e.id),
-        restoredActiveScreen: parsed.appState?.activeScreen ?? null,
-        restoredAppMode: parsed.appState?.appMode ?? null,
-      });
       if (resolvedActiveId) setActiveEventId(resolvedActiveId);
 
       // Restore the Run Of Show overlay for the resolved active event (local UI
@@ -10095,10 +10047,17 @@ export default function Home() {
   }, [runOfShowOverlayActive]);
 
   useEffect(() => {
+    // Don't auto-close during the boot/restore window: at mount appMode is
+    // still "events", so this effect would schedule a setTimeout(0) close that
+    // races with the restore setting runOfShowOpen=true. On mobile Safari the
+    // 0ms timer can win and override the restored overlay. hasHydrated only
+    // flips true after the restore batch (when activeScreen/appMode are already
+    // Event Prep/event), so gating here makes the restore deterministic.
+    if (!hasHydrated) return;
     if (activeScreen === "Event Prep" && appMode === "event") return;
     const t = window.setTimeout(() => setRunOfShowOpen(false), 0);
     return () => window.clearTimeout(t);
-  }, [activeScreen, appMode]);
+  }, [activeScreen, appMode, hasHydrated]);
 
   // Persist the Run Of Show overlay open-flag per event (local UI state only).
   // Mirrors the other Run Of Show localStorage entries — never written to the DB
@@ -10861,11 +10820,6 @@ export default function Home() {
         for (const [key, value] of Object.entries(notes)) {
           if (value.trim()) cleaned[key] = value;
         }
-        console.log("[EVENT-RESTORE-DEBUG] scratch pad persist", {
-          activeEventId,
-          cardKeys: Object.keys(cleaned),
-          noteCount: Object.keys(cleaned).length,
-        });
         map[activeEventId] = cleaned;
         window.localStorage.setItem(RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY, JSON.stringify(map));
       } catch {
@@ -11306,45 +11260,12 @@ export default function Home() {
 
   const doneRunOfShowCardNoteEditor = useCallback(() => {
     if (runOfShowCardNoteEditor) {
-      console.log("[EVENT-RESTORE-DEBUG] scratch pad save (Done in editor)", {
-        activeEventId,
-        cardKey: runOfShowCardNoteEditor.cardKey,
-        cardLabel: runOfShowCardNoteEditor.cardLabel,
-        draftLength: runOfShowCardNoteEditorDraft.length,
-      });
       setRunOfShowCardNote(runOfShowCardNoteEditor.cardKey, runOfShowCardNoteEditorDraft);
     }
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
     setRunOfShowCardNoteEditorSavedValue("");
-  }, [runOfShowCardNoteEditor, runOfShowCardNoteEditorDraft, setRunOfShowCardNote, activeEventId]);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    const matched = events.find((e) => e.id === activeEventId);
-    const displayEvent = matched ?? events[0];
-    console.log("[EVENT-RESTORE-DEBUG] active event context", {
-      activeEventId,
-      matchedEventId: matched?.id ?? null,
-      displayEventId: displayEvent?.id ?? null,
-      displayEventTitle: displayEvent?.meta?.couple ?? null,
-      usingEventsFallback: !matched && events.length > 0,
-      runOfShowOpen,
-      activeScreen,
-      appMode,
-    });
-  }, [hasHydrated, activeEventId, events, runOfShowOpen, activeScreen, appMode]);
-
-  useEffect(() => {
-    if (!runOfShowOpen) return;
-    const matched = events.find((e) => e.id === activeEventId);
-    console.log("[EVENT-RESTORE-DEBUG] Run Of Show overlay active", {
-      activeEventId,
-      matchedEventId: matched?.id ?? null,
-      matchedEventTitle: matched?.meta?.couple ?? null,
-      fallbackEventId: !matched ? events[0]?.id ?? null : null,
-    });
-  }, [runOfShowOpen, activeEventId, events]);
+  }, [runOfShowCardNoteEditor, runOfShowCardNoteEditorDraft, setRunOfShowCardNote]);
 
   const clearRunOfShowCardNoteEditorDraft = useCallback(() => {
     setRunOfShowCardNoteEditorDraft("");
@@ -11490,12 +11411,6 @@ export default function Home() {
         } else {
           const mapNotes = JSON.parse(rawNotes) as Record<string, Record<string, string>>;
           const notes = mapNotes[activeEventId];
-          console.log("[EVENT-RESTORE-DEBUG] scratch pad load for active event", {
-            activeEventId,
-            hasNotesForEvent: Boolean(notes && typeof notes === "object"),
-            cardKeys: notes && typeof notes === "object" ? Object.keys(notes) : [],
-            knownEventIdsInStorage: Object.keys(mapNotes),
-          });
           if (notes && typeof notes === "object" && !Array.isArray(notes)) {
             const cleaned: Record<string, string> = {};
             for (const [key, value] of Object.entries(notes)) {
