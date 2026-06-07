@@ -62,8 +62,11 @@
 }
 
 /** Run Of Show full-screen overlay — class-based lock avoids stuck inline overflow styles. */
+html.cm-ros-scroll-lock,
 body.cm-ros-scroll-lock {
   overflow: hidden;
+  overscroll-behavior: none;
+  height: 100%;
 }
 
 /**

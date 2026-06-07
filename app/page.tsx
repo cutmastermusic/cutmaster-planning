@@ -10142,8 +10142,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!runOfShowOverlayActive) return;
+    document.documentElement.classList.add("cm-ros-scroll-lock");
     document.body.classList.add("cm-ros-scroll-lock");
     return () => {
+      document.documentElement.classList.remove("cm-ros-scroll-lock");
       document.body.classList.remove("cm-ros-scroll-lock");
     };
   }, [runOfShowOverlayActive]);
@@ -20272,7 +20274,7 @@ export default function Home() {
         canAccessRunOfShow &&
         runOfShowOpen && (
           <div
-            className="no-print fixed inset-0 z-[200] flex flex-col bg-white text-stone-950"
+            className="no-print fixed inset-0 z-[200] flex h-[100dvh] flex-col overscroll-none bg-white text-stone-950"
             role="dialog"
             aria-label="Run of show"
           >
@@ -20397,7 +20399,7 @@ export default function Home() {
 
             <main
               ref={runOfShowScrollRef}
-              className="relative min-h-0 flex-1 overflow-y-auto scroll-smooth px-4 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10 md:pb-28 md:pt-10 lg:px-16 lg:pt-12"
+              className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth px-4 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10 md:pb-28 md:pt-10 lg:px-16 lg:pt-12"
             >
               <div
                 className="relative z-0 mx-auto w-full max-w-5xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl"
