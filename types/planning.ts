@@ -27,6 +27,8 @@ export type Screen =
   | "Event Team"
   | "Planning Checklist"
   | "Planning Questions"
+  /** Guided planning dashboard shell that fronts the planning experience. */
+  | "Planning Assistant"
   | "Notification Center"
   | "Settings"
   | "Event Settings";

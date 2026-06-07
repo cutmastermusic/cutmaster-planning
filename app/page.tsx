@@ -1954,7 +1954,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
       : []),
     ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
-    ...(s.sectionPlanningQuestionsEnabled ? (["Planning Questions"] as Screen[]) : []),
+    ...(s.sectionPlanningQuestionsEnabled ? (["Planning Assistant"] as Screen[]) : []),
     ...(s.sectionCeremonyEnabled && !s.sectionReceptionTimelineEnabled ? (["Ceremony"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
@@ -1976,7 +1976,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     "Reception Timeline",
     "Music Hub",
     "Planning Checklist",
-    "Planning Questions",
+    "Planning Assistant",
     "Ceremony",
     "Timeline",
     "Event Team",
@@ -1994,6 +1994,89 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     coupleNav.splice(dashIdx + 1, 0, t);
   }
   return coupleNav;
+}
+
+type PlanningAssistantStatus = "Complete" | "In Progress" | "Not Started";
+
+type PlanningAssistantSectionCard = {
+  id: string;
+  title: string;
+  description: string;
+  status: PlanningAssistantStatus;
+  /** Preferred navigation targets; the first one available in the current nav wins. */
+  targets: Screen[];
+};
+
+/**
+ * Static placeholder next steps for the Planning Assistant shell.
+ * These are intentionally non-interactive until the requirements engine lands.
+ */
+const PLANNING_ASSISTANT_NEXT_STEPS: string[] = [
+  "Add First Dance Song",
+  "Add Toast Speakers",
+  "Add Grand Entrance Participants",
+];
+
+/** Static section overview for the Planning Assistant shell (statuses are placeholders for now). */
+const PLANNING_ASSISTANT_SECTION_CARDS: PlanningAssistantSectionCard[] = [
+  {
+    id: "event-details",
+    title: "Event Details",
+    description: "Names, date, and venue—the foundation everything else builds on.",
+    status: "Complete",
+    targets: ["Event Settings"],
+  },
+  {
+    id: "timeline",
+    title: "Timeline",
+    description: "Map the flow of your day so every moment has its place.",
+    status: "In Progress",
+    targets: ["Timeline", "Reception Timeline"],
+  },
+  {
+    id: "music",
+    title: "Music",
+    description: "Share must-plays, do-not-plays, and the vibe you want on the floor.",
+    status: "In Progress",
+    targets: ["Music Hub"],
+  },
+  {
+    id: "people-vendors",
+    title: "People & Vendors",
+    description: "Keep your planner, photographer, and the rest of your team in one place.",
+    status: "In Progress",
+    targets: ["Event Team"],
+  },
+  {
+    id: "show-book",
+    title: "Show Book",
+    description: "The run-of-show notes that keep your reception flowing seamlessly.",
+    status: "Not Started",
+    targets: ["Scripts"],
+  },
+  {
+    id: "final-review",
+    title: "Final Review",
+    description: "A final pass to confirm everything is ready before the big day.",
+    status: "Not Started",
+    targets: ["Event Prep"],
+  },
+];
+
+function PlanningAssistantStatusBadge({ status }: { status: PlanningAssistantStatus }) {
+  const styles =
+    status === "Complete"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "In Progress"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-stone-200 bg-stone-100 text-stone-600";
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${styles}`}
+    >
+      {status}
+    </span>
+  );
 }
 
 /** When DB hydration completes, use DB playlist rows (deduped) as source of truth. */
@@ -7479,7 +7562,7 @@ export default function Home() {
         preferred = [
           tl,
           "Event Team",
-          "Planning Questions",
+          "Planning Assistant",
           "Planning Checklist",
           "Notes",
           "Event Settings",
@@ -7506,7 +7589,7 @@ export default function Home() {
           "Music Hub",
           tl,
           "Event Team",
-          "Planning Questions",
+          "Planning Assistant",
           "Ceremony",
           "Guest Requests",
           "Planning Checklist",
@@ -19193,6 +19276,94 @@ export default function Home() {
             ))}
           </section>
         )}
+
+        {authStage === "app" &&
+          appMode === "event" &&
+          activeScreen === "Planning Assistant" &&
+          sectionPlanningQuestionsEnabled && (
+            <section className={workspaceSectionLooseClass}>
+              <EventHomeNav
+                trail={["Planning Assistant"]}
+                onBack={() => setActiveScreen("Dashboard")}
+              />
+              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <SectionTitle>Planning Assistant</SectionTitle>
+                  <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
+                </div>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
+                  Let’s build your event together. Complete the steps below and we’ll guide you
+                  through everything needed before the big day.
+                </p>
+              </PremiumCard>
+
+              <PremiumCard className={premiumFormSectionCardClass}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <SectionTitle className="text-stone-950">Next steps</SectionTitle>
+                  <span className="shrink-0 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
+                    {PLANNING_ASSISTANT_NEXT_STEPS.length} to do
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                  A few quick wins to keep your planning moving—no pressure.
+                </p>
+                <ul className="mt-4 space-y-2.5">
+                  {PLANNING_ASSISTANT_NEXT_STEPS.map((task) => (
+                    <li
+                      key={task}
+                      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 shadow-[var(--cm-shadow-card)]"
+                    >
+                      <span
+                        aria-hidden
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
+                      >
+                        ○
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
+                        {task}
+                      </span>
+                      <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                        →
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </PremiumCard>
+
+              <div className="space-y-4">
+                <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                  Your planning sections
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {PLANNING_ASSISTANT_SECTION_CARDS.map((card) => {
+                    const target = card.targets.find((screen) =>
+                      allowedActiveEventScreens.includes(screen),
+                    );
+                    return (
+                      <PremiumCard key={card.id} className="flex h-full flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <SectionTitle className="text-stone-950">{card.title}</SectionTitle>
+                          <PlanningAssistantStatusBadge status={card.status} />
+                        </div>
+                        <p className="mt-2 flex-1 text-xs leading-relaxed text-stone-600">
+                          {card.description}
+                        </p>
+                        {target ? (
+                          <PrimaryButton
+                            type="button"
+                            onClick={() => setActiveScreen(target)}
+                            className={`mt-4 self-start ${lightUiSecondaryButtonClass}`}
+                          >
+                            Open {card.title}
+                          </PrimaryButton>
+                        ) : null}
+                      </PremiumCard>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
 
         {authStage === "app" &&
           appMode === "event" &&
