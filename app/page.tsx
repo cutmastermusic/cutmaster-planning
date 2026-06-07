@@ -1209,11 +1209,20 @@ function TeamCueNotes({
   format,
   attentionLabel,
   done,
+  cardKey,
+  checkedKeys,
+  onToggleLine,
 }: {
   notes: string;
   format: TeamCueFormat;
   attentionLabel: string;
   done: boolean;
+  /** Stable per-card key (`c:{id}` / `r:{id}`) used to scope per-line checkoffs. */
+  cardKey?: string;
+  /** Set of checked line keys (`${cardKey}::${lineIndex}`). */
+  checkedKeys?: Set<string>;
+  /** Toggle handler for a list line. When provided with `cardKey`, the list becomes interactive. */
+  onToggleLine?: (lineIndex: number) => void;
 }) {
   const trimmed = notes?.trim() ?? "";
   const lines = trimmed
@@ -1223,6 +1232,8 @@ function TeamCueNotes({
   const asList = (format === "bullets" || format === "numbered") && lines.length > 0;
   const plainLabel = [trimmed, attentionLabel].filter(Boolean).join(" · ");
   if (!asList && !plainLabel) return null;
+
+  const interactive = asList && Boolean(cardKey) && typeof onToggleLine === "function";
 
   const headerClass = `text-[10px] font-semibold uppercase tracking-[0.14em] ${
     done ? "text-stone-400" : "text-stone-500"
@@ -1236,7 +1247,43 @@ function TeamCueNotes({
       <p className={headerClass}>Shared team cue</p>
       {asList ? (
         <>
-          {format === "numbered" ? (
+          {interactive ? (
+            <ul className={`${bodyClass} mt-1.5 list-none space-y-1.5 pl-0`}>
+              {lines.map((line, index) => {
+                const lineKey = `${cardKey}::${index}`;
+                const checked = checkedKeys?.has(lineKey) ?? false;
+                return (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => onToggleLine?.(index)}
+                      aria-pressed={checked}
+                      aria-label={
+                        checked ? `Uncheck "${line}"` : `Check off "${line}"`
+                      }
+                      className={`flex w-full touch-manipulation items-start gap-2.5 text-left transition active:scale-[0.99] ${
+                        checked ? "opacity-50" : ""
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold leading-none transition ${
+                          checked
+                            ? "border-stone-400 bg-stone-300/70 text-stone-700"
+                            : "border-stone-400 bg-white text-transparent"
+                        }`}
+                      >
+                        ✓
+                      </span>
+                      <span className={checked ? "line-through decoration-stone-400" : ""}>
+                        {format === "numbered" ? `${index + 1}. ${line}` : line}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : format === "numbered" ? (
             <ol className={`${bodyClass} list-decimal space-y-1 pl-6`}>
               {lines.map((line, index) => (
                 <li key={index}>{line}</li>
@@ -2697,6 +2744,12 @@ export default function Home() {
   const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
   /** Per-card operational notes in Run Of Show (`c:{id}` / `r:{id}`), local to device. */
   const [runOfShowCardNotes, setRunOfShowCardNotes] = useState<Record<string, string>>({});
+  /**
+   * Per-line checkoffs for bulleted/numbered Shared Team Cue lists in Run Of Show.
+   * Keyed by `${cardKey}::${lineIndex}` (cardKey = `c:{id}` / `r:{id}`). Operational
+   * state only — localStorage-scoped by event, never persisted to the database.
+   */
+  const [runOfShowCueChecks, setRunOfShowCueChecks] = useState<Set<string>>(new Set());
   const [runOfShowCardNoteEditor, setRunOfShowCardNoteEditor] = useState<{
     cardKey: string;
     cardLabel: string;
@@ -7834,6 +7887,8 @@ export default function Home() {
   const RUN_OF_SHOW_SECTION_UI_STORAGE_KEY = "cutmaster_run_of_show_section_ui_v1";
   const RUN_OF_SHOW_CARD_NOTES_STORAGE_KEY = "cutmaster_run_of_show_card_notes_v1";
   const RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY = "cutmaster_run_of_show_annotations_v1";
+  const RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY = "cutmaster_run_of_show_cue_checks_v1";
+  const RUN_OF_SHOW_VIEW_OPEN_STORAGE_KEY = "cutmaster_run_of_show_view_open_v1";
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -8031,6 +8086,23 @@ export default function Home() {
         restoredAppMode: parsed.appState?.appMode ?? null,
       });
       if (resolvedActiveId) setActiveEventId(resolvedActiveId);
+
+      // Restore the Run Of Show overlay for the resolved active event (local UI
+      // state only). `activeScreen` ("Event Prep") is already restored above;
+      // the overlay open-flag lives in its own per-event localStorage entry.
+      // Only reopen when the restored view is the Event Prep screen in event
+      // mode, so we never force Run Of Show open on an unrelated screen.
+      try {
+        const restoredScreen = migrateLegacyScreenId(parsed.appState?.activeScreen ?? "Dashboard");
+        const restoredMode = parsed.appState?.appMode === "event" ? "event" : "events";
+        if (resolvedActiveId && restoredScreen === "Event Prep" && restoredMode === "event") {
+          const rawRos = window.localStorage.getItem(RUN_OF_SHOW_VIEW_OPEN_STORAGE_KEY);
+          const mapRos = rawRos ? (JSON.parse(rawRos) as Record<string, boolean>) : {};
+          if (mapRos[resolvedActiveId] === true) setRunOfShowOpen(true);
+        }
+      } catch {
+        /* ignore corrupt storage */
+      }
 
       const active = activeForPlanning;
 
@@ -9913,6 +9985,26 @@ export default function Home() {
     return () => window.clearTimeout(t);
   }, [activeScreen, appMode]);
 
+  // Persist the Run Of Show overlay open-flag per event (local UI state only).
+  // Mirrors the other Run Of Show localStorage entries — never written to the DB
+  // and independent of the main autosave so toggling the overlay can't trigger
+  // event/timeline persistence.
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasHydrated || !activeEventId) return;
+    try {
+      const raw = window.localStorage.getItem(RUN_OF_SHOW_VIEW_OPEN_STORAGE_KEY);
+      const map = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      if (runOfShowOpen) {
+        map[activeEventId] = true;
+      } else {
+        delete map[activeEventId];
+      }
+      window.localStorage.setItem(RUN_OF_SHOW_VIEW_OPEN_STORAGE_KEY, JSON.stringify(map));
+    } catch {
+      /* ignore quota / corrupt storage */
+    }
+  }, [runOfShowOpen, activeEventId, hasHydrated]);
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     const syncFs = () => setRunOfShowIsFullscreen(!!document.fullscreenElement);
@@ -10691,6 +10783,38 @@ export default function Home() {
     [persistRunOfShowCardNotes],
   );
 
+  const persistRunOfShowCueChecks = useCallback(
+    (checks: Set<string>) => {
+      if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
+      try {
+        const raw = window.localStorage.getItem(RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY);
+        const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+        if (checks.size > 0) {
+          map[activeEventId] = [...checks];
+        } else {
+          delete map[activeEventId];
+        }
+        window.localStorage.setItem(RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        /* ignore quota / corrupt storage */
+      }
+    },
+    [activeEventId, hasHydrated],
+  );
+
+  const toggleRunOfShowCueCheck = useCallback(
+    (cueKey: string) => {
+      setRunOfShowCueChecks((prev) => {
+        const next = new Set(prev);
+        if (next.has(cueKey)) next.delete(cueKey);
+        else next.add(cueKey);
+        persistRunOfShowCueChecks(next);
+        return next;
+      });
+    },
+    [persistRunOfShowCueChecks],
+  );
+
   const openGrandEntranceDetail = useCallback(
     (item: {
       id: string;
@@ -11198,6 +11322,7 @@ export default function Home() {
     void persistRunOfShowTimelineFlags(nextMain, nextCeremony);
     setRunOfShowUserExpandedWhileCompleteIds(new Set());
     setRunOfShowAnnotationStrokes([]);
+    setRunOfShowCueChecks(new Set());
     if (typeof window === "undefined" || !activeEventId) return;
     try {
       const raw = window.localStorage.getItem(RUN_OF_SHOW_DONE_STORAGE_KEY);
@@ -11205,6 +11330,12 @@ export default function Home() {
         const map = JSON.parse(raw) as Record<string, string[]>;
         delete map[activeEventId];
         window.localStorage.setItem(RUN_OF_SHOW_DONE_STORAGE_KEY, JSON.stringify(map));
+      }
+      const rawCueChecks = window.localStorage.getItem(RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY);
+      if (rawCueChecks) {
+        const mapCue = JSON.parse(rawCueChecks) as Record<string, string[]>;
+        delete mapCue[activeEventId];
+        window.localStorage.setItem(RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY, JSON.stringify(mapCue));
       }
       const rawSec = window.localStorage.getItem(RUN_OF_SHOW_SECTION_UI_STORAGE_KEY);
       if (rawSec) {
@@ -11260,6 +11391,16 @@ export default function Home() {
             setRunOfShowCardNotes({});
           }
         }
+        const rawCueChecks = window.localStorage.getItem(RUN_OF_SHOW_CUE_CHECKS_STORAGE_KEY);
+        if (!rawCueChecks) {
+          setRunOfShowCueChecks(new Set());
+        } else {
+          const mapCue = JSON.parse(rawCueChecks) as Record<string, string[]>;
+          const arr = mapCue[activeEventId];
+          setRunOfShowCueChecks(
+            new Set(Array.isArray(arr) ? arr.filter((k) => typeof k === "string") : []),
+          );
+        }
         const rawAn = window.localStorage.getItem(RUN_OF_SHOW_ANNOTATIONS_STORAGE_KEY);
         if (!rawAn) {
           setRunOfShowAnnotationStrokes([]);
@@ -11280,6 +11421,7 @@ export default function Home() {
       } catch {
         setRunOfShowUserExpandedWhileCompleteIds(new Set());
         setRunOfShowCardNotes({});
+        setRunOfShowCueChecks(new Set());
         setRunOfShowAnnotationStrokes([]);
       }
     }, 0);
@@ -20068,6 +20210,11 @@ export default function Home() {
                                     format={row.teamCueFormat}
                                     attentionLabel={row.needsDjMcAttention ? "MC/DJ Attention" : ""}
                                     done={done}
+                                    cardKey={doneKey}
+                                    checkedKeys={runOfShowCueChecks}
+                                    onToggleLine={(lineIndex) =>
+                                      toggleRunOfShowCueCheck(`${doneKey}::${lineIndex}`)
+                                    }
                                   />
                                 </div>
                                 <div className="w-full shrink-0 md:w-[9.5rem] md:self-stretch md:border-l md:border-stone-200/70 md:pl-4 lg:w-[11rem] lg:pl-5 xl:w-[12.5rem]">
@@ -20282,6 +20429,11 @@ export default function Home() {
                                             format={normalizeTeamCueFormat(item.teamCueFormat)}
                                             attentionLabel={item.needsDjMcAttention ? "MC/DJ attention" : ""}
                                             done={done}
+                                            cardKey={doneKey}
+                                            checkedKeys={runOfShowCueChecks}
+                                            onToggleLine={(lineIndex) =>
+                                              toggleRunOfShowCueCheck(`${doneKey}::${lineIndex}`)
+                                            }
                                           />
                                           {isGrandEntrance ? (
                                             <div className="mt-5 flex flex-wrap gap-2">
