@@ -210,6 +210,28 @@ export async function replaceCeremonyPlan(eventId: string, plan: EventCeremonyPl
   });
 }
 
+export async function replaceDjScripts(
+  eventId: string,
+  scripts: Array<{
+    id: string;
+    title: string;
+    body: string;
+    order: number;
+  }>,
+) {
+  logActionPayload("replaceDjScripts", scripts);
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      djScripts: scripts as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      djScripts: true,
+    },
+  });
+}
+
 export async function updateEvent(id: string, data: EventData) {
   logActionPayload("updateEvent", data);
   return prisma.event.update({

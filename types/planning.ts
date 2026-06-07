@@ -21,6 +21,8 @@ export type Screen =
   | "Reception Timeline"
   | "Event Prep"
   | "Notes"
+  /** DJ/admin-only operational scripts (not client-facing, not in Event Document). */
+  | "Scripts"
   /** Unified people & contacts (vendors + app access); replaces legacy Vendors / Collaborators screens. */
   | "Event Team"
   | "Planning Checklist"
@@ -357,8 +359,27 @@ export type Event = {
   /** Structured taste tags + optional vibe notes (Music Hub). */
   musicTasteProfile?: MusicTasteProfile;
   vendors: Vendor[];
+  /** DJ/admin operational scripts (DB-backed via Event.djScripts JSON column). */
+  djScripts?: DjScripts;
   settings: EventSettings;
 };
+
+/**
+ * A single DJ-only operational script entry (Show Book Phase 1).
+ * DJs/admins can add, rename, edit, and delete entries per event.
+ */
+export type DjScriptEntry = {
+  id: string;
+  title: string;
+  body: string;
+  order: number;
+};
+
+/**
+ * DJ-only operational scripts. Stored as a single JSON array on
+ * Event.djScripts. Never shown to clients and excluded from the Event Document.
+ */
+export type DjScripts = DjScriptEntry[];
 
 export type TimelineTemplate = {
   id: string;

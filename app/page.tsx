@@ -37,6 +37,7 @@ import {
   replaceEventSongsGuarded as replaceEventSongs,
   replacePlanningQuestionAnswersGuarded as replacePlanningQuestionAnswers,
   replaceCeremonyPlanGuarded as replaceCeremonyPlan,
+  replaceDjScriptsGuarded as replaceDjScripts,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
 import {
@@ -147,6 +148,7 @@ import type {
   CeremonyTimelineItem,
   Collaborator,
   DisplayTimelineItem,
+  DjScripts,
   EventStatus,
   EventSettings,
   EventRecord,
@@ -276,6 +278,12 @@ import {
   normalizePlanningQuestionAnswersForDb,
   parseCeremonyPlanJson,
 } from "@/lib/planningPersistence";
+import {
+  createDjScriptEntry,
+  defaultDjScripts,
+  normalizeDjScriptsForDb,
+  parseDjScriptsJson,
+} from "@/lib/djScripts";
 import {
   defaultCeremonyCoverageStatus,
   isCeremonyCoverageNotProvided,
@@ -1943,6 +1951,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
     "Event Team",
+    "Scripts",
     "Event Settings",
     ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
   ];
@@ -1951,7 +1960,8 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     return base.filter((item) => item !== "Event Settings");
   }
   if (role === "Planner") {
-    return base;
+    // Scripts are DJ/admin-only operational content.
+    return base.filter((item) => item !== "Scripts");
   }
   const coupleAllowedScreens: Screen[] = [
     "Dashboard",
@@ -2846,6 +2856,10 @@ export default function Home() {
     null,
   );
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
+  const [djScripts, setDjScripts] = useState<DjScripts>(() => defaultDjScripts());
+  const [djScriptModalOpen, setDjScriptModalOpen] = useState(false);
+  const [djScriptDraftTitle, setDjScriptDraftTitle] = useState("");
+  const [djScriptDraftBody, setDjScriptDraftBody] = useState("");
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
   const [rolePreview, setRolePreview] = useState<UserRole>("Admin");
   const effectiveRole = resolveEffectiveRole(currentRole, rolePreview);
@@ -3480,6 +3494,68 @@ export default function Home() {
     [],
   );
 
+  const persistDjScriptsToDatabase = useCallback(
+    async (
+      eventId: string,
+      scripts: DjScripts,
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceDjScripts(eventId, normalizeDjScriptsForDb(scripts));
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist DJ scripts to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
+  // DJ Scripts are operational show-day content. Structural changes (add/delete)
+  // and completed edits must reach the database immediately rather than waiting
+  // on the 450ms autosave debounce, so a refresh right after a change can never
+  // drop the write. Mirrors the value into the local events backup too.
+  const persistDjScriptsNow = useCallback(
+    (next: DjScripts) => {
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? ({ ...evt, djScripts: cloneJson(next) } as EventRecord)
+            : evt,
+        ),
+      );
+      void persistDjScriptsToDatabase(activeEventId, next);
+    },
+    [activeEventId, persistDjScriptsToDatabase],
+  );
+
+  // Safety net: if the page is hidden/refreshed/closed while a DJ script edit is
+  // still inside the autosave debounce window, persist the current scripts
+  // immediately. DJ Scripts only — does not touch the timeline draft flush.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flushDjScripts = () => {
+      if (!activeEventId) return;
+      if (!databaseEventIdsRef.current.has(activeEventId)) return;
+      void persistDjScriptsToDatabase(activeEventId, djScripts);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushDjScripts();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flushDjScripts);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flushDjScripts);
+    };
+  }, [activeEventId, djScripts, persistDjScriptsToDatabase]);
+
   const persistEventMetadataToDatabase = useCallback(
     async (
       eventId: string,
@@ -3609,6 +3685,8 @@ export default function Home() {
               settingsForCeremonyDb,
             ),
           );
+
+          await persistDjScriptsToDatabase(activeEventId, djScripts);
         } catch (error) {
           console.error("Failed to persist event settings:", error);
         }
@@ -3650,6 +3728,7 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
+            djScripts: cloneJson(djScripts),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, evt.settings)
@@ -3679,6 +3758,7 @@ export default function Home() {
     generalDjNotes,
     guestRequests,
     mcAnnouncements,
+    djScripts,
     microphoneNeeds,
     musicVibeDetail,
     musicTasteProfile,
@@ -3700,6 +3780,7 @@ export default function Home() {
     persistSongsToDatabase,
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
+    persistDjScriptsToDatabase,
     currentRole,
     rolePreview,
     events,
@@ -3807,6 +3888,7 @@ export default function Home() {
     setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
     setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
     setMcAnnouncements(evt.mcAnnouncements);
+    setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setEventSettings(
       cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
@@ -4099,6 +4181,7 @@ export default function Home() {
       musicVibeDetail: cloneJson(musicVibeDetail),
       musicTasteProfile: cloneJson(musicTasteProfile),
       mcAnnouncements,
+      djScripts: defaultDjScripts(),
       settings: {
         eventLayoutProfile: "Wedding",
         eventName: meta.couple || "New Event",
@@ -6242,6 +6325,28 @@ export default function Home() {
     resetEventNoteDraft();
   };
 
+  const openAddDjScriptModal = () => {
+    setDjScriptDraftTitle("");
+    setDjScriptDraftBody("");
+    setDjScriptModalOpen(true);
+  };
+
+  const closeDjScriptModal = () => {
+    setDjScriptModalOpen(false);
+    setDjScriptDraftTitle("");
+    setDjScriptDraftBody("");
+  };
+
+  const confirmAddDjScript = () => {
+    const title = djScriptDraftTitle.trim();
+    const body = djScriptDraftBody;
+    const entry = createDjScriptEntry(djScripts.length);
+    const next = [...djScripts, { ...entry, title, body }];
+    setDjScripts(next);
+    persistDjScriptsNow(next);
+    closeDjScriptModal();
+  };
+
   const sortEventNotesForDisplay = (notes: EventNote[]) =>
     notes
       .slice()
@@ -7744,6 +7849,10 @@ export default function Home() {
           seededEvent.vendors = [];
           seededEvent.plannerNotes = [];
 
+          // DJ Scripts ARE DB-backed (Event.djScripts JSON column), so hydrate
+          // them from the row rather than resetting to empty.
+          seededEvent.djScripts = parseDjScriptsJson(dbEvent.djScripts);
+
           return seededEvent;
         });
 
@@ -8196,6 +8305,7 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
+            djScripts: cloneJson(djScripts),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
@@ -8313,6 +8423,7 @@ export default function Home() {
               settingsForCeremonyDb,
             ),
           );
+          void persistDjScriptsToDatabase(activeEventId, djScripts);
         } else {
           logDbPersistGuard("autosave DB persist skipped", {
             activeEventId,
@@ -8369,7 +8480,9 @@ export default function Home() {
     persistSongsToDatabase,
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
+    persistDjScriptsToDatabase,
     persistEventMetadataToDatabase,
+    djScripts,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -8584,6 +8697,7 @@ export default function Home() {
             musicVibeDetail,
             musicTasteProfile: cloneJson(musicTasteProfile),
             mcAnnouncements,
+            djScripts: cloneJson(djScripts),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
@@ -8617,6 +8731,7 @@ export default function Home() {
       musicVibeDetail,
       musicTasteProfile,
       mcAnnouncements,
+      djScripts,
       eventSettings,
       isActualCouple,
     ],
@@ -17114,6 +17229,104 @@ export default function Home() {
           </section>
         )}
 
+        {authStage === "app" &&
+          appMode === "event" &&
+          activeScreen === "Scripts" &&
+          (effectiveRole === "Admin" || effectiveRole === "DJ") && (
+            <section className={workspaceSectionClass}>
+              <EventHomeNav
+                trail={["Scripts"]}
+                onBack={() => setActiveScreen("Dashboard")}
+              />
+              <PremiumCard variant="accent">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <SectionTitle className="text-stone-950">DJ Scripts</SectionTitle>
+                    <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                      Private operational scripts for the DJ booth. Add, rename, or delete scripts
+                      per event. Saved to the database and synced across your devices. Never shown to
+                      clients and not included in the Event Document. Changes save automatically.
+                    </p>
+                  </div>
+                  <PrimaryButton
+                    type="button"
+                    onClick={openAddDjScriptModal}
+                    className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                  >
+                    Add Script
+                  </PrimaryButton>
+                </div>
+              </PremiumCard>
+              <div className="mt-4 space-y-4">
+                {djScripts.map((entry) => (
+                  <PremiumCard key={entry.id}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <input
+                        type="text"
+                        value={entry.title}
+                        onChange={(event) => {
+                          const nextTitle = event.target.value;
+                          setDjScripts((prev) =>
+                            prev.map((item) =>
+                              item.id === entry.id ? { ...item, title: nextTitle } : item,
+                            ),
+                          );
+                        }}
+                        onBlur={() => persistDjScriptsNow(djScripts)}
+                        placeholder="Script title (e.g. Grand Entrance)"
+                        aria-label="Script title"
+                        className={`${lightUiTextControlClass} flex-1 font-semibold`}
+                      />
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          const next = djScripts
+                            .filter((item) => item.id !== entry.id)
+                            .map((item, index) => ({ ...item, order: index }));
+                          setDjScripts(next);
+                          persistDjScriptsNow(next);
+                        }}
+                        className="shrink-0 rounded-lg border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
+                      >
+                        Delete
+                      </PrimaryButton>
+                    </div>
+                    <div className="mt-3">
+                      <textarea
+                        id={`dj-script-body-${entry.id}`}
+                        value={entry.body}
+                        onChange={(event) => {
+                          const nextBody = event.target.value;
+                          setDjScripts((prev) =>
+                            prev.map((item) =>
+                              item.id === entry.id ? { ...item, body: nextBody } : item,
+                            ),
+                          );
+                        }}
+                        onBlur={() => persistDjScriptsNow(djScripts)}
+                        rows={5}
+                        placeholder="Script content, cues, or reminders…"
+                        aria-label="Script content"
+                        className={`${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)]`}
+                      />
+                    </div>
+                  </PremiumCard>
+                ))}
+                {djScripts.length === 0 && (
+                  <SectionEmptyState
+                    wrapWithCard
+                    title="No scripts yet"
+                    description="Add operational scripts for the DJ booth—grand entrance, welcome, last call, and more."
+                    primaryAction={{
+                      label: "Add Script",
+                      onClick: openAddDjScriptModal,
+                    }}
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
         {authStage === "app" && appMode === "event" && activeScreen === "Event Team" && (
           <section
             className={`${workspaceSectionClass} overflow-x-hidden`}
@@ -19218,6 +19431,70 @@ export default function Home() {
             </PrimaryButton>
           </div>
         </>
+      )}
+
+      {djScriptModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add DJ script"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmAddDjScript();
+            }}
+            className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 lg:h-full lg:max-h-none lg:max-w-lg lg:rounded-3xl"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
+              <SectionTitle className="text-stone-950">Add Script</SectionTitle>
+              <PrimaryButton
+                type="button"
+                onClick={closeDjScriptModal}
+                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+              >
+                Close
+              </PrimaryButton>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+              <div className="space-y-3">
+                <TextInput
+                  id="dj-script-modal-title"
+                  label="Script Title"
+                  value={djScriptDraftTitle}
+                  onChange={setDjScriptDraftTitle}
+                  placeholder="e.g. Grand Entrance"
+                />
+                <TextArea
+                  id="dj-script-modal-body"
+                  label="Script Body"
+                  value={djScriptDraftBody}
+                  onChange={setDjScriptDraftBody}
+                  rows={6}
+                  placeholder="Script content, cues, or reminders…"
+                />
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(28,25,23,0.12)] lg:pb-3">
+              <div className="grid grid-cols-2 gap-2">
+                <PrimaryButton
+                  type="button"
+                  onClick={closeDjScriptModal}
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                >
+                  Cancel
+                </PrimaryButton>
+                <PrimaryButton
+                  type="submit"
+                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105"
+                >
+                  Add Script
+                </PrimaryButton>
+              </div>
+            </div>
+          </form>
+        </div>
       )}
 
       {noteModalOpen && (
