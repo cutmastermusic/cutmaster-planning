@@ -5377,6 +5377,20 @@ export default function Home() {
   /** Couple role cannot see ROS UI; keeps scroll lock off if `runOfShowOpen` is stale. */
   const runOfShowOverlayActive = runOfShowOpen && canAccessRunOfShow;
 
+  // Read-only Show Book content for the bottom of Run Of Show (Admin/DJ only).
+  // Only non-empty scripts/notes surface; the section hides entirely when empty.
+  const runOfShowVisibleDjScripts = useMemo(
+    () => djScripts.filter((s) => (s.title ?? "").trim() || (s.body ?? "").trim()),
+    [djScripts],
+  );
+  const runOfShowVisibleMusicNotes = useMemo(
+    () => djMusicNotes.filter((n) => (n.text ?? "").trim()),
+    [djMusicNotes],
+  );
+  const runOfShowShowBookVisible =
+    (effectiveRole === "Admin" || effectiveRole === "DJ") &&
+    (runOfShowVisibleDjScripts.length > 0 || runOfShowVisibleMusicNotes.length > 0);
+
   useLayoutEffect(() => {
     if (!hasHydrated || typeof window === "undefined") return;
     if (runOfShowOverlayActive) return;
@@ -20956,6 +20970,49 @@ export default function Home() {
                   <p className="py-12 text-center text-base text-stone-600">
                     No ceremony or reception timeline is enabled for this event.
                   </p>
+                ) : null}
+
+                {runOfShowShowBookVisible ? (
+                  <section className="mt-14 sm:mt-16">
+                    <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
+                      Show Book
+                    </h3>
+                    {runOfShowVisibleDjScripts.length > 0 ? (
+                      <div className="mt-6">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
+                          DJ Scripts
+                        </p>
+                        <div className="mt-3 space-y-5">
+                          {runOfShowVisibleDjScripts.map((script) => (
+                            <div key={script.id}>
+                              {(script.title ?? "").trim() ? (
+                                <p className="text-sm font-semibold leading-snug text-stone-900 md:text-base">
+                                  {script.title}
+                                </p>
+                              ) : null}
+                              {(script.body ?? "").trim() ? (
+                                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-700 md:text-base">
+                                  {script.body}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {runOfShowVisibleMusicNotes.length > 0 ? (
+                      <div className="mt-8">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
+                          Music Notes
+                        </p>
+                        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-stone-700 md:text-base">
+                          {runOfShowVisibleMusicNotes.map((note) => (
+                            <li key={note.id}>{note.text}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </section>
                 ) : null}
               </div>
               {RUN_OF_SHOW_ANNOTATION_ENABLED &&
