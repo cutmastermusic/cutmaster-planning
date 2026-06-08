@@ -5489,6 +5489,19 @@ export default function Home() {
     return statusByCardId;
   }, [planningChecklist]);
 
+  // Presentation-only tallies for the Planning Assistant progress card (reads existing checklist).
+  const planningAssistantCounts = useMemo(() => {
+    let complete = 0;
+    let inProgress = 0;
+    let notStarted = 0;
+    for (const task of planningChecklist) {
+      if (task.status === "Complete") complete += 1;
+      else if (task.status === "In Progress") inProgress += 1;
+      else notStarted += 1;
+    }
+    return { complete, inProgress, notStarted, total: planningChecklist.length };
+  }, [planningChecklist]);
+
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
@@ -19450,6 +19463,90 @@ export default function Home() {
                   Let’s build your event together. Complete the steps below and we’ll guide you
                   through everything needed before the big day.
                 </p>
+              </PremiumCard>
+
+              <PremiumCard className={premiumFormSectionCardClass}>
+                <div className="flex items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Planning progress
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                      {planningAssistantCounts.complete} of {planningAssistantCounts.total}{" "}
+                      {planningAssistantCounts.total === 1 ? "step" : "steps"} complete
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-4xl font-semibold tabular-nums text-stone-900">
+                    {completionPercent}%
+                  </p>
+                </div>
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-200">
+                  <div
+                    className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
+                    style={{ width: `${completionPercent}%` }}
+                  />
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
+                    <p className="text-lg font-semibold tabular-nums text-stone-900">
+                      {planningAssistantCounts.complete}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
+                      Done
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
+                    <p className="text-lg font-semibold tabular-nums text-stone-900">
+                      {planningAssistantCounts.inProgress}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
+                      In progress
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
+                    <p className="text-lg font-semibold tabular-nums text-stone-900">
+                      {planningAssistantCounts.notStarted}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
+                      Not started
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm font-medium leading-snug text-stone-700">
+                  {daysUntilWedding === null
+                    ? "Add your event date to unlock a gentle countdown"
+                    : daysUntilWedding === 0
+                      ? "It’s event day—breathe, you’ve got this"
+                      : layoutProfileForActiveEvent === "Wedding" ||
+                          layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+                        ? `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until you say “I do”`
+                        : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
+                </p>
+
+                {upcomingMilestones.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => navigateToChecklistTask(upcomingMilestones[0].id)}
+                    className="mt-3 flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                        Next due
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">
+                        {upcomingMilestones[0].title}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-stone-500">
+                        {upcomingMilestones[0].dueDateLabel}
+                      </span>
+                    </span>
+                    <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                      →
+                    </span>
+                  </button>
+                ) : null}
               </PremiumCard>
 
               <PremiumCard className={premiumFormSectionCardClass}>
