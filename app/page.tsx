@@ -5502,6 +5502,41 @@ export default function Home() {
     return { complete, inProgress, notStarted, total: planningChecklist.length };
   }, [planningChecklist]);
 
+  // Presentation-only Planning Health derivation. Reuses the existing checklist's per-task status,
+  // missingNotes, and dueDate; the template is consulted ONLY to identify optional tasks (so they
+  // don't count as blocking). No engine/persistence involvement.
+  const planningHealth = useMemo(() => {
+    const optionalTaskIds = new Set(
+      DEFAULT_PLANNING_CHECKLIST_TEMPLATE.filter((task) => task.optional).map((task) => task.id),
+    );
+    const incomplete = planningChecklist.filter((task) => task.status !== "Complete");
+
+    const blockingItems = incomplete
+      .filter((task) => !optionalTaskIds.has(task.id))
+      .slice()
+      .sort((a, b) => {
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return 0;
+      });
+
+    const seen = new Set<string>();
+    const missingInformation: Array<{ note: string; taskId: string }> = [];
+    for (const task of incomplete) {
+      for (const note of task.missingNotes) {
+        const key = note.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        missingInformation.push({ note, taskId: task.id });
+        if (missingInformation.length >= 6) break;
+      }
+      if (missingInformation.length >= 6) break;
+    }
+
+    return { blockingItems, missingInformation };
+  }, [planningChecklist]);
+
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
@@ -19547,6 +19582,95 @@ export default function Home() {
                     </span>
                   </button>
                 ) : null}
+              </PremiumCard>
+
+              <PremiumCard className={premiumFormSectionCardClass}>
+                <SectionTitle className="text-stone-950">Planning health</SectionTitle>
+                <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                  A quick read on anything blocking your plan or still missing details.
+                </p>
+
+                {planningHealth.blockingItems.length === 0 &&
+                planningHealth.missingInformation.length === 0 ? (
+                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+                    <span aria-hidden className="mt-0.5 text-sm font-semibold text-emerald-600">
+                      ✓
+                    </span>
+                    <p className="text-sm font-medium leading-snug text-emerald-800">
+                      Everything’s looking healthy—nothing needs your attention right now.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-5">
+                    {planningHealth.blockingItems.length > 0 ? (
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                            Blocking items
+                          </p>
+                          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-800">
+                            {planningHealth.blockingItems.length}
+                          </span>
+                        </div>
+                        <ul className="mt-2.5 space-y-2">
+                          {planningHealth.blockingItems.map((task) => (
+                            <li key={task.id}>
+                              <button
+                                type="button"
+                                onClick={() => navigateToChecklistTask(task.id)}
+                                className="flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
+                              >
+                                <span
+                                  aria-hidden
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
+                                />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm font-medium text-stone-900">
+                                    {task.title}
+                                  </span>
+                                  {task.dueDate ? (
+                                    <span className="mt-0.5 block text-[11px] text-stone-500">
+                                      {task.dueDateLabel}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                                  →
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {planningHealth.missingInformation.length > 0 ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                          Missing information
+                        </p>
+                        <ul className="mt-2.5 space-y-2">
+                          {planningHealth.missingInformation.map((entry) => (
+                            <li key={`${entry.taskId}-${entry.note}`}>
+                              <button
+                                type="button"
+                                onClick={() => navigateToChecklistTask(entry.taskId)}
+                                className="flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
+                              >
+                                <span className="min-w-0 flex-1 text-sm text-stone-700 [overflow-wrap:anywhere]">
+                                  {entry.note}
+                                </span>
+                                <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                                  →
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </PremiumCard>
 
               <PremiumCard className={premiumFormSectionCardClass}>
