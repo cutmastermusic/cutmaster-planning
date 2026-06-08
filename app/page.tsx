@@ -1986,14 +1986,23 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   ];
   let coupleNav = base.filter((item) => coupleAllowedScreens.includes(item));
   coupleNav = coupleNav.filter((item) => item !== "Notes");
-  const ti = coupleNav.indexOf("Timeline");
-  const di = coupleNav.indexOf("Dashboard");
-  if (ti !== -1 && di !== -1 && ti !== di + 1) {
-    const [t] = coupleNav.splice(ti, 1);
-    const dashIdx = coupleNav.indexOf("Dashboard");
-    coupleNav.splice(dashIdx + 1, 0, t);
-  }
-  return coupleNav;
+  // Guest Requests is surfaced inside Music Hub for couples, so drop the standalone nav entry.
+  // The screen itself stays reachable (via Music Hub + dashboard), so no functionality is lost.
+  coupleNav = coupleNav.filter((item) => item !== "Guest Requests");
+  // Client navigation follows the couple's planning journey, not the underlying data model.
+  const coupleJourneyOrder: Screen[] = [
+    "Dashboard",
+    "Planning Assistant",
+    "Timeline",
+    "Music Hub",
+    "Event Team",
+    "Event Prep",
+  ];
+  const orderedJourney = coupleJourneyOrder.filter((item) => coupleNav.includes(item));
+  // Keep any remaining allowed screens (e.g. Planning Checklist, Ceremony, Event Settings)
+  // reachable after the core journey rather than stranding them.
+  const remaining = coupleNav.filter((item) => !coupleJourneyOrder.includes(item));
+  return [...orderedJourney, ...remaining];
 }
 
 type PlanningAssistantStatus = "Complete" | "In Progress" | "Not Started";
@@ -7671,6 +7680,12 @@ export default function Home() {
         extras.push("Reception Timeline");
       }
     }
+    // Hidden-but-reachable screens: valid navigation targets that intentionally do not appear in
+    // the main nav. Guest Requests is launched from Music Hub / dashboard cards for couples, so it
+    // must stay allowed even though it was removed from the visible couple nav.
+    if (sectionGuestRequestsEnabled) {
+      extras.push("Guest Requests");
+    }
     return [...eventNavItems, ...extras];
   }, [
     appMode,
@@ -7678,6 +7693,7 @@ export default function Home() {
     eventNavItems,
     receptionHubEligibleNav,
     sectionReceptionTimelineEnabled,
+    sectionGuestRequestsEnabled,
   ]);
 
   const switchPerspectiveRole = useCallback(
@@ -7761,6 +7777,7 @@ export default function Home() {
     if (screen === "Reception Timeline") return "Reception timeline";
     if (screen === "Event Prep") return "Event Document";
     if (screen === "Scripts") return "Show Book";
+    if (screen === "Event Team" && isCoupleView) return "People & Vendors";
     return screen;
   };
 
@@ -8533,6 +8550,22 @@ export default function Home() {
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
+          );
+          // Guest requests are added via local state only, so the debounced autosave must mirror
+          // them to the DB (same full-replace the explicit commit uses); otherwise a refresh
+          // re-hydrates from the DB and drops requests added since the last event/role switch.
+          void replaceGuestRequests(
+            activeEventId,
+            guestRequests.map((request, index) => ({
+              guestName: request.guestName,
+              songTitle: request.songTitle,
+              artist: request.artist,
+              dedication: request.dedication,
+              status: request.status,
+              addedToMustPlay: request.addedToMustPlay,
+              addedToDoNotPlay: request.addedToDoNotPlay,
+              order: index,
+            })),
           );
           void persistPlanningQuestionAnswersToDatabase(
             activeEventId,
@@ -14227,7 +14260,7 @@ export default function Home() {
                 <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                Share playlists and the sounds you love—your DJ uses this to prepare, not to replace their judgment on the night.
+                Build the soundtrack for your event, from must-play songs to guest requests.
               </p>
             </PremiumCard>
 
@@ -15145,6 +15178,51 @@ export default function Home() {
                     />
                   </div>
                 </div>
+              </PremiumCard>
+            )}
+
+            <PremiumCard>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <SectionTitle className="text-stone-950">Special songs</SectionTitle>
+                <span className="shrink-0 rounded-full border border-stone-200 bg-stone-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                  Coming soon
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                Pick the songs for your most important moments—we’ll guide you through each one here soon.
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-3">
+                {["First Dance", "Parent Dances", "Ceremony Music"].map((label) => (
+                  <li
+                    key={label}
+                    className="rounded-xl border border-dashed border-stone-300 bg-stone-50/70 px-3.5 py-3 text-sm font-medium text-stone-700"
+                  >
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            </PremiumCard>
+
+            {sectionGuestRequestsEnabled && (
+              <PremiumCard>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
+                  {coupleAttentionSummary.pendingGuestCount > 0 ? (
+                    <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                      {coupleAttentionSummary.pendingGuestCount} pending
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                  Collect song ideas from your guests and review them in one place—approve or skip at your pace.
+                </p>
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setActiveScreen("Guest Requests")}
+                  className={`mt-4 self-start ${lightUiSecondaryButtonClass}`}
+                >
+                  Open guest requests
+                </PrimaryButton>
               </PremiumCard>
             )}
           </section>
