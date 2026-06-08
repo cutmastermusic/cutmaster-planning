@@ -2018,16 +2018,10 @@ type PlanningAssistantSectionCard = {
 };
 
 /**
- * Static placeholder next steps for the Planning Assistant shell.
- * These are intentionally non-interactive until the requirements engine lands.
+ * Section overview for the Planning Assistant shell. `status` here is a safe fallback only —
+ * at render time each card's status is derived from the live planning checklist when a matching
+ * task exists (see `planningAssistantSectionStatuses`).
  */
-const PLANNING_ASSISTANT_NEXT_STEPS: string[] = [
-  "Add First Dance Song",
-  "Add Toast Speakers",
-  "Add Grand Entrance Participants",
-];
-
-/** Static section overview for the Planning Assistant shell (statuses are placeholders for now). */
 const PLANNING_ASSISTANT_SECTION_CARDS: PlanningAssistantSectionCard[] = [
   {
     id: "event-details",
@@ -5463,6 +5457,38 @@ export default function Home() {
   );
 
   const completionPercent = planningChecklistCompletionPercent(planningChecklist);
+
+  // Planning Assistant shell reads its live state from the existing planning checklist engine —
+  // no separate task engine. Next steps = top incomplete checklist tasks (reuses task ids so
+  // navigateToChecklistTask deep-links work). Section statuses aggregate the checklist items whose
+  // linkedSection matches each card's nav targets; cards with no matching task keep their static
+  // fallback status.
+  const planningAssistantNextSteps = useMemo(
+    () => planningChecklist.filter((task) => task.status !== "Complete").slice(0, 3),
+    [planningChecklist],
+  );
+
+  const planningAssistantSectionStatuses = useMemo(() => {
+    const statusByCardId: Record<string, PlanningAssistantStatus> = {};
+    for (const card of PLANNING_ASSISTANT_SECTION_CARDS) {
+      const matching = planningChecklist.filter((task) =>
+        card.targets.includes(task.linkedSection),
+      );
+      if (matching.length === 0) {
+        statusByCardId[card.id] = card.status;
+        continue;
+      }
+      if (matching.every((task) => task.status === "Complete")) {
+        statusByCardId[card.id] = "Complete";
+      } else if (matching.every((task) => task.status === "Not Started")) {
+        statusByCardId[card.id] = "Not Started";
+      } else {
+        statusByCardId[card.id] = "In Progress";
+      }
+    }
+    return statusByCardId;
+  }, [planningChecklist]);
+
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
@@ -19430,33 +19456,44 @@ export default function Home() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <SectionTitle className="text-stone-950">Next steps</SectionTitle>
                   <span className="shrink-0 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
-                    {PLANNING_ASSISTANT_NEXT_STEPS.length} to do
+                    {planningAssistantNextSteps.length > 0
+                      ? `${planningAssistantNextSteps.length} to do`
+                      : "All caught up"}
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-stone-600">
                   A few quick wins to keep your planning moving—no pressure.
                 </p>
-                <ul className="mt-4 space-y-2.5">
-                  {PLANNING_ASSISTANT_NEXT_STEPS.map((task) => (
-                    <li
-                      key={task}
-                      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 shadow-[var(--cm-shadow-card)]"
-                    >
-                      <span
-                        aria-hidden
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
-                      >
-                        ○
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
-                        {task}
-                      </span>
-                      <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
-                        →
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {planningAssistantNextSteps.length > 0 ? (
+                  <ul className="mt-4 space-y-2.5">
+                    {planningAssistantNextSteps.map((task) => (
+                      <li key={task.id}>
+                        <button
+                          type="button"
+                          onClick={() => navigateToChecklistTask(task.id)}
+                          className="flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
+                        >
+                          <span
+                            aria-hidden
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
+                          >
+                            ○
+                          </span>
+                          <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
+                            {task.title}
+                          </span>
+                          <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                            →
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm font-medium text-emerald-800">
+                    You’ve completed every planning step we track—nice work!
+                  </p>
+                )}
               </PremiumCard>
 
               <div className="space-y-4">
@@ -19472,7 +19509,9 @@ export default function Home() {
                       <PremiumCard key={card.id} className="flex h-full flex-col">
                         <div className="flex items-start justify-between gap-3">
                           <SectionTitle className="text-stone-950">{card.title}</SectionTitle>
-                          <PlanningAssistantStatusBadge status={card.status} />
+                          <PlanningAssistantStatusBadge
+                            status={planningAssistantSectionStatuses[card.id] ?? card.status}
+                          />
                         </div>
                         <p className="mt-2 flex-1 text-xs leading-relaxed text-stone-600">
                           {card.description}
