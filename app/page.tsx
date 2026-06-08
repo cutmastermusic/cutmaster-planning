@@ -1734,7 +1734,7 @@ const LAYOUT_SECTION_PREVIEW: {
     { key: "sectionMustPlayEnabled", label: "Must play" },
     { key: "sectionDoNotPlayEnabled", label: "Do not play" },
     { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
-    { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
+    { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
     { key: "sectionMusicNotesEnabled", label: "Music notes" },
     { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
     { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
@@ -1817,7 +1817,7 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
     labels.push("Playlists");
   }
   if (visibility.liveEventShowVendorContacts && layoutDefaults.sectionVendorContactsEnabled) {
-    labels.push("Event team");
+    labels.push("People & vendors");
   }
   if (visibility.liveEventShowMcScript && layoutDefaults.sectionMcScriptEnabled) {
     labels.push(
@@ -7213,7 +7213,7 @@ export default function Home() {
       cards.push({
         id: "event-team",
         kicker: "Team",
-        title: "Event team",
+        title: "People & vendors",
         description:
           "People helping with your event—reach them in one place, and see who can edit or view the plan in the app.",
         screen: "Event Team",
@@ -7430,7 +7430,7 @@ export default function Home() {
     if (effectiveRole === "Planner") {
       return filterScreens([
         { kind: "screen", screen: tl, label: tl === "Reception Timeline" ? "Reception timeline" : "Timeline" },
-        { kind: "screen", screen: "Event Team", label: "Event team" },
+        { kind: "screen", screen: "Event Team", label: "People & vendors" },
         { kind: "screen", screen: "Planning Questions", label: "Planning questions" },
         { kind: "screen", screen: "Planning Checklist", label: "Planning progress" },
         { kind: "screen", screen: "Notes", label: "Planning notes" },
@@ -7482,7 +7482,7 @@ export default function Home() {
               : "Answers still needed from the client or team.",
         },
         {
-          label: "Event team contacts",
+          label: "People & Vendors contacts",
           value: `${vendors.length}`,
           detail: "Partners and contacts on file for coordination.",
         },
@@ -7533,7 +7533,7 @@ export default function Home() {
           detail: "Fine-grained modules turned on in Event Settings.",
         },
         {
-          label: "Event team",
+          label: "People & vendors",
           value: `${collaboratorCount} with access`,
           detail: `${vendors.length} vendor-style contact${vendors.length === 1 ? "" : "s"} on file for this event.`,
         },
@@ -7777,7 +7777,7 @@ export default function Home() {
     if (screen === "Reception Timeline") return "Reception timeline";
     if (screen === "Event Prep") return "Event Document";
     if (screen === "Scripts") return "Show Book";
-    if (screen === "Event Team" && isCoupleView) return "People & Vendors";
+    if (screen === "Event Team") return "People & Vendors";
     return screen;
   };
 
@@ -10536,7 +10536,7 @@ export default function Home() {
         Timeline: "Timeline",
         "Reception Timeline": "Timeline",
         "Music Hub": "Music",
-        "Event Team": "Event team",
+        "Event Team": "People & vendors",
         Notes: "Notes",
       };
       return {
@@ -10551,7 +10551,7 @@ export default function Home() {
     if (sectionVendorContactsEnabled && teamMembers.length === 0) {
       return {
         body: "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
-        ctaLabel: "Event team",
+        ctaLabel: "People & vendors",
         targetScreen: "Event Team" as Screen,
       };
     }
@@ -10563,7 +10563,7 @@ export default function Home() {
         Timeline: "Timeline",
         "Reception Timeline": "Timeline",
         "Music Hub": "Music",
-        "Event Team": "Event team",
+        "Event Team": "People & vendors",
         "Planning Questions": "Questions",
       };
       return {
@@ -10597,7 +10597,7 @@ export default function Home() {
       "Guest Requests": "Guest requests",
       "Planning Checklist": "Checklist",
       "Event Prep": "Event document",
-      "Event Team": "Event team",
+      "Event Team": "People & vendors",
       Notes: "Notes",
     };
 
@@ -12942,7 +12942,7 @@ export default function Home() {
                               <p className="mt-1 text-stone-600">
                                 Music Notes: {liveDefaults.liveEventShowMusicNotes ? "On" : "Off"} ·
                                 Do Not Play: {liveDefaults.liveEventShowDoNotPlay ? "On" : "Off"} ·
-                                Event team: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
+                                People &amp; vendors: {liveDefaults.liveEventShowVendorContacts ? "On" : "Off"} ·
                                 MC: {liveDefaults.liveEventShowMcScript ? "On" : "Off"} ·
                                 Playlists: {liveDefaults.liveEventShowPlaylists ? "On" : "Off"} ·
                                 Questions: {liveDefaults.liveEventShowPlanningQuestions ? "On" : "Off"}
@@ -13217,7 +13217,7 @@ export default function Home() {
                   <p className="mt-2 text-xs leading-relaxed text-stone-600">
                     {canManageEvents
                       ? "Create your first event to start planning a full Cutmaster workflow."
-                      : "Ask an admin to assign you to an event from Event Team."}
+                      : "Ask an admin to assign you to an event from People & Vendors."}
                   </p>
                   {canManageEvents && (
                     <div className="mt-5">
@@ -13962,7 +13962,7 @@ export default function Home() {
                       ) : null}
                     </div>
                     <p className="text-xs font-medium text-stone-600">
-                      Event team contacts:{" "}
+                      People &amp; Vendors contacts:{" "}
                       <span className="font-semibold text-stone-900">{vendors.length}</span>
                     </p>
                     <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
@@ -17583,7 +17583,7 @@ export default function Home() {
             className={`${workspaceSectionClass} overflow-x-hidden`}
           >
             <EventHomeNav
-              trail={["Event Team"]}
+              trail={["People & Vendors"]}
               onBack={() => setActiveScreen("Dashboard")}
               primaryAction={
                 canManageEventTeamPartners
@@ -17598,7 +17598,7 @@ export default function Home() {
             />
             <PremiumCard variant="accent">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle>Event Team</SectionTitle>
+                <SectionTitle>People &amp; Vendors</SectionTitle>
                 <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
@@ -17615,33 +17615,6 @@ export default function Home() {
                 >
                   {vendorStatus.message}
                 </p>
-              )}
-            </PremiumCard>
-
-            <PremiumCard variant="accent">
-              <SectionTitle>App access</SectionTitle>
-              <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                Who can sign in to this event in Cutmaster Planning. Invites are simulated locally in this prototype.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
-                  Active:{" "}
-                  <span className="font-semibold tabular-nums text-stone-950">{acceptedCollaborators.length}</span>
-                </div>
-                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
-                  Pending invite:{" "}
-                  <span className="font-semibold tabular-nums text-stone-950">{pendingCollaborators.length}</span>
-                </div>
-              </div>
-              {canInviteCollaborators && (
-                <div className="mt-3">
-                  <PrimaryButton
-                    onClick={() => setInviteModalOpen(true)}
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
-                  >
-                    Invite to app
-                  </PrimaryButton>
-                </div>
               )}
             </PremiumCard>
 
@@ -17785,6 +17758,39 @@ export default function Home() {
                   />
                 )}
               </div>
+            </PremiumCard>
+
+            <div className="mt-2 border-t border-stone-200 pt-5">
+              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                App access &amp; invitations
+              </p>
+            </div>
+
+            <PremiumCard variant="accent">
+              <SectionTitle>App access</SectionTitle>
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                Who can sign in to this event in Cutmaster Planning. Invites are simulated locally in this prototype.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
+                  Active:{" "}
+                  <span className="font-semibold tabular-nums text-stone-950">{acceptedCollaborators.length}</span>
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
+                  Pending invite:{" "}
+                  <span className="font-semibold tabular-nums text-stone-950">{pendingCollaborators.length}</span>
+                </div>
+              </div>
+              {canInviteCollaborators && (
+                <div className="mt-3">
+                  <PrimaryButton
+                    onClick={() => setInviteModalOpen(true)}
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+                  >
+                    Invite to app
+                  </PrimaryButton>
+                </div>
+              )}
             </PremiumCard>
 
             {(activeEvent?.collaborators ?? []).map((collab) => (
@@ -18068,7 +18074,7 @@ export default function Home() {
 
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
-                      Event team on document
+                      People &amp; Vendors on document
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {sectionVendorContactsEnabled ? (
@@ -18086,7 +18092,7 @@ export default function Home() {
                               : EVENT_PACKET_SECTION_TOGGLE_OFF
                           }
                         >
-                          {eventSettings.liveEventShowVendorContacts ? "Event team on" : "Event team off"}
+                          {eventSettings.liveEventShowVendorContacts ? "People & Vendors on" : "People & Vendors off"}
                         </PrimaryButton>
                       ) : null}
                     </div>
@@ -18625,7 +18631,7 @@ export default function Home() {
                 {sectionVendorContactsEnabled &&
                   eventSettings.liveEventShowVendorContacts && (
                     <div className="doc-section print-break-avoid">
-                      <h3>Event Team</h3>
+                      <h3>People &amp; Vendors</h3>
                       <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
                         Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
                         are prioritized at the top for fast scanning.
@@ -18685,7 +18691,7 @@ export default function Home() {
                             })
                         ) : (
                           <p className="doc-note text-[11px] leading-snug text-zinc-600 print:text-black">
-                            No event team members added yet — add them under Event Team.
+                            No event team members added yet — add them under People & Vendors.
                           </p>
                         )}
                       </div>
@@ -18908,7 +18914,7 @@ export default function Home() {
                     { key: "sectionMustPlayEnabled", label: "Must Play" },
                     { key: "sectionDoNotPlayEnabled", label: "Do Not Play" },
                     { key: "sectionMcScriptEnabled", label: "MC Script" },
-                    { key: "sectionVendorContactsEnabled", label: "Event team contacts" },
+                    { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
                     { key: "sectionMusicNotesEnabled", label: "Music Notes" },
                     { key: "sectionGuestRequestsEnabled", label: "Guest Requests" },
                     { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
@@ -19201,7 +19207,7 @@ export default function Home() {
                 </>
                 ) : null}
                 <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs leading-relaxed text-stone-700">
-                  App access and day-of contacts are managed together under Event Team.
+                  App access and day-of contacts are managed together under People & Vendors.
                 </div>
               </div>
             </PremiumCard>
