@@ -5505,15 +5505,46 @@ export default function Home() {
   // Presentation-only Planning Health derivation. Reuses the existing checklist's per-task status,
   // missingNotes, and dueDate; the template is consulted ONLY to identify optional tasks (so they
   // don't count as blocking). No engine/persistence involvement.
+  //
+  // Health stays calmer and timeline-aware vs the full Planning Checklist: soft/discretionary tasks
+  // are excluded; song-missing and "not on timeline" prompts are hidden; Grand Entrance only applies
+  // when that moment exists on the reception timeline. Global blockers (event details, planner)
+  // always surface when incomplete.
   const planningHealth = useMemo(() => {
+    const softTaskIds = new Set<string>([
+      "choose-ceremony-songs",
+      "add-formal-dance-songs",
+      "add-must-play-songs",
+      "build-must-play-list",
+      "add-do-not-play-songs",
+      "add-final-dj-notes",
+    ]);
+    const hiddenNotePattern = /song missing|not on timeline|add key reception moments/i;
+    const globalBlockerIds = new Set(["complete-event-details", "add-planner-contact"]);
+    const hasGrandEntranceMoment = timelineItems.some((item) =>
+      isGrandEntranceTimelineItem(item.title),
+    );
     const optionalTaskIds = new Set(
       DEFAULT_PLANNING_CHECKLIST_TEMPLATE.filter((task) => task.optional).map((task) => task.id),
     );
-    const incomplete = planningChecklist.filter((task) => task.status !== "Complete");
+    const incomplete = planningChecklist.filter((task) => {
+      if (task.status === "Complete" || softTaskIds.has(task.id)) return false;
+      if (task.id === "add-grand-entrance-details" && !hasGrandEntranceMoment) return false;
+      return true;
+    });
 
-    const blockingItems = incomplete
-      .filter((task) => !optionalTaskIds.has(task.id))
-      .slice()
+    const tasksWithSurvivingNotes = incomplete.map((task) => ({
+      task,
+      survivingNotes: task.missingNotes.filter((note) => !hiddenNotePattern.test(note)),
+    }));
+
+    const blockingItems = tasksWithSurvivingNotes
+      .filter(({ task, survivingNotes }) => {
+        if (optionalTaskIds.has(task.id)) return false;
+        if (globalBlockerIds.has(task.id)) return true;
+        return survivingNotes.length > 0;
+      })
+      .map(({ task }) => task)
       .sort((a, b) => {
         if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
         if (a.dueDate) return -1;
@@ -5523,8 +5554,8 @@ export default function Home() {
 
     const seen = new Set<string>();
     const missingInformation: Array<{ note: string; taskId: string }> = [];
-    for (const task of incomplete) {
-      for (const note of task.missingNotes) {
+    for (const { task, survivingNotes } of tasksWithSurvivingNotes) {
+      for (const note of survivingNotes) {
         const key = note.trim().toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);
@@ -5535,7 +5566,7 @@ export default function Home() {
     }
 
     return { blockingItems, missingInformation };
-  }, [planningChecklist]);
+  }, [planningChecklist, timelineItems]);
 
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
