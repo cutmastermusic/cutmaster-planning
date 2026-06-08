@@ -187,6 +187,7 @@ import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
 import {
   DEFAULT_EVENT_TEAM_VENDOR_ROLE,
   VENDOR_TYPES_ORDERED,
+  VENDOR_UI_SECTIONS,
   canActorManageEventTeamMember,
   eventTeamRoleGroupsForActor,
   formatTeamMemberContactLines,
@@ -10085,6 +10086,43 @@ export default function Home() {
     );
   };
 
+  // Display-only grouping of the People & Vendors roster. Pure view derivation —
+  // no data shape, persistence, or ordering change (members keep their array order
+  // within each group, inactive members included, every member lands in one group).
+  const peopleVendorGroups = useMemo(() => {
+    const cutmaster: TeamMember[] = [];
+    const bySectionId = new Map<string, TeamMember[]>();
+    const fallbackSectionId =
+      VENDOR_UI_SECTIONS[VENDOR_UI_SECTIONS.length - 1]?.id ?? "other";
+    for (const member of teamMembers) {
+      if (isCutmasterEventTeamMember(member)) {
+        cutmaster.push(member);
+        continue;
+      }
+      const section = VENDOR_UI_SECTIONS.find((entry) =>
+        (entry.types as string[]).includes(member.role as string),
+      );
+      const sectionId = section ? section.id : fallbackSectionId;
+      const list = bySectionId.get(sectionId);
+      if (list) {
+        list.push(member);
+      } else {
+        bySectionId.set(sectionId, [member]);
+      }
+    }
+    const groups: Array<{ id: string; label: string; members: TeamMember[] }> = [];
+    if (cutmaster.length > 0) {
+      groups.push({ id: "cutmaster-team", label: "Your Cutmaster team", members: cutmaster });
+    }
+    for (const section of VENDOR_UI_SECTIONS) {
+      const members = bySectionId.get(section.id);
+      if (members && members.length > 0) {
+        groups.push({ id: section.id, label: section.label, members });
+      }
+    }
+    return groups;
+  }, [teamMembers]);
+
   const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
     () =>
       timelineItems.map((item) => ({
@@ -17647,8 +17685,13 @@ export default function Home() {
                   {teamFormStatus.message}
                 </p>
               )}
-              <div className="mt-3 space-y-2">
-                {teamMembers.map((member) => (
+              <div className="mt-3 space-y-4">
+                {peopleVendorGroups.map((group) => (
+                  <div key={`people-vendor-group-${group.id}`} className="space-y-2">
+                    <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      {group.label}
+                    </p>
+                    {group.members.map((member) => (
                   <div
                     key={`event-team-member-${member.id}`}
                     className="rounded-xl border border-stone-200 bg-stone-50 p-3"
@@ -17736,6 +17779,8 @@ export default function Home() {
                         Managed by your Cutmaster team.
                       </p>
                     )}
+                  </div>
+                    ))}
                   </div>
                 ))}
                 {teamMembers.length === 0 && (
