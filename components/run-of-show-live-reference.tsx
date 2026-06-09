@@ -20,7 +20,7 @@ function sectionLabelClass() {
   return "text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs";
 }
 
-function SongListBlock({
+export function RunOfShowReferenceSongListBlock({
   title,
   songs,
   emptyLabel,
@@ -72,7 +72,11 @@ function SongListBlock({
   );
 }
 
-function QuickContactsBlock({ contacts }: { contacts: RunOfShowQuickContactRow[] }) {
+export function RunOfShowReferenceQuickContactsBlock({
+  contacts,
+}: {
+  contacts: RunOfShowQuickContactRow[];
+}) {
   return (
     <details className="group rounded-xl border border-stone-200/90 bg-stone-50/50 open:bg-stone-50/80" open>
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-3.5 py-3 touch-manipulation sm:px-4 sm:py-3.5 [&::-webkit-details-marker]:hidden">
@@ -168,7 +172,7 @@ export function RunOfShowLiveReference({
       </p>
       <div className="mt-6 space-y-3">
         {showDoNotPlay ? (
-          <SongListBlock
+          <RunOfShowReferenceSongListBlock
             title="Do not play"
             songs={doNotPlaySongs}
             emptyLabel="No blocked songs listed"
@@ -176,13 +180,13 @@ export function RunOfShowLiveReference({
           />
         ) : null}
         {showMustPlay ? (
-          <SongListBlock
+          <RunOfShowReferenceSongListBlock
             title="Must play"
             songs={mustPlaySongs}
             emptyLabel="No must-play songs listed"
           />
         ) : null}
-        <QuickContactsBlock contacts={quickContacts} />
+        <RunOfShowReferenceQuickContactsBlock contacts={quickContacts} />
       </div>
     </section>
   );

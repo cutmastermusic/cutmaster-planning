@@ -353,6 +353,7 @@ import {
   type SpeechesToastEntry,
 } from "@/lib/speechesToasts";
 import { RunOfShowLiveReference } from "@/components/run-of-show-live-reference";
+import { RunOfShowReferenceDrawer } from "@/components/run-of-show-reference-drawer";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
 import {
@@ -2849,6 +2850,7 @@ export default function Home() {
   const timelineInlineInsertRef = useRef<HTMLDivElement | null>(null);
   /** Event Document: distraction-free live execution view (same timeline order as packet). */
   const [runOfShowOpen, setRunOfShowOpen] = useState(false);
+  const [runOfShowReferenceOpen, setRunOfShowReferenceOpen] = useState(false);
   const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
   /** Per-card operational notes in Run Of Show (`c:{id}` / `r:{id}`), local to device. */
   const [runOfShowCardNotes, setRunOfShowCardNotes] = useState<Record<string, string>>({});
@@ -5680,6 +5682,12 @@ export default function Home() {
     if (venue && venue !== "TBD") bits.push(venue);
     return bits.join(" · ");
   }, [eventSettings.weddingDate, eventSettings.venue, weddingDetails.date, weddingDetails.venue]);
+
+  const runOfShowReferenceEventDate = useMemo(() => {
+    const dateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
+    if (!dateRaw || dateRaw === "TBD") return "";
+    return formatEventDateForDisplay(dateRaw, dateRaw);
+  }, [eventSettings.weddingDate, weddingDetails.date]);
 
   /** White-label: drive from `appSettings` today; later replace with tenant brand config object. */
   const runOfShowHeaderBrand = useMemo(
@@ -11216,6 +11224,7 @@ export default function Home() {
 
   const closeRunOfShow = useCallback(() => {
     setRunOfShowOpen(false);
+    setRunOfShowReferenceOpen(false);
     setRunOfShowAnnotateMode(false);
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
@@ -21772,6 +21781,48 @@ export default function Home() {
               onCancel={cancelRunOfShowCardNoteEditor}
               onClear={clearRunOfShowCardNoteEditorDraft}
             />
+
+            <RunOfShowReferenceDrawer
+              open={runOfShowReferenceOpen}
+              onClose={() => setRunOfShowReferenceOpen(false)}
+              eventHeadline={runOfShowHeadline}
+              eventDate={runOfShowReferenceEventDate || undefined}
+              venue={
+                (eventSettings.venue || weddingDetails.venue || "").trim() || undefined
+              }
+              receptionLocation={eventSettings.receptionLocation?.trim() || undefined}
+              quickContacts={runOfShowQuickContacts}
+              mustPlaySongs={mustPlaySongs}
+              doNotPlaySongs={doNotPlaySongs}
+              showMustPlay={sectionMustPlayEnabled}
+              showDoNotPlay={
+                sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay
+              }
+            />
+
+            {runOfShowOverlayActive ? (
+              <button
+                type="button"
+                onClick={() => setRunOfShowReferenceOpen((open) => !open)}
+                aria-expanded={runOfShowReferenceOpen}
+                aria-label={
+                  runOfShowReferenceOpen
+                    ? "Close quick reference"
+                    : "Open quick reference"
+                }
+                className={`no-print fixed z-[9] flex min-h-11 min-w-[7.5rem] touch-manipulation items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-[opacity,transform,border-color,background-color] duration-200 ease-out md:min-h-12 md:min-w-[8.5rem] md:px-5 md:text-[15px] ${
+                  runOfShowReferenceOpen
+                    ? "border-stone-400 bg-stone-100 text-stone-800"
+                    : "border-stone-300/90 bg-white text-stone-900 hover:border-stone-400 hover:bg-stone-50"
+                }`}
+                style={{
+                  bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
+                  left: "max(1rem, env(safe-area-inset-left, 0px))",
+                }}
+              >
+                Reference
+              </button>
+            ) : null}
 
             {runOfShowOverlayActive &&
               runOfShowUpNextMeta.banner === "upNext" &&
