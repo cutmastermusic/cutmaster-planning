@@ -2903,9 +2903,16 @@ export default function Home() {
   const [runOfShowUserExpandedWhileCompleteIds, setRunOfShowUserExpandedWhileCompleteIds] = useState<Set<string>>(
     () => new Set(),
   );
+  /** All-done section/phase pinned expanded for this Run Of Show session only (most recent only; not persisted). */
+  const [runOfShowSessionExpandedCompletePhaseId, setRunOfShowSessionExpandedCompletePhaseId] =
+    useState<string | null>(null);
+  const runOfShowAllDoneSectionIdsRef = useRef<Set<string>>(new Set());
+  const runOfShowAllDoneBaselineCapturedRef = useRef(false);
   const runOfShowScrollRef = useRef<HTMLElement | null>(null);
   /** Set when marking a moment done; consumed after DOM updates to scroll to the next up-next row. */
   const runOfShowScrollAfterDoneRef = useRef(false);
+  /** Set when marking a moment done; allows session pin only after explicit toggle, not hydration. */
+  const runOfShowPinCompletedPhaseAfterToggleRef = useRef(false);
   /** Whether the current Up Next timeline row intersects the Run Of Show scroll viewport (for floating cue). */
   const [runOfShowUpNextRowInView, setRunOfShowUpNextRowInView] = useState(true);
   /** Apple Pencil / touch ink layer over Run Of Show scroll area (local only). */
@@ -10315,6 +10322,72 @@ export default function Home() {
     };
   }, [runOfShowOrderedSteps, runOfShowDoneKeys]);
 
+  /** Pin completed sections expanded for this ROS session when they newly become all-done. */
+  useEffect(() => {
+    if (!runOfShowOverlayActive) {
+      runOfShowAllDoneSectionIdsRef.current = new Set();
+      runOfShowAllDoneBaselineCapturedRef.current = false;
+      runOfShowPinCompletedPhaseAfterToggleRef.current = false;
+      return;
+    }
+
+    const currentlyAllDone = new Set<string>();
+    if (
+      sectionCeremonyEnabled &&
+      ceremonyTimelineItems.length > 0 &&
+      runOfShowCeremonyAllMomentsDone
+    ) {
+      currentlyAllDone.add(RUN_OF_SHOW_CEREMONY_SECTION_ID);
+    }
+    for (const phase of runOfShowReceptionPhaseGroups) {
+      if (
+        phase.items.length > 0 &&
+        phase.items.every((item) => runOfShowDoneKeys.has(`r:${item.id}`))
+      ) {
+        currentlyAllDone.add(phase.id);
+      }
+    }
+
+    if (!runOfShowAllDoneBaselineCapturedRef.current) {
+      runOfShowAllDoneSectionIdsRef.current = currentlyAllDone;
+      runOfShowAllDoneBaselineCapturedRef.current = true;
+      return;
+    }
+
+    const prevAllDone = runOfShowAllDoneSectionIdsRef.current;
+    const newlyComplete = [...currentlyAllDone].filter((id) => !prevAllDone.has(id));
+    const pinFromToggle = runOfShowPinCompletedPhaseAfterToggleRef.current;
+    if (pinFromToggle) {
+      runOfShowPinCompletedPhaseAfterToggleRef.current = false;
+      if (newlyComplete.length > 0) {
+        const newlyCompleteSet = new Set(newlyComplete);
+        const completionOrder: string[] = [];
+        if (sectionCeremonyEnabled) completionOrder.push(RUN_OF_SHOW_CEREMONY_SECTION_ID);
+        for (const phase of runOfShowReceptionPhaseGroups) completionOrder.push(phase.id);
+        let mostRecentCompleteId: string | null = null;
+        for (const id of completionOrder) {
+          if (newlyCompleteSet.has(id)) mostRecentCompleteId = id;
+        }
+        if (mostRecentCompleteId) {
+          setRunOfShowSessionExpandedCompletePhaseId(mostRecentCompleteId);
+        }
+      }
+    }
+
+    setRunOfShowSessionExpandedCompletePhaseId((prev) =>
+      prev && !currentlyAllDone.has(prev) ? null : prev,
+    );
+
+    runOfShowAllDoneSectionIdsRef.current = currentlyAllDone;
+  }, [
+    runOfShowOverlayActive,
+    sectionCeremonyEnabled,
+    ceremonyTimelineItems.length,
+    runOfShowCeremonyAllMomentsDone,
+    runOfShowReceptionPhaseGroups,
+    runOfShowDoneKeys,
+  ]);
+
   /** Concise copy for the contextual floating Up Next cue (not the sticky header). */
   const runOfShowUpNextCueDetail = useMemo(() => {
     if (runOfShowUpNextMeta.banner !== "upNext" || !runOfShowUpNextMeta.upNextKey) return null;
@@ -11145,6 +11218,10 @@ export default function Home() {
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
     setRunOfShowCardNoteEditorSavedValue("");
+    setRunOfShowSessionExpandedCompletePhaseId(null);
+    runOfShowAllDoneSectionIdsRef.current = new Set();
+    runOfShowAllDoneBaselineCapturedRef.current = false;
+    runOfShowPinCompletedPhaseAfterToggleRef.current = false;
     closeGrandEntranceDetailEditor();
     runOfShowAnnotationInProgressRef.current = null;
     if (typeof document !== "undefined" && document.fullscreenElement) {
@@ -11692,6 +11769,7 @@ export default function Home() {
       const wasDone = runOfShowDoneKeys.has(key);
       if (!wasDone) {
         runOfShowScrollAfterDoneRef.current = true;
+        runOfShowPinCompletedPhaseAfterToggleRef.current = true;
       }
       if (key.startsWith("c:")) {
         const itemId = key.slice(2);
@@ -11734,6 +11812,9 @@ export default function Home() {
         persistRunOfShowSectionUi(next);
         return next;
       });
+      setRunOfShowSessionExpandedCompletePhaseId((prev) =>
+        prev === sectionId ? null : prev,
+      );
     },
     [persistRunOfShowSectionUi],
   );
@@ -11749,6 +11830,10 @@ export default function Home() {
     setCeremonyTimelineItems(nextCeremony);
     void persistRunOfShowTimelineFlags(nextMain, nextCeremony);
     setRunOfShowUserExpandedWhileCompleteIds(new Set());
+    setRunOfShowSessionExpandedCompletePhaseId(null);
+    runOfShowAllDoneSectionIdsRef.current = new Set();
+    runOfShowAllDoneBaselineCapturedRef.current = false;
+    runOfShowPinCompletedPhaseAfterToggleRef.current = false;
     setRunOfShowAnnotationStrokes([]);
     setRunOfShowCueChecks(new Set());
     if (typeof window === "undefined" || !activeEventId) return;
@@ -21070,7 +21155,8 @@ export default function Home() {
                       {ceremonyTimelineRows.length === 0 ? (
                         <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
                       ) : runOfShowCeremonyAllMomentsDone &&
-                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) &&
+                        runOfShowSessionExpandedCompletePhaseId !== RUN_OF_SHOW_CEREMONY_SECTION_ID ? (
                         <button
                           type="button"
                           onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
@@ -21106,7 +21192,8 @@ export default function Home() {
                       ) : (
                         <>
                           {runOfShowCeremonyAllMomentsDone &&
-                            runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
+                            (runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ||
+                              runOfShowSessionExpandedCompletePhaseId === RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
                             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                               <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
@@ -21245,7 +21332,8 @@ export default function Home() {
                             phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
                           const phaseCollapsed =
                             phaseAllDone &&
-                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id);
+                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id) &&
+                            runOfShowSessionExpandedCompletePhaseId !== phase.id;
                           return (
                             <div key={phase.id} className="contents">
                               {phaseCollapsed ? (
@@ -21284,7 +21372,8 @@ export default function Home() {
                               ) : (
                                 <>
                                   {phaseAllDone &&
-                                    runOfShowUserExpandedWhileCompleteIds.has(phase.id) ? (
+                                    (runOfShowUserExpandedWhileCompleteIds.has(phase.id) ||
+                                      runOfShowSessionExpandedCompletePhaseId === phase.id) ? (
                                     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
                                       <div className="min-w-0">
                                         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
