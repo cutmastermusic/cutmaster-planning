@@ -248,6 +248,7 @@ import {
   hasMusicTasteSignal as computeMusicTasteSignal,
   normalizeChecklistDueDatesRecord,
   planningChecklistCompletionPercent,
+  formatPlanningAssistantRecommendationReason,
   resolveChecklistTaskNavigation,
   shouldShowPlanningChecklistMissingNotes,
   shouldSuppressChecklistReminder,
@@ -19885,6 +19886,9 @@ export default function Home() {
                       <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">
                         {upcomingMilestones[0].title}
                       </span>
+                      <span className="mt-0.5 block truncate text-xs text-stone-500 line-clamp-1">
+                        {formatPlanningAssistantRecommendationReason(upcomingMilestones[0])}
+                      </span>
                       <span className="mt-0.5 block text-[11px] text-stone-500">
                         {upcomingMilestones[0].dueDateLabel}
                       </span>
@@ -19939,6 +19943,9 @@ export default function Home() {
                                 <span className="min-w-0 flex-1">
                                   <span className="block text-sm font-medium text-stone-900">
                                     {task.title}
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-xs text-stone-500 line-clamp-1">
+                                    {formatPlanningAssistantRecommendationReason(task)}
                                   </span>
                                   {task.dueDate ? (
                                     <span className="mt-0.5 block text-[11px] text-stone-500">
@@ -20013,8 +20020,13 @@ export default function Home() {
                             >
                               ○
                             </span>
-                            <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
-                              {task.title}
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-medium text-stone-900">
+                                {task.title}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-stone-500 line-clamp-1">
+                                {formatPlanningAssistantRecommendationReason(task)}
+                              </span>
                             </span>
                             <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
                               →

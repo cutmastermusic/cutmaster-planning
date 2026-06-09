@@ -1065,6 +1065,69 @@ export function shouldSuppressChecklistReminder(
   return isChecklistTaskHandled(task.id, handledTasks);
 }
 
+const PLANNING_ASSISTANT_STATIC_REASONS: Partial<Record<string, string>> = {
+  "add-planner-contact": "No planner contact added yet",
+  "add-must-play-songs": "Add at least one must-play song for your DJ",
+  "build-must-play-list": "Share playlist links, genres, or a few favorite songs",
+  "add-do-not-play-songs": "Add songs or genres your DJ should avoid",
+  "approve-guest-requests": "Review pending guest requests",
+};
+
+function normalizePlanningAssistantMissingNote(note: string): string {
+  const trimmed = note.trim();
+  const songMissingMatch = trimmed.match(/^(.+) song missing$/i);
+  if (songMissingMatch) {
+    return `${songMissingMatch[1]!.trim()} is missing a song`;
+  }
+  return trimmed;
+}
+
+function isSongMissingNote(note: string): boolean {
+  return / song missing$/i.test(note.trim());
+}
+
+function pluralSuffix(count: number): string {
+  return count === 1 ? "" : "s";
+}
+
+/** One-line “why” copy for Planning Assistant surfaces (presentation only). */
+export function formatPlanningAssistantRecommendationReason(task: PlanningChecklistItem): string {
+  const notes = task.missingNotes.map((note) => note.trim()).filter(Boolean);
+
+  if (notes.length === 0) {
+    return PLANNING_ASSISTANT_STATIC_REASONS[task.id] ?? task.description.trim();
+  }
+
+  if (notes.length === 1) {
+    return normalizePlanningAssistantMissingNote(notes[0]!);
+  }
+
+  const songMissingCount = notes.filter(isSongMissingNote).length;
+
+  switch (task.id) {
+    case "choose-ceremony-songs":
+      if (songMissingCount === notes.length) {
+        return `${notes.length} ceremony moment${pluralSuffix(notes.length)} are missing songs`;
+      }
+      break;
+    case "add-formal-dance-songs":
+      if (songMissingCount === notes.length) {
+        return `${notes.length} formal dance moment${pluralSuffix(notes.length)} are missing songs`;
+      }
+      break;
+    case "complete-event-details":
+      return `${notes.length} event detail${pluralSuffix(notes.length)} still need to be filled in`;
+    default:
+      break;
+  }
+
+  if (songMissingCount === notes.length) {
+    return `${notes.length} moment${pluralSuffix(notes.length)} are missing songs`;
+  }
+
+  return normalizePlanningAssistantMissingNote(notes[0]!);
+}
+
 export function buildPlanningChecklist(
   input: PlanningChecklistInput,
   dueConfig: PlanningChecklistDueConfig,
