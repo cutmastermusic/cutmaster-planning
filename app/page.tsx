@@ -2904,6 +2904,8 @@ export default function Home() {
     () => new Set(),
   );
   const runOfShowScrollRef = useRef<HTMLElement | null>(null);
+  /** Set when marking a moment done; consumed after DOM updates to scroll to the next up-next row. */
+  const runOfShowScrollAfterDoneRef = useRef(false);
   /** Whether the current Up Next timeline row intersects the Run Of Show scroll viewport (for floating cue). */
   const [runOfShowUpNextRowInView, setRunOfShowUpNextRowInView] = useState(true);
   /** Apple Pencil / touch ink layer over Run Of Show scroll area (local only). */
@@ -11164,6 +11166,16 @@ export default function Home() {
     });
   }, []);
 
+  useLayoutEffect(() => {
+    if (!runOfShowOverlayActive || !runOfShowScrollAfterDoneRef.current) return;
+    if (runOfShowUpNextMeta.banner !== "upNext") {
+      runOfShowScrollAfterDoneRef.current = false;
+      return;
+    }
+    runOfShowScrollAfterDoneRef.current = false;
+    scrollRunOfShowToUpNext();
+  }, [runOfShowOverlayActive, runOfShowUpNextMeta, scrollRunOfShowToUpNext]);
+
   const persistRunOfShowSectionUi = useCallback(
     (expandedWhileComplete: Set<string>) => {
       if (typeof window === "undefined" || !activeEventId || !hasHydrated) return;
@@ -11677,6 +11689,10 @@ export default function Home() {
 
   const toggleRunOfShowDoneKey = useCallback(
     (key: string) => {
+      const wasDone = runOfShowDoneKeys.has(key);
+      if (!wasDone) {
+        runOfShowScrollAfterDoneRef.current = true;
+      }
       if (key.startsWith("c:")) {
         const itemId = key.slice(2);
         const nextCeremony = ceremonyTimelineItems.map((item) =>
@@ -11695,7 +11711,7 @@ export default function Home() {
         void persistRunOfShowTimelineFlags(nextMain, ceremonyTimelineItems);
       }
     },
-    [timelineItems, ceremonyTimelineItems, persistRunOfShowTimelineFlags],
+    [timelineItems, ceremonyTimelineItems, persistRunOfShowTimelineFlags, runOfShowDoneKeys],
   );
 
   const markRunOfShowSectionUserExpanded = useCallback(
