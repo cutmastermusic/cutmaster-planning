@@ -7,6 +7,9 @@ export const GRAND_ENTRANCE_MC_SCRIPT_KEY = "ge_mc_script";
 /** Couple entrance line — defaults to event couple names when empty. */
 export const GRAND_ENTRANCE_COUPLE_KEY = "ge_couple_entrance";
 
+/** DJ/Admin hype script immediately before announcing the couple (planningQuestionAnswers JSON only). */
+export const GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY = "ge_couple_entrance_script";
+
 const GRAND_ENTRANCE_TITLE = /grand entrance/i;
 
 export function isGrandEntranceTimelineItem(title: string): boolean {
@@ -24,6 +27,7 @@ export type GrandEntranceDetailFields = {
   script: string;
   lineup: string;
   coupleEntrance: string;
+  coupleEntranceScript: string;
 };
 
 export function readGrandEntranceDetail(
@@ -35,6 +39,8 @@ export function readGrandEntranceDetail(
     lineup: answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY]?.trim() ?? "",
     coupleEntrance:
       answers[GRAND_ENTRANCE_COUPLE_KEY]?.trim() || coupleDefault.trim(),
+    coupleEntranceScript:
+      answers[GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY]?.trim() ?? "",
   };
 }
 
@@ -51,6 +57,7 @@ export function grandEntranceDetailFieldsFromDb(
     script: row.grandEntranceScript?.trim() ?? "",
     lineup: row.grandEntranceLineup?.trim() ?? "",
     coupleEntrance: row.grandEntranceCouple?.trim() ?? "",
+    coupleEntranceScript: "",
   };
 }
 
@@ -66,12 +73,16 @@ export function mergeGrandEntranceDbIntoPlanningAnswers(
 
 export function mergeGrandEntranceOperationalIntoAnswers(
   answers: Record<string, string>,
-  operational: Pick<GrandEntranceDetailFields, "script">,
+  operational: Pick<GrandEntranceDetailFields, "script" | "coupleEntranceScript">,
 ): Record<string, string> {
   const next = { ...answers };
-  const trimmed = operational.script.trim();
-  if (trimmed) next[GRAND_ENTRANCE_MC_SCRIPT_KEY] = trimmed;
-  else delete next[GRAND_ENTRANCE_MC_SCRIPT_KEY];
+  const setOrDelete = (key: string, value: string) => {
+    const trimmed = value.trim();
+    if (trimmed) next[key] = trimmed;
+    else delete next[key];
+  };
+  setOrDelete(GRAND_ENTRANCE_MC_SCRIPT_KEY, operational.script);
+  setOrDelete(GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY, operational.coupleEntranceScript);
   return next;
 }
 
@@ -88,6 +99,7 @@ export function mergeGrandEntranceDetailIntoAnswers(
   setOrDelete(GRAND_ENTRANCE_MC_SCRIPT_KEY, detail.script);
   setOrDelete(GRAND_ENTRANCE_PLANNING_LINEUP_KEY, detail.lineup);
   setOrDelete(GRAND_ENTRANCE_COUPLE_KEY, detail.coupleEntrance);
+  setOrDelete(GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY, detail.coupleEntranceScript);
   return next;
 }
 
@@ -99,6 +111,7 @@ export function grandEntranceDetailDraftsEqual(
     a.script.trim() === b.script.trim() &&
     a.lineup.trim() === b.lineup.trim() &&
     a.coupleEntrance.trim() === b.coupleEntrance.trim() &&
+    a.coupleEntranceScript.trim() === b.coupleEntranceScript.trim() &&
     a.sideNote.trim() === b.sideNote.trim()
   );
 }

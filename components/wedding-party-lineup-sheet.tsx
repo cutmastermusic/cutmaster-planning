@@ -18,6 +18,8 @@ type WeddingPartyLineupSheetProps = {
   onDone: () => void;
   onCancel: () => void;
   canEdit: boolean;
+  /** Stack above Grand Entrance detail sheet (z-[220]) when opened from inside it. */
+  elevated?: boolean;
 };
 
 function fieldLabel(className = "") {
@@ -38,6 +40,7 @@ export function WeddingPartyLineupSheet({
   onDone,
   onCancel,
   canEdit,
+  elevated = false,
 }: WeddingPartyLineupSheetProps) {
   const isDirty = !weddingPartyLineupEntriesEqual(entries, savedEntries);
   const sortedEntries = sortWeddingPartyLineupEntries(entries);
@@ -89,7 +92,7 @@ export function WeddingPartyLineupSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[215] flex items-end justify-center pointer-events-none md:items-stretch md:justify-end md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]"
+      className={`fixed inset-0 ${elevated ? "z-[225]" : "z-[215]"} flex items-end justify-center pointer-events-none md:items-stretch md:justify-end md:p-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:pt-[max(1rem,env(safe-area-inset-top))]`}
       role="dialog"
       aria-modal="true"
       aria-label="Wedding Party Lineup"

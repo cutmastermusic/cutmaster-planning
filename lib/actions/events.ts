@@ -137,6 +137,7 @@ export async function updateGrandEntranceDetail(
     script: string;
     lineup: string;
     coupleEntrance: string;
+    coupleEntranceScript: string;
   },
 ) {
   logActionPayload("updateGrandEntranceDetail", detail);
@@ -150,6 +151,7 @@ export async function updateGrandEntranceDetail(
       script: detail.script,
       lineup: detail.lineup,
       coupleEntrance: detail.coupleEntrance,
+      coupleEntranceScript: detail.coupleEntranceScript,
     }),
   );
   const legacy = planningQuestionAnswersWithLegacyGrandEntranceColumns(mergedAnswers);

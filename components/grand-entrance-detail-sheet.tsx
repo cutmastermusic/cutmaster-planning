@@ -24,6 +24,9 @@ type GrandEntranceDetailSheetProps = {
   onCancel: () => void;
   canEditOperationalDetail: boolean;
   canEditSideNote: boolean;
+  /** DJ/Admin — opens the shared Wedding Party Lineup editor without leaving this sheet. */
+  canEditLineup?: boolean;
+  onEditLineup?: () => void;
 };
 
 function fieldLabel(className = "") {
@@ -39,7 +42,7 @@ const lineupTextareaClass =
 const sideNoteTextareaClass =
   "block min-h-[5rem] max-h-[min(20dvh,12rem)] w-full resize-none touch-manipulation overflow-y-auto overscroll-y-contain rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3.5 text-base leading-relaxed text-stone-900 placeholder:text-stone-400 focus:border-stone-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-200/80 disabled:opacity-60";
 
-/** DJ/Admin operational Grand Entrance sheet — MC script and run-of-show notes; lineup is read-only from planning. */
+/** DJ/Admin operational Grand Entrance sheet — MC script and run-of-show notes; lineup preview with optional edit. */
 export function GrandEntranceDetailSheet({
   open,
   title,
@@ -52,6 +55,8 @@ export function GrandEntranceDetailSheet({
   onCancel,
   canEditOperationalDetail,
   canEditSideNote,
+  canEditLineup = false,
+  onEditLineup,
 }: GrandEntranceDetailSheetProps) {
   const isDirty = !grandEntranceDetailDraftsEqual(draft, savedDraft);
 
@@ -148,13 +153,26 @@ export function GrandEntranceDetailSheet({
 
             <section className="rounded-2xl border border-stone-100 bg-white p-4 sm:p-5">
               <div className="space-y-3">
-                <div>
-                  <label htmlFor="ge-detail-lineup" className={fieldLabel()}>
-                    Wedding party lineup
-                  </label>
-                  <p className="mt-1 text-xs leading-snug text-stone-500">
-                    From client planning — introduction order. Couples edit this in Planning Questions.
-                  </p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <label htmlFor="ge-detail-lineup" className={fieldLabel()}>
+                      Wedding party lineup
+                    </label>
+                    <p className="mt-1 text-xs leading-snug text-stone-500">
+                      {canEditLineup
+                        ? "Introduction order from client planning. Tap Edit lineup to reorder, remove, or adjust names for show day."
+                        : "From client planning — introduction order. Couples edit this in Planning Questions."}
+                    </p>
+                  </div>
+                  {canEditLineup && onEditLineup ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={onEditLineup}
+                      className="shrink-0 rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50"
+                    >
+                      Edit lineup
+                    </PrimaryButton>
+                  ) : null}
                 </div>
                 <textarea
                   id="ge-detail-lineup"
@@ -165,6 +183,26 @@ export function GrandEntranceDetailSheet({
                   spellCheck={false}
                   className={`${lineupTextareaClass} cursor-default bg-stone-100/80 text-stone-800`}
                 />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-100 bg-stone-50/30 p-4 sm:p-5">
+              <div className="space-y-2">
+                <label htmlFor="ge-detail-couple-script" className={fieldLabel()}>
+                  Couple entrance script
+                </label>
+                <textarea
+                  id="ge-detail-couple-script"
+                  value={draft.coupleEntranceScript}
+                  onChange={(e) => onChange({ coupleEntranceScript: e.target.value })}
+                  disabled={!canEditOperationalDetail}
+                  placeholder="And now I need everyone to get up out of those chairs… get as loud as you can for the brand new Mr. and Mrs. Romero!"
+                  rows={6}
+                  className={scriptTextareaClass}
+                />
+                <p className="text-[11px] leading-snug text-stone-400 md:text-xs">
+                  Hype line right before you announce the couple — operational only.
+                </p>
               </div>
             </section>
 

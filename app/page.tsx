@@ -2872,6 +2872,7 @@ export default function Home() {
     script: "",
     lineup: "",
     coupleEntrance: "",
+    coupleEntranceScript: "",
     sideNote: "",
   });
   const [grandEntranceDetailSavedDraft, setGrandEntranceDetailSavedDraft] =
@@ -2879,6 +2880,7 @@ export default function Home() {
       script: "",
       lineup: "",
       coupleEntrance: "",
+      coupleEntranceScript: "",
       sideNote: "",
     });
   const [weddingPartyLineupOpen, setWeddingPartyLineupOpen] = useState(false);
@@ -11121,12 +11123,14 @@ export default function Home() {
       script: "",
       lineup: "",
       coupleEntrance: "",
+      coupleEntranceScript: "",
       sideNote: "",
     });
     setGrandEntranceDetailSavedDraft({
       script: "",
       lineup: "",
       coupleEntrance: "",
+      coupleEntranceScript: "",
       sideNote: "",
     });
   }, []);
@@ -11290,7 +11294,7 @@ export default function Home() {
 
   const doneGrandEntranceDetail = useCallback(async () => {
     if (!grandEntranceDetailEditor) return;
-    const { script, sideNote } = grandEntranceDetailDraft;
+    const { script, coupleEntranceScript, sideNote } = grandEntranceDetailDraft;
     const coupleDefault =
       eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
     const planningDetail = readGrandEntranceDetail(
@@ -11299,7 +11303,7 @@ export default function Home() {
     );
     const mergedAnswers = mergeGrandEntranceOperationalIntoAnswers(
       eventSettings.planningQuestionAnswers ?? {},
-      { script },
+      { script, coupleEntranceScript },
     );
     setEventSettings((prev) => ({
       ...prev,
@@ -11326,6 +11330,7 @@ export default function Home() {
           script,
           lineup: planningDetail.lineup,
           coupleEntrance: planningDetail.coupleEntrance,
+          coupleEntranceScript,
         });
       } catch (error) {
         console.error("Failed to persist Grand Entrance detail to database:", error);
@@ -11384,6 +11389,10 @@ export default function Home() {
           : evt,
       ),
     );
+    if (grandEntranceDetailEditor) {
+      setGrandEntranceDetailDraft((prev) => ({ ...prev, lineup: serialized }));
+      setGrandEntranceDetailSavedDraft((prev) => ({ ...prev, lineup: serialized }));
+    }
     closeWeddingPartyLineupEditor();
     if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
       const mergedAnswers = {
@@ -11396,6 +11405,7 @@ export default function Home() {
           script: detail.script,
           lineup: serialized,
           coupleEntrance: detail.coupleEntrance,
+          coupleEntranceScript: detail.coupleEntranceScript,
         });
       } catch (error) {
         console.error("Failed to persist wedding party lineup to database:", error);
@@ -11407,6 +11417,7 @@ export default function Home() {
     eventSettings.coupleNames,
     weddingDetails.couple,
     activeEventId,
+    grandEntranceDetailEditor,
     closeWeddingPartyLineupEditor,
   ]);
 
@@ -20048,6 +20059,7 @@ export default function Home() {
         }}
         onCancel={closeWeddingPartyLineupEditor}
         canEdit={canEditTimeline}
+        elevated={grandEntranceDetailEditor != null}
       />
 
       <SpeechesToastsSheet
@@ -20074,6 +20086,8 @@ export default function Home() {
         onCancel={closeGrandEntranceDetailEditor}
         canEditOperationalDetail={canAccessGrandEntranceOperations}
         canEditSideNote={canAccessRunOfShow}
+        canEditLineup={canAccessGrandEntranceOperations}
+        onEditLineup={openWeddingPartyLineupEditor}
       />
 
       {authStage === "app" && quickActions.length > 0 && (

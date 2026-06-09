@@ -1,4 +1,5 @@
 import {
+  GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY,
   GRAND_ENTRANCE_COUPLE_KEY,
   GRAND_ENTRANCE_MC_SCRIPT_KEY,
   GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
@@ -67,7 +68,10 @@ export function buildPlanningQuestionAnswersFromDbRow(
 ): PlanningQuestionAnswersRecord {
   const fromJson = parsePlanningQuestionAnswersJson(json);
   const legacyFields = grandEntranceDetailFieldsFromDb(legacyColumns);
-  const merged = mergeGrandEntranceDetailIntoAnswers(fromJson, legacyFields);
+  const merged = mergeGrandEntranceDetailIntoAnswers(fromJson, {
+    ...legacyFields,
+    coupleEntranceScript: fromJson[GRAND_ENTRANCE_COUPLE_ENTRANCE_SCRIPT_KEY]?.trim() ?? "",
+  });
   return normalizePlanningQuestionAnswersForDb(merged);
 }
 
