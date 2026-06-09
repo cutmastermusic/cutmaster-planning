@@ -522,6 +522,8 @@ export type EventSettings = {
   /** @deprecated Use checklistDueDates with ChecklistDueDate objects. */
   checklistDueOffsets?: Record<string, number>;
   checklistManualStatuses: Record<string, ChecklistStatus>;
+  /** Per-task operator sign-off: task scope handled for this event (Admin/DJ only). */
+  checklistHandledTasks?: Record<string, true>;
   /** Base64 data URL of event cover/banner image (local browser storage only). */
   coverPhotoDataUrl?: string;
   /** Planning/execution stage; defaults to Planning when missing. */

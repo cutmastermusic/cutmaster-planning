@@ -492,6 +492,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
+    checklistHandledTasks: {},
     eventStatus: "Planning",
     ceremonyCoverageStatus: "provided",
   };

@@ -250,6 +250,8 @@ import {
   planningChecklistCompletionPercent,
   resolveChecklistTaskNavigation,
   shouldShowPlanningChecklistMissingNotes,
+  shouldSuppressChecklistReminder,
+  isChecklistTaskHandled,
   templateDefaultDueDate,
   type ChecklistTaskFocus,
   type PlanningChecklistDueConfig,
@@ -3039,6 +3041,7 @@ export default function Home() {
     planningQuestionAnswers: {},
     checklistDueDates: {},
     checklistManualStatuses: {},
+    checklistHandledTasks: {},
     eventStatus: "Planning",
     ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
   });
@@ -4176,6 +4179,7 @@ export default function Home() {
           evt.settings?.checklistDueOffsets,
         ),
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+        checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
@@ -4455,6 +4459,7 @@ export default function Home() {
         planningQuestionAnswers: {},
         checklistDueDates: {},
         checklistManualStatuses: {},
+        checklistHandledTasks: {},
         eventStatus: "Planning",
         ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
       },
@@ -5336,6 +5341,33 @@ export default function Home() {
     [activeEventId, isActualCouple],
   );
 
+  const setChecklistTaskHandled = useCallback(
+    (taskId: string, handled: boolean) => {
+      if (effectiveRole !== "Admin" && effectiveRole !== "DJ") return;
+      setEventSettings((prev) => {
+        const nextHandled = { ...(prev.checklistHandledTasks ?? {}) };
+        if (handled) nextHandled[taskId] = true;
+        else delete nextHandled[taskId];
+        return { ...prev, checklistHandledTasks: nextHandled };
+      });
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) => {
+          if (evt.id !== activeEventId) return evt;
+          const nextHandled = { ...(evt.settings.checklistHandledTasks ?? {}) };
+          if (handled) nextHandled[taskId] = true;
+          else delete nextHandled[taskId];
+          return {
+            ...evt,
+            lastUpdatedAt: Date.now(),
+            settings: { ...evt.settings, checklistHandledTasks: nextHandled },
+          };
+        }),
+      );
+    },
+    [activeEventId, effectiveRole],
+  );
+
   const activeEventStatus = useMemo(
     () => normalizeEventStatus(eventSettings.eventStatus),
     [eventSettings.eventStatus],
@@ -5532,8 +5564,11 @@ export default function Home() {
   // linkedSection matches each card's nav targets; cards with no matching task keep their static
   // fallback status.
   const planningAssistantNextSteps = useMemo(
-    () => planningChecklist.filter((task) => task.status !== "Complete").slice(0, 3),
-    [planningChecklist],
+    () =>
+      planningChecklist
+        .filter((task) => !shouldSuppressChecklistReminder(task, eventSettings.checklistHandledTasks))
+        .slice(0, 3),
+    [planningChecklist, eventSettings.checklistHandledTasks],
   );
 
   const planningAssistantSectionStatuses = useMemo(() => {
@@ -5596,7 +5631,12 @@ export default function Home() {
       DEFAULT_PLANNING_CHECKLIST_TEMPLATE.filter((task) => task.optional).map((task) => task.id),
     );
     const incomplete = planningChecklist.filter((task) => {
-      if (task.status === "Complete" || softTaskIds.has(task.id)) return false;
+      if (
+        shouldSuppressChecklistReminder(task, eventSettings.checklistHandledTasks) ||
+        softTaskIds.has(task.id)
+      ) {
+        return false;
+      }
       if (task.id === "add-grand-entrance-details" && !hasGrandEntranceMoment) return false;
       return true;
     });
@@ -5634,9 +5674,10 @@ export default function Home() {
     }
 
     return { blockingItems, missingInformation };
-  }, [planningChecklist, timelineItems]);
+  }, [planningChecklist, timelineItems, eventSettings.checklistHandledTasks]);
 
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
+  const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
   const canAccessRunOfShow = effectiveRole !== "Couple";
@@ -5774,7 +5815,10 @@ export default function Home() {
     millisecondsUntilWedding === null ? null : Math.max(0, Math.ceil(millisecondsUntilWedding / 86400000));
   const nextChecklistTasks = planningChecklist.filter((item) => item.status !== "Complete").slice(0, 3);
   const upcomingMilestones = planningChecklist
-    .filter((item) => item.status !== "Complete" && item.dueDate)
+    .filter(
+      (item) =>
+        !shouldSuppressChecklistReminder(item, eventSettings.checklistHandledTasks) && item.dueDate,
+    )
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, 3);
   const recentActivityForActiveEvent = activities
@@ -8486,6 +8530,7 @@ export default function Home() {
           evt.settings?.checklistDueOffsets,
         ),
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+          checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
           coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
           eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
@@ -9249,6 +9294,7 @@ export default function Home() {
           evt.settings?.checklistDueOffsets,
         ),
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
+        checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
@@ -19594,17 +19640,47 @@ export default function Home() {
                       <PlanningChecklistMissingNotesBlock notes={task.missingNotes} />
                     ) : null}
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
-                      ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
-                      : task.status === "In Progress"
-                        ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
-                        : "border border-stone-300 bg-stone-100 text-stone-700"
-                      }`}
-                  >
-                    {task.status}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {canMarkChecklistHandled &&
+                    isChecklistTaskHandled(task.id, eventSettings.checklistHandledTasks) ? (
+                      <span className="rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-violet-900">
+                        Done
+                      </span>
+                    ) : null}
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
+                        ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
+                        : task.status === "In Progress"
+                          ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
+                          : "border border-stone-300 bg-stone-100 text-stone-700"
+                        }`}
+                    >
+                      {task.status}
+                    </span>
+                  </div>
                 </div>
+
+                {canMarkChecklistHandled ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {isChecklistTaskHandled(task.id, eventSettings.checklistHandledTasks) ? (
+                      <button
+                        type="button"
+                        onClick={() => setChecklistTaskHandled(task.id, false)}
+                        className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+                      >
+                        Remove Done Status
+                      </button>
+                    ) : task.status !== "Complete" ? (
+                      <button
+                        type="button"
+                        onClick={() => setChecklistTaskHandled(task.id, true)}
+                        className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900 transition hover:border-violet-400 hover:bg-violet-100"
+                      >
+                        Mark as Done
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div>
@@ -19925,24 +20001,35 @@ export default function Home() {
                   <ul className="mt-4 space-y-2.5">
                     {planningAssistantNextSteps.map((task) => (
                       <li key={task.id}>
-                        <button
-                          type="button"
-                          onClick={() => navigateToChecklistTask(task.id)}
-                          className="flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
-                        >
-                          <span
-                            aria-hidden
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
+                        <div className="flex items-stretch gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigateToChecklistTask(task.id)}
+                            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
                           >
-                            ○
-                          </span>
-                          <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
-                            {task.title}
-                          </span>
-                          <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
-                            →
-                          </span>
-                        </button>
+                            <span
+                              aria-hidden
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
+                            >
+                              ○
+                            </span>
+                            <span className="min-w-0 flex-1 text-sm font-medium text-stone-900">
+                              {task.title}
+                            </span>
+                            <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
+                              →
+                            </span>
+                          </button>
+                          {canMarkChecklistHandled ? (
+                            <button
+                              type="button"
+                              onClick={() => setChecklistTaskHandled(task.id, true)}
+                              className="shrink-0 self-center rounded-lg border border-violet-300 bg-violet-50 px-3 py-2.5 text-[11px] font-semibold text-violet-900 transition hover:border-violet-400 hover:bg-violet-100"
+                            >
+                              Mark as Done
+                            </button>
+                          ) : null}
+                        </div>
                       </li>
                     ))}
                   </ul>

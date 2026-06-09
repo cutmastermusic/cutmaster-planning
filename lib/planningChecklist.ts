@@ -1050,6 +1050,21 @@ export function shouldShowPlanningChecklistMissingNotes(
   return true;
 }
 
+export function isChecklistTaskHandled(
+  taskId: string,
+  handledTasks: Record<string, true> | undefined,
+): boolean {
+  return handledTasks?.[taskId] === true;
+}
+
+export function shouldSuppressChecklistReminder(
+  task: Pick<PlanningChecklistItem, "id" | "status">,
+  handledTasks: Record<string, true> | undefined,
+): boolean {
+  if (task.status === "Complete") return true;
+  return isChecklistTaskHandled(task.id, handledTasks);
+}
+
 export function buildPlanningChecklist(
   input: PlanningChecklistInput,
   dueConfig: PlanningChecklistDueConfig,
