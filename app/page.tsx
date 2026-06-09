@@ -329,7 +329,9 @@ import {
   insertRestoredDefaultTimelineMoment,
   isSpeechesToastsDefaultMoment,
 } from "@/lib/restoreDefaultTimelineMoments";
+import { FormalDanceCommandCard } from "@/components/formal-dance-command-card";
 import { GrandEntranceCommandCard } from "@/components/grand-entrance-command-card";
+import { isFormalDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -21409,6 +21411,7 @@ export default function Home() {
                                     const songCell = `${songLabel}${fadeSuffix}`.trim();
                                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                                     const isToast = isToastTimelineItem(item.title);
+                                    const isFormalDance = isFormalDanceTimelineItem(item);
                                     const rowSurface = done
                                       ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
@@ -21474,7 +21477,7 @@ export default function Home() {
                                           >
                                             {item.category}
                                           </p>
-                                          {songCell && !isGrandEntrance ? (
+                                          {songCell && !isGrandEntrance && !isFormalDance ? (
                                             <p
                                               className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
                                                 }`}
@@ -21489,6 +21492,16 @@ export default function Home() {
                                               songLabel={songCell || undefined}
                                               done={done}
                                               showOperationalSections={canAccessGrandEntranceOperations}
+                                            />
+                                          ) : null}
+                                          {isFormalDance ? (
+                                            <FormalDanceCommandCard
+                                              title={item.title}
+                                              songTitle={item.songTitle}
+                                              artist={item.artist}
+                                              fadeOutEarly={item.fadeOutEarly}
+                                              fadeOutTimestamp={item.fadeOutTimestamp}
+                                              done={done}
                                             />
                                           ) : null}
                                           {isToast ? (
