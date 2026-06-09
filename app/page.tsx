@@ -5689,6 +5689,9 @@ export default function Home() {
     return formatEventDateForDisplay(dateRaw, dateRaw);
   }, [eventSettings.weddingDate, weddingDetails.date]);
 
+  const runOfShowReferenceShowMusicVibe =
+    sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes;
+
   /** White-label: drive from `appSettings` today; later replace with tenant brand config object. */
   const runOfShowHeaderBrand = useMemo(
     () => ({
@@ -6833,6 +6836,14 @@ export default function Home() {
   const displayedEventNotes = useMemo(
     () => sortEventNotesForDisplay(eventNotes),
     [eventNotes],
+  );
+
+  const runOfShowPinnedEventNotes = useMemo(
+    () =>
+      displayedEventNotes.filter(
+        (note) => note.isPinned && (note.title.trim() || note.body.trim()),
+      ),
+    [displayedEventNotes],
   );
 
   const isTeamMemberAssignedToActiveEvent = useCallback(
@@ -21798,6 +21809,17 @@ export default function Home() {
               showDoNotPlay={
                 sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay
               }
+              pinnedEventNotes={runOfShowPinnedEventNotes}
+              showMusicVibe={runOfShowReferenceShowMusicVibe}
+              isSchoolDanceProfile={layoutProfileForActiveEvent === "School Dance"}
+              generalDjNotes={generalDjNotes}
+              musicTasteProfile={musicTasteProfile}
+              musicVibeDetail={musicVibeDetail}
+              musicGenreEraSelections={musicGenreEraSelections}
+              genreOtherSelected={genreOtherSelected}
+              showShowBook={runOfShowShowBookVisible}
+              showBookScripts={runOfShowVisibleDjScripts}
+              showBookMusicNotes={runOfShowVisibleMusicNotes}
             />
 
             {runOfShowOverlayActive ? (
