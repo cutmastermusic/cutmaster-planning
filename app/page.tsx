@@ -21391,6 +21391,12 @@ export default function Home() {
                                               toastsRaw={speechesToastsRaw}
                                               onEdit={openSpeechesToastsEditor}
                                               variant="runOfShow"
+                                              cardKey={doneKey}
+                                              checkedKeys={runOfShowCueChecks}
+                                              onToggleSpeaker={(lineIndex) =>
+                                                toggleRunOfShowCueCheck(`${doneKey}::st:${lineIndex}`)
+                                              }
+                                              done={done}
                                             />
                                           ) : null}
                                           <TeamCueNotes
