@@ -320,6 +320,7 @@ import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/compo
 import { WeddingPartyLineupSheet } from "@/components/wedding-party-lineup-sheet";
 import { RestoreDefaultTimelineMoments } from "@/components/restore-default-timeline-moments";
 import { SpeechesToastsSheet } from "@/components/speeches-toasts-sheet";
+import { SpeechesToastsCommandCard } from "@/components/speeches-toasts-command-card";
 import { SpeechesToastsPreview } from "@/components/speeches-toasts-preview";
 import { buildRunOfShowQuickContacts } from "@/lib/runOfShowLiveReference";
 import { WeddingPartyLineupPreview } from "@/components/wedding-party-lineup-preview";
@@ -548,6 +549,13 @@ const SPOTIFY_IMPORT_TARGET_LABELS: Record<SongListType, string> = {
 type DbPersistGuardOptions = {
   force?: boolean;
 };
+
+type RunOfShowSyncPhase = "idle" | "saving" | "synced" | "error";
+
+type RunOfShowTimelineFlagsPersistResult =
+  | { ok: true }
+  | { ok: true; skipped: true }
+  | { ok: false };
 
 function countEventSongs(
   evt: Pick<EventRecord, "mustPlaySongs" | "doNotPlaySongs" | "playIfPossibleSongs">,
@@ -2852,6 +2860,7 @@ export default function Home() {
   const [runOfShowOpen, setRunOfShowOpen] = useState(false);
   const [runOfShowReferenceOpen, setRunOfShowReferenceOpen] = useState(false);
   const [runOfShowIsFullscreen, setRunOfShowIsFullscreen] = useState(false);
+  const [runOfShowSyncPhase, setRunOfShowSyncPhase] = useState<RunOfShowSyncPhase>("idle");
   /** Per-card operational notes in Run Of Show (`c:{id}` / `r:{id}`), local to device. */
   const [runOfShowCardNotes, setRunOfShowCardNotes] = useState<Record<string, string>>({});
   /**
@@ -2917,6 +2926,8 @@ export default function Home() {
   const runOfShowScrollAfterDoneRef = useRef(false);
   /** Set when marking a moment done; allows session pin only after explicit toggle, not hydration. */
   const runOfShowPinCompletedPhaseAfterToggleRef = useRef(false);
+  const runOfShowSyncRequestIdRef = useRef(0);
+  const runOfShowSyncSavedTimerRef = useRef<number | null>(null);
   /** Whether the current Up Next timeline row intersects the Run Of Show scroll viewport (for floating cue). */
   const [runOfShowUpNextRowInView, setRunOfShowUpNextRowInView] = useState(true);
   /** Apple Pencil / touch ink layer over Run Of Show scroll area (local only). */
@@ -3435,12 +3446,17 @@ export default function Home() {
   );
 
   const persistRunOfShowTimelineFlags = useCallback(
-    async (mainItems: TimelineItem[], ceremonyItems: CeremonyTimelineItem[]) => {
-      if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
+    async (
+      mainItems: TimelineItem[],
+      ceremonyItems: CeremonyTimelineItem[],
+    ): Promise<RunOfShowTimelineFlagsPersistResult> => {
+      if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) {
+        return { ok: true, skipped: true };
+      }
       const result = await persistTimelinesToDatabase(activeEventId, mainItems, ceremonyItems, {
         force: true,
       });
-      if (!result.ok) return;
+      if (!result.ok) return { ok: false };
       setEvents((prev) =>
         prev.map((evt) =>
           evt.id === activeEventId
@@ -3452,8 +3468,43 @@ export default function Home() {
             : evt,
         ),
       );
+      return { ok: true };
     },
     [activeEventId, persistTimelinesToDatabase],
+  );
+
+  const finishRunOfShowFlagsPersist = useCallback(
+    async (mainItems: TimelineItem[], ceremonyItems: CeremonyTimelineItem[]) => {
+      const isDbBacked = Boolean(
+        activeEventId && databaseEventIdsRef.current.has(activeEventId),
+      );
+      if (!isDbBacked) {
+        await persistRunOfShowTimelineFlags(mainItems, ceremonyItems);
+        return;
+      }
+      runOfShowSyncRequestIdRef.current += 1;
+      const requestId = runOfShowSyncRequestIdRef.current;
+      if (runOfShowSyncSavedTimerRef.current != null) {
+        window.clearTimeout(runOfShowSyncSavedTimerRef.current);
+        runOfShowSyncSavedTimerRef.current = null;
+      }
+      setRunOfShowSyncPhase("saving");
+      const result = await persistRunOfShowTimelineFlags(mainItems, ceremonyItems);
+      if (runOfShowSyncRequestIdRef.current !== requestId) return;
+      if (!result.ok) {
+        setRunOfShowSyncPhase("error");
+        return;
+      }
+      if ("skipped" in result && result.skipped) return;
+      setRunOfShowSyncPhase("synced");
+      runOfShowSyncSavedTimerRef.current = window.setTimeout(() => {
+        runOfShowSyncSavedTimerRef.current = null;
+        if (runOfShowSyncRequestIdRef.current === requestId) {
+          setRunOfShowSyncPhase("idle");
+        }
+      }, 2400);
+    },
+    [activeEventId, persistRunOfShowTimelineFlags],
   );
 
   const persistSongsToDatabase = useCallback(
@@ -5682,6 +5733,19 @@ export default function Home() {
     if (venue && venue !== "TBD") bits.push(venue);
     return bits.join(" · ");
   }, [eventSettings.weddingDate, eventSettings.venue, weddingDetails.date, weddingDetails.venue]);
+
+  const runOfShowSyncStatus = useMemo(() => {
+    switch (runOfShowSyncPhase) {
+      case "saving":
+        return { label: "Saving…", toneClass: "text-stone-600" };
+      case "synced":
+        return { label: "Synced", toneClass: "text-stone-800" };
+      case "error":
+        return { label: "Not synced", toneClass: "text-rose-800" };
+      default:
+        return null;
+    }
+  }, [runOfShowSyncPhase]);
 
   const runOfShowReferenceEventDate = useMemo(() => {
     const dateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
@@ -11236,6 +11300,11 @@ export default function Home() {
   const closeRunOfShow = useCallback(() => {
     setRunOfShowOpen(false);
     setRunOfShowReferenceOpen(false);
+    setRunOfShowSyncPhase("idle");
+    if (runOfShowSyncSavedTimerRef.current != null) {
+      window.clearTimeout(runOfShowSyncSavedTimerRef.current);
+      runOfShowSyncSavedTimerRef.current = null;
+    }
     setRunOfShowAnnotateMode(false);
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
@@ -11799,7 +11868,7 @@ export default function Home() {
           item.id === itemId ? { ...item, runOfShowDone: !item.runOfShowDone } : item,
         );
         setCeremonyTimelineItems(nextCeremony);
-        void persistRunOfShowTimelineFlags(timelineItems, nextCeremony);
+        void finishRunOfShowFlagsPersist(timelineItems, nextCeremony);
         return;
       }
       if (key.startsWith("r:")) {
@@ -11808,10 +11877,10 @@ export default function Home() {
           item.id === itemId ? { ...item, runOfShowDone: !item.runOfShowDone } : item,
         );
         setTimelineItems(nextMain);
-        void persistRunOfShowTimelineFlags(nextMain, ceremonyTimelineItems);
+        void finishRunOfShowFlagsPersist(nextMain, ceremonyTimelineItems);
       }
     },
-    [timelineItems, ceremonyTimelineItems, persistRunOfShowTimelineFlags, runOfShowDoneKeys],
+    [timelineItems, ceremonyTimelineItems, finishRunOfShowFlagsPersist, runOfShowDoneKeys],
   );
 
   const markRunOfShowSectionUserExpanded = useCallback(
@@ -11850,7 +11919,7 @@ export default function Home() {
     );
     setTimelineItems(nextMain);
     setCeremonyTimelineItems(nextCeremony);
-    void persistRunOfShowTimelineFlags(nextMain, nextCeremony);
+    void finishRunOfShowFlagsPersist(nextMain, nextCeremony);
     setRunOfShowUserExpandedWhileCompleteIds(new Set());
     setRunOfShowSessionExpandedCompletePhaseId(null);
     runOfShowAllDoneSectionIdsRef.current = new Set();
@@ -11887,7 +11956,7 @@ export default function Home() {
     } catch {
       /* ignore */
     }
-  }, [activeEventId, ceremonyTimelineItems, persistRunOfShowTimelineFlags, timelineItems]);
+  }, [activeEventId, ceremonyTimelineItems, finishRunOfShowFlagsPersist, timelineItems]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !hasHydrated || !activeEventId) return;
@@ -21017,6 +21086,15 @@ export default function Home() {
                   <p className="mt-2 max-w-3xl text-[13px] font-medium leading-snug text-stone-600 sm:text-sm md:text-[15px]">
                     {runOfShowSubline}
                   </p>
+                  {runOfShowSyncStatus ? (
+                    <p
+                      className={`mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] sm:text-[11px] ${runOfShowSyncStatus.toneClass}`}
+                      aria-live="polite"
+                      role="status"
+                    >
+                      {runOfShowSyncStatus.label}
+                    </p>
+                  ) : null}
                   {runOfShowUpNextMeta.banner === "upNext" ? (
                     <div
                       className="mt-3 max-w-3xl rounded-xl border border-cyan-300/80 bg-gradient-to-r from-cyan-50/95 to-white px-4 py-3 shadow-[inset_3px_0_0_0_var(--cm-cyan)] sm:mt-3.5 md:mt-4 md:px-5 md:py-4"
@@ -21125,6 +21203,16 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+              {runOfShowSyncPhase === "error" ? (
+                <div
+                  className="border-t border-rose-200/90 bg-gradient-to-r from-rose-50/95 to-white px-4 py-3 sm:px-6 md:px-8"
+                  role="alert"
+                >
+                  <p className="text-sm font-medium leading-snug text-rose-950">
+                    Run Of Show progress could not sync. This device still shows your latest marks.
+                  </p>
+                </div>
+              ) : null}
             </header>
 
             <main
@@ -21525,10 +21613,8 @@ export default function Home() {
                                             />
                                           ) : null}
                                           {isToast ? (
-                                            <SpeechesToastsPreview
+                                            <SpeechesToastsCommandCard
                                               toastsRaw={speechesToastsRaw}
-                                              onEdit={openSpeechesToastsEditor}
-                                              variant="runOfShow"
                                               cardKey={doneKey}
                                               checkedKeys={runOfShowCueChecks}
                                               onToggleSpeaker={(lineIndex) =>
