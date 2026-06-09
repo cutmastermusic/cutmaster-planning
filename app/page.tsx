@@ -329,6 +329,7 @@ import {
   insertRestoredDefaultTimelineMoment,
   isSpeechesToastsDefaultMoment,
 } from "@/lib/restoreDefaultTimelineMoments";
+import { GrandEntranceCommandCard } from "@/components/grand-entrance-command-card";
 import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -4836,18 +4837,19 @@ export default function Home() {
       })
       .join(" · ");
   }, [speechesToastsRaw]);
-  const grandEntranceMcScript = useMemo(() => {
+  const grandEntranceDetailForRos = useMemo(() => {
     const coupleDefault =
       eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
     return readGrandEntranceDetail(
       eventSettings.planningQuestionAnswers ?? {},
       coupleDefault,
-    ).script;
+    );
   }, [
     eventSettings.planningQuestionAnswers,
     eventSettings.coupleNames,
     weddingDetails.couple,
   ]);
+  const grandEntranceMcScript = grandEntranceDetailForRos.script;
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
     Record<string, boolean>
@@ -21367,7 +21369,7 @@ export default function Home() {
                                           >
                                             {item.category}
                                           </p>
-                                          {songCell ? (
+                                          {songCell && !isGrandEntrance ? (
                                             <p
                                               className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
                                                 }`}
@@ -21376,17 +21378,12 @@ export default function Home() {
                                             </p>
                                           ) : null}
                                           {isGrandEntrance ? (
-                                            <WeddingPartyLineupPreview
+                                            <GrandEntranceCommandCard
+                                              detail={grandEntranceDetailForRos}
                                               lineupRaw={weddingPartyLineupRaw}
-                                              onEdit={openWeddingPartyLineupEditor}
-                                              variant="runOfShow"
-                                            />
-                                          ) : null}
-                                          {isGrandEntrance && canAccessGrandEntranceOperations ? (
-                                            <GrandEntranceMcScriptPreview
-                                              script={grandEntranceMcScript}
-                                              onEdit={() => openGrandEntranceDetail(item)}
-                                              variant="runOfShow"
+                                              songLabel={songCell || undefined}
+                                              done={done}
+                                              showOperationalSections={canAccessGrandEntranceOperations}
                                             />
                                           ) : null}
                                           {isToast ? (
