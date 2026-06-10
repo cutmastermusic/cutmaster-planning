@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
+import { CoupleMusicProfileGuidedSection } from "@/components/couple-music-profile-guided-section";
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
@@ -57,11 +58,11 @@ const COUPLE_WEDDING_GUIDED_CHAPTER_COPY: Record<
     completionMessage: "Thanks — these details help us shape a reception that feels like you.",
   },
   music_vibe: {
-    sectionId: "music-vibe-guided",
-    eyebrow: "Music & Vibe",
-    title: "Let's talk music and vibe",
-    intro: "Share the energy, artists, and songs that help us understand your soundtrack.",
-    completionMessage: "Thanks — this gives us a clear direction for your dance floor.",
+    sectionId: "music-profile-guided",
+    eyebrow: "Music Profile",
+    title: "Let's talk about the music",
+    intro:
+      "Most couples add songs over time, but before we build playlists, we'd love to understand the kind of celebration you're imagining.",
   },
 };
 
@@ -83,6 +84,7 @@ export type CoupleWeddingChapterScreenProps = {
   onOpenSpeechesToastsEditor: () => void;
   onContinueToNextChapter: () => void;
   continueToNextChapterLabel: string;
+  onOpenMusicHub: () => void;
   onOpenEventTeam: () => void;
   onOpenEventPrep: () => void;
 };
@@ -193,6 +195,7 @@ export function CoupleWeddingChapterScreen({
   onOpenSpeechesToastsEditor,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  onOpenMusicHub,
   onOpenEventTeam,
   onOpenEventPrep,
 }: CoupleWeddingChapterScreenProps) {
@@ -268,6 +271,16 @@ export function CoupleWeddingChapterScreen({
         onAnswerChange={onAnswerChange}
         renderEditor={renderQuestionEditor}
         {...chapterContinueProps}
+      />
+    );
+  }
+
+  if (chapterId === "music_vibe") {
+    return (
+      <CoupleMusicProfileGuidedSection
+        answers={answers}
+        onAnswerChange={onAnswerChange}
+        onOpenMusicHub={onOpenMusicHub}
       />
     );
   }

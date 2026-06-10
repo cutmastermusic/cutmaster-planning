@@ -329,6 +329,10 @@ import {
   nextCoupleWeddingChapterAfter,
   type CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
+import {
+  mergeMusicProfileIntoMusicHub,
+  musicProfileHasBridgeableAnswers,
+} from "@/lib/mergeMusicProfileIntoMusicHub";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
@@ -2332,7 +2336,7 @@ const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
   ceremony: "Tell us how you imagine the ceremony feeling.",
   reception_moments:
     "Plan the moments your guests will remember—entrance, toasts, dances, and traditions.",
-  music_vibe: "Share the vibe you're hoping to create on the dance floor.",
+  music_vibe: "Capture your musical identity before you build playlists in Music Hub.",
   your_team: "Help us stay aligned with your planner, venue, and vendors.",
   final_review: "Anything else you'd like us to know before the big day?",
 };
@@ -5005,6 +5009,37 @@ export default function Home() {
     effectiveRole === "Couple" &&
     (layoutProfileForActiveEvent === "Wedding" ||
       layoutProfileForActiveEvent === "Gender-Neutral Wedding");
+
+  const applyMusicProfileToMusicHub = useCallback(() => {
+    const answers = eventSettings.planningQuestionAnswers ?? {};
+    if (!musicProfileHasBridgeableAnswers(answers)) return;
+    const merged = mergeMusicProfileIntoMusicHub({
+      planningQuestionAnswers: answers,
+      musicTasteProfile,
+      musicGenreEraSelections,
+      musicVibeDetail,
+    });
+    if (!merged.changed) return;
+    setMusicTasteProfile(merged.musicTasteProfile);
+    setMusicGenreEraSelections(merged.musicGenreEraSelections);
+    setMusicVibeDetail(merged.musicVibeDetail);
+  }, [
+    eventSettings.planningQuestionAnswers,
+    musicGenreEraSelections,
+    musicTasteProfile,
+    musicVibeDetail,
+  ]);
+
+  const selectActiveScreen = useCallback(
+    (screen: Screen) => {
+      if (screen === "Music Hub" && isCoupleWeddingPlanningView) {
+        applyMusicProfileToMusicHub();
+      }
+      setActiveScreen(screen);
+    },
+    [applyMusicProfileToMusicHub, isCoupleWeddingPlanningView],
+  );
+
   const primaryPartyFieldLabel = PRIMARY_PARTY_FIELD_LABEL[layoutProfileForActiveEvent];
   const primaryPartyShortLabel = PRIMARY_PARTY_SHORT_LABEL[layoutProfileForActiveEvent];
   const eventDateGridLabel =
@@ -6240,7 +6275,7 @@ export default function Home() {
           label: "Add Song",
           visible: appMode === "event" && canManageMusic,
           onClick: () => {
-            setActiveScreen("Music Hub");
+            selectActiveScreen("Music Hub");
             setNewSongListType("mustPlay");
           },
           priority: activeScreen === "Music Hub" ? 100 : 40,
@@ -6321,7 +6356,7 @@ export default function Home() {
     effectiveEventType,
     logActivity,
     pushNotification,
-    setActiveScreen,
+    selectActiveScreen,
     timelineComposerRef,
     timelineStreamRef,
   ]);
@@ -12944,7 +12979,7 @@ export default function Home() {
           <EventNavSegmented
             items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
             activeScreen={shellNavActiveScreen}
-            onSelect={setActiveScreen}
+            onSelect={selectActiveScreen}
           />
         )}
 
@@ -14821,7 +14856,7 @@ export default function Home() {
                       openCouplePlanningChapter(coupleNextStep.targetChapterId);
                       return;
                     }
-                    setActiveScreen(coupleNextStep.targetScreen);
+                    selectActiveScreen(coupleNextStep.targetScreen);
                   }}
                   className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
                 >
@@ -14998,7 +15033,7 @@ export default function Home() {
                     <button
                       type="button"
                       key={section.id}
-                      onClick={() => setActiveScreen(section.screen)}
+                      onClick={() => selectActiveScreen(section.screen)}
                       className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -20837,6 +20872,10 @@ export default function Home() {
                 onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
                 onContinueToNextChapter={() => continueToNextCoupleChapter(activePlanningChapterId)}
                 continueToNextChapterLabel={coupleActiveChapterContinueLabel}
+                onOpenMusicHub={() => {
+                  closeCouplePlanningChapter();
+                  selectActiveScreen("Music Hub");
+                }}
                 onOpenEventTeam={() => {
                   closeCouplePlanningChapter();
                   setActiveScreen("Event Team");
@@ -23082,7 +23121,7 @@ export default function Home() {
         <BottomNav
           items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
           activeScreen={shellNavActiveScreen}
-          onSelect={setActiveScreen}
+          onSelect={selectActiveScreen}
         />
       )}
     </div>

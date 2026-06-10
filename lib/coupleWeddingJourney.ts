@@ -1,5 +1,6 @@
 import type { PlanningQuestionDef } from "@/types/planning";
 import { computePlanningQuestionGroupCompletion } from "@/data/planningQuestionGroups";
+import { computeMusicProfileChapterCompletionPct, MUSIC_PROFILE_GUIDED_STEP_COUNT } from "@/lib/coupleMusicProfilePlanning";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
@@ -115,6 +116,10 @@ export function computeCoupleWeddingChapterCompletionPct(
     return Math.round((answeredSteps / totalSteps) * 100);
   }
 
+  if (chapterId === "music_vibe") {
+    return computeMusicProfileChapterCompletionPct(answers);
+  }
+
   if (visibleQuestions.length === 0) return 0;
   return computePlanningQuestionGroupCompletion(
     visibleQuestions,
@@ -146,8 +151,8 @@ const CHAPTER_CARD_COPY: Record<
   },
   music_vibe: {
     kicker: "Chapter 4",
-    title: "Music & Vibe",
-    description: "The energy, artists, and boundaries for your dance floor.",
+    title: "Music Profile",
+    description: "Your musical identity—energy, genres, and dance-floor vision before playlists.",
     isPlaceholder: false,
   },
   your_team: {
@@ -183,6 +188,9 @@ export function buildCoupleWeddingChapterCards(
         (input.showWeddingPartyLineupSection ? 1 : 0) +
         (input.showSpeechesToastsSection ? 1 : 0);
       statLine = `${completionPct}% complete · ${stepCount} ${stepCount === 1 ? "step" : "steps"}`;
+    } else if (id === "music_vibe") {
+      statLine = `${completionPct}% complete · ${MUSIC_PROFILE_GUIDED_STEP_COUNT} steps`;
+      statSubline = "Capture your vibe before building playlists in Music Hub";
     } else if (id === "your_team") {
       statLine =
         input.vendorContactCount > 0

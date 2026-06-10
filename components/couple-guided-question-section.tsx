@@ -22,7 +22,13 @@ function countAnsweredSteps(
   steps: CoupleGuidedQuestionStep[],
   answers: Record<string, string | undefined>,
 ): number {
-  return steps.filter((step) => step.isAnswered(answers)).length;
+  return steps
+    .filter((step) => !step.optional)
+    .filter((step) => step.isAnswered(answers)).length;
+}
+
+function countProgressSteps(steps: CoupleGuidedQuestionStep[]): number {
+  return steps.filter((step) => !step.optional).length;
 }
 
 type Phase = "guided" | "review";
@@ -30,6 +36,8 @@ type Phase = "guided" | "review";
 export type CoupleGuidedQuestionStep = {
   id: string;
   isAnswered: (answers: Record<string, string | undefined>) => boolean;
+  /** When true, step is excluded from the progress bar count (still required for review completion). */
+  optional?: boolean;
   renderGuided: () => ReactNode;
   renderReview: () => ReactNode;
 };
@@ -42,6 +50,10 @@ export type CoupleGuidedQuestionSectionProps = {
   steps: CoupleGuidedQuestionStep[];
   answers: Record<string, string | undefined>;
   completionMessage?: string;
+  completionTitle?: string;
+  completionBody?: string;
+  completionPrimaryLabel?: string;
+  onCompletionPrimary?: () => void;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
 };
@@ -82,20 +94,26 @@ export function CoupleGuidedQuestionSection({
   steps,
   answers,
   completionMessage = "Thanks — this helps us create a celebration that feels like you.",
+  completionTitle,
+  completionBody,
+  completionPrimaryLabel,
+  onCompletionPrimary,
   onContinueToNextChapter,
   continueToNextChapterLabel = "Continue to next chapter",
 }: CoupleGuidedQuestionSectionProps) {
-  const total = steps.length;
+  const flowStepCount = steps.length;
+  const requiredStepCount = countProgressSteps(steps);
   const answered = useMemo(() => countAnsweredSteps(steps, answers), [steps, answers]);
-  const progressPct = total === 0 ? 100 : Math.round((answered / total) * 100);
-  const allAnswered = total > 0 && answered === total;
+  const progressPct =
+    requiredStepCount === 0 ? 100 : Math.round((answered / requiredStepCount) * 100);
+  const allAnswered = steps.length > 0 && steps.every((step) => step.isAnswered(answers));
 
   const [phase, setPhase] = useState<Phase>(() => {
-    if (total === 0) return "review";
+    if (flowStepCount === 0) return "review";
     return firstUnansweredStepIndex(steps, answers) === -1 ? "review" : "guided";
   });
   const [stepIndex, setStepIndex] = useState(() => {
-    if (total === 0) return 0;
+    if (flowStepCount === 0) return 0;
     const idx = firstUnansweredStepIndex(steps, answers);
     return idx === -1 ? 0 : idx;
   });
@@ -104,7 +122,7 @@ export function CoupleGuidedQuestionSection({
 
   const currentStep = steps[stepIndex];
   const isFirstStep = stepIndex <= 0;
-  const isLastStep = stepIndex >= total - 1;
+  const isLastStep = stepIndex >= steps.length - 1;
   const activeStepId = currentStep?.id;
 
   const goToReview = useCallback(() => {
@@ -126,8 +144,8 @@ export function CoupleGuidedQuestionSection({
       goToReview();
       return;
     }
-    setStepIndex((prev) => Math.min(total - 1, prev + 1));
-  }, [goToReview, isLastStep, total]);
+    setStepIndex((prev) => Math.min(steps.length - 1, prev + 1));
+  }, [goToReview, isLastStep, steps.length]);
 
   useEffect(() => {
     if (phase !== "guided" || !activeStepId) return;
@@ -143,7 +161,7 @@ export function CoupleGuidedQuestionSection({
     });
   }, [phase, stepIndex, activeStepId]);
 
-  if (total === 0) {
+  if (flowStepCount === 0) {
     return null;
   }
 
@@ -166,8 +184,8 @@ export function CoupleGuidedQuestionSection({
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium tabular-nums text-stone-800">
           <span>
             {phase === "guided"
-              ? `Question ${stepIndex + 1} of ${total}`
-              : `${answered} of ${total} answered`}
+              ? `Step ${stepIndex + 1} of ${flowStepCount}`
+              : `${answered} of ${requiredStepCount} required answered`}
           </span>
           <span className="text-xs font-normal text-stone-600">{progressPct}% complete</span>
         </div>
@@ -212,9 +230,16 @@ export function CoupleGuidedQuestionSection({
       ) : (
         <div className="mt-6 space-y-5">
           {allAnswered ? (
-            <p className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-3 text-sm leading-relaxed text-emerald-950">
-              {completionMessage}
-            </p>
+            completionTitle && completionBody ? (
+              <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-4">
+                <h4 className="text-base font-semibold text-emerald-950">{completionTitle}</h4>
+                <p className="mt-2 text-sm leading-relaxed text-emerald-950">{completionBody}</p>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-3 text-sm leading-relaxed text-emerald-950">
+                {completionMessage}
+              </p>
+            )
           ) : null}
           <div className="flex flex-col gap-5">
             {steps.map((step) => (
@@ -222,13 +247,13 @@ export function CoupleGuidedQuestionSection({
             ))}
           </div>
           <div className="flex flex-col gap-2 border-t border-stone-200 pt-5 sm:flex-row sm:items-center sm:justify-end">
-            {allAnswered && onContinueToNextChapter ? (
+            {allAnswered && (onCompletionPrimary ?? onContinueToNextChapter) ? (
               <PrimaryButton
                 type="button"
-                onClick={onContinueToNextChapter}
+                onClick={onCompletionPrimary ?? onContinueToNextChapter}
                 className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCyanPrimaryButtonClass}`}
               >
-                {continueToNextChapterLabel}
+                {completionPrimaryLabel ?? continueToNextChapterLabel}
               </PrimaryButton>
             ) : null}
             <PrimaryButton

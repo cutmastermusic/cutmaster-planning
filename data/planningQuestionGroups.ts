@@ -9,13 +9,11 @@ export type PlanningQuestionGroupDef = {
 
 const WEDDING_STYLE_GROUPS: PlanningQuestionGroupDef[] = [
   { id: "about_you", label: "About You" },
-  { id: "event_details", label: "Event Details" },
   { id: "ceremony", label: "Ceremony" },
-  { id: "reception_timeline", label: "Reception / Timeline" },
-  { id: "music_preferences", label: "Music Preferences" },
-  { id: "vendors_coordination", label: "Event team / coordination" },
-  { id: "special_moments", label: "Special Moments" },
-  { id: "final_notes", label: "Final Notes" },
+  { id: "reception_moments", label: "Reception Moments" },
+  { id: "music_vibe", label: "Music Profile" },
+  { id: "your_team", label: "Your Team" },
+  { id: "final_review", label: "Final Review" },
 ];
 
 const CORPORATE_STYLE_GROUPS: PlanningQuestionGroupDef[] = [
