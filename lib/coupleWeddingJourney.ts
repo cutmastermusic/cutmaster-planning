@@ -21,6 +21,14 @@ export const COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER: CoupleWeddingChapterId[] = [
   "final_review",
 ];
 
+/** Guided story chapters counted in the couple dashboard hero progress bar. */
+export const COUPLE_WEDDING_STORY_CHAPTER_IDS: CoupleWeddingChapterId[] = [
+  "about_you",
+  "ceremony",
+  "reception_moments",
+  "music_vibe",
+];
+
 export type CoupleWeddingChapterStatus = "Not Started" | "In Progress" | "Complete";
 
 export type CoupleWeddingChapterCardModel = {
@@ -213,6 +221,47 @@ export function computeCoupleWeddingJourneyProgressPct(
   if (cards.length === 0) return 0;
   const sum = cards.reduce((acc, card) => acc + card.completionPct, 0);
   return Math.round(sum / cards.length);
+}
+
+/** Dashboard hero only — excludes placeholder chapters (Your Team, Final Review). */
+export function computeCoupleWeddingStoryHeroProgressPct(
+  input: CoupleWeddingJourneyProgressInput,
+): number {
+  const pcts = COUPLE_WEDDING_STORY_CHAPTER_IDS.map((id) =>
+    computeCoupleWeddingChapterCompletionPct(id, input),
+  );
+  if (pcts.length === 0) return 0;
+  return Math.round(pcts.reduce((acc, pct) => acc + pct, 0) / pcts.length);
+}
+
+export function hasAnyCoupleWeddingStoryChapterStarted(
+  cards: CoupleWeddingChapterCardModel[],
+): boolean {
+  return cards
+    .filter((card) => COUPLE_WEDDING_STORY_CHAPTER_IDS.includes(card.id))
+    .some((card) => card.status !== "Not Started");
+}
+
+export function coupleWeddingChapterDashboardCtaLabel(
+  chapterId: CoupleWeddingChapterId,
+  hasAnyStoryChapterStarted: boolean,
+): string {
+  const title = coupleWeddingChapterNavLabel(chapterId);
+  if (!hasAnyStoryChapterStarted && chapterId === "about_you") {
+    return "Begin About You";
+  }
+  return `Continue ${title}`;
+}
+
+export function firstIncompleteCoupleWeddingStoryChapter(
+  input: CoupleWeddingJourneyProgressInput,
+): CoupleWeddingChapterId | null {
+  for (const id of COUPLE_WEDDING_STORY_CHAPTER_IDS) {
+    if (computeCoupleWeddingChapterCompletionPct(id, input) < 100) {
+      return id;
+    }
+  }
+  return null;
 }
 
 export function firstIncompleteCoupleWeddingChapter(

@@ -321,9 +321,12 @@ import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import {
   buildCoupleWeddingChapterCards,
-  computeCoupleWeddingJourneyProgressPct,
+  computeCoupleWeddingStoryHeroProgressPct,
+  coupleWeddingChapterDashboardCtaLabel,
   coupleWeddingChapterNavLabel,
   firstIncompleteCoupleWeddingChapter,
+  firstIncompleteCoupleWeddingStoryChapter,
+  hasAnyCoupleWeddingStoryChapterStarted,
   nextCoupleWeddingChapterAfter,
   type CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
@@ -5723,13 +5726,21 @@ export default function Home() {
     () => buildCoupleWeddingChapterCards(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
   );
-  const coupleWeddingJourneyProgressPct = useMemo(
-    () => computeCoupleWeddingJourneyProgressPct(coupleWeddingJourneyInput),
+  const coupleWeddingStoryHeroProgressPct = useMemo(
+    () => computeCoupleWeddingStoryHeroProgressPct(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
   );
   const firstIncompleteCoupleChapter = useMemo(
     () => firstIncompleteCoupleWeddingChapter(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
+  );
+  const firstIncompleteCoupleStoryChapter = useMemo(
+    () => firstIncompleteCoupleWeddingStoryChapter(coupleWeddingJourneyInput),
+    [coupleWeddingJourneyInput],
+  );
+  const coupleWeddingStoryChapterStarted = useMemo(
+    () => hasAnyCoupleWeddingStoryChapterStarted(coupleWeddingChapterCards),
+    [coupleWeddingChapterCards],
   );
   const coupleActivePlanningChapterRow = useMemo(() => {
     if (!activePlanningChapterId) return null;
@@ -7598,7 +7609,7 @@ export default function Home() {
     if (
       isCoupleWeddingPlanningView &&
       sectionPlanningQuestionsEnabled &&
-      firstIncompleteCoupleChapter
+      firstIncompleteCoupleStoryChapter
     ) {
       return "Planning Questions";
     }
@@ -7650,7 +7661,7 @@ export default function Home() {
     sectionReceptionTimelineEnabled,
     unifiedEventTimeline,
     isCoupleWeddingPlanningView,
-    firstIncompleteCoupleChapter,
+    firstIncompleteCoupleStoryChapter,
   ]);
 
   const coupleHomePlanningSections = useMemo(() => {
@@ -11255,7 +11266,7 @@ export default function Home() {
 
   const coupleContinueJourney = useMemo(() => {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
-    const chapterId = firstIncompleteCoupleChapter;
+    const chapterId = firstIncompleteCoupleStoryChapter;
     if (!chapterId) return null;
     const chapter = coupleWeddingChapterCards.find((entry) => entry.id === chapterId);
     return {
@@ -11265,11 +11276,28 @@ export default function Home() {
           ? `Start with ${chapter.title}—${chapter.description}`
           : `Pick up ${chapter.title} where you left off.`
         : "Continue your wedding story one chapter at a time.",
-      ctaLabel: "Continue Your Journey",
+      ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
     };
   }, [
     coupleWeddingChapterCards,
+    coupleWeddingStoryChapterStarted,
+    firstIncompleteCoupleStoryChapter,
+    isCoupleWeddingPlanningView,
+    sectionPlanningQuestionsEnabled,
+  ]);
+
+  const coupleWeddingWelcomeAction = useMemo(() => {
+    if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
+    const chapterId = firstIncompleteCoupleChapter ?? firstIncompleteCoupleStoryChapter;
+    if (!chapterId) return null;
+    return {
+      chapterId,
+      ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
+    };
+  }, [
     firstIncompleteCoupleChapter,
+    firstIncompleteCoupleStoryChapter,
+    coupleWeddingStoryChapterStarted,
     isCoupleWeddingPlanningView,
     sectionPlanningQuestionsEnabled,
   ]);
@@ -14585,7 +14613,7 @@ export default function Home() {
                     </h2>
                     <p className="mt-2 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
                     <div className="pointer-events-auto mt-4 flex flex-wrap items-center gap-2">
-                      {eventStatusDashboardControl}
+                      {!isCoupleWeddingPlanningView ? eventStatusDashboardControl : null}
                       <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white">
                         {layoutProfileForActiveEvent}
                       </span>
@@ -14608,7 +14636,7 @@ export default function Home() {
                             style={{
                               width: `${
                                 isCoupleWeddingPlanningView
-                                  ? coupleWeddingJourneyProgressPct
+                                  ? coupleWeddingStoryHeroProgressPct
                                   : completionPercent
                               }%`,
                             }}
@@ -14617,7 +14645,7 @@ export default function Home() {
                       </div>
                       <p className="shrink-0 text-4xl font-semibold tabular-nums text-zinc-100">
                         {isCoupleWeddingPlanningView
-                          ? coupleWeddingJourneyProgressPct
+                          ? coupleWeddingStoryHeroProgressPct
                           : completionPercent}
                         %
                       </p>
@@ -14625,12 +14653,14 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="space-y-4 border-t border-stone-300 bg-stone-50/60 px-5 py-6 sm:p-7">
-                  <p className="text-[11px] font-medium text-stone-600">
-                    Viewing as{" "}
-                    <span className="font-semibold text-stone-900">
-                      {perspectiveBannerLabel(currentRole, rolePreview)}
-                    </span>
-                  </p>
+                  {!isCoupleWeddingPlanningView ? (
+                    <p className="text-[11px] font-medium text-stone-600">
+                      Viewing as{" "}
+                      <span className="font-semibold text-stone-900">
+                        {perspectiveBannerLabel(currentRole, rolePreview)}
+                      </span>
+                    </p>
+                  ) : null}
                   {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
                     <p className="text-[11px] text-stone-600">
                       <span className="font-medium text-stone-800">Your team</span>
@@ -14718,13 +14748,35 @@ export default function Home() {
                 </PrimaryButton>
                 <p className="mt-3 text-[11px] tabular-nums text-stone-500">
                   {isCoupleWeddingPlanningView
-                    ? `${coupleWeddingJourneyProgressPct}% of your story complete`
+                    ? `${coupleWeddingStoryHeroProgressPct}% of your story complete`
                     : `${completionPercent}% of your plan in place`}
                 </p>
               </div>
 
               {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
                 <div className="space-y-4">
+                  <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Welcome
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
+                      Let&apos;s tell your story
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                      We&apos;ll guide you through a few short chapters about your ceremony, reception,
+                      music, and the moments that matter most. Most couples finish the first chapter in
+                      about five minutes.
+                    </p>
+                    {coupleWeddingWelcomeAction ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => openCouplePlanningChapter(coupleWeddingWelcomeAction.chapterId)}
+                        className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
+                      >
+                        {coupleWeddingWelcomeAction.ctaLabel}
+                      </PrimaryButton>
+                    ) : null}
+                  </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                       Your wedding story
@@ -14734,26 +14786,66 @@ export default function Home() {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
-                    {coupleWeddingChapterCards.map((chapter) => (
+                    {coupleWeddingChapterCards.map((chapter) => {
+                      const isCurrentChapter = chapter.id === firstIncompleteCoupleChapter;
+                      const isCompleteChapter = chapter.status === "Complete";
+                      return (
                       <button
                         type="button"
                         key={chapter.id}
                         onClick={() => openCouplePlanningChapter(chapter.id)}
-                        className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                        className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
+                          isCurrentChapter
+                            ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
+                            : isCompleteChapter
+                              ? "border border-stone-200/90 bg-stone-50/70 opacity-90 shadow-none ring-1 ring-stone-200/80 hover:border-stone-300 hover:opacity-100 sm:shadow-none"
+                              : "border border-stone-300 bg-white shadow-none ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
-                              {chapter.kicker}
-                            </p>
-                            <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p
+                                className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                                  isCompleteChapter ? "text-stone-500" : "text-stone-600"
+                                }`}
+                              >
+                                {chapter.kicker}
+                              </p>
+                              {isCurrentChapter ? (
+                                <span className="rounded-full border border-[#00D4FF]/45 bg-[#00D4FF]/15 px-2 py-0.5 text-[10px] font-semibold text-stone-900">
+                                  Recommended next step
+                                </span>
+                              ) : null}
+                            </div>
+                            <h3
+                              className={`mt-1.5 text-lg font-semibold leading-snug [overflow-wrap:anywhere] ${
+                                isCompleteChapter ? "text-stone-700" : "text-stone-950"
+                              }`}
+                            >
                               {chapter.title}
                             </h3>
-                            <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
+                            <p
+                              className={`mt-2 text-sm leading-relaxed sm:text-[13px] sm:leading-relaxed ${
+                                isCompleteChapter ? "text-stone-500" : "text-stone-700 sm:text-stone-600"
+                              }`}
+                            >
                               {chapter.description}
                             </p>
-                            <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
-                              <p className="text-sm font-medium text-stone-900">{chapter.statLine}</p>
+                            <div
+                              className={`mt-3 space-y-1 rounded-xl border px-3 py-2.5 ${
+                                isCompleteChapter
+                                  ? "border-stone-200/70 bg-white/70"
+                                  : "border-stone-200/90 bg-stone-50/90"
+                              }`}
+                            >
+                              <p
+                                className={`text-sm font-medium ${
+                                  isCompleteChapter ? "text-stone-600" : "text-stone-900"
+                                }`}
+                              >
+                                {chapter.statLine}
+                              </p>
                               <p className="text-xs leading-relaxed text-stone-600">{chapter.statSubline}</p>
                             </div>
                           </div>
@@ -14772,18 +14864,34 @@ export default function Home() {
                           </div>
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
                             <div
-                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
+                              className={`h-full rounded-full transition-[width] duration-500 ${
+                                isCompleteChapter ? "bg-stone-400" : "bg-[#00D4FF]"
+                              }`}
                               style={{ width: `${chapter.completionPct}%` }}
                             />
                           </div>
                         </div>
                         <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
-                          <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
-                            {chapter.status === "Complete" ? "Review" : "Open chapter"} →
+                          <span
+                            className={`text-xs font-semibold transition ${
+                              isCompleteChapter
+                                ? "text-stone-500 group-hover:text-stone-700"
+                                : isCurrentChapter
+                                  ? "text-stone-900 group-hover:text-stone-950"
+                                  : "text-stone-700 group-hover:text-stone-900"
+                            }`}
+                          >
+                            {chapter.status === "Complete"
+                              ? "Review"
+                              : isCurrentChapter
+                                ? "Continue"
+                                : "Open chapter"}{" "}
+                            →
                           </span>
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
