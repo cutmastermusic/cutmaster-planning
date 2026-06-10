@@ -2270,6 +2270,17 @@ function perspectiveRoleLabel(role: UserRole): string {
 /** Couple-facing label for the Planning Questions screen — internal screen id unchanged. */
 const COUPLE_ABOUT_YOUR_DAY_LABEL = "About your day";
 
+const COUPLE_ABOUT_YOUR_DAY_INTRO_BODY =
+  "Share the story of your celebration—ceremony, reception, wedding party, and the moments that matter most. Short answers are enough, and you can update them anytime.";
+
+/** Warm subtitles for grouped prompts — couple presentation only; group ids unchanged. */
+const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
+  ceremony: "Tell us how you imagine the ceremony feeling.",
+  music_preferences: "Share the vibe you're hoping to create.",
+  special_moments: "Traditions, dances, and meaningful moments.",
+  final_notes: "Anything else you'd like us to know?",
+};
+
 function perspectiveBannerLabel(
   sessionRole: UserRole | null,
   previewRole: UserRole,
@@ -4942,6 +4953,41 @@ export default function Home() {
       })
       .join(" · ");
   }, [speechesToastsRaw]);
+  const coupleAboutYourDaySectionProgress = useMemo(() => {
+    const answers = eventSettings.planningQuestionAnswers ?? {};
+    let total = 0;
+    let completed = 0;
+
+    if (showWeddingPartyLineupSection) {
+      total += 1;
+      if (parseWeddingPartyLineup(weddingPartyLineupRaw).length > 0) completed += 1;
+    }
+    if (showSpeechesToastsSection) {
+      total += 1;
+      if (parseSpeechesToasts(speechesToastsRaw).length > 0) completed += 1;
+    }
+    for (const row of planningQuestionsGroupedBySection) {
+      const visibleQuestions = row.questions.filter(
+        (question) =>
+          question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
+          question.id !== SPEECHES_TOASTS_PLANNING_KEY,
+      );
+      if (visibleQuestions.length === 0) continue;
+      total += 1;
+      if (computePlanningQuestionGroupCompletion(visibleQuestions, answers) === 100) {
+        completed += 1;
+      }
+    }
+
+    return { completed, total };
+  }, [
+    eventSettings.planningQuestionAnswers,
+    planningQuestionsGroupedBySection,
+    showSpeechesToastsSection,
+    showWeddingPartyLineupSection,
+    speechesToastsRaw,
+    weddingPartyLineupRaw,
+  ]);
   const grandEntranceDetailForRos = useMemo(() => {
     const coupleDefault =
       eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
@@ -20178,7 +20224,7 @@ export default function Home() {
                 primaryAction={
                   coupleAttentionSummary.unansweredPlanningQuestionCount > 0
                     ? {
-                      label: "Review questions",
+                      label: isCoupleView ? "Continue Your Story" : "Review questions",
                       onClick: () =>
                         document.getElementById("planning-questions-anchor")?.scrollIntoView({
                           behavior: "smooth",
@@ -20193,14 +20239,26 @@ export default function Home() {
                   <SectionTitle>
                     {isCoupleView ? COUPLE_ABOUT_YOUR_DAY_LABEL : "Planning Questions"}
                   </SectionTitle>
-                  <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
+                  {!isCoupleView ? (
+                    <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
+                  ) : null}
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                  Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on.
+                  {isCoupleView
+                    ? COUPLE_ABOUT_YOUR_DAY_INTRO_BODY
+                    : "Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on."}
                 </p>
-                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                  Event Type · {layoutProfileForActiveEvent}
-                </p>
+                {isCoupleView && coupleAboutYourDaySectionProgress.total > 0 ? (
+                  <p className="mt-3 text-sm font-medium tabular-nums text-stone-800">
+                    {coupleAboutYourDaySectionProgress.completed} of{" "}
+                    {coupleAboutYourDaySectionProgress.total} sections completed
+                  </p>
+                ) : null}
+                {!isCoupleView ? (
+                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                    Event Type · {layoutProfileForActiveEvent}
+                  </p>
+                ) : null}
               </PremiumCard>
               {planningQuestionsForEvent.length === 0 ? (
                 <SectionEmptyState
@@ -20214,9 +20272,16 @@ export default function Home() {
                 />
               ) : (
                 <div id="planning-questions-anchor" className="space-y-5">
+                  {isCoupleView && (showWeddingPartyLineupSection || showSpeechesToastsSection) ? (
+                    <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Your Reception Highlights
+                    </p>
+                  ) : null}
                   {showWeddingPartyLineupSection ? (
                     <PremiumCard className={premiumFormSectionCardClass}>
-                      <SectionTitle className="text-stone-950">Wedding Party Lineup</SectionTitle>
+                      <SectionTitle className="text-stone-950">
+                        {isCoupleView ? "Your Wedding Party Entrance" : "Wedding Party Lineup"}
+                      </SectionTitle>
                       <p className="mt-3 text-xs leading-relaxed text-stone-600">
                         {WEDDING_PARTY_LINEUP_HELPER_COPY}
                       </p>
@@ -20226,7 +20291,7 @@ export default function Home() {
                         onClick={openWeddingPartyLineupEditor}
                         className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
                       >
-                        Edit Wedding Party Lineup
+                        {isCoupleView ? "Add Wedding Party Entrance" : "Edit Wedding Party Lineup"}
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
@@ -20244,7 +20309,7 @@ export default function Home() {
                         onClick={openSpeechesToastsEditor}
                         className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
                       >
-                        Edit Speeches / Toasts
+                        {isCoupleView ? "Plan Your Toasts" : "Edit Speeches / Toasts"}
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
@@ -20274,6 +20339,11 @@ export default function Home() {
                         >
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
+                            {isCoupleView && COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id] ? (
+                              <p className="text-xs leading-relaxed text-stone-600">
+                                {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id]}
+                              </p>
+                            ) : null}
                             <p className="text-[11px] font-medium leading-relaxed text-stone-600">
                               {pct}% answered · {visibleQuestions.length}{" "}
                               {visibleQuestions.length === 1 ? "question" : "questions"}
