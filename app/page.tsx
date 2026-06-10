@@ -324,7 +324,6 @@ import {
   computeCoupleWeddingStoryHeroProgressPct,
   coupleWeddingChapterDashboardCtaLabel,
   coupleWeddingChapterNavLabel,
-  firstIncompleteCoupleWeddingChapter,
   firstIncompleteCoupleWeddingStoryChapter,
   hasAnyCoupleWeddingStoryChapterStarted,
   nextCoupleWeddingChapterAfter,
@@ -5728,10 +5727,6 @@ export default function Home() {
   );
   const coupleWeddingStoryHeroProgressPct = useMemo(
     () => computeCoupleWeddingStoryHeroProgressPct(coupleWeddingJourneyInput),
-    [coupleWeddingJourneyInput],
-  );
-  const firstIncompleteCoupleChapter = useMemo(
-    () => firstIncompleteCoupleWeddingChapter(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
   );
   const firstIncompleteCoupleStoryChapter = useMemo(
@@ -11288,14 +11283,13 @@ export default function Home() {
 
   const coupleWeddingWelcomeAction = useMemo(() => {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
-    const chapterId = firstIncompleteCoupleChapter ?? firstIncompleteCoupleStoryChapter;
+    const chapterId = firstIncompleteCoupleStoryChapter;
     if (!chapterId) return null;
     return {
       chapterId,
       ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
     };
   }, [
-    firstIncompleteCoupleChapter,
     firstIncompleteCoupleStoryChapter,
     coupleWeddingStoryChapterStarted,
     isCoupleWeddingPlanningView,
@@ -11317,6 +11311,32 @@ export default function Home() {
       "final-review": "When you're ready, mark planning as final review so your team knows you're steady.",
     };
 
+    const storyCompleteHandoff =
+      isCoupleWeddingPlanningView &&
+      sectionPlanningQuestionsEnabled &&
+      hasEventDetailsComplete &&
+      !firstIncompleteCoupleStoryChapter;
+    const storyCompleteTitle = "Your story is complete";
+    const storyCompleteBody =
+      "Your story is saved. Next we'll help you build the details of your day including timing, music selections, and vendor information.";
+
+    type CoupleNextStepResult = {
+      body: string;
+      ctaLabel: string;
+      targetScreen: Screen;
+      targetChapterId?: CoupleWeddingChapterId;
+      title?: string;
+    };
+
+    const withStoryHandoff = (step: CoupleNextStepResult): CoupleNextStepResult => {
+      if (!storyCompleteHandoff) return step;
+      return {
+        ...step,
+        title: storyCompleteTitle,
+        body: storyCompleteBody,
+      };
+    };
+
     if (!hasEventDetailsComplete) {
       return {
         body: "Confirm your names, date, and venue so everything else stays aligned.",
@@ -11332,6 +11352,26 @@ export default function Home() {
         targetScreen: "Planning Questions" as Screen,
         targetChapterId: coupleContinueJourney.chapterId,
       };
+    }
+
+    if (storyCompleteHandoff) {
+      if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
+        return {
+          title: storyCompleteTitle,
+          body: storyCompleteBody,
+          ctaLabel: "Timeline",
+          targetScreen: "Timeline" as Screen,
+        };
+      }
+      const hasMusicTasteSignal = computeMusicTasteSignal(planningChecklistInput);
+      if ((sectionMustPlayEnabled || sectionPlaylistsEnabled) && !hasMusicTasteSignal) {
+        return {
+          title: storyCompleteTitle,
+          body: storyCompleteBody,
+          ctaLabel: "Music",
+          targetScreen: "Music Hub" as Screen,
+        };
+      }
     }
 
     const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
@@ -11362,21 +11402,21 @@ export default function Home() {
         "Event Team": "People & vendors",
         Notes: "Notes",
       };
-      return {
+      return withStoryHandoff({
         body:
           attentionBodies[firstAttention.id] ??
           firstAttention.label.replace(/ missing$/i, " when you're ready."),
         ctaLabel: screenCtas[firstAttention.targetScreen] ?? "Continue",
         targetScreen: firstAttention.targetScreen,
-      };
+      });
     }
 
     if (sectionVendorContactsEnabled && teamMembers.length === 0) {
-      return {
+      return withStoryHandoff({
         body: "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
         ctaLabel: "People & vendors",
         targetScreen: "Event Team" as Screen,
-      };
+      });
     }
 
     const firstGap = couplePlanningGapsForDashboard[0];
@@ -11389,11 +11429,11 @@ export default function Home() {
         "Event Team": "People & vendors",
         "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       };
-      return {
+      return withStoryHandoff({
         body: firstGap.message,
         ctaLabel: gapCtas[firstGap.targetScreen] ?? "Continue",
         targetScreen: firstGap.targetScreen,
-      };
+      });
     }
 
     const guidedBodies: Partial<Record<Screen, string>> = {
@@ -11425,23 +11465,30 @@ export default function Home() {
       Notes: "Notes",
     };
 
-    return {
+    return withStoryHandoff({
       body:
         guidedBodies[coupleGuidedNextScreen] ??
         "You're in a steady place—open any section below when you want to refine details.",
       ctaLabel: guidedCtas[coupleGuidedNextScreen] ?? "Continue planning",
       targetScreen: coupleGuidedNextScreen,
-    };
+    });
   }, [
     coupleContinueJourney,
     coupleGuidedNextScreen,
     couplePlanningGapsForDashboard,
     eventSettings.planningQuestionAnswers,
+    firstIncompleteCoupleStoryChapter,
     hasEventDetailsComplete,
+    hasKeyFormalDanceSongs,
+    hasKeyTimelineMoments,
     isCoupleWeddingPlanningView,
+    planningChecklistInput,
     planningProgressChecks,
     planningQuestionsForEvent,
+    sectionMustPlayEnabled,
     sectionPlanningQuestionsEnabled,
+    sectionPlaylistsEnabled,
+    sectionReceptionTimelineEnabled,
     sectionVendorContactsEnabled,
     teamMembers.length,
   ]);
@@ -14731,8 +14778,38 @@ export default function Home() {
                 </div>
               ) : null}
 
+              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
+                <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    Welcome
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
+                    Let&apos;s tell your story
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                    We&apos;ll guide you through a few short chapters about your ceremony, reception,
+                    music, and the moments that matter most. Most couples finish the first chapter in
+                    about five minutes.
+                  </p>
+                  {coupleWeddingWelcomeAction ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => openCouplePlanningChapter(coupleWeddingWelcomeAction.chapterId)}
+                      className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
+                    >
+                      {coupleWeddingWelcomeAction.ctaLabel}
+                    </PrimaryButton>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Next step</p>
+                {"title" in coupleNextStep && coupleNextStep.title ? (
+                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
+                    {coupleNextStep.title}
+                  </h3>
+                ) : null}
                 <p className="mt-2 text-sm leading-relaxed text-stone-700">{coupleNextStep.body}</p>
                 <PrimaryButton
                   type="button"
@@ -14759,28 +14836,6 @@ export default function Home() {
 
               {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Welcome
-                    </p>
-                    <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
-                      Let&apos;s tell your story
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                      We&apos;ll guide you through a few short chapters about your ceremony, reception,
-                      music, and the moments that matter most. Most couples finish the first chapter in
-                      about five minutes.
-                    </p>
-                    {coupleWeddingWelcomeAction ? (
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => openCouplePlanningChapter(coupleWeddingWelcomeAction.chapterId)}
-                        className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
-                      >
-                        {coupleWeddingWelcomeAction.ctaLabel}
-                      </PrimaryButton>
-                    ) : null}
-                  </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                       Your wedding story
@@ -14791,7 +14846,9 @@ export default function Home() {
                   </div>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                     {coupleWeddingChapterCards.map((chapter) => {
-                      const isCurrentChapter = chapter.id === firstIncompleteCoupleChapter;
+                      const isPlaceholderChapter = chapter.isPlaceholder;
+                      const isCurrentChapter =
+                        !isPlaceholderChapter && chapter.id === firstIncompleteCoupleStoryChapter;
                       const isCompleteChapter = chapter.status === "Complete";
                       return (
                       <button
@@ -14799,7 +14856,9 @@ export default function Home() {
                         key={chapter.id}
                         onClick={() => openCouplePlanningChapter(chapter.id)}
                         className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
-                          isCurrentChapter
+                          isPlaceholderChapter
+                            ? "border border-stone-200/80 bg-stone-50/45 opacity-75 shadow-none ring-1 ring-stone-200/70 hover:border-stone-300 hover:opacity-85"
+                            : isCurrentChapter
                             ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
                             : isCompleteChapter
                               ? "border border-stone-200/90 bg-stone-50/70 opacity-90 shadow-none ring-1 ring-stone-200/80 hover:border-stone-300 hover:opacity-100 sm:shadow-none"
@@ -14811,7 +14870,11 @@ export default function Home() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p
                                 className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                  isCompleteChapter ? "text-stone-500" : "text-stone-600"
+                                  isPlaceholderChapter
+                                    ? "text-stone-400"
+                                    : isCompleteChapter
+                                      ? "text-stone-500"
+                                      : "text-stone-600"
                                 }`}
                               >
                                 {chapter.kicker}
@@ -14824,28 +14887,42 @@ export default function Home() {
                             </div>
                             <h3
                               className={`mt-1.5 text-lg font-semibold leading-snug [overflow-wrap:anywhere] ${
-                                isCompleteChapter ? "text-stone-700" : "text-stone-950"
+                                isPlaceholderChapter
+                                  ? "text-stone-600"
+                                  : isCompleteChapter
+                                    ? "text-stone-700"
+                                    : "text-stone-950"
                               }`}
                             >
                               {chapter.title}
                             </h3>
                             <p
                               className={`mt-2 text-sm leading-relaxed sm:text-[13px] sm:leading-relaxed ${
-                                isCompleteChapter ? "text-stone-500" : "text-stone-700 sm:text-stone-600"
+                                isPlaceholderChapter
+                                  ? "text-stone-500"
+                                  : isCompleteChapter
+                                    ? "text-stone-500"
+                                    : "text-stone-700 sm:text-stone-600"
                               }`}
                             >
                               {chapter.description}
                             </p>
                             <div
                               className={`mt-3 space-y-1 rounded-xl border px-3 py-2.5 ${
-                                isCompleteChapter
-                                  ? "border-stone-200/70 bg-white/70"
-                                  : "border-stone-200/90 bg-stone-50/90"
+                                isPlaceholderChapter
+                                  ? "border-stone-200/60 bg-white/50"
+                                  : isCompleteChapter
+                                    ? "border-stone-200/70 bg-white/70"
+                                    : "border-stone-200/90 bg-stone-50/90"
                               }`}
                             >
                               <p
                                 className={`text-sm font-medium ${
-                                  isCompleteChapter ? "text-stone-600" : "text-stone-900"
+                                  isPlaceholderChapter
+                                    ? "text-stone-500"
+                                    : isCompleteChapter
+                                      ? "text-stone-600"
+                                      : "text-stone-900"
                                 }`}
                               >
                                 {chapter.statLine}
@@ -14853,9 +14930,9 @@ export default function Home() {
                               <p className="text-xs leading-relaxed text-stone-600">{chapter.statSubline}</p>
                             </div>
                           </div>
-                          {chapter.isPlaceholder ? (
-                            <span className="shrink-0 rounded-full border border-stone-200 bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
-                              Preview
+                          {isPlaceholderChapter ? (
+                            <span className="shrink-0 rounded-full border border-stone-200/90 bg-stone-100/80 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
+                              Coming Soon
                             </span>
                           ) : null}
                         </div>
@@ -14869,7 +14946,7 @@ export default function Home() {
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
                             <div
                               className={`h-full rounded-full transition-[width] duration-500 ${
-                                isCompleteChapter ? "bg-stone-400" : "bg-[#00D4FF]"
+                                isCompleteChapter || isPlaceholderChapter ? "bg-stone-400" : "bg-[#00D4FF]"
                               }`}
                               style={{ width: `${chapter.completionPct}%` }}
                             />
@@ -14878,11 +14955,13 @@ export default function Home() {
                         <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
                           <span
                             className={`text-xs font-semibold transition ${
-                              isCompleteChapter
-                                ? "text-stone-500 group-hover:text-stone-700"
-                                : isCurrentChapter
-                                  ? "text-stone-900 group-hover:text-stone-950"
-                                  : "text-stone-700 group-hover:text-stone-900"
+                              isPlaceholderChapter
+                                ? "text-stone-400 group-hover:text-stone-500"
+                                : isCompleteChapter
+                                  ? "text-stone-500 group-hover:text-stone-700"
+                                  : isCurrentChapter
+                                    ? "text-stone-900 group-hover:text-stone-950"
+                                    : "text-stone-700 group-hover:text-stone-900"
                             }`}
                           >
                             {chapter.status === "Complete"
@@ -14900,7 +14979,8 @@ export default function Home() {
                 </div>
               ) : null}
 
-              {coupleHomePlanningSections.length > 0 ? (
+              {coupleHomePlanningSections.length > 0 &&
+              (!isCoupleWeddingPlanningView || coupleWeddingStoryChapterStarted) ? (
                 <div className="space-y-4">
                   {isCoupleWeddingPlanningView ? (
                     <div>
