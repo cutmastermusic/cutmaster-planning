@@ -321,9 +321,11 @@ import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import {
   buildCoupleWeddingChapterCards,
+  computeCoupleWeddingChapterCompletionPct,
   computeCoupleWeddingStoryHeroProgressPct,
   coupleWeddingChapterDashboardCtaLabel,
   coupleWeddingChapterNavLabel,
+  firstIncompleteCoupleWeddingChapter,
   firstIncompleteCoupleWeddingStoryChapter,
   hasAnyCoupleWeddingStoryChapterStarted,
   nextCoupleWeddingChapterAfter,
@@ -333,6 +335,8 @@ import {
   mergeMusicProfileIntoMusicHub,
   musicProfileHasBridgeableAnswers,
 } from "@/lib/mergeMusicProfileIntoMusicHub";
+import { buildYourTeamPrefillAnswers } from "@/lib/coupleYourTeamPlanning";
+import { mergeYourTeamIntoEventTeam } from "@/lib/mergeYourTeamIntoEventTeam";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
@@ -2337,7 +2341,7 @@ const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
   reception_moments:
     "Plan the moments your guests will remember—entrance, toasts, dances, and traditions.",
   music_vibe: "Capture your musical identity before you build playlists in Music Hub.",
-  your_team: "Help us stay aligned with your planner, venue, and vendors.",
+  your_team: "Tell us who's booked—and what's still on your vendor list.",
   final_review: "Anything else you'd like us to know before the big day?",
 };
 
@@ -2894,6 +2898,12 @@ export default function Home() {
   const databaseHydrationCompleteRef = useRef(false);
   /** Active event id whose working state was loaded from DB (or explicit switch). */
   const dbWorkingStateReadyEventIdRef = useRef<string | null>(null);
+  const applyYourTeamChapterToEventTeamRef = useRef<
+    (options?: {
+      planningQuestionAnswers?: Record<string, string | undefined>;
+      teamMembers?: TeamMember[];
+    }) => Promise<void>
+  >(async () => {});
   const eventsRef = useRef<EventRecord[]>([]);
   const persistPhaseHideTimeoutRef = useRef<number | null>(null);
   const [mustPlaySongs, setMustPlaySongs] = useState<SongEntry[]>(initialMustPlaySongs);
@@ -3154,6 +3164,8 @@ export default function Home() {
     eventStatus: "Planning",
     ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
   });
+  const eventSettingsRef = useRef(eventSettings);
+  eventSettingsRef.current = eventSettings;
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -3239,6 +3251,8 @@ export default function Home() {
   const [templateDraftName, setTemplateDraftName] = useState("");
   const [templates, setTemplates] = useState<TimelineTemplate[]>(initialTemplates);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const teamMembersRef = useRef(teamMembers);
+  teamMembersRef.current = teamMembers;
   const [companyTeamMembers, setCompanyTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
   const isEventTeamPersistenceContext = appMode === "event";
   const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
@@ -5034,6 +5048,14 @@ export default function Home() {
     (screen: Screen) => {
       if (screen === "Music Hub" && isCoupleWeddingPlanningView) {
         applyMusicProfileToMusicHub();
+        setActiveScreen(screen);
+        return;
+      }
+      if (screen === "Event Team" && isCoupleWeddingPlanningView) {
+        void applyYourTeamChapterToEventTeamRef
+          .current?.()
+          .finally(() => setActiveScreen(screen));
+        return;
       }
       setActiveScreen(screen);
     },
@@ -5738,14 +5760,19 @@ export default function Home() {
   const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
   const coupleWeddingJourneyInput = useMemo(
-    () => ({
-      planningQuestionsGroupedBySection,
-      answers: eventSettings.planningQuestionAnswers ?? {},
-      showWeddingPartyLineupSection,
-      showSpeechesToastsSection,
-      vendorContactCount: sectionVendorContactsEnabled ? vendors.length : 0,
-      collaboratorCount: activeEvent?.collaborators?.length ?? 0,
-    }),
+    () => {
+      const externalTeamCount = teamMembers.filter((member) => !isCutmasterEventTeamMember(member)).length;
+      return {
+        planningQuestionsGroupedBySection,
+        answers: eventSettings.planningQuestionAnswers ?? {},
+        showWeddingPartyLineupSection,
+        showSpeechesToastsSection,
+        vendorContactCount: sectionVendorContactsEnabled
+          ? Math.max(vendors.length, externalTeamCount)
+          : 0,
+        collaboratorCount: activeEvent?.collaborators?.length ?? 0,
+      };
+    },
     [
       activeEvent?.collaborators?.length,
       eventSettings.planningQuestionAnswers,
@@ -5753,6 +5780,7 @@ export default function Home() {
       sectionVendorContactsEnabled,
       showSpeechesToastsSection,
       showWeddingPartyLineupSection,
+      teamMembers,
       vendors.length,
     ],
   );
@@ -5766,6 +5794,10 @@ export default function Home() {
   );
   const firstIncompleteCoupleStoryChapter = useMemo(
     () => firstIncompleteCoupleWeddingStoryChapter(coupleWeddingJourneyInput),
+    [coupleWeddingJourneyInput],
+  );
+  const firstIncompleteCoupleChapter = useMemo(
+    () => firstIncompleteCoupleWeddingChapter(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
   );
   const coupleWeddingStoryChapterStarted = useMemo(
@@ -6016,15 +6048,44 @@ export default function Home() {
   const isCoupleView = effectiveRole === "Couple";
   const openCouplePlanningChapter = useCallback(
     (chapterId: CoupleWeddingChapterId) => {
+      if (chapterId === "your_team") {
+        const answers = eventSettings.planningQuestionAnswers ?? {};
+        const prefill = buildYourTeamPrefillAnswers({
+          answers,
+          teamMembers,
+          plannerName: eventSettings.plannerName ?? "",
+          plannerEmail: eventSettings.plannerEmail ?? "",
+          officiantName,
+        });
+        if (Object.keys(prefill).length > 0) {
+          setEventSettings((prev) => ({
+            ...prev,
+            planningQuestionAnswers: {
+              ...(prev.planningQuestionAnswers ?? {}),
+              ...prefill,
+            },
+          }));
+        }
+      }
       setActivePlanningChapterId(chapterId);
       setActiveScreen("Planning Questions");
     },
-    [setActiveScreen],
+    [
+      eventSettings.planningQuestionAnswers,
+      eventSettings.plannerEmail,
+      eventSettings.plannerName,
+      officiantName,
+      setActiveScreen,
+      teamMembers,
+    ],
   );
-  const closeCouplePlanningChapter = useCallback(() => {
+  const closeCouplePlanningChapter = useCallback(async () => {
+    if (activePlanningChapterId === "your_team") {
+      await applyYourTeamChapterToEventTeamRef.current?.();
+    }
     setActivePlanningChapterId(null);
     setActiveScreen("Dashboard");
-  }, [setActiveScreen]);
+  }, [activePlanningChapterId, setActiveScreen]);
   const continueToNextCoupleChapter = useCallback(
     (chapterId: CoupleWeddingChapterId) => {
       const nextChapter = nextCoupleWeddingChapterAfter(chapterId);
@@ -6753,6 +6814,43 @@ export default function Home() {
       return { ok: false, error };
     }
   };
+
+  const applyYourTeamChapterToEventTeam = useCallback(
+    async (options?: {
+      planningQuestionAnswers?: Record<string, string | undefined>;
+      teamMembers?: TeamMember[];
+    }) => {
+      if (!activeEventId) return;
+      const answers =
+        options?.planningQuestionAnswers ??
+        eventSettingsRef.current.planningQuestionAnswers ??
+        {};
+      const roster = options?.teamMembers ?? teamMembersRef.current;
+      const merged = mergeYourTeamIntoEventTeam({
+        planningQuestionAnswers: answers,
+        teamMembers: roster,
+      });
+      if (!merged.changed) return;
+      teamMembersRef.current = merged.teamMembers;
+      setTeamMembers(merged.teamMembers);
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? ({
+                ...evt,
+                eventTeamMembers: cloneJson(merged.teamMembers),
+              } as EventRecord)
+            : evt,
+        ),
+      );
+      const result = await writeTeamMembersToDatabase(merged.teamMembers);
+      if (!result.ok) {
+        console.error("Failed to persist Your Team chapter merge", result.error);
+      }
+    },
+    [activeEventId, writeTeamMembersToDatabase],
+  );
+  applyYourTeamChapterToEventTeamRef.current = applyYourTeamChapterToEventTeam;
 
   const saveTeamMember = async () => {
     console.log("SAVE TEAM MEMBER CLICKED");
@@ -7639,7 +7737,7 @@ export default function Home() {
     if (
       isCoupleWeddingPlanningView &&
       sectionPlanningQuestionsEnabled &&
-      firstIncompleteCoupleStoryChapter
+      firstIncompleteCoupleChapter
     ) {
       return "Planning Questions";
     }
@@ -7691,7 +7789,7 @@ export default function Home() {
     sectionReceptionTimelineEnabled,
     unifiedEventTimeline,
     isCoupleWeddingPlanningView,
-    firstIncompleteCoupleStoryChapter,
+    firstIncompleteCoupleChapter,
   ]);
 
   const coupleHomePlanningSections = useMemo(() => {
@@ -10798,6 +10896,47 @@ export default function Home() {
     return groups;
   }, [teamMembers]);
 
+  const coupleFinalReviewChapterComplete = useMemo(
+    () => computeCoupleWeddingChapterCompletionPct("final_review", coupleWeddingJourneyInput) >= 100,
+    [coupleWeddingJourneyInput],
+  );
+  const coupleFinalReviewStoryChapterRows = useMemo(() => {
+    const storyChapterIds: CoupleWeddingChapterId[] = [
+      "about_you",
+      "ceremony",
+      "reception_moments",
+      "music_vibe",
+      "your_team",
+    ];
+    return storyChapterIds.map((id) => {
+      const card = coupleWeddingChapterCards.find((entry) => entry.id === id);
+      return {
+        id,
+        title: coupleWeddingChapterNavLabel(id),
+        status: card?.status ?? "Not Started",
+      };
+    });
+  }, [coupleWeddingChapterCards]);
+  const coupleFinalReviewOperationalInput = useMemo(
+    () => ({
+      timelineItemsCount: timelineItems.length,
+      hasKeyTimelineMoments,
+      hasKeyFormalDanceSongs,
+      hasMusicHubSignal: computeMusicTasteSignal(planningChecklistInput),
+      musicProfileChapterComplete:
+        computeCoupleWeddingChapterCompletionPct("music_vibe", coupleWeddingJourneyInput) >= 100,
+      eventTeamVendorCount: coupleWeddingJourneyInput.vendorContactCount,
+      collaboratorCount: coupleWeddingJourneyInput.collaboratorCount,
+    }),
+    [
+      coupleWeddingJourneyInput,
+      hasKeyFormalDanceSongs,
+      hasKeyTimelineMoments,
+      planningChecklistInput,
+      timelineItems.length,
+    ],
+  );
+
   const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
     () =>
       timelineItems.map((item) => ({
@@ -11296,7 +11435,7 @@ export default function Home() {
 
   const coupleContinueJourney = useMemo(() => {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
-    const chapterId = firstIncompleteCoupleStoryChapter;
+    const chapterId = firstIncompleteCoupleChapter;
     if (!chapterId) return null;
     const chapter = coupleWeddingChapterCards.find((entry) => entry.id === chapterId);
     return {
@@ -11311,21 +11450,21 @@ export default function Home() {
   }, [
     coupleWeddingChapterCards,
     coupleWeddingStoryChapterStarted,
-    firstIncompleteCoupleStoryChapter,
+    firstIncompleteCoupleChapter,
     isCoupleWeddingPlanningView,
     sectionPlanningQuestionsEnabled,
   ]);
 
   const coupleWeddingWelcomeAction = useMemo(() => {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
-    const chapterId = firstIncompleteCoupleStoryChapter;
+    const chapterId = firstIncompleteCoupleChapter;
     if (!chapterId) return null;
     return {
       chapterId,
       ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
     };
   }, [
-    firstIncompleteCoupleStoryChapter,
+    firstIncompleteCoupleChapter,
     coupleWeddingStoryChapterStarted,
     isCoupleWeddingPlanningView,
     sectionPlanningQuestionsEnabled,
@@ -14881,9 +15020,7 @@ export default function Home() {
                   </div>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                     {coupleWeddingChapterCards.map((chapter) => {
-                      const isPlaceholderChapter = chapter.isPlaceholder;
-                      const isCurrentChapter =
-                        !isPlaceholderChapter && chapter.id === firstIncompleteCoupleStoryChapter;
+                      const isCurrentChapter = chapter.id === firstIncompleteCoupleChapter;
                       const isCompleteChapter = chapter.status === "Complete";
                       return (
                       <button
@@ -14891,9 +15028,7 @@ export default function Home() {
                         key={chapter.id}
                         onClick={() => openCouplePlanningChapter(chapter.id)}
                         className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
-                          isPlaceholderChapter
-                            ? "border border-stone-200/80 bg-stone-50/45 opacity-75 shadow-none ring-1 ring-stone-200/70 hover:border-stone-300 hover:opacity-85"
-                            : isCurrentChapter
+                          isCurrentChapter
                             ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
                             : isCompleteChapter
                               ? "border border-stone-200/90 bg-stone-50/70 opacity-90 shadow-none ring-1 ring-stone-200/80 hover:border-stone-300 hover:opacity-100 sm:shadow-none"
@@ -14905,11 +15040,7 @@ export default function Home() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p
                                 className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                  isPlaceholderChapter
-                                    ? "text-stone-400"
-                                    : isCompleteChapter
-                                      ? "text-stone-500"
-                                      : "text-stone-600"
+                                  isCompleteChapter ? "text-stone-500" : "text-stone-600"
                                 }`}
                               >
                                 {chapter.kicker}
@@ -14922,42 +15053,28 @@ export default function Home() {
                             </div>
                             <h3
                               className={`mt-1.5 text-lg font-semibold leading-snug [overflow-wrap:anywhere] ${
-                                isPlaceholderChapter
-                                  ? "text-stone-600"
-                                  : isCompleteChapter
-                                    ? "text-stone-700"
-                                    : "text-stone-950"
+                                isCompleteChapter ? "text-stone-700" : "text-stone-950"
                               }`}
                             >
                               {chapter.title}
                             </h3>
                             <p
                               className={`mt-2 text-sm leading-relaxed sm:text-[13px] sm:leading-relaxed ${
-                                isPlaceholderChapter
-                                  ? "text-stone-500"
-                                  : isCompleteChapter
-                                    ? "text-stone-500"
-                                    : "text-stone-700 sm:text-stone-600"
+                                isCompleteChapter ? "text-stone-500" : "text-stone-700 sm:text-stone-600"
                               }`}
                             >
                               {chapter.description}
                             </p>
                             <div
                               className={`mt-3 space-y-1 rounded-xl border px-3 py-2.5 ${
-                                isPlaceholderChapter
-                                  ? "border-stone-200/60 bg-white/50"
-                                  : isCompleteChapter
-                                    ? "border-stone-200/70 bg-white/70"
-                                    : "border-stone-200/90 bg-stone-50/90"
+                                isCompleteChapter
+                                  ? "border-stone-200/70 bg-white/70"
+                                  : "border-stone-200/90 bg-stone-50/90"
                               }`}
                             >
                               <p
                                 className={`text-sm font-medium ${
-                                  isPlaceholderChapter
-                                    ? "text-stone-500"
-                                    : isCompleteChapter
-                                      ? "text-stone-600"
-                                      : "text-stone-900"
+                                  isCompleteChapter ? "text-stone-600" : "text-stone-900"
                                 }`}
                               >
                                 {chapter.statLine}
@@ -14965,11 +15082,6 @@ export default function Home() {
                               <p className="text-xs leading-relaxed text-stone-600">{chapter.statSubline}</p>
                             </div>
                           </div>
-                          {isPlaceholderChapter ? (
-                            <span className="shrink-0 rounded-full border border-stone-200/90 bg-stone-100/80 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
-                              Coming Soon
-                            </span>
-                          ) : null}
                         </div>
                         <div className="mt-4">
                           <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
@@ -14981,7 +15093,7 @@ export default function Home() {
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
                             <div
                               className={`h-full rounded-full transition-[width] duration-500 ${
-                                isCompleteChapter || isPlaceholderChapter ? "bg-stone-400" : "bg-[#00D4FF]"
+                                isCompleteChapter ? "bg-stone-400" : "bg-[#00D4FF]"
                               }`}
                               style={{ width: `${chapter.completionPct}%` }}
                             />
@@ -14990,13 +15102,11 @@ export default function Home() {
                         <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
                           <span
                             className={`text-xs font-semibold transition ${
-                              isPlaceholderChapter
-                                ? "text-stone-400 group-hover:text-stone-500"
-                                : isCompleteChapter
-                                  ? "text-stone-500 group-hover:text-stone-700"
-                                  : isCurrentChapter
-                                    ? "text-stone-900 group-hover:text-stone-950"
-                                    : "text-stone-700 group-hover:text-stone-900"
+                              isCompleteChapter
+                                ? "text-stone-500 group-hover:text-stone-700"
+                                : isCurrentChapter
+                                  ? "text-stone-900 group-hover:text-stone-950"
+                                  : "text-stone-700 group-hover:text-stone-900"
                             }`}
                           >
                             {chapter.status === "Complete"
@@ -20870,20 +20980,39 @@ export default function Home() {
                 speechesToastsSummary={speechesToastsSummary}
                 onOpenWeddingPartyLineupEditor={openWeddingPartyLineupEditor}
                 onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
-                onContinueToNextChapter={() => continueToNextCoupleChapter(activePlanningChapterId)}
+                onContinueToNextChapter={async (chapterAnswers) => {
+                  if (activePlanningChapterId === "your_team") {
+                    await applyYourTeamChapterToEventTeam({
+                      planningQuestionAnswers: chapterAnswers,
+                    });
+                  }
+                  continueToNextCoupleChapter(activePlanningChapterId);
+                }}
                 continueToNextChapterLabel={coupleActiveChapterContinueLabel}
                 onOpenMusicHub={() => {
                   closeCouplePlanningChapter();
                   selectActiveScreen("Music Hub");
                 }}
-                onOpenEventTeam={() => {
-                  closeCouplePlanningChapter();
-                  setActiveScreen("Event Team");
+                onOpenEventTeam={async (chapterAnswers) => {
+                  await applyYourTeamChapterToEventTeam({
+                    planningQuestionAnswers: chapterAnswers,
+                  });
+                  setActivePlanningChapterId(null);
+                  selectActiveScreen("Event Team");
                 }}
                 onOpenEventPrep={() => {
                   closeCouplePlanningChapter();
                   setActiveScreen("Event Prep");
                 }}
+                onOpenTimeline={() => {
+                  closeCouplePlanningChapter();
+                  selectActiveScreen("Timeline");
+                }}
+                onOpenPlanningChapter={openCouplePlanningChapter}
+                onReturnToDashboard={closeCouplePlanningChapter}
+                finalReviewStoryChapterRows={coupleFinalReviewStoryChapterRows}
+                finalReviewOperationalInput={coupleFinalReviewOperationalInput}
+                finalReviewChapterComplete={coupleFinalReviewChapterComplete}
               />
             </section>
           ) : !isCoupleWeddingPlanningView ? (

@@ -3,7 +3,9 @@
 import type { ReactNode } from "react";
 
 import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
+import { CoupleFinalReviewSection } from "@/components/couple-final-review-section";
 import { CoupleMusicProfileGuidedSection } from "@/components/couple-music-profile-guided-section";
+import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guided-section";
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
@@ -21,9 +23,11 @@ import {
   coupleWeddingChapterNavLabel,
   isCoupleWeddingGuidedChapter,
   type CoupleWeddingChapterId,
+  type CoupleWeddingChapterStatus,
 } from "@/lib/coupleWeddingJourney";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { parseWeddingPartyLineup, WEDDING_PARTY_LINEUP_HELPER_COPY } from "@/lib/weddingPartyLineup";
+import type { CoupleOperationalReadinessInput } from "@/lib/coupleFinalReviewPlanning";
 import type { PlanningQuestionDef } from "@/types/planning";
 
 const COUPLE_WEDDING_GUIDED_CHAPTER_COPY: Record<
@@ -82,11 +86,21 @@ export type CoupleWeddingChapterScreenProps = {
   speechesToastsSummary: string;
   onOpenWeddingPartyLineupEditor: () => void;
   onOpenSpeechesToastsEditor: () => void;
-  onContinueToNextChapter: () => void;
+  onContinueToNextChapter: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
   continueToNextChapterLabel: string;
   onOpenMusicHub: () => void;
-  onOpenEventTeam: () => void;
+  onOpenEventTeam: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
   onOpenEventPrep: () => void;
+  onOpenTimeline: () => void;
+  onOpenPlanningChapter: (chapterId: CoupleWeddingChapterId) => void;
+  onReturnToDashboard: () => void;
+  finalReviewStoryChapterRows: Array<{
+    id: CoupleWeddingChapterId;
+    title: string;
+    status: CoupleWeddingChapterStatus;
+  }>;
+  finalReviewOperationalInput: CoupleOperationalReadinessInput;
+  finalReviewChapterComplete: boolean;
 };
 
 function visibleQuestionsForRow(row: GroupedPlanningQuestionsRow | null): PlanningQuestionDef[] {
@@ -198,58 +212,38 @@ export function CoupleWeddingChapterScreen({
   onOpenMusicHub,
   onOpenEventTeam,
   onOpenEventPrep,
+  onOpenTimeline,
+  onOpenPlanningChapter,
+  onReturnToDashboard,
+  finalReviewStoryChapterRows,
+  finalReviewOperationalInput,
+  finalReviewChapterComplete,
 }: CoupleWeddingChapterScreenProps) {
   if (chapterId === "your_team") {
     return (
-      <PremiumCard className={premiumFormSectionCardClass}>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Your Team</p>
-        <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
-          Let&apos;s get your team aligned
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Help us stay aligned with your planner, venue, and vendors. Add day-of contacts in Event Team—we
-          will expand this chapter soon.
-        </p>
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <PrimaryButton
-            type="button"
-            onClick={onOpenEventTeam}
-            className={`w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
-          >
-            Open Event Team
-          </PrimaryButton>
-          <PrimaryButton type="button" onClick={onContinueToNextChapter} className="w-full sm:w-auto">
-            {continueToNextChapterLabel}
-          </PrimaryButton>
-        </div>
-      </PremiumCard>
+      <CoupleYourTeamGuidedSection
+        answers={answers}
+        onAnswerChange={onAnswerChange}
+        onOpenEventTeam={onOpenEventTeam}
+        onContinueToNextChapter={onContinueToNextChapter}
+        continueToNextChapterLabel={continueToNextChapterLabel}
+      />
     );
   }
 
   if (chapterId === "final_review") {
     return (
-      <PremiumCard className={premiumFormSectionCardClass}>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
-        <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
-          Ready for a final pass?
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Preview what your DJ and planner receive in the Event Document. Guided final-review prompts are
-          coming soon.
-        </p>
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <PrimaryButton
-            type="button"
-            onClick={onOpenEventPrep}
-            className={`w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
-          >
-            Preview Event Document
-          </PrimaryButton>
-          <PrimaryButton type="button" onClick={onContinueToNextChapter} className="w-full sm:w-auto">
-            {continueToNextChapterLabel}
-          </PrimaryButton>
-        </div>
-      </PremiumCard>
+      <CoupleFinalReviewSection
+        storyChapterRows={finalReviewStoryChapterRows}
+        operationalReadinessInput={finalReviewOperationalInput}
+        isChapterComplete={finalReviewChapterComplete}
+        onOpenStoryChapter={onOpenPlanningChapter}
+        onOpenTimeline={onOpenTimeline}
+        onOpenMusicHub={onOpenMusicHub}
+        onOpenEventTeam={onOpenEventTeam}
+        onOpenEventDocument={onOpenEventPrep}
+        onReturnToDashboard={onReturnToDashboard}
+      />
     );
   }
 
@@ -281,6 +275,8 @@ export function CoupleWeddingChapterScreen({
         answers={answers}
         onAnswerChange={onAnswerChange}
         onOpenMusicHub={onOpenMusicHub}
+        onContinueToNextChapter={onContinueToNextChapter}
+        continueToNextChapterLabel={continueToNextChapterLabel}
       />
     );
   }
