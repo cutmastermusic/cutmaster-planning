@@ -318,7 +318,15 @@ import {
   RUN_OF_SHOW_DONE_STORAGE_KEY,
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
-import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
+import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
+import {
+  buildCoupleWeddingChapterCards,
+  computeCoupleWeddingJourneyProgressPct,
+  coupleWeddingChapterNavLabel,
+  firstIncompleteCoupleWeddingChapter,
+  nextCoupleWeddingChapterAfter,
+  type CoupleWeddingChapterId,
+} from "@/lib/coupleWeddingJourney";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
@@ -501,6 +509,7 @@ type LocalAppStateBackup = {
   currentRole: UserRole | null;
   rolePreview: UserRole;
   guestRequestView: "admin" | "guest";
+  activePlanningChapterId?: CoupleWeddingChapterId | null;
   inviteAccessPreview: {
     eventId: string;
     role: UserRole;
@@ -2858,6 +2867,7 @@ export default function Home() {
   const prevMainNavScrollRef = useRef<{ screen: Screen; mode: AppMode; auth: AuthStage } | null>(null);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const hasParsedInviteParams = useRef(false);
+  const prevLoadedPlanningEventIdRef = useRef<string | null>(null);
   const {
     activeScreen,
     setActiveScreen,
@@ -2902,6 +2912,9 @@ export default function Home() {
   const [guestFormArtist, setGuestFormArtist] = useState("");
   const [guestFormDedication, setGuestFormDedication] = useState("");
   const [guestSubmitBanner, setGuestSubmitBanner] = useState("");
+  const [activePlanningChapterId, setActivePlanningChapterId] = useState<CoupleWeddingChapterId | null>(
+    null,
+  );
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>(seedMergedTimelineItems);
   const [ceremonyTimelineItems, setCeremonyTimelineItems] = useState<CeremonyTimelineItem[]>(
     initialCeremonyTimelineItems,
@@ -4151,6 +4164,14 @@ export default function Home() {
   ]);
 
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
+    if (
+      prevLoadedPlanningEventIdRef.current &&
+      prevLoadedPlanningEventIdRef.current !== evt.id
+    ) {
+      setActivePlanningChapterId(null);
+    }
+    prevLoadedPlanningEventIdRef.current = evt.id;
+
     const isDbBackedEvent = databaseEventIdsRef.current.has(evt.id);
     if (isDbBackedEvent) {
       dbWorkingStateReadyEventIdRef.current = null;
@@ -4957,11 +4978,15 @@ export default function Home() {
   const screenTitle =
     activeScreen === "Dashboard"
       ? `${appSettings.appName} Dashboard`
-      : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
-        ? "Timeline"
-        : effectiveRole === "Couple" && activeScreen === "Planning Questions"
-          ? COUPLE_ABOUT_YOUR_DAY_LABEL
-          : activeScreen;
+      : effectiveRole === "Couple" &&
+          activeScreen === "Planning Questions" &&
+          activePlanningChapterId
+        ? coupleWeddingChapterNavLabel(activePlanningChapterId)
+        : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
+          ? "Timeline"
+          : effectiveRole === "Couple" && activeScreen === "Planning Questions"
+            ? COUPLE_ABOUT_YOUR_DAY_LABEL
+            : activeScreen;
   const effectiveEventType = eventSettings.eventType || appSettings.defaultEventType;
   const effectivePrepSheetFooter =
     eventSettings.prepSheetFooterOverride || appSettings.prepSheetFooterText;
@@ -4974,6 +4999,10 @@ export default function Home() {
     () => resolveLayoutProfileForDisplay(eventSettings, appSettings.defaultEventType),
     [eventSettings, appSettings.defaultEventType],
   );
+  const isCoupleWeddingPlanningView =
+    effectiveRole === "Couple" &&
+    (layoutProfileForActiveEvent === "Wedding" ||
+      layoutProfileForActiveEvent === "Gender-Neutral Wedding");
   const primaryPartyFieldLabel = PRIMARY_PARTY_FIELD_LABEL[layoutProfileForActiveEvent];
   const primaryPartyShortLabel = PRIMARY_PARTY_SHORT_LABEL[layoutProfileForActiveEvent];
   const eventDateGridLabel =
@@ -5065,11 +5094,12 @@ export default function Home() {
     let total = 0;
     let completed = 0;
 
-    if (showWeddingPartyLineupSection) {
+    const countLineupToastsAsSeparateSections = !isCoupleWeddingPlanningView;
+    if (countLineupToastsAsSeparateSections && showWeddingPartyLineupSection) {
       total += 1;
       if (parseWeddingPartyLineup(weddingPartyLineupRaw).length > 0) completed += 1;
     }
-    if (showSpeechesToastsSection) {
+    if (countLineupToastsAsSeparateSections && showSpeechesToastsSection) {
       total += 1;
       if (parseSpeechesToasts(speechesToastsRaw).length > 0) completed += 1;
     }
@@ -5079,6 +5109,22 @@ export default function Home() {
           question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
           question.id !== SPEECHES_TOASTS_PLANNING_KEY,
       );
+      if (isCoupleWeddingPlanningView && row.group.id === "reception_moments") {
+        let sectionSteps = visibleQuestions.length;
+        let sectionAnswered = visibleQuestions.filter((q) => (answers[q.id] ?? "").trim()).length;
+        if (showWeddingPartyLineupSection) {
+          sectionSteps += 1;
+          if (parseWeddingPartyLineup(weddingPartyLineupRaw).length > 0) sectionAnswered += 1;
+        }
+        if (showSpeechesToastsSection) {
+          sectionSteps += 1;
+          if (parseSpeechesToasts(speechesToastsRaw).length > 0) sectionAnswered += 1;
+        }
+        if (sectionSteps === 0) continue;
+        total += 1;
+        if (sectionAnswered === sectionSteps) completed += 1;
+        continue;
+      }
       if (visibleQuestions.length === 0) continue;
       total += 1;
       if (computePlanningQuestionGroupCompletion(visibleQuestions, answers) === 100) {
@@ -5090,6 +5136,7 @@ export default function Home() {
   }, [
     eventSettings.planningQuestionAnswers,
     planningQuestionsGroupedBySection,
+    isCoupleWeddingPlanningView,
     showSpeechesToastsSection,
     showWeddingPartyLineupSection,
     speechesToastsRaw,
@@ -5653,6 +5700,49 @@ export default function Home() {
   const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
   const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
+  const coupleWeddingJourneyInput = useMemo(
+    () => ({
+      planningQuestionsGroupedBySection,
+      answers: eventSettings.planningQuestionAnswers ?? {},
+      showWeddingPartyLineupSection,
+      showSpeechesToastsSection,
+      vendorContactCount: sectionVendorContactsEnabled ? vendors.length : 0,
+      collaboratorCount: activeEvent?.collaborators?.length ?? 0,
+    }),
+    [
+      activeEvent?.collaborators?.length,
+      eventSettings.planningQuestionAnswers,
+      planningQuestionsGroupedBySection,
+      sectionVendorContactsEnabled,
+      showSpeechesToastsSection,
+      showWeddingPartyLineupSection,
+      vendors.length,
+    ],
+  );
+  const coupleWeddingChapterCards = useMemo(
+    () => buildCoupleWeddingChapterCards(coupleWeddingJourneyInput),
+    [coupleWeddingJourneyInput],
+  );
+  const coupleWeddingJourneyProgressPct = useMemo(
+    () => computeCoupleWeddingJourneyProgressPct(coupleWeddingJourneyInput),
+    [coupleWeddingJourneyInput],
+  );
+  const firstIncompleteCoupleChapter = useMemo(
+    () => firstIncompleteCoupleWeddingChapter(coupleWeddingJourneyInput),
+    [coupleWeddingJourneyInput],
+  );
+  const coupleActivePlanningChapterRow = useMemo(() => {
+    if (!activePlanningChapterId) return null;
+    return (
+      planningQuestionsGroupedBySection.find((row) => row.group.id === activePlanningChapterId) ?? null
+    );
+  }, [activePlanningChapterId, planningQuestionsGroupedBySection]);
+  const coupleActiveChapterContinueLabel = useMemo(() => {
+    if (!activePlanningChapterId) return "Continue to next chapter";
+    const nextChapter = nextCoupleWeddingChapterAfter(activePlanningChapterId);
+    if (!nextChapter) return "Return to Dashboard";
+    return `Continue to ${coupleWeddingChapterNavLabel(nextChapter)}`;
+  }, [activePlanningChapterId]);
   /** Reception Hub entry when the reception/main timeline is enabled (couple-friendly). */
   const receptionHubEligibleNav = sectionReceptionTimelineEnabled;
   const acceptedCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Accepted") ?? [];
@@ -5883,6 +5973,30 @@ export default function Home() {
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
+  const openCouplePlanningChapter = useCallback(
+    (chapterId: CoupleWeddingChapterId) => {
+      setActivePlanningChapterId(chapterId);
+      setActiveScreen("Planning Questions");
+    },
+    [setActiveScreen],
+  );
+  const closeCouplePlanningChapter = useCallback(() => {
+    setActivePlanningChapterId(null);
+    setActiveScreen("Dashboard");
+  }, [setActiveScreen]);
+  const continueToNextCoupleChapter = useCallback(
+    (chapterId: CoupleWeddingChapterId) => {
+      const nextChapter = nextCoupleWeddingChapterAfter(chapterId);
+      if (nextChapter) {
+        setActivePlanningChapterId(nextChapter);
+        setActiveScreen("Planning Questions");
+        return;
+      }
+      setActivePlanningChapterId(null);
+      setActiveScreen("Dashboard");
+    },
+    [setActiveScreen],
+  );
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
   const canAccessRunOfShow = effectiveRole !== "Couple";
   /** Couple role cannot see ROS UI; keeps scroll lock off if `runOfShowOpen` is stale. */
@@ -5901,6 +6015,23 @@ export default function Home() {
   const runOfShowShowBookVisible =
     (effectiveRole === "Admin" || effectiveRole === "DJ") &&
     (runOfShowVisibleDjScripts.length > 0 || runOfShowVisibleMusicNotes.length > 0);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (
+      isCoupleWeddingPlanningView &&
+      activeScreen === "Planning Questions" &&
+      !activePlanningChapterId
+    ) {
+      setActiveScreen("Dashboard");
+    }
+  }, [
+    activePlanningChapterId,
+    activeScreen,
+    hasHydrated,
+    isCoupleWeddingPlanningView,
+    setActiveScreen,
+  ]);
 
   useLayoutEffect(() => {
     if (!hasHydrated || typeof window === "undefined") return;
@@ -7464,7 +7595,19 @@ export default function Home() {
 
     if (!hasEventDetailsComplete) return "Event Settings";
 
-    if (sectionPlanningQuestionsEnabled && unansweredPlanningQuestionCount > 0) {
+    if (
+      isCoupleWeddingPlanningView &&
+      sectionPlanningQuestionsEnabled &&
+      firstIncompleteCoupleChapter
+    ) {
+      return "Planning Questions";
+    }
+
+    if (
+      !isCoupleWeddingPlanningView &&
+      sectionPlanningQuestionsEnabled &&
+      unansweredPlanningQuestionCount > 0
+    ) {
       return "Planning Questions";
     }
 
@@ -7506,6 +7649,8 @@ export default function Home() {
     sectionPlanningQuestionsEnabled,
     sectionReceptionTimelineEnabled,
     unifiedEventTimeline,
+    isCoupleWeddingPlanningView,
+    firstIncompleteCoupleChapter,
   ]);
 
   const coupleHomePlanningSections = useMemo(() => {
@@ -7708,7 +7853,7 @@ export default function Home() {
       });
     }
 
-    if (sectionPlanningQuestionsEnabled && planningQuestionsForEvent.length > 0) {
+    if (sectionPlanningQuestionsEnabled && planningQuestionsForEvent.length > 0 && !isCoupleWeddingPlanningView) {
       const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
       const pqHasAnswer = (qId: string) => Boolean(pqAnswers[qId]?.trim());
       const pqList = planningQuestionsForEvent;
@@ -7766,7 +7911,6 @@ export default function Home() {
     }
 
     const clientHomeOrder = [
-      "planning-questions",
       "reception",
       "music",
       "event-team",
@@ -7790,6 +7934,7 @@ export default function Home() {
     hasKeyFormalDanceSongs,
     hasKeyTimelineMoments,
     hasMomentPlaylistLines,
+    isCoupleWeddingPlanningView,
     mustPlaySongs.length,
     playIfPossibleSongs.length,
     musicPlaylistLinks.length,
@@ -8807,6 +8952,7 @@ export default function Home() {
         );
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
+        setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
         setActiveScreen(migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard"));
       }
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
@@ -8958,6 +9104,7 @@ export default function Home() {
         rolePreview,
         guestRequestView,
         inviteAccessPreview,
+        activePlanningChapterId,
       },
     };
 
@@ -9124,6 +9271,7 @@ export default function Home() {
     rolePreview,
     guestRequestView,
     inviteAccessPreview,
+    activePlanningChapterId,
     timelineItems,
     receptionTimelineInlineEditDraft,
     ceremonyTimelineItems,
@@ -11078,12 +11226,14 @@ export default function Home() {
         vendors,
         planningQuestions: planningQuestionsForEvent,
         planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
+        planningQuestionsTargetScreen: isCoupleWeddingPlanningView ? "Dashboard" : "Planning Questions",
       }),
     [
       ceremonyStartTime,
       ceremonyTimelineItems.length,
       eventSettings.planningQuestionAnswers,
       hasKeyCeremonySongs,
+      isCoupleWeddingPlanningView,
       mergedTimelineItems,
       musicGenreEraSelections.length,
       musicPlaylistLinks.length,
@@ -11102,6 +11252,27 @@ export default function Home() {
       vendors,
     ],
   );
+
+  const coupleContinueJourney = useMemo(() => {
+    if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
+    const chapterId = firstIncompleteCoupleChapter;
+    if (!chapterId) return null;
+    const chapter = coupleWeddingChapterCards.find((entry) => entry.id === chapterId);
+    return {
+      chapterId,
+      body: chapter
+        ? chapter.status === "Not Started"
+          ? `Start with ${chapter.title}—${chapter.description}`
+          : `Pick up ${chapter.title} where you left off.`
+        : "Continue your wedding story one chapter at a time.",
+      ctaLabel: "Continue Your Journey",
+    };
+  }, [
+    coupleWeddingChapterCards,
+    firstIncompleteCoupleChapter,
+    isCoupleWeddingPlanningView,
+    sectionPlanningQuestionsEnabled,
+  ]);
 
   const coupleNextStep = useMemo(() => {
     const attentionBodies: Partial<Record<string, string>> = {
@@ -11126,11 +11297,21 @@ export default function Home() {
       };
     }
 
+    if (coupleContinueJourney) {
+      return {
+        body: coupleContinueJourney.body,
+        ctaLabel: coupleContinueJourney.ctaLabel,
+        targetScreen: "Planning Questions" as Screen,
+        targetChapterId: coupleContinueJourney.chapterId,
+      };
+    }
+
     const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
     const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
       (q) => !(pqAnswers[q.id] ?? "").trim(),
     ).length;
     if (
+      !isCoupleWeddingPlanningView &&
       sectionPlanningQuestionsEnabled &&
       planningQuestionsForEvent.length > 0 &&
       unansweredPlanningQuestionCount > 0
@@ -11224,10 +11405,12 @@ export default function Home() {
       targetScreen: coupleGuidedNextScreen,
     };
   }, [
+    coupleContinueJourney,
     coupleGuidedNextScreen,
     couplePlanningGapsForDashboard,
     eventSettings.planningQuestionAnswers,
     hasEventDetailsComplete,
+    isCoupleWeddingPlanningView,
     planningProgressChecks,
     planningQuestionsForEvent,
     sectionPlanningQuestionsEnabled,
@@ -14416,15 +14599,28 @@ export default function Home() {
                     </div>
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">
+                          {isCoupleWeddingPlanningView ? "Your story progress" : "Planning progress"}
+                        </p>
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
                             className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
-                            style={{ width: `${completionPercent}%` }}
+                            style={{
+                              width: `${
+                                isCoupleWeddingPlanningView
+                                  ? coupleWeddingJourneyProgressPct
+                                  : completionPercent
+                              }%`,
+                            }}
                           />
                         </div>
                       </div>
-                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
+                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-zinc-100">
+                        {isCoupleWeddingPlanningView
+                          ? coupleWeddingJourneyProgressPct
+                          : completionPercent}
+                        %
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -14479,7 +14675,7 @@ export default function Home() {
                 </div>
               </PremiumCard>
 
-              {showCoupleAboutYourDayWelcomeCard ? (
+              {showCoupleAboutYourDayWelcomeCard && !isCoupleWeddingPlanningView ? (
                 <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                     Welcome
@@ -14506,17 +14702,105 @@ export default function Home() {
                 <p className="mt-2 text-sm leading-relaxed text-stone-700">{coupleNextStep.body}</p>
                 <PrimaryButton
                   type="button"
-                  onClick={() => setActiveScreen(coupleNextStep.targetScreen)}
+                  onClick={() => {
+                    if (
+                      "targetChapterId" in coupleNextStep &&
+                      coupleNextStep.targetChapterId
+                    ) {
+                      openCouplePlanningChapter(coupleNextStep.targetChapterId);
+                      return;
+                    }
+                    setActiveScreen(coupleNextStep.targetScreen);
+                  }}
                   className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
                 >
                   {coupleNextStep.ctaLabel}
                 </PrimaryButton>
                 <p className="mt-3 text-[11px] tabular-nums text-stone-500">
-                  {completionPercent}% of your plan in place
+                  {isCoupleWeddingPlanningView
+                    ? `${coupleWeddingJourneyProgressPct}% of your story complete`
+                    : `${completionPercent}% of your plan in place`}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
+              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                      Your wedding story
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                      Six short chapters—open one at a time, at your pace.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
+                    {coupleWeddingChapterCards.map((chapter) => (
+                      <button
+                        type="button"
+                        key={chapter.id}
+                        onClick={() => openCouplePlanningChapter(chapter.id)}
+                        className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
+                              {chapter.kicker}
+                            </p>
+                            <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                              {chapter.title}
+                            </h3>
+                            <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
+                              {chapter.description}
+                            </p>
+                            <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
+                              <p className="text-sm font-medium text-stone-900">{chapter.statLine}</p>
+                              <p className="text-xs leading-relaxed text-stone-600">{chapter.statSubline}</p>
+                            </div>
+                          </div>
+                          {chapter.isPlaceholder ? (
+                            <span className="shrink-0 rounded-full border border-stone-200 bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
+                              Preview
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-4">
+                          <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
+                            <span>{chapter.status}</span>
+                            <span className="tabular-nums font-semibold text-stone-700">
+                              {chapter.completionPct}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
+                            <div
+                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
+                              style={{ width: `${chapter.completionPct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
+                          <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
+                            {chapter.status === "Complete" ? "Review" : "Open chapter"} →
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {coupleHomePlanningSections.length > 0 ? (
+                <div className="space-y-4">
+                  {isCoupleWeddingPlanningView ? (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                        Build your plan
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                        Turn your story into timing, songs, and day-of contacts.
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                 {coupleHomePlanningSections.map((section) => {
                   return (
                     <button
@@ -14575,7 +14859,9 @@ export default function Home() {
                     </button>
                   );
                 })}
-              </div>
+                  </div>
+                </div>
+              ) : null}
 
             </section>
           ) : (
@@ -20333,15 +20619,51 @@ export default function Home() {
         {authStage === "app" &&
           appMode === "event" &&
           activeScreen === "Planning Questions" &&
-          sectionPlanningQuestionsEnabled && (
+          sectionPlanningQuestionsEnabled &&
+          (isCoupleWeddingPlanningView && activePlanningChapterId ? (
             <section className={workspaceSectionLooseClass}>
               <EventHomeNav
-                trail={[isCoupleView ? COUPLE_ABOUT_YOUR_DAY_LABEL : "Planning Questions"]}
+                trail={[
+                  "Dashboard",
+                  coupleWeddingChapterNavLabel(activePlanningChapterId),
+                ]}
+                onBack={closeCouplePlanningChapter}
+              />
+              <CoupleWeddingChapterScreen
+                chapterId={activePlanningChapterId}
+                chapterRow={coupleActivePlanningChapterRow}
+                answers={eventSettings.planningQuestionAnswers ?? {}}
+                onAnswerChange={updatePlanningQuestionAnswer}
+                renderQuestionEditor={({ question, value, onChange }) => (
+                  <PlanningQuestionAnswerEditor q={question} value={value} onChange={onChange} />
+                )}
+                showWeddingPartyLineupSection={showWeddingPartyLineupSection}
+                showSpeechesToastsSection={showSpeechesToastsSection}
+                weddingPartyLineupSummary={weddingPartyLineupSummary}
+                speechesToastsSummary={speechesToastsSummary}
+                onOpenWeddingPartyLineupEditor={openWeddingPartyLineupEditor}
+                onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
+                onContinueToNextChapter={() => continueToNextCoupleChapter(activePlanningChapterId)}
+                continueToNextChapterLabel={coupleActiveChapterContinueLabel}
+                onOpenEventTeam={() => {
+                  closeCouplePlanningChapter();
+                  setActiveScreen("Event Team");
+                }}
+                onOpenEventPrep={() => {
+                  closeCouplePlanningChapter();
+                  setActiveScreen("Event Prep");
+                }}
+              />
+            </section>
+          ) : !isCoupleWeddingPlanningView ? (
+            <section className={workspaceSectionLooseClass}>
+              <EventHomeNav
+                trail={["Planning Questions"]}
                 onBack={() => setActiveScreen("Dashboard")}
                 primaryAction={
                   coupleAttentionSummary.unansweredPlanningQuestionCount > 0
                     ? {
-                      label: isCoupleView ? "Continue Your Story" : "Review questions",
+                      label: "Review questions",
                       onClick: () =>
                         document.getElementById("planning-questions-anchor")?.scrollIntoView({
                           behavior: "smooth",
@@ -20353,29 +20675,17 @@ export default function Home() {
               />
               <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <SectionTitle>
-                    {isCoupleView ? COUPLE_ABOUT_YOUR_DAY_LABEL : "Planning Questions"}
-                  </SectionTitle>
-                  {!isCoupleView ? (
-                    <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
-                  ) : null}
+                  <SectionTitle>Planning Questions</SectionTitle>
+                  <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                  {isCoupleView
-                    ? COUPLE_ABOUT_YOUR_DAY_INTRO_BODY
-                    : "Prompts match your event type and are grouped by topic. Expand a section to answer or edit—responses save with this event and can surface in the Event Document when that block is turned on."}
+                  Prompts match your event type and are grouped by topic. Expand a section to answer or
+                  edit—responses save with this event and can surface in the Event Document when that block
+                  is turned on.
                 </p>
-                {isCoupleView && coupleAboutYourDaySectionProgress.total > 0 ? (
-                  <p className="mt-3 text-sm font-medium tabular-nums text-stone-800">
-                    {coupleAboutYourDaySectionProgress.completed} of{" "}
-                    {coupleAboutYourDaySectionProgress.total} sections completed
-                  </p>
-                ) : null}
-                {!isCoupleView ? (
-                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                    Event Type · {layoutProfileForActiveEvent}
-                  </p>
-                ) : null}
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                  Event Type · {layoutProfileForActiveEvent}
+                </p>
               </PremiumCard>
               {planningQuestionsForEvent.length === 0 ? (
                 <SectionEmptyState
@@ -20389,7 +20699,7 @@ export default function Home() {
                 />
               ) : (
                 <div id="planning-questions-anchor" className="space-y-5">
-                  {!isCoupleView && showWeddingPartyLineupSection ? (
+                  {showWeddingPartyLineupSection ? (
                     <PremiumCard className={premiumFormSectionCardClass}>
                       <SectionTitle className="text-stone-950">Wedding Party Lineup</SectionTitle>
                       <p className="mt-3 text-xs leading-relaxed text-stone-600">
@@ -20405,7 +20715,7 @@ export default function Home() {
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
-                  {!isCoupleView && showSpeechesToastsSection ? (
+                  {showSpeechesToastsSection ? (
                     <PremiumCard className={premiumFormSectionCardClass}>
                       <SectionTitle className="text-stone-950">Speeches / Toasts</SectionTitle>
                       <p className="mt-3 text-xs leading-relaxed text-stone-600">
@@ -20429,134 +20739,8 @@ export default function Home() {
                         question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
                         question.id !== SPEECHES_TOASTS_PLANNING_KEY,
                     );
-                    const showCoupleReceptionChapterEditors =
-                      isCoupleView &&
-                      row.group.id === "reception_moments" &&
-                      (showWeddingPartyLineupSection || showSpeechesToastsSection);
-                    if (visibleQuestions.length === 0 && !showCoupleReceptionChapterEditors) {
+                    if (visibleQuestions.length === 0) {
                       return null;
-                    }
-                    if (isCoupleView && row.group.id === "about_you") {
-                      return (
-                        <CoupleAboutYouGuidedSection
-                          key={`pq-group-${row.group.id}`}
-                          questions={visibleQuestions}
-                          answers={eventSettings.planningQuestionAnswers ?? {}}
-                          onAnswerChange={updatePlanningQuestionAnswer}
-                          renderEditor={({ question, value, onChange }) => (
-                            <PlanningQuestionAnswerEditor
-                              q={question}
-                              value={value}
-                              onChange={onChange}
-                            />
-                          )}
-                        />
-                      );
-                    }
-                    if (showCoupleReceptionChapterEditors) {
-                      const pct = computePlanningQuestionGroupCompletion(
-                        visibleQuestions,
-                        eventSettings.planningQuestionAnswers,
-                      );
-                      const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
-                      return (
-                        <div key={`pq-group-${row.group.id}`} className="space-y-5">
-                          <PremiumCard className={premiumFormSectionCardClass}>
-                            <button
-                              type="button"
-                              className="flex w-full items-start gap-3 rounded-lg px-0.5 py-2.5 text-left transition hover:bg-stone-50 sm:items-center sm:justify-between sm:py-3"
-                              onClick={() =>
-                                setExpandedPlanningQuestionGroups((p) => ({
-                                  ...p,
-                                  [row.group.id]: !(p[row.group.id] ?? true),
-                                }))
-                              }
-                            >
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <p className="text-base font-semibold leading-snug text-stone-950">
-                                  {row.group.label}
-                                </p>
-                                {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id] ? (
-                                  <p className="text-xs leading-relaxed text-stone-600">
-                                    {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id]}
-                                  </p>
-                                ) : null}
-                                {visibleQuestions.length > 0 ? (
-                                  <>
-                                    <p className="text-[11px] font-medium leading-relaxed text-stone-600">
-                                      {pct}% answered · {visibleQuestions.length}{" "}
-                                      {visibleQuestions.length === 1 ? "question" : "questions"}
-                                    </p>
-                                    <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
-                                      <div
-                                        className="h-full rounded-full bg-[var(--cm-accent)]"
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
-                                  </>
-                                ) : null}
-                              </div>
-                              <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-500" aria-hidden>
-                                {isExpanded ? "▼" : "▶"}
-                              </span>
-                            </button>
-                            {isExpanded ? (
-                              <div className="mt-6 space-y-5 border-t border-stone-200 pt-6">
-                                {showWeddingPartyLineupSection ? (
-                                  <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-                                    <SectionTitle className="text-stone-950">
-                                      Your Wedding Party Entrance
-                                    </SectionTitle>
-                                    <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                                      {WEDDING_PARTY_LINEUP_HELPER_COPY}
-                                    </p>
-                                    <p className="mt-4 text-sm font-medium text-stone-900">
-                                      {weddingPartyLineupSummary}
-                                    </p>
-                                    <PrimaryButton
-                                      type="button"
-                                      onClick={openWeddingPartyLineupEditor}
-                                      className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
-                                    >
-                                      Add Wedding Party Entrance
-                                    </PrimaryButton>
-                                  </PremiumCard>
-                                ) : null}
-                                {showSpeechesToastsSection ? (
-                                  <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-                                    <SectionTitle className="text-stone-950">Speeches / Toasts</SectionTitle>
-                                    <p className="mt-3 text-xs leading-relaxed text-stone-600">
-                                      Add each speaker with their role and name in toast order.
-                                    </p>
-                                    <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
-                                      {speechesToastsSummary}
-                                    </p>
-                                    <PrimaryButton
-                                      type="button"
-                                      onClick={openSpeechesToastsEditor}
-                                      className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
-                                    >
-                                      Plan Your Toasts
-                                    </PrimaryButton>
-                                  </PremiumCard>
-                                ) : null}
-                                {visibleQuestions.length > 0 ? (
-                                  <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
-                                    {visibleQuestions.map((q) => (
-                                      <PlanningQuestionAnswerEditor
-                                        key={q.id}
-                                        q={q}
-                                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
-                                        onChange={(next) => updatePlanningQuestionAnswer(q.id, next)}
-                                      />
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </PremiumCard>
-                        </div>
-                      );
                     }
                     const pct = computePlanningQuestionGroupCompletion(
                       visibleQuestions,
@@ -20577,11 +20761,6 @@ export default function Home() {
                         >
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <p className="text-base font-semibold leading-snug text-stone-950">{row.group.label}</p>
-                            {isCoupleView && COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id] ? (
-                              <p className="text-xs leading-relaxed text-stone-600">
-                                {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id]}
-                              </p>
-                            ) : null}
                             <p className="text-[11px] font-medium leading-relaxed text-stone-600">
                               {pct}% answered · {visibleQuestions.length}{" "}
                               {visibleQuestions.length === 1 ? "question" : "questions"}
@@ -20617,7 +20796,7 @@ export default function Home() {
                 </div>
               )}
             </section>
-          )}
+          ) : null)}
 
         {authStage === "app" && activeScreen === "Notification Center" && (
           <section className={workspaceSectionClass}>

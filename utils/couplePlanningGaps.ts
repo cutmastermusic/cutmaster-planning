@@ -52,6 +52,7 @@ export type CouplePlanningGapsInput = {
   vendors: Vendor[];
   planningQuestions: PlanningQuestionDef[];
   planningQuestionAnswers: Record<string, string | undefined>;
+  planningQuestionsTargetScreen?: Screen;
 };
 
 function hasVendorType(vendors: Vendor[], type: VendorType): boolean {
@@ -236,7 +237,7 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
           n === 1
             ? "One prompt about your day is still open—short answers are enough."
             : `${n} prompts about your day are still open—short answers are enough.`,
-        targetScreen: "Planning Questions",
+        targetScreen: input.planningQuestionsTargetScreen ?? "Planning Questions",
         priority: 18,
       });
     }
