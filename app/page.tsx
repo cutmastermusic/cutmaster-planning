@@ -318,6 +318,7 @@ import {
   RUN_OF_SHOW_DONE_STORAGE_KEY,
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
+import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
@@ -552,7 +553,47 @@ const SPOTIFY_IMPORT_TARGET_LABELS: Record<SongListType, string> = {
 /** Bypass hydration / empty-data guards for explicit user actions. */
 type DbPersistGuardOptions = {
   force?: boolean;
+  /** Initial create save runs before the new event is merged into workspace state. */
+  allowMissingWorkspaceEvent?: boolean;
 };
+
+type PersistTimelinesToDatabaseResult =
+  | { ok: true }
+  | { ok: false; skipped: true }
+  | { ok: false; error: unknown };
+
+function formatPersistActionError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message.trim() || error.name || "Error";
+  }
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    if (typeof record.message === "string" && record.message.trim()) {
+      return record.message.trim();
+    }
+    if (typeof record.digest === "string" && record.digest.trim()) {
+      return `Server action failed (digest: ${record.digest})`;
+    }
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      /* ignore circular refs */
+    }
+  }
+  return String(error);
+}
+
+function canPersistTimelineEventToDatabase(
+  eventId: string,
+  allowMissingWorkspace: boolean,
+  databaseEventIds: Set<string>,
+  workspaceEvents: EventRecord[],
+): boolean {
+  if (!databaseEventIds.has(eventId)) return false;
+  if (allowMissingWorkspace) return true;
+  return workspaceEvents.some((evt) => evt.id === eventId);
+}
 
 type RunOfShowSyncPhase = "idle" | "saving" | "synced" | "error";
 
@@ -2278,9 +2319,11 @@ const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
   about_you:
     "Tell us a little about yourselves. These answers help us create an experience that feels uniquely yours.",
   ceremony: "Tell us how you imagine the ceremony feeling.",
-  music_preferences: "Share the vibe you're hoping to create.",
-  special_moments: "Traditions, dances, and meaningful moments.",
-  final_notes: "Anything else you'd like us to know?",
+  reception_moments:
+    "Plan the moments your guests will remember—entrance, toasts, dances, and traditions.",
+  music_vibe: "Share the vibe you're hoping to create on the dance floor.",
+  your_team: "Help us stay aligned with your planner, venue, and vendors.",
+  final_review: "Anything else you'd like us to know before the big day?",
 };
 
 function perspectiveBannerLabel(
@@ -3388,21 +3431,50 @@ export default function Home() {
       mainItems: TimelineItem[],
       ceremonyItems: CeremonyTimelineItem[],
       options?: DbPersistGuardOptions,
-    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+    ): Promise<PersistTimelinesToDatabaseResult> => {
+      const inWorkspace = eventsRef.current.some((evt) => evt.id === eventId);
       const dbBacked = databaseEventIdsRef.current.has(eventId);
-      if (!dbBacked) {
+      const allowMissingWorkspace = options?.allowMissingWorkspaceEvent === true;
+      if (!dbBacked || (!inWorkspace && !allowMissingWorkspace)) {
         console.log("[PERSIST-DEBUG] persistTimelinesToDatabase skipped", {
           eventId,
-          reason: "eventId not in databaseEventIdsRef",
+          reason: !dbBacked
+            ? "eventId not in databaseEventIdsRef"
+            : "eventId not in workspace events",
           dbEventIds: Array.from(databaseEventIdsRef.current),
         });
-        return {
-          ok: false,
-          error: new Error(`Event "${eventId}" is not a database-backed event.`),
-        };
+        return { ok: false, skipped: true };
       }
 
       const force = options?.force === true;
+      const persistContext = () => ({
+        eventId,
+        inWorkspace: eventsRef.current.some((evt) => evt.id === eventId),
+        dbBacked: databaseEventIdsRef.current.has(eventId),
+        allowMissingWorkspaceEvent: allowMissingWorkspace,
+        mainItemCount: mainItems.length,
+        ceremonyItemCount: ceremonyItems.length,
+        force,
+      });
+      const skipIfNoLongerPersistable = (phase: string): PersistTimelinesToDatabaseResult | null => {
+        if (
+          canPersistTimelineEventToDatabase(
+            eventId,
+            allowMissingWorkspace,
+            databaseEventIdsRef.current,
+            eventsRef.current,
+          )
+        ) {
+          return null;
+        }
+        console.log("[PERSIST-DEBUG] persistTimelinesToDatabase skipped", {
+          ...persistContext(),
+          phase,
+          reason: "event removed from workspace or databaseEventIdsRef before server action",
+        });
+        return { ok: false, skipped: true };
+      };
+
       const snapshot = eventsRef.current.find((evt) => evt.id === eventId);
       const snapshotMainCount = snapshot?.timelineItems?.length ?? 0;
       const snapshotCeremonyCount = snapshot?.ceremonyTimelineItems?.length ?? 0;
@@ -3469,14 +3541,19 @@ export default function Home() {
         }
       }
 
-      console.log("[PERSIST-DEBUG] persistTimelinesToDatabase running", {
-        eventId,
-        mainItemCount: mainItems.length,
-        ceremonyItemCount: ceremonyItems.length,
-        force,
-      });
+      console.log("[PERSIST-DEBUG] persistTimelinesToDatabase running", persistContext());
+      let failedAction: "replaceMainTimelineItems" | "replaceCeremonyTimelineItems" =
+        "replaceMainTimelineItems";
       try {
+        const staleBeforeMain = skipIfNoLongerPersistable("before-replaceMainTimelineItems");
+        if (staleBeforeMain) return staleBeforeMain;
+
         await replaceMainTimelineItems(eventId, mapMainTimelineItemsForDatabase(mainItems));
+
+        failedAction = "replaceCeremonyTimelineItems";
+        const staleBeforeCeremony = skipIfNoLongerPersistable("before-replaceCeremonyTimelineItems");
+        if (staleBeforeCeremony) return staleBeforeCeremony;
+
         await replaceCeremonyTimelineItems(
           eventId,
           mapCeremonyTimelineItemsForDatabase(ceremonyItems),
@@ -3484,11 +3561,14 @@ export default function Home() {
         console.log("[PERSIST-DEBUG] persistTimelinesToDatabase success", { eventId });
         return { ok: true };
       } catch (error) {
+        const errorMessage = formatPersistActionError(error);
         console.error("[PERSIST-DEBUG] persistTimelinesToDatabase server action error", {
-          eventId,
-          error,
+          ...persistContext(),
+          failedAction,
+          errorMessage,
+          errorName: error instanceof Error ? error.name : undefined,
         });
-        console.error("Failed to persist timelines to database:", error);
+        console.error("Failed to persist timelines to database:", errorMessage);
         return { ok: false, error };
       }
     },
@@ -3860,6 +3940,9 @@ export default function Home() {
   );
 
   const commitActiveEventPlanningToEventsState = useCallback(async () => {
+    if (!activeEventId) return;
+    if (!events.some((evt) => evt.id === activeEventId)) return;
+
     const recvDraft = receptionTimelineInlineEditDraftRef.current;
     const timelinePayload =
       recvDraft === null
@@ -3875,6 +3958,8 @@ export default function Home() {
           t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
         );
 
+    const dbBacked = databaseEventIdsRef.current.has(activeEventId);
+    if (dbBacked) {
         try {
           const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
           await updateDatabaseEvent(
@@ -3961,8 +4046,10 @@ export default function Home() {
           await persistDjScriptsToDatabase(activeEventId, djScripts);
           await persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
         } catch (error) {
-          console.error("Failed to persist event settings:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error("Failed to persist event settings:", errorMessage);
         }
+    }
 
     setEvents((prev) =>
       prev.map((evt) =>
@@ -4308,9 +4395,24 @@ export default function Home() {
     const ok = window.confirm(`Delete "${label}"?`);
     if (!ok) return;
 
-    commitActiveEventPlanningToEventsState();
+    const deletingActive = eventId === activeEventId;
+    const wasDbBacked = databaseEventIdsRef.current.has(eventId);
 
-    if (databaseEventIdsRef.current.has(eventId)) {
+    if (deletingActive) {
+      setActiveEventId("");
+      setAppMode("events");
+      setActiveScreen("All Events");
+      if (wasDbBacked) {
+        databaseEventIdsRef.current.delete(eventId);
+      }
+      if (dbWorkingStateReadyEventIdRef.current === eventId) {
+        dbWorkingStateReadyEventIdRef.current = null;
+      }
+    } else {
+      commitActiveEventPlanningToEventsState();
+    }
+
+    if (wasDbBacked) {
       try {
         await deleteDatabaseEvent(eventId);
         databaseEventIdsRef.current.delete(eventId);
@@ -4323,16 +4425,7 @@ export default function Home() {
       }
     }
 
-    const remaining = events.filter((e) => e.id !== eventId);
-    setEvents(remaining);
-
-    if (eventId === activeEventId) {
-      // After deleting the active event, clear the selection and return to the
-      // All Events view rather than auto-opening another event.
-      setActiveEventId("");
-      setAppMode("events");
-      setActiveScreen("All Events");
-    }
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
   };
 
   const getEventName = useCallback(
@@ -4702,18 +4795,30 @@ export default function Home() {
 
           newEvent.id = savedDatabaseEvent.id;
           databaseEventIdsRef.current.add(savedDatabaseEvent.id);
+          eventsRef.current = [...eventsRef.current, newEvent];
 
           const initialTimelinePersist = await persistTimelinesToDatabase(
             savedDatabaseEvent.id,
             newEvent.timelineItems,
             newEvent.ceremonyTimelineItems ?? [],
-            { force: true },
+            { force: true, allowMissingWorkspaceEvent: true },
           );
           if (!initialTimelinePersist.ok) {
-            console.error(
-              "[PERSIST-DEBUG] create → initial timeline persist failed",
-              initialTimelinePersist.error,
-            );
+            if ("skipped" in initialTimelinePersist && initialTimelinePersist.skipped) {
+              console.log(
+                "[PERSIST-DEBUG] create → initial timeline persist skipped unexpectedly",
+                { eventId: savedDatabaseEvent.id },
+              );
+            } else if ("error" in initialTimelinePersist) {
+              const errorMessage =
+                initialTimelinePersist.error instanceof Error
+                  ? initialTimelinePersist.error.message
+                  : String(initialTimelinePersist.error);
+              console.error(
+                "[PERSIST-DEBUG] create → initial timeline persist failed",
+                errorMessage,
+              );
+            }
           }
         } catch (error) {
           console.error("Failed to save event to database:", error);
@@ -8868,7 +8973,12 @@ export default function Home() {
           GLOBAL_SETTINGS_STORAGE_KEY,
           JSON.stringify(appSettings),
         );
-        const timelineDbBacked = databaseEventIdsRef.current.has(activeEventId);
+        const timelineDbBacked = Boolean(
+          activeEventId && databaseEventIdsRef.current.has(activeEventId),
+        );
+        const eventStillInWorkspace = Boolean(
+          activeEventId && payloadEvents.some((evt) => evt.id === activeEventId),
+        );
         const timelineHydrationComplete = databaseHydrationCompleteRef.current;
         const dbWorkingStateReadyEventId = dbWorkingStateReadyEventIdRef.current;
         const timelineSuppressBoot = persistUiSuppressBootCountRef.current;
@@ -8882,6 +8992,7 @@ export default function Home() {
           ceremony: ceremonyForStore.length,
         };
         const dbPersistAllowed =
+          eventStillInWorkspace &&
           timelineDbBacked &&
           timelineHydrationComplete &&
           dbWorkingStateReadyEventId === activeEventId &&
@@ -8911,9 +9022,13 @@ export default function Home() {
           );
           void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore).then(
             (result) => {
-              if (!result.ok) {
-                console.error("[PERSIST-DEBUG] autosave timeline persist failed", result.error);
+              if (result.ok || ("skipped" in result && result.skipped)) {
+                return;
               }
+              if (!("error" in result)) return;
+              const errorMessage =
+                result.error instanceof Error ? result.error.message : String(result.error);
+              console.error("[PERSIST-DEBUG] autosave timeline persist failed", errorMessage);
             },
           );
           void persistSongsToDatabase(
@@ -20274,16 +20389,9 @@ export default function Home() {
                 />
               ) : (
                 <div id="planning-questions-anchor" className="space-y-5">
-                  {isCoupleView && (showWeddingPartyLineupSection || showSpeechesToastsSection) ? (
-                    <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                      Your Reception Highlights
-                    </p>
-                  ) : null}
-                  {showWeddingPartyLineupSection ? (
+                  {!isCoupleView && showWeddingPartyLineupSection ? (
                     <PremiumCard className={premiumFormSectionCardClass}>
-                      <SectionTitle className="text-stone-950">
-                        {isCoupleView ? "Your Wedding Party Entrance" : "Wedding Party Lineup"}
-                      </SectionTitle>
+                      <SectionTitle className="text-stone-950">Wedding Party Lineup</SectionTitle>
                       <p className="mt-3 text-xs leading-relaxed text-stone-600">
                         {WEDDING_PARTY_LINEUP_HELPER_COPY}
                       </p>
@@ -20293,11 +20401,11 @@ export default function Home() {
                         onClick={openWeddingPartyLineupEditor}
                         className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
                       >
-                        {isCoupleView ? "Add Wedding Party Entrance" : "Edit Wedding Party Lineup"}
+                        Edit Wedding Party Lineup
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
-                  {showSpeechesToastsSection ? (
+                  {!isCoupleView && showSpeechesToastsSection ? (
                     <PremiumCard className={premiumFormSectionCardClass}>
                       <SectionTitle className="text-stone-950">Speeches / Toasts</SectionTitle>
                       <p className="mt-3 text-xs leading-relaxed text-stone-600">
@@ -20311,7 +20419,7 @@ export default function Home() {
                         onClick={openSpeechesToastsEditor}
                         className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
                       >
-                        {isCoupleView ? "Plan Your Toasts" : "Edit Speeches / Toasts"}
+                        Edit Speeches / Toasts
                       </PrimaryButton>
                     </PremiumCard>
                   ) : null}
@@ -20321,7 +20429,135 @@ export default function Home() {
                         question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
                         question.id !== SPEECHES_TOASTS_PLANNING_KEY,
                     );
-                    if (visibleQuestions.length === 0) return null;
+                    const showCoupleReceptionChapterEditors =
+                      isCoupleView &&
+                      row.group.id === "reception_moments" &&
+                      (showWeddingPartyLineupSection || showSpeechesToastsSection);
+                    if (visibleQuestions.length === 0 && !showCoupleReceptionChapterEditors) {
+                      return null;
+                    }
+                    if (isCoupleView && row.group.id === "about_you") {
+                      return (
+                        <CoupleAboutYouGuidedSection
+                          key={`pq-group-${row.group.id}`}
+                          questions={visibleQuestions}
+                          answers={eventSettings.planningQuestionAnswers ?? {}}
+                          onAnswerChange={updatePlanningQuestionAnswer}
+                          renderEditor={({ question, value, onChange }) => (
+                            <PlanningQuestionAnswerEditor
+                              q={question}
+                              value={value}
+                              onChange={onChange}
+                            />
+                          )}
+                        />
+                      );
+                    }
+                    if (showCoupleReceptionChapterEditors) {
+                      const pct = computePlanningQuestionGroupCompletion(
+                        visibleQuestions,
+                        eventSettings.planningQuestionAnswers,
+                      );
+                      const isExpanded = expandedPlanningQuestionGroups[row.group.id] ?? true;
+                      return (
+                        <div key={`pq-group-${row.group.id}`} className="space-y-5">
+                          <PremiumCard className={premiumFormSectionCardClass}>
+                            <button
+                              type="button"
+                              className="flex w-full items-start gap-3 rounded-lg px-0.5 py-2.5 text-left transition hover:bg-stone-50 sm:items-center sm:justify-between sm:py-3"
+                              onClick={() =>
+                                setExpandedPlanningQuestionGroups((p) => ({
+                                  ...p,
+                                  [row.group.id]: !(p[row.group.id] ?? true),
+                                }))
+                              }
+                            >
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <p className="text-base font-semibold leading-snug text-stone-950">
+                                  {row.group.label}
+                                </p>
+                                {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id] ? (
+                                  <p className="text-xs leading-relaxed text-stone-600">
+                                    {COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES[row.group.id]}
+                                  </p>
+                                ) : null}
+                                {visibleQuestions.length > 0 ? (
+                                  <>
+                                    <p className="text-[11px] font-medium leading-relaxed text-stone-600">
+                                      {pct}% answered · {visibleQuestions.length}{" "}
+                                      {visibleQuestions.length === 1 ? "question" : "questions"}
+                                    </p>
+                                    <div className="mt-3 h-1.5 max-w-full overflow-hidden rounded-full bg-stone-200 sm:max-w-xs">
+                                      <div
+                                        className="h-full rounded-full bg-[var(--cm-accent)]"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </>
+                                ) : null}
+                              </div>
+                              <span className="shrink-0 pt-0.5 font-mono text-sm text-stone-500" aria-hidden>
+                                {isExpanded ? "▼" : "▶"}
+                              </span>
+                            </button>
+                            {isExpanded ? (
+                              <div className="mt-6 space-y-5 border-t border-stone-200 pt-6">
+                                {showWeddingPartyLineupSection ? (
+                                  <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
+                                    <SectionTitle className="text-stone-950">
+                                      Your Wedding Party Entrance
+                                    </SectionTitle>
+                                    <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                                      {WEDDING_PARTY_LINEUP_HELPER_COPY}
+                                    </p>
+                                    <p className="mt-4 text-sm font-medium text-stone-900">
+                                      {weddingPartyLineupSummary}
+                                    </p>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={openWeddingPartyLineupEditor}
+                                      className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+                                    >
+                                      Add Wedding Party Entrance
+                                    </PrimaryButton>
+                                  </PremiumCard>
+                                ) : null}
+                                {showSpeechesToastsSection ? (
+                                  <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
+                                    <SectionTitle className="text-stone-950">Speeches / Toasts</SectionTitle>
+                                    <p className="mt-3 text-xs leading-relaxed text-stone-600">
+                                      Add each speaker with their role and name in toast order.
+                                    </p>
+                                    <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
+                                      {speechesToastsSummary}
+                                    </p>
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={openSpeechesToastsEditor}
+                                      className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+                                    >
+                                      Plan Your Toasts
+                                    </PrimaryButton>
+                                  </PremiumCard>
+                                ) : null}
+                                {visibleQuestions.length > 0 ? (
+                                  <div className="grid gap-4 md:grid-cols-2 md:gap-x-5 md:gap-y-5">
+                                    {visibleQuestions.map((q) => (
+                                      <PlanningQuestionAnswerEditor
+                                        key={q.id}
+                                        q={q}
+                                        value={eventSettings.planningQuestionAnswers[q.id] ?? ""}
+                                        onChange={(next) => updatePlanningQuestionAnswer(q.id, next)}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </PremiumCard>
+                        </div>
+                      );
+                    }
                     const pct = computePlanningQuestionGroupCompletion(
                       visibleQuestions,
                       eventSettings.planningQuestionAnswers,
