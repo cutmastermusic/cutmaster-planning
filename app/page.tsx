@@ -9028,103 +9028,103 @@ export default function Home() {
     if (!hasHydrated) return;
     if (typeof window === "undefined") return;
 
-    const recvDraft = receptionTimelineInlineEditDraft;
-    const timelineForStore =
-      recvDraft === null
-        ? timelineItems
-        : timelineItems.map((t) =>
-          t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
-        );
-    const cerDraft = ceremonyTimelineInlineEditDraft;
-    const ceremonyForStore =
-      cerDraft === null
-        ? ceremonyTimelineItems
-        : ceremonyTimelineItems.map((t) =>
-          t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
-        );
-
-    const stripCoverPhotoFromSettings = (settings: EventSettings): EventSettings => {
-      const next = { ...settings };
-      delete next.coverPhotoDataUrl;
-      return next;
-    };
-
-    const payloadEvents = events.map((e) => {
-      const merged =
-        e.id === activeEventId
-          ? {
-            ...e,
-            lastUpdatedAt: Date.now(),
-            meta: {
-              ...e.meta,
-              couple: eventSettings.coupleNames || e.meta.couple,
-              date: eventSettings.weddingDate || e.meta.date,
-              venue: eventSettings.venue || e.meta.venue,
-            },
-            timelineItems: timelineForStore,
-            ceremonyTimelineItems: ceremonyForStore,
-            formalities: [],
-            mustPlaySongs,
-            doNotPlaySongs,
-            playIfPossibleSongs,
-            musicPlaylistLinks,
-            musicGenreEraSelections,
-            ceremonyStartTime,
-            ceremonyGuestArrivalTime,
-            officiantName,
-            ceremonyNotes,
-            microphoneNeeds,
-            weddingPartyProcessional,
-            brideGroomProcessional,
-            unityCeremonySong,
-            recessionalSong,
-            plannerNotes,
-            vendors,
-            guestRequests,
-            generalDjNotes,
-            playlistVibeOverrides,
-            musicVibeDetail,
-            musicTasteProfile: cloneJson(musicTasteProfile),
-            mcAnnouncements,
-            djScripts: cloneJson(djScripts),
-            djMusicNotes: cloneJson(djMusicNotes),
-            settings:
-              isActualCouple
-                ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
-                : eventSettings,
-          }
-          : e;
-      return merged.settings
-        ? { ...merged, settings: stripCoverPhotoFromSettings(merged.settings) }
-        : merged;
-    });
-
-    const payload = {
-      events: payloadEvents,
-      activeEventId,
-      templates,
-      teamMembers: companyTeamMembers,
-      companyTeamMembers,
-      activities,
-      notifications,
-      appState: {
-        activeScreen,
-        appMode,
-        authStage,
-        currentRole,
-        rolePreview,
-        guestRequestView,
-        inviteAccessPreview,
-        activePlanningChapterId,
-      },
-    };
-
-    const showPersistUi = persistUiSuppressBootCountRef.current <= 0;
-    if (showPersistUi) {
-      setPersistPhase("pending");
-    }
-
     const t = window.setTimeout(() => {
+      const recvDraft = receptionTimelineInlineEditDraft;
+      const timelineForStore =
+        recvDraft === null
+          ? timelineItems
+          : timelineItems.map((t) =>
+            t.id === recvDraft.itemId ? applyReceptionTimelineInlineDraftToRow(t, recvDraft.values) : t,
+          );
+      const cerDraft = ceremonyTimelineInlineEditDraft;
+      const ceremonyForStore =
+        cerDraft === null
+          ? ceremonyTimelineItems
+          : ceremonyTimelineItems.map((t) =>
+            t.id === cerDraft.itemId ? applyCeremonyTimelineInlineDraftToRow(t, cerDraft.values) : t,
+          );
+
+      const stripCoverPhotoFromSettings = (settings: EventSettings): EventSettings => {
+        const next = { ...settings };
+        delete next.coverPhotoDataUrl;
+        return next;
+      };
+
+      const payloadEvents = events.map((e) => {
+        const merged =
+          e.id === activeEventId
+            ? {
+              ...e,
+              lastUpdatedAt: Date.now(),
+              meta: {
+                ...e.meta,
+                couple: eventSettings.coupleNames || e.meta.couple,
+                date: eventSettings.weddingDate || e.meta.date,
+                venue: eventSettings.venue || e.meta.venue,
+              },
+              timelineItems: timelineForStore,
+              ceremonyTimelineItems: ceremonyForStore,
+              formalities: [],
+              mustPlaySongs,
+              doNotPlaySongs,
+              playIfPossibleSongs,
+              musicPlaylistLinks,
+              musicGenreEraSelections,
+              ceremonyStartTime,
+              ceremonyGuestArrivalTime,
+              officiantName,
+              ceremonyNotes,
+              microphoneNeeds,
+              weddingPartyProcessional,
+              brideGroomProcessional,
+              unityCeremonySong,
+              recessionalSong,
+              plannerNotes,
+              vendors,
+              guestRequests,
+              generalDjNotes,
+              playlistVibeOverrides,
+              musicVibeDetail,
+              musicTasteProfile: cloneJson(musicTasteProfile),
+              mcAnnouncements,
+              djScripts: cloneJson(djScripts),
+              djMusicNotes: cloneJson(djMusicNotes),
+              settings:
+                isActualCouple
+                  ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
+                  : eventSettings,
+            }
+            : e;
+        return merged.settings
+          ? { ...merged, settings: stripCoverPhotoFromSettings(merged.settings) }
+          : merged;
+      });
+
+      const payload = {
+        events: payloadEvents,
+        activeEventId,
+        templates,
+        teamMembers: companyTeamMembers,
+        companyTeamMembers,
+        activities,
+        notifications,
+        appState: {
+          activeScreen,
+          appMode,
+          authStage,
+          currentRole,
+          rolePreview,
+          guestRequestView,
+          inviteAccessPreview,
+          activePlanningChapterId,
+        },
+      };
+
+      const showPersistUi = persistUiSuppressBootCountRef.current <= 0;
+      if (showPersistUi) {
+        setPersistPhase("pending");
+      }
+
       try {
         window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(payload));
         window.localStorage.setItem(
@@ -12055,9 +12055,12 @@ export default function Home() {
   const openWeddingPartyLineupEditor = useCallback(() => {
     const raw = eventSettings.planningQuestionAnswers?.[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "";
     const entries = parseWeddingPartyLineup(raw);
-    const draft = entries.length > 0 ? entries : [createEmptyWeddingPartyLineupEntry(0)];
+    const draft =
+      entries.length > 0
+        ? entries.map((entry) => ({ ...entry }))
+        : [createEmptyWeddingPartyLineupEntry(0)];
     setWeddingPartyLineupDraft(draft);
-    setWeddingPartyLineupSavedDraft(draft);
+    setWeddingPartyLineupSavedDraft(draft.map((entry) => ({ ...entry })));
     setWeddingPartyLineupOpen(true);
   }, [eventSettings.planningQuestionAnswers]);
 
@@ -12067,8 +12070,8 @@ export default function Home() {
     setWeddingPartyLineupSavedDraft([]);
   }, []);
 
-  const doneWeddingPartyLineup = useCallback(async () => {
-    const serialized = serializeWeddingPartyLineup(weddingPartyLineupDraft);
+  const doneWeddingPartyLineup = useCallback(async (nextEntries: WeddingPartyLineupEntry[]) => {
+    const serialized = serializeWeddingPartyLineup(nextEntries);
     const coupleDefault =
       eventSettings.coupleNames?.trim() || weddingDetails.couple?.trim() || "";
     setEventSettings((prev) => ({
@@ -12117,7 +12120,6 @@ export default function Home() {
       }
     }
   }, [
-    weddingPartyLineupDraft,
     eventSettings.planningQuestionAnswers,
     eventSettings.coupleNames,
     weddingDetails.couple,
@@ -12129,9 +12131,12 @@ export default function Home() {
   const openSpeechesToastsEditor = useCallback(() => {
     const raw = eventSettings.planningQuestionAnswers?.[SPEECHES_TOASTS_PLANNING_KEY] ?? "";
     const entries = parseSpeechesToasts(raw);
-    const draft = entries.length > 0 ? entries : [createEmptySpeechesToastEntry(0)];
+    const draft =
+      entries.length > 0
+        ? entries.map((entry) => ({ ...entry }))
+        : [createEmptySpeechesToastEntry(0)];
     setSpeechesToastsDraft(draft);
-    setSpeechesToastsSavedDraft(draft);
+    setSpeechesToastsSavedDraft(draft.map((entry) => ({ ...entry })));
     setSpeechesToastsOpen(true);
   }, [eventSettings.planningQuestionAnswers]);
 
@@ -12141,8 +12146,8 @@ export default function Home() {
     setSpeechesToastsSavedDraft([]);
   }, []);
 
-  const doneSpeechesToasts = useCallback(async () => {
-    const serialized = serializeSpeechesToasts(speechesToastsDraft);
+  const doneSpeechesToasts = useCallback(async (nextEntries: SpeechesToastEntry[]) => {
+    const serialized = serializeSpeechesToasts(nextEntries);
     setEventSettings((prev) => ({
       ...prev,
       planningQuestionAnswers: {
@@ -12178,7 +12183,6 @@ export default function Home() {
       }
     }
   }, [
-    speechesToastsDraft,
     eventSettings.planningQuestionAnswers,
     activeEventId,
     closeSpeechesToastsEditor,
@@ -21021,9 +21025,8 @@ export default function Home() {
         open={weddingPartyLineupOpen}
         savedEntries={weddingPartyLineupSavedDraft}
         entries={weddingPartyLineupDraft}
-        onChange={setWeddingPartyLineupDraft}
-        onDone={() => {
-          void doneWeddingPartyLineup();
+        onDone={(nextEntries) => {
+          void doneWeddingPartyLineup(nextEntries);
         }}
         onCancel={closeWeddingPartyLineupEditor}
         canEdit={canEditTimeline}
@@ -21034,9 +21037,8 @@ export default function Home() {
         open={speechesToastsOpen}
         savedEntries={speechesToastsSavedDraft}
         entries={speechesToastsDraft}
-        onChange={setSpeechesToastsDraft}
-        onDone={() => {
-          void doneSpeechesToasts();
+        onDone={(nextEntries) => {
+          void doneSpeechesToasts(nextEntries);
         }}
         onCancel={closeSpeechesToastsEditor}
         canEdit={canEditTimeline}

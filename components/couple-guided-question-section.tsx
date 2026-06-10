@@ -105,6 +105,7 @@ export function CoupleGuidedQuestionSection({
   const currentStep = steps[stepIndex];
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= total - 1;
+  const activeStepId = currentStep?.id;
 
   const goToReview = useCallback(() => {
     setPhase("review");
@@ -129,7 +130,7 @@ export function CoupleGuidedQuestionSection({
   }, [goToReview, isLastStep, total]);
 
   useEffect(() => {
-    if (phase !== "guided" || !currentStep) return;
+    if (phase !== "guided" || !activeStepId) return;
     if (typeof window === "undefined") return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const focusTarget = stepRegionRef.current?.querySelector<HTMLElement>(
@@ -140,7 +141,7 @@ export function CoupleGuidedQuestionSection({
       behavior: reduceMotion ? "auto" : "smooth",
       block: "nearest",
     });
-  }, [phase, stepIndex, currentStep]);
+  }, [phase, stepIndex, activeStepId]);
 
   if (total === 0) {
     return null;

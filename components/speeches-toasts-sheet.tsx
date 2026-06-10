@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PrimaryButton, SectionTitle } from "@/components/planning-ui";
 import {
   createEmptySpeechesToastEntry,
@@ -14,14 +14,17 @@ type SpeechesToastsSheetProps = {
   open: boolean;
   savedEntries: SpeechesToastEntry[];
   entries: SpeechesToastEntry[];
-  onChange: (entries: SpeechesToastEntry[]) => void;
-  onDone: () => void;
+  onDone: (entries: SpeechesToastEntry[]) => void;
   onCancel: () => void;
   canEdit: boolean;
 };
 
 function fieldLabel(className = "") {
   return `text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 ${className}`.trim();
+}
+
+function cloneSpeechesToastEntries(entries: SpeechesToastEntry[]): SpeechesToastEntry[] {
+  return entries.map((entry) => ({ ...entry }));
 }
 
 const inputClass =
@@ -31,13 +34,32 @@ export function SpeechesToastsSheet({
   open,
   savedEntries,
   entries,
-  onChange,
   onDone,
   onCancel,
   canEdit,
 }: SpeechesToastsSheetProps) {
-  const isDirty = !speechesToastEntriesEqual(entries, savedEntries);
-  const sortedEntries = sortSpeechesToastEntries(entries);
+  const [draftEntries, setDraftEntries] = useState<SpeechesToastEntry[]>(() =>
+    cloneSpeechesToastEntries(entries),
+  );
+  const draftEntriesRef = useRef(draftEntries);
+  const wasOpenRef = useRef(false);
+
+  const commitDraftEntries = useCallback((next: SpeechesToastEntry[]) => {
+    draftEntriesRef.current = next;
+    setDraftEntries(next);
+  }, []);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      const next = cloneSpeechesToastEntries(entries);
+      draftEntriesRef.current = next;
+      setDraftEntries(next);
+    }
+    wasOpenRef.current = open;
+  }, [open, entries]);
+
+  const isDirty = !speechesToastEntriesEqual(draftEntries, savedEntries);
+  const sortedEntries = sortSpeechesToastEntries(draftEntries);
 
   const requestCancel = useCallback(() => {
     if (isDirty && !window.confirm("Discard unsaved speeches / toasts changes?")) return;
@@ -56,29 +78,49 @@ export function SpeechesToastsSheet({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, requestCancel]);
 
-  const patchEntry = (id: string, patch: Partial<SpeechesToastEntry>) => {
-    onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
-  };
+  const patchEntry = useCallback(
+    (id: string, patch: Partial<SpeechesToastEntry>) => {
+      const next = draftEntriesRef.current.map((entry) =>
+        entry.id === id ? { ...entry, ...patch } : entry,
+      );
+      commitDraftEntries(next);
+    },
+    [commitDraftEntries],
+  );
 
-  const addEntry = () => {
-    onChange([...entries, createEmptySpeechesToastEntry(entries.length)]);
-  };
+  const addEntry = useCallback(() => {
+    const prev = draftEntriesRef.current;
+    commitDraftEntries([...prev, createEmptySpeechesToastEntry(prev.length)]);
+  }, [commitDraftEntries]);
 
-  const removeEntry = (id: string) => {
-    onChange(sortSpeechesToastEntries(entries.filter((entry) => entry.id !== id)));
-  };
+  const removeEntry = useCallback(
+    (id: string) => {
+      const next = sortSpeechesToastEntries(
+        draftEntriesRef.current.filter((entry) => entry.id !== id),
+      );
+      commitDraftEntries(next);
+    },
+    [commitDraftEntries],
+  );
 
-  const moveEntry = (id: string, direction: -1 | 1) => {
-    const ordered = sortSpeechesToastEntries(entries);
-    const index = ordered.findIndex((entry) => entry.id === id);
-    if (index < 0) return;
-    const target = index + direction;
-    if (target < 0 || target >= ordered.length) return;
-    const next = ordered.slice();
-    const [moved] = next.splice(index, 1);
-    next.splice(target, 0, moved);
-    onChange(sortSpeechesToastEntries(next));
-  };
+  const moveEntry = useCallback(
+    (id: string, direction: -1 | 1) => {
+      const ordered = sortSpeechesToastEntries(draftEntriesRef.current);
+      const index = ordered.findIndex((entry) => entry.id === id);
+      if (index < 0) return;
+      const target = index + direction;
+      if (target < 0 || target >= ordered.length) return;
+      const next = ordered.slice();
+      const [moved] = next.splice(index, 1);
+      next.splice(target, 0, moved);
+      commitDraftEntries(sortSpeechesToastEntries(next));
+    },
+    [commitDraftEntries],
+  );
+
+  const handleDone = useCallback(() => {
+    onDone(draftEntriesRef.current);
+  }, [onDone]);
 
   if (!open) return null;
 
@@ -114,7 +156,7 @@ export function SpeechesToastsSheet({
                 </PrimaryButton>
                 <PrimaryButton
                   type="button"
-                  onClick={onDone}
+                  onClick={handleDone}
                   disabled={!canEdit}
                   className="min-h-11 min-w-[5.5rem] touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-800 disabled:opacity-60"
                 >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PrimaryButton, SectionTitle } from "@/components/planning-ui";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -14,8 +14,7 @@ type WeddingPartyLineupSheetProps = {
   open: boolean;
   savedEntries: WeddingPartyLineupEntry[];
   entries: WeddingPartyLineupEntry[];
-  onChange: (entries: WeddingPartyLineupEntry[]) => void;
-  onDone: () => void;
+  onDone: (entries: WeddingPartyLineupEntry[]) => void;
   onCancel: () => void;
   canEdit: boolean;
   /** Stack above Grand Entrance detail sheet (z-[220]) when opened from inside it. */
@@ -24,6 +23,10 @@ type WeddingPartyLineupSheetProps = {
 
 function fieldLabel(className = "") {
   return `text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 ${className}`.trim();
+}
+
+function cloneLineupEntries(entries: WeddingPartyLineupEntry[]): WeddingPartyLineupEntry[] {
+  return entries.map((entry) => ({ ...entry }));
 }
 
 const inputClass =
@@ -36,14 +39,33 @@ export function WeddingPartyLineupSheet({
   open,
   savedEntries,
   entries,
-  onChange,
   onDone,
   onCancel,
   canEdit,
   elevated = false,
 }: WeddingPartyLineupSheetProps) {
-  const isDirty = !weddingPartyLineupEntriesEqual(entries, savedEntries);
-  const sortedEntries = sortWeddingPartyLineupEntries(entries);
+  const [draftEntries, setDraftEntries] = useState<WeddingPartyLineupEntry[]>(() =>
+    cloneLineupEntries(entries),
+  );
+  const draftEntriesRef = useRef(draftEntries);
+  const wasOpenRef = useRef(false);
+
+  const commitDraftEntries = useCallback((next: WeddingPartyLineupEntry[]) => {
+    draftEntriesRef.current = next;
+    setDraftEntries(next);
+  }, []);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      const next = cloneLineupEntries(entries);
+      draftEntriesRef.current = next;
+      setDraftEntries(next);
+    }
+    wasOpenRef.current = open;
+  }, [open, entries]);
+
+  const isDirty = !weddingPartyLineupEntriesEqual(draftEntries, savedEntries);
+  const sortedEntries = sortWeddingPartyLineupEntries(draftEntries);
 
   const requestCancel = useCallback(() => {
     if (isDirty && !window.confirm("Discard unsaved wedding party lineup changes?")) return;
@@ -62,31 +84,49 @@ export function WeddingPartyLineupSheet({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, requestCancel]);
 
-  const patchEntry = (id: string, patch: Partial<WeddingPartyLineupEntry>) => {
-    onChange(
-      entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
-    );
-  };
+  const patchEntry = useCallback(
+    (id: string, patch: Partial<WeddingPartyLineupEntry>) => {
+      const next = draftEntriesRef.current.map((entry) =>
+        entry.id === id ? { ...entry, ...patch } : entry,
+      );
+      commitDraftEntries(next);
+    },
+    [commitDraftEntries],
+  );
 
-  const addEntry = () => {
-    onChange([...entries, createEmptyWeddingPartyLineupEntry(entries.length)]);
-  };
+  const addEntry = useCallback(() => {
+    const prev = draftEntriesRef.current;
+    commitDraftEntries([...prev, createEmptyWeddingPartyLineupEntry(prev.length)]);
+  }, [commitDraftEntries]);
 
-  const removeEntry = (id: string) => {
-    onChange(sortWeddingPartyLineupEntries(entries.filter((entry) => entry.id !== id)));
-  };
+  const removeEntry = useCallback(
+    (id: string) => {
+      const next = sortWeddingPartyLineupEntries(
+        draftEntriesRef.current.filter((entry) => entry.id !== id),
+      );
+      commitDraftEntries(next);
+    },
+    [commitDraftEntries],
+  );
 
-  const moveEntry = (id: string, direction: -1 | 1) => {
-    const ordered = sortWeddingPartyLineupEntries(entries);
-    const index = ordered.findIndex((entry) => entry.id === id);
-    if (index < 0) return;
-    const target = index + direction;
-    if (target < 0 || target >= ordered.length) return;
-    const next = ordered.slice();
-    const [moved] = next.splice(index, 1);
-    next.splice(target, 0, moved);
-    onChange(sortWeddingPartyLineupEntries(next));
-  };
+  const moveEntry = useCallback(
+    (id: string, direction: -1 | 1) => {
+      const ordered = sortWeddingPartyLineupEntries(draftEntriesRef.current);
+      const index = ordered.findIndex((entry) => entry.id === id);
+      if (index < 0) return;
+      const target = index + direction;
+      if (target < 0 || target >= ordered.length) return;
+      const next = ordered.slice();
+      const [moved] = next.splice(index, 1);
+      next.splice(target, 0, moved);
+      commitDraftEntries(sortWeddingPartyLineupEntries(next));
+    },
+    [commitDraftEntries],
+  );
+
+  const handleDone = useCallback(() => {
+    onDone(draftEntriesRef.current);
+  }, [onDone]);
 
   if (!open) return null;
 
@@ -122,7 +162,7 @@ export function WeddingPartyLineupSheet({
                 </PrimaryButton>
                 <PrimaryButton
                   type="button"
-                  onClick={onDone}
+                  onClick={handleDone}
                   disabled={!canEdit}
                   className="min-h-11 min-w-[5.5rem] touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-800 disabled:opacity-60"
                 >
