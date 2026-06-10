@@ -8,6 +8,7 @@ export type PlanningQuestionGroupDef = {
 };
 
 const WEDDING_STYLE_GROUPS: PlanningQuestionGroupDef[] = [
+  { id: "about_you", label: "About You" },
   { id: "event_details", label: "Event Details" },
   { id: "ceremony", label: "Ceremony" },
   { id: "reception_timeline", label: "Reception / Timeline" },

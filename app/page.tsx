@@ -2275,6 +2275,8 @@ const COUPLE_ABOUT_YOUR_DAY_INTRO_BODY =
 
 /** Warm subtitles for grouped prompts — couple presentation only; group ids unchanged. */
 const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
+  about_you:
+    "Tell us a little about yourselves. These answers help us create an experience that feels uniquely yours.",
   ceremony: "Tell us how you imagine the ceremony feeling.",
   music_preferences: "Share the vibe you're hoping to create.",
   special_moments: "Traditions, dances, and meaningful moments.",
