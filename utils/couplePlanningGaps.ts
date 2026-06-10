@@ -234,10 +234,10 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
         area: "planning-questions",
         message:
           n === 1
-            ? "One planning question is still open—short answers are enough."
-            : `${n} planning questions are still open—short answers are enough.`,
+            ? "One prompt about your day is still open—short answers are enough."
+            : `${n} prompts about your day are still open—short answers are enough.`,
         targetScreen: "Planning Questions",
-        priority: 70,
+        priority: 18,
       });
     }
   }
@@ -259,7 +259,7 @@ export function areaLabelForCouplePlanningGap(area: CouplePlanningGapArea): stri
     case "event-team":
       return "Event team";
     case "planning-questions":
-      return "Questions";
+      return "About your day";
     default:
       return "Planning";
   }

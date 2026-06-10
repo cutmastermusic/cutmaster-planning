@@ -2267,6 +2267,9 @@ function perspectiveRoleLabel(role: UserRole): string {
   return role === "Couple" ? "Client" : role;
 }
 
+/** Couple-facing label for the Planning Questions screen — internal screen id unchanged. */
+const COUPLE_ABOUT_YOUR_DAY_LABEL = "About your day";
+
 function perspectiveBannerLabel(
   sessionRole: UserRole | null,
   previewRole: UserRole,
@@ -4838,7 +4841,9 @@ export default function Home() {
       ? `${appSettings.appName} Dashboard`
       : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
         ? "Timeline"
-        : activeScreen;
+        : effectiveRole === "Couple" && activeScreen === "Planning Questions"
+          ? COUPLE_ABOUT_YOUR_DAY_LABEL
+          : activeScreen;
   const effectiveEventType = eventSettings.eventType || appSettings.defaultEventType;
   const effectivePrepSheetFooter =
     eventSettings.prepSheetFooterOverride || appSettings.prepSheetFooterText;
@@ -7305,6 +7310,11 @@ export default function Home() {
     const hasMusicTasteSignal = computeMusicTasteSignal(planningChecklistInput);
 
     if (!hasEventDetailsComplete) return "Event Settings";
+
+    if (sectionPlanningQuestionsEnabled && unansweredPlanningQuestionCount > 0) {
+      return "Planning Questions";
+    }
+
     if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return unifiedEventTimeline ? "Timeline" : "Ceremony";
 
     if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
@@ -7316,10 +7326,6 @@ export default function Home() {
       !hasMusicTasteSignal
     ) {
       return "Music Hub";
-    }
-
-    if (sectionPlanningQuestionsEnabled && unansweredPlanningQuestionCount > 0) {
-      return "Planning Questions";
     }
     if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Guest Requests";
 
@@ -7563,20 +7569,20 @@ export default function Home() {
       let pqCta: string;
       if (answeredCount === 0) {
         completionStatus = "Not Started";
-        pqCta = "Start questions";
+        pqCta = "Start About your day";
       } else if (!requiredComplete) {
         completionStatus = "In Progress";
-        pqCta = "Continue questions";
+        pqCta = "Continue About your day";
       } else {
         completionStatus = "Complete";
-        pqCta = "Review answers";
+        pqCta = "Review About your day";
       }
       const pqPct =
         pqList.length === 0 ? 100 : Math.round((answeredCount / pqList.length) * 100);
       cards.push({
         id: "planning-questions",
-        kicker: "Questions",
-        title: "Planning questions",
+        kicker: "Your story",
+        title: COUPLE_ABOUT_YOUR_DAY_LABEL,
         description: "Short prompts so nothing important gets lost in the shuffle.",
         screen: "Planning Questions",
         completion: pqPct,
@@ -7607,10 +7613,10 @@ export default function Home() {
     }
 
     const clientHomeOrder = [
+      "planning-questions",
       "reception",
       "music",
       "event-team",
-      "planning-questions",
       "ceremony",
       "event-prep",
       "guest-requests",
@@ -7659,12 +7665,28 @@ export default function Home() {
     const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
       (q) => !answers[q.id]?.trim(),
     ).length;
+    const answeredPlanningQuestionCount = planningQuestionsForEvent.filter((q) =>
+      Boolean(answers[q.id]?.trim()),
+    ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
-    return { unansweredPlanningQuestionCount, pendingGuestCount };
+    return {
+      unansweredPlanningQuestionCount,
+      answeredPlanningQuestionCount,
+      pendingGuestCount,
+    };
   }, [
     eventSettings.planningQuestionAnswers,
     guestRequests,
     planningQuestionsForEvent,
+  ]);
+
+  const showCoupleAboutYourDayWelcomeCard = useMemo(() => {
+    if (!sectionPlanningQuestionsEnabled || planningQuestionsForEvent.length === 0) return false;
+    return coupleAttentionSummary.answeredPlanningQuestionCount === 0;
+  }, [
+    coupleAttentionSummary.answeredPlanningQuestionCount,
+    planningQuestionsForEvent.length,
+    sectionPlanningQuestionsEnabled,
   ]);
 
   const primaryTimelineScreenForHome = useMemo((): Screen => {
@@ -10933,6 +10955,30 @@ export default function Home() {
       "final-review": "When you're ready, mark planning as final review so your team knows you're steady.",
     };
 
+    if (!hasEventDetailsComplete) {
+      return {
+        body: "Confirm your names, date, and venue so everything else stays aligned.",
+        ctaLabel: "Event details",
+        targetScreen: "Event Settings" as Screen,
+      };
+    }
+
+    const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
+    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+      (q) => !(pqAnswers[q.id] ?? "").trim(),
+    ).length;
+    if (
+      sectionPlanningQuestionsEnabled &&
+      planningQuestionsForEvent.length > 0 &&
+      unansweredPlanningQuestionCount > 0
+    ) {
+      return {
+        body: "Tell us a little about your ceremony, reception, and the moments that matter—most couples finish in about five minutes.",
+        ctaLabel: COUPLE_ABOUT_YOUR_DAY_LABEL,
+        targetScreen: "Planning Questions" as Screen,
+      };
+    }
+
     const firstAttention = planningProgressChecks.find((c) => c.state === "attention");
     if (firstAttention?.targetScreen) {
       const screenCtas: Partial<Record<Screen, string>> = {
@@ -10969,7 +11015,7 @@ export default function Home() {
         "Reception Timeline": "Timeline",
         "Music Hub": "Music",
         "Event Team": "People & vendors",
-        "Planning Questions": "Questions",
+        "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       };
       return {
         body: firstGap.message,
@@ -10984,7 +11030,8 @@ export default function Home() {
       Timeline: "Review your timeline and add the moments you already know.",
       "Reception Timeline": "Review your timeline and add the moments you already know.",
       "Music Hub": "Share taste, playlists, or a few must-plays so your DJ can prep calmly.",
-      "Planning Questions": "Answer a few planning prompts when you have a quiet moment—they feed your event document.",
+      "Planning Questions":
+        "Tell us a little about your ceremony, reception, and the moments that matter—most couples finish in about five minutes.",
       "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
       "Planning Checklist": "Glance at your checklist when you want a structured pass.",
       "Event Prep": "Open your event document when you want a single shareable packet.",
@@ -10998,7 +11045,7 @@ export default function Home() {
       Timeline: "Timeline",
       "Reception Timeline": "Timeline",
       "Music Hub": "Music",
-      "Planning Questions": "Questions",
+      "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       "Guest Requests": "Guest requests",
       "Planning Checklist": "Checklist",
       "Event Prep": "Event document",
@@ -11016,7 +11063,11 @@ export default function Home() {
   }, [
     coupleGuidedNextScreen,
     couplePlanningGapsForDashboard,
+    eventSettings.planningQuestionAnswers,
+    hasEventDetailsComplete,
     planningProgressChecks,
+    planningQuestionsForEvent,
+    sectionPlanningQuestionsEnabled,
     sectionVendorContactsEnabled,
     teamMembers.length,
   ]);
@@ -14264,6 +14315,28 @@ export default function Home() {
                   ) : null}
                 </div>
               </PremiumCard>
+
+              {showCoupleAboutYourDayWelcomeCard ? (
+                <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                    Welcome
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
+                    Let&apos;s start with your story
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                    Tell us a little about your ceremony, reception, wedding party, and the moments
+                    that matter most. Most couples finish this in about five minutes.
+                  </p>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => setActiveScreen("Planning Questions")}
+                    className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
+                  >
+                    Start About Your Day
+                  </PrimaryButton>
+                </div>
+              ) : null}
 
               <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Next step</p>
@@ -20100,7 +20173,7 @@ export default function Home() {
           sectionPlanningQuestionsEnabled && (
             <section className={workspaceSectionLooseClass}>
               <EventHomeNav
-                trail={["Planning Questions"]}
+                trail={[isCoupleView ? COUPLE_ABOUT_YOUR_DAY_LABEL : "Planning Questions"]}
                 onBack={() => setActiveScreen("Dashboard")}
                 primaryAction={
                   coupleAttentionSummary.unansweredPlanningQuestionCount > 0
@@ -20117,7 +20190,9 @@ export default function Home() {
               />
               <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <SectionTitle>Planning Questions</SectionTitle>
+                  <SectionTitle>
+                    {isCoupleView ? COUPLE_ABOUT_YOUR_DAY_LABEL : "Planning Questions"}
+                  </SectionTitle>
                   <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-stone-600">
