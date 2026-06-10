@@ -7980,6 +7980,11 @@ export default function Home() {
     if (sectionGuestRequestsEnabled) {
       extras.push("Guest Requests");
     }
+    // Planning Questions is launched from dashboard cards / next-step routing for couples, so it
+    // must stay allowed even though it is not in the visible couple nav.
+    if (sectionPlanningQuestionsEnabled) {
+      extras.push("Planning Questions");
+    }
     return [...eventNavItems, ...extras];
   }, [
     appMode,
@@ -7988,6 +7993,7 @@ export default function Home() {
     receptionHubEligibleNav,
     sectionReceptionTimelineEnabled,
     sectionGuestRequestsEnabled,
+    sectionPlanningQuestionsEnabled,
   ]);
 
   const switchPerspectiveRole = useCallback(
