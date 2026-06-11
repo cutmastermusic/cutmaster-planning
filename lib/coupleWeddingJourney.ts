@@ -1,6 +1,10 @@
 import type { PlanningQuestionDef } from "@/types/planning";
 import { computePlanningQuestionGroupCompletion } from "@/data/planningQuestionGroups";
 import { computeMusicProfileChapterCompletionPct, MUSIC_PROFILE_GUIDED_STEP_COUNT } from "@/lib/coupleMusicProfilePlanning";
+import {
+  computeYourTeamChapterCompletionPct,
+  countYourTeamRequiredStepsAnswered,
+} from "@/lib/coupleYourTeamPlanning";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
@@ -70,6 +74,31 @@ function chapterStatusFromPct(pct: number): CoupleWeddingChapterStatus {
   return "In Progress";
 }
 
+function computeReceptionMomentsChapterCompletionPct(
+  input: CoupleWeddingJourneyProgressInput,
+  rowQuestions?: PlanningQuestionDef[],
+): number {
+  const { answers } = input;
+  const visibleQuestions = rowQuestions ? visibleQuestionsForGroup(rowQuestions) : [];
+
+  let totalSteps = visibleQuestions.length;
+  let answeredSteps = visibleQuestions.filter((q) => (answers[q.id] ?? "").trim()).length;
+  if (input.showWeddingPartyLineupSection) {
+    totalSteps += 1;
+    if (parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0) {
+      answeredSteps += 1;
+    }
+  }
+  if (input.showSpeechesToastsSection) {
+    totalSteps += 1;
+    if (parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0) {
+      answeredSteps += 1;
+    }
+  }
+  if (totalSteps === 0) return 0;
+  return Math.round((answeredSteps / totalSteps) * 100);
+}
+
 export function computeCoupleWeddingChapterCompletionPct(
   chapterId: CoupleWeddingChapterId,
   input: CoupleWeddingJourneyProgressInput,
@@ -77,8 +106,16 @@ export function computeCoupleWeddingChapterCompletionPct(
   const { answers, planningQuestionsGroupedBySection } = input;
 
   if (chapterId === "your_team") {
-    const hasTeamSignal = input.vendorContactCount > 0 || input.collaboratorCount > 1;
-    return hasTeamSignal ? 100 : 0;
+    return computeYourTeamChapterCompletionPct(answers);
+  }
+
+  if (chapterId === "music_vibe") {
+    return computeMusicProfileChapterCompletionPct(answers);
+  }
+
+  if (chapterId === "reception_moments") {
+    const row = planningQuestionsGroupedBySection.find((entry) => entry.group.id === chapterId);
+    return computeReceptionMomentsChapterCompletionPct(input, row?.questions);
   }
 
   if (chapterId === "final_review") {
@@ -96,29 +133,6 @@ export function computeCoupleWeddingChapterCompletionPct(
   if (!row) return 0;
 
   const visibleQuestions = visibleQuestionsForGroup(row.questions);
-
-  if (chapterId === "reception_moments") {
-    let totalSteps = visibleQuestions.length;
-    let answeredSteps = visibleQuestions.filter((q) => (answers[q.id] ?? "").trim()).length;
-    if (input.showWeddingPartyLineupSection) {
-      totalSteps += 1;
-      if (parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0) {
-        answeredSteps += 1;
-      }
-    }
-    if (input.showSpeechesToastsSection) {
-      totalSteps += 1;
-      if (parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0) {
-        answeredSteps += 1;
-      }
-    }
-    if (totalSteps === 0) return 0;
-    return Math.round((answeredSteps / totalSteps) * 100);
-  }
-
-  if (chapterId === "music_vibe") {
-    return computeMusicProfileChapterCompletionPct(answers);
-  }
 
   if (visibleQuestions.length === 0) return 0;
   return computePlanningQuestionGroupCompletion(
@@ -158,14 +172,14 @@ const CHAPTER_CARD_COPY: Record<
   your_team: {
     kicker: "Chapter 5",
     title: "Your Team",
-    description: "Planner, venue, and vendors—who we should align with.",
-    isPlaceholder: true,
+    description: "Who you've booked—and who's still on your list.",
+    isPlaceholder: false,
   },
   final_review: {
     kicker: "Chapter 6",
     title: "Final Review",
     description: "A calm pass to confirm your story is ready for the big day.",
-    isPlaceholder: true,
+    isPlaceholder: false,
   },
 };
 
@@ -192,14 +206,9 @@ export function buildCoupleWeddingChapterCards(
       statLine = `${completionPct}% complete · ${MUSIC_PROFILE_GUIDED_STEP_COUNT} steps`;
       statSubline = "Capture your vibe before building playlists in Music Hub";
     } else if (id === "your_team") {
-      statLine =
-        input.vendorContactCount > 0
-          ? `${input.vendorContactCount} day-of contact${input.vendorContactCount === 1 ? "" : "s"}`
-          : "Add planner, venue, or photo contacts";
-      statSubline =
-        input.collaboratorCount > 1
-          ? `${input.collaboratorCount - 1} collaborator${input.collaboratorCount === 2 ? "" : "s"} with access`
-          : "Opens your Event Team workspace";
+      const answered = countYourTeamRequiredStepsAnswered(input.answers);
+      statLine = `${completionPct}% complete · ${answered}/5 steps`;
+      statSubline = "Booked or not yet—either answer helps us coordinate";
     } else if (id === "final_review") {
       statLine =
         completionPct >= 100
@@ -231,7 +240,7 @@ export function computeCoupleWeddingJourneyProgressPct(
   return Math.round(sum / cards.length);
 }
 
-/** Dashboard hero only — excludes placeholder chapters (Your Team, Final Review). */
+/** Dashboard hero only — excludes Your Team and Final Review. */
 export function computeCoupleWeddingStoryHeroProgressPct(
   input: CoupleWeddingJourneyProgressInput,
 ): number {
