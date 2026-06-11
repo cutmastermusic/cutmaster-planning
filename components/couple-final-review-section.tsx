@@ -269,6 +269,9 @@ export function CoupleFinalReviewSection({
         Review each part of your wedding plan. If something needs attention, tap it and we&apos;ll take you
         there.
       </p>
+      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+        Complete the chapters below to finish your planning journey.
+      </p>
 
       <div className="mt-6 space-y-6">
         <div>
@@ -297,7 +300,7 @@ export function CoupleFinalReviewSection({
 
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-            Operational readiness
+            Optional Next Steps
           </p>
           <div className="mt-3 space-y-2">
             {operationalRows.map((row) => (
@@ -311,7 +314,7 @@ export function CoupleFinalReviewSection({
               />
             ))}
             <ReadinessStatusRow
-              label="Event Document"
+              label="Event Plan"
               detail="Preview what your team will see."
               actionLabel="Open"
               onAction={onOpenEventDocument}

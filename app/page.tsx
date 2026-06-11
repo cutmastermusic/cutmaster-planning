@@ -5005,7 +5005,9 @@ export default function Home() {
         ? coupleWeddingChapterNavLabel(activePlanningChapterId)
         : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
           ? "Timeline"
-          : effectiveRole === "Couple" && activeScreen === "Planning Questions"
+          : effectiveRole === "Couple" && activeScreen === "Event Prep"
+            ? "Event Plan"
+            : effectiveRole === "Couple" && activeScreen === "Planning Questions"
             ? COUPLE_ABOUT_YOUR_DAY_LABEL
             : activeScreen;
   const effectiveEventType = eventSettings.eventType || appSettings.defaultEventType;
@@ -8054,7 +8056,7 @@ export default function Home() {
       cards.push({
         id: "event-prep",
         kicker: "Day-of",
-        title: "Event document",
+        title: "Event Plan",
         description: "Printable packet and live view for your team when the day arrives.",
         screen: "Event Prep",
         completion: hasFinalDjNotes ? 100 : 48,
@@ -8549,7 +8551,7 @@ export default function Home() {
     if (screen === "Settings") return "Global Settings";
     if (screen === "Reception Hub") return "Reception & timeline";
     if (screen === "Reception Timeline") return "Reception timeline";
-    if (screen === "Event Prep") return "Event Document";
+    if (screen === "Event Prep") return isCoupleView ? "Event Plan" : "Event Document";
     if (screen === "Scripts") return "Show Book";
     if (screen === "Event Team") return "People & Vendors";
     return screen;
@@ -11653,7 +11655,7 @@ export default function Home() {
         "Tell us a little about your ceremony, reception, and the moments that matter—most couples finish in about five minutes.",
       "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
       "Planning Checklist": "Glance at your checklist when you want a structured pass.",
-      "Event Prep": "Open your event document when you want a single shareable packet.",
+      "Event Prep": "Open your Event Plan when you want a single shareable packet.",
       "Event Team": "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
       Notes: "Add a note for your DJ or planner when something important comes to mind.",
     };
@@ -11667,7 +11669,7 @@ export default function Home() {
       "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       "Guest Requests": "Guest requests",
       "Planning Checklist": "Checklist",
-      "Event Prep": "Event document",
+      "Event Prep": "Event Plan",
       "Event Team": "People & vendors",
       Notes: "Notes",
     };
@@ -19264,7 +19266,7 @@ export default function Home() {
           <section
             className={`${workspaceSectionClass} overflow-x-hidden print-doc`}
           >
-            <EventHomeNav trail={["Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
+            <EventHomeNav trail={[isCoupleView ? "Event Plan" : "Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
             <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:px-5 sm:py-3.5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                 <div className="min-w-0">

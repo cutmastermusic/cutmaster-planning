@@ -132,6 +132,11 @@ function buildReceptionMomentSteps(
   const steps: CoupleGuidedQuestionStep[] = [];
 
   if (input.showWeddingPartyLineupSection) {
+    const hasLineup =
+      parseWeddingPartyLineup(input.answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0;
+    const lineupCtaLabel = hasLineup
+      ? "Edit Wedding Party Entrance"
+      : "Add Wedding Party Entrance";
     const renderLineupStep = () => (
       <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
         <p className="text-base font-semibold text-stone-950">Your Wedding Party Entrance</p>
@@ -141,7 +146,7 @@ function buildReceptionMomentSteps(
           onAction={input.onOpenWeddingPartyLineupEditor}
           className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
         >
-          Add Wedding Party Entrance
+          {lineupCtaLabel}
         </CoupleMobileActionButton>
       </PremiumCard>
     );
@@ -155,6 +160,9 @@ function buildReceptionMomentSteps(
   }
 
   if (input.showSpeechesToastsSection) {
+    const hasToasts =
+      parseSpeechesToasts(input.answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0;
+    const toastsCtaLabel = hasToasts ? "Edit Toasts & Speeches" : "Plan Your Toasts";
     const renderToastsStep = () => (
       <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
         <p className="text-base font-semibold text-stone-950">Speeches / Toasts</p>
@@ -168,7 +176,7 @@ function buildReceptionMomentSteps(
           onAction={input.onOpenSpeechesToastsEditor}
           className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
         >
-          Plan Your Toasts
+          {toastsCtaLabel}
         </CoupleMobileActionButton>
       </PremiumCard>
     );
