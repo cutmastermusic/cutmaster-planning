@@ -90,7 +90,6 @@ export const YOUR_TEAM_PLANNER_DISPOSITION_OPTIONS = [
 export const YOUR_TEAM_PHOTOGRAPHER_DISPOSITION_OPTIONS = [
   "Yes, we've booked one",
   "Not yet",
-  "Still deciding",
 ] as const;
 
 export const YOUR_TEAM_VIDEOGRAPHER_DISPOSITION_OPTIONS = [
@@ -102,7 +101,6 @@ export const YOUR_TEAM_VIDEOGRAPHER_DISPOSITION_OPTIONS = [
 export const YOUR_TEAM_OFFICIANT_DISPOSITION_OPTIONS = [
   "Yes, we've chosen one",
   "Not yet",
-  "Still deciding",
 ] as const;
 
 export const YOUR_TEAM_OTHER_PARTNERS_DISPOSITION_OPTIONS = [
@@ -125,7 +123,6 @@ const PHOTOGRAPHER_DISPOSITION_TO_STATUS: Record<
 > = {
   "Yes, we've booked one": "booked",
   "Not yet": "not_booked",
-  "Still deciding": "not_booked",
 };
 
 const VIDEOGRAPHER_DISPOSITION_TO_STATUS: Record<
@@ -143,7 +140,6 @@ const OFFICIANT_DISPOSITION_TO_STATUS: Record<
 > = {
   "Yes, we've chosen one": "booked",
   "Not yet": "not_booked",
-  "Still deciding": "not_booked",
 };
 
 const OTHER_PARTNERS_DISPOSITION_TO_STATUS: Record<

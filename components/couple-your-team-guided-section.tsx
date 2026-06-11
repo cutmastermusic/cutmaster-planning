@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 
 import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-select";
 import {
@@ -55,6 +55,67 @@ const OTHER_PARTNER_CHIP_TO_ROLE = Object.fromEntries(
   YOUR_TEAM_OTHER_PARTNER_ROLES.map((role) => [YOUR_TEAM_OTHER_PARTNER_CHIP_LABELS[role], role]),
 ) as Record<string, (typeof YOUR_TEAM_OTHER_PARTNER_ROLES)[number]>;
 
+/** Space for portaled guided nav + bottom nav on mobile (see couple-guided-question-section). */
+const MOBILE_GUIDED_NAV_CLEARANCE_PX = 180;
+
+function revealBookedContactFields(container: HTMLElement | null) {
+  if (!container || typeof window === "undefined") return;
+  if (!window.matchMedia("(max-width: 767px)").matches) return;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const scrollBehavior = reduceMotion ? ("auto" as const) : ("smooth" as const);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const firstInput = container.querySelector<HTMLElement>(
+        "input:not([type='hidden']), textarea, select",
+      );
+      const scrollTarget = firstInput ?? container;
+
+      scrollTarget.scrollIntoView({
+        behavior: scrollBehavior,
+        block: "center",
+      });
+
+      if (firstInput) {
+        firstInput.focus({ preventScroll: true });
+      }
+
+      window.setTimeout(
+        () => {
+          const rect = scrollTarget.getBoundingClientRect();
+          const visibleBottom = window.innerHeight - MOBILE_GUIDED_NAV_CLEARANCE_PX;
+          if (rect.bottom > visibleBottom) {
+            window.scrollBy({
+              top: rect.bottom - visibleBottom + 16,
+              behavior: scrollBehavior,
+            });
+          }
+          if (rect.top < 12) {
+            window.scrollBy({
+              top: rect.top - 12,
+              behavior: scrollBehavior,
+            });
+          }
+        },
+        reduceMotion ? 0 : 280,
+      );
+    });
+  });
+}
+
+function useRevealOnBooked(status: string | undefined, containerRef: RefObject<HTMLElement | null>) {
+  const wasBookedRef = useRef(status === "booked");
+
+  useEffect(() => {
+    const isBooked = status === "booked";
+    if (isBooked && !wasBookedRef.current) {
+      revealBookedContactFields(containerRef.current);
+    }
+    wasBookedRef.current = isBooked;
+  }, [status, containerRef]);
+}
+
 export type CoupleYourTeamGuidedSectionProps = {
   answers: Record<string, string | undefined>;
   onAnswerChange: (questionId: string, next: string) => void;
@@ -63,24 +124,29 @@ export type CoupleYourTeamGuidedSectionProps = {
   continueToNextChapterLabel: string;
 };
 
+const bookedContactPromptClass =
+  "mt-4 rounded-lg border border-cyan-200/90 bg-cyan-50/90 px-3 py-2.5 text-sm font-medium leading-snug text-stone-800";
+
 function ContactFields({
   contact,
   onChange,
+  idPrefix,
 }: {
   contact: YourTeamBookedContact;
   onChange: (next: YourTeamBookedContact) => void;
+  idPrefix: string;
 }) {
   return (
-    <div className="mt-4 space-y-3 border-t border-stone-200/80 pt-4">
+    <div className="mt-3 space-y-3">
       <TextInput
-        id="your-team-company"
+        id={`${idPrefix}-company`}
         label="Business or studio name"
         value={contact.company}
         onChange={(next) => onChange({ ...contact, company: next })}
         placeholder="Optional if you add a contact name"
       />
       <TextInput
-        id="your-team-contact-name"
+        id={`${idPrefix}-contact-name`}
         label="Contact name"
         value={contact.name}
         onChange={(next) => onChange({ ...contact, name: next })}
@@ -88,14 +154,14 @@ function ContactFields({
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <TextInput
-          id="your-team-email"
+          id={`${idPrefix}-email`}
           label="Email"
           value={contact.email}
           onChange={(next) => onChange({ ...contact, email: next })}
           placeholder="Optional"
         />
         <TextInput
-          id="your-team-phone"
+          id={`${idPrefix}-phone`}
           label="Phone"
           value={contact.phone}
           onChange={(next) => onChange({ ...contact, phone: next })}
@@ -125,6 +191,9 @@ function RoleSlotStep({
   const parsed = parseYourTeamRoleSlotAnswer(answers[questionId]);
   const disposition = dispositionLabelFromRoleSlot(questionId, answers[questionId]);
   const contact = parsed?.contact ?? { company: "", name: "", email: "", phone: "" };
+  const contactSectionRef = useRef<HTMLDivElement>(null);
+
+  useRevealOnBooked(parsed?.status, contactSectionRef);
 
   return (
     <div className={planningQuestionFieldShellClass}>
@@ -144,11 +213,15 @@ function RoleSlotStep({
         }}
       />
       {parsed?.status === "booked" ? (
-        <>
-          <p className="mt-4 border-t border-stone-200/80 pt-4 text-sm leading-relaxed text-stone-600">
-            Great—share their contact info below.
+        <div
+          ref={contactSectionRef}
+          className="mt-4 border-t border-stone-200/80 pt-4"
+        >
+          <p className={bookedContactPromptClass}>
+            Great — add their details below.
           </p>
           <ContactFields
+            idPrefix={`your-team-${questionId}`}
             contact={contact}
             onChange={(next) =>
               onAnswerChange(
@@ -157,7 +230,7 @@ function RoleSlotStep({
               )
             }
           />
-        </>
+        </div>
       ) : null}
     </div>
   );
@@ -174,6 +247,27 @@ function OtherPartnersStep({
   const parsed: YourTeamOtherPartnersAnswer =
     parseYourTeamOtherPartnersAnswer(answers[questionId]) ?? { status: "not_booked" };
   const disposition = dispositionLabelFromOtherPartners(answers[questionId]);
+  const bookedSectionRef = useRef<HTMLDivElement>(null);
+  const partnerBlockRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const prevPartnerRolesRef = useRef<string[]>([]);
+
+  useRevealOnBooked(parsed.status, bookedSectionRef);
+
+  const partnerRolesKey = (parsed.partners ?? []).map((partner) => partner.role).join("\u0000");
+
+  useEffect(() => {
+    if (parsed.status !== "booked") {
+      prevPartnerRolesRef.current = [];
+      return;
+    }
+    const roles = partnerRolesKey ? partnerRolesKey.split("\u0000") : [];
+    const addedRole = roles.find((role) => !prevPartnerRolesRef.current.includes(role));
+    prevPartnerRolesRef.current = roles;
+    if (addedRole) {
+      revealBookedContactFields(partnerBlockRefs.current[addedRole]);
+    }
+  }, [parsed.status, partnerRolesKey]);
+
   const selectedChips =
     parsed.status === "booked"
       ? (parsed.partners ?? []).map(
@@ -227,9 +321,9 @@ function OtherPartnersStep({
         }}
       />
       {parsed.status === "booked" ? (
-        <div className="mt-4 space-y-4 border-t border-stone-200/80 pt-4">
-          <p className="text-sm leading-relaxed text-stone-600">
-            Select each vendor below and share their contact info.
+        <div ref={bookedSectionRef} className="mt-4 space-y-4 border-t border-stone-200/80 pt-4">
+          <p className={bookedContactPromptClass}>
+            Select each vendor below and add their contact info.
           </p>
           <CouplePlanningChipSelect
             label="Which vendors should we know about?"
@@ -261,12 +355,16 @@ function OtherPartnersStep({
             ? (parsed.partners ?? []).map((partner) => (
             <div
               key={partner.role}
+              ref={(node) => {
+                partnerBlockRefs.current[partner.role] = node;
+              }}
               className="rounded-xl border border-stone-200 bg-white/80 px-4 py-4"
             >
               <p className="text-sm font-semibold text-stone-950">
                 {YOUR_TEAM_OTHER_PARTNER_CHIP_LABELS[partner.role as keyof typeof YOUR_TEAM_OTHER_PARTNER_CHIP_LABELS]}
               </p>
               <ContactFields
+                idPrefix={`your-team-other-${partner.role}`}
                 contact={partner}
                 onChange={(next) => upsertPartner(partner.role, next)}
               />

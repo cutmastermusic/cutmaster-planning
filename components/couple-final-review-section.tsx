@@ -3,8 +3,12 @@
 import { useMemo } from "react";
 
 import {
+  CoupleMobileActionButton,
+  CoupleMobileActionFooter,
+  coupleMobileActionContentSpacerClass,
+} from "@/components/couple-mobile-action-button";
+import {
   PremiumCard,
-  PrimaryButton,
   lightUiCyanPrimaryButtonClass,
   lightUiSecondaryButtonClass,
   premiumFormSectionCardClass,
@@ -143,80 +147,80 @@ function CoupleFinalReviewCompletionCelebration({
   const hasGlanceFacts = Boolean(summary.coupleNames || summary.weddingDate || summary.venue);
 
   return (
-    <PremiumCard className={premiumFormSectionCardClass}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
+    <>
+      <PremiumCard className={`${premiumFormSectionCardClass} ${coupleMobileActionContentSpacerClass}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
 
-      <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#00D4FF]/[0.06] px-5 py-6">
-        <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
-          🎉 Your Story Is Complete
-        </h3>
-        <p className="mt-3 text-sm leading-relaxed text-stone-800">
-          You&apos;ve shared your story, your ceremony vision, your reception plans, your music
-          preferences, and the team helping bring everything together.
-        </p>
-        <p className="mt-2 text-sm font-medium leading-relaxed text-emerald-950">
-          We&apos;re ready to start building your wedding experience.
-        </p>
-      </div>
-
-      {hasGlanceFacts || summary.chapters.length > 0 ? (
-        <div className="mt-6 space-y-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-            Your wedding at a glance
+        <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#00D4FF]/[0.06] px-5 py-6">
+          <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
+            🎉 Your Story Is Complete
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-stone-800">
+            You&apos;ve shared your story, your ceremony vision, your reception plans, your music
+            preferences, and the team helping bring everything together.
           </p>
-
-          {hasGlanceFacts ? (
-            <div className="rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                {summary.coupleNames ? (
-                  <GlanceFact label="Couple" value={summary.coupleNames} />
-                ) : null}
-                {summary.weddingDate ? (
-                  <GlanceFact label="Wedding date" value={summary.weddingDate} />
-                ) : null}
-                {summary.venue ? <GlanceFact label="Venue" value={summary.venue} /> : null}
-              </div>
-            </div>
-          ) : null}
-
-          {summary.chapters.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {summary.chapters.map((chapter) => (
-                <ChapterSummaryBlock key={chapter.title} title={chapter.title} lines={chapter.lines} />
-              ))}
-            </div>
-          ) : null}
+          <p className="mt-2 text-sm font-medium leading-relaxed text-emerald-950">
+            We&apos;re ready to start building your wedding experience.
+          </p>
         </div>
-      ) : null}
 
-      <div className="mt-6 rounded-xl border border-stone-200/90 bg-stone-50/60 px-4 py-4">
-        <p className="text-sm font-semibold text-stone-950">What happens next?</p>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Your planning foundation is complete.
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          You can continue refining songs, timelines, and details anytime, and your DJ team now has
-          the information needed to begin preparing for your wedding day.
-        </p>
-      </div>
+        {hasGlanceFacts || summary.chapters.length > 0 ? (
+          <div className="mt-6 space-y-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+              Your wedding at a glance
+            </p>
 
-      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <PrimaryButton
-          type="button"
-          onClick={onOpenEventDocument}
-          className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCyanPrimaryButtonClass}`}
-        >
-          Preview Your Event Plan
-        </PrimaryButton>
-        <PrimaryButton
-          type="button"
-          onClick={onReturnToDashboard}
-          className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
-        >
-          Return to Dashboard
-        </PrimaryButton>
-      </div>
-    </PremiumCard>
+            {hasGlanceFacts ? (
+              <div className="rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-4">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {summary.coupleNames ? (
+                    <GlanceFact label="Couple" value={summary.coupleNames} />
+                  ) : null}
+                  {summary.weddingDate ? (
+                    <GlanceFact label="Wedding date" value={summary.weddingDate} />
+                  ) : null}
+                  {summary.venue ? <GlanceFact label="Venue" value={summary.venue} /> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {summary.chapters.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {summary.chapters.map((chapter) => (
+                  <ChapterSummaryBlock key={chapter.title} title={chapter.title} lines={chapter.lines} />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-6 rounded-xl border border-stone-200/90 bg-stone-50/60 px-4 py-4">
+          <p className="text-sm font-semibold text-stone-950">What happens next?</p>
+          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+            Your planning foundation is complete.
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+            You can continue refining songs, timelines, and details anytime, and your DJ team now has
+            the information needed to begin preparing for your wedding day.
+          </p>
+        </div>
+
+        <CoupleMobileActionFooter>
+          <CoupleMobileActionButton
+            onAction={onOpenEventDocument}
+            className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCyanPrimaryButtonClass}`}
+          >
+            Preview Your Event Plan
+          </CoupleMobileActionButton>
+          <CoupleMobileActionButton
+            onAction={onReturnToDashboard}
+            className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
+          >
+            Return to Dashboard
+          </CoupleMobileActionButton>
+        </CoupleMobileActionFooter>
+      </PremiumCard>
+    </>
   );
 }
 

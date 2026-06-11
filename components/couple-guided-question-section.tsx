@@ -1,15 +1,141 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 import {
   PremiumCard,
-  PrimaryButton,
   lightUiCyanPrimaryButtonClass,
   lightUiSecondaryButtonClass,
   premiumFormSectionCardClass,
 } from "@/components/planning-ui";
 import type { PlanningQuestionDef } from "@/types/planning";
+
+const guidedNavButtonBaseClass =
+  "relative z-[1] min-h-12 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 sm:min-h-11";
+
+const guidedNavPrimaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiCyanPrimaryButtonClass}`;
+const guidedNavSecondaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiSecondaryButtonClass}`;
+
+/** Reserve space so fixed mobile nav does not cover the active question. */
+const guidedStepContentSpacerClass =
+  "pb-[calc(env(safe-area-inset-bottom,0px)+13rem)] md:pb-0";
+
+/**
+ * Mobile: portaled fixed bar above BottomNav (z-40).
+ * Desktop: in-flow footer inside the card.
+ */
+const guidedNavFooterMobileClass =
+  "pointer-events-auto fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[55] touch-manipulation border-t border-stone-200/90 bg-white/98 px-5 py-3 shadow-[0_-4px_24px_-8px_rgba(28,25,23,0.15)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/95";
+
+const guidedNavFooterDesktopClass =
+  "pointer-events-auto flex touch-manipulation flex-col gap-2 border-t border-stone-200/90 pt-4";
+
+const guidedNavFooterInnerClass = "pointer-events-auto mx-auto flex w-full max-w-[1400px] flex-col gap-2";
+
+/** Blur focused field, then run the nav action. */
+function useReliableNavAction(action: () => void, disabled = false) {
+  return useCallback(() => {
+    if (disabled) return;
+
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      (active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.tagName === "SELECT")
+    ) {
+      active.blur();
+    }
+    action();
+  }, [action, disabled]);
+}
+
+function useGuidedNavHandlers(action: () => void, disabled = false) {
+  const run = useReliableNavAction(action, disabled);
+  const skipClickRef = useRef(false);
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (disabled) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.pointerType === "mouse") return;
+
+      event.preventDefault();
+      skipClickRef.current = true;
+      run();
+    },
+    [disabled, run],
+  );
+
+  const onClick = useCallback(() => {
+    if (disabled) return;
+    if (skipClickRef.current) {
+      skipClickRef.current = false;
+      return;
+    }
+    run();
+  }, [disabled, run]);
+
+  return { onPointerDown, onClick };
+}
+
+function GuidedNavButton({
+  children,
+  onAction,
+  disabled = false,
+  className,
+}: {
+  children: ReactNode;
+  onAction: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const { onPointerDown, onClick } = useGuidedNavHandlers(onAction, disabled);
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className={`${guidedNavButtonBaseClass} ${className ?? ""}`.trim()}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function GuidedNavTextButton({
+  children,
+  onAction,
+  className,
+}: {
+  children: ReactNode;
+  onAction: () => void;
+  className?: string;
+}) {
+  const { onPointerDown, onClick } = useGuidedNavHandlers(onAction);
+
+  return (
+    <button
+      type="button"
+      className={className}
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
 
 function firstUnansweredStepIndex(
   steps: CoupleGuidedQuestionStep[],
@@ -88,6 +214,38 @@ export function questionGuidedStep(
   };
 }
 
+function GuidedNavFooter({ children }: { children: ReactNode }) {
+  const [useMobilePortal, setUseMobilePortal] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setUseMobilePortal(mq.matches);
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const inner = <div className={guidedNavFooterInnerClass}>{children}</div>;
+
+  if (useMobilePortal && typeof document !== "undefined") {
+    return createPortal(
+      <div className={guidedNavFooterMobileClass} role="navigation" aria-label="Guided question steps">
+        {inner}
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <div className={guidedNavFooterDesktopClass} role="navigation" aria-label="Guided question steps">
+      {inner}
+    </div>
+  );
+}
+
 export function CoupleGuidedQuestionSection({
   sectionId,
   eyebrow,
@@ -122,7 +280,7 @@ export function CoupleGuidedQuestionSection({
     return idx === -1 ? 0 : idx;
   });
 
-  const stepRegionRef = useRef<HTMLDivElement>(null);
+  const stepContentRef = useRef<HTMLDivElement>(null);
 
   const currentStep = steps[stepIndex];
   const isFirstStep = stepIndex <= 0;
@@ -144,24 +302,34 @@ export function CoupleGuidedQuestionSection({
   }, []);
 
   const goNext = useCallback(() => {
-    if (isLastStep) {
-      goToReview();
+    if (stepIndex >= steps.length - 1) {
+      setPhase("review");
       return;
     }
-    setStepIndex((prev) => Math.min(steps.length - 1, prev + 1));
-  }, [goToReview, isLastStep, steps.length]);
+    setStepIndex(stepIndex + 1);
+  }, [stepIndex, steps.length]);
 
   useEffect(() => {
     if (phase !== "guided" || !activeStepId) return;
     if (typeof window === "undefined") return;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const focusTarget = stepRegionRef.current?.querySelector<HTMLElement>(
-      "input, textarea, select, button:not([disabled])",
+
+    const focusTarget = stepContentRef.current?.querySelector<HTMLElement>(
+      "input:not([type='hidden']), textarea, select",
     );
-    focusTarget?.focus({ preventScroll: true });
-    stepRegionRef.current?.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "nearest",
+    if (!focusTarget) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+    requestAnimationFrame(() => {
+      focusTarget.focus({ preventScroll: true });
+      // On mobile the nav is fixed; scrolling the card caused footer hit-target drift.
+      if (!isMobile) {
+        focusTarget.scrollIntoView({
+          behavior: reduceMotion ? "auto" : "smooth",
+          block: "center",
+        });
+      }
     });
   }, [phase, stepIndex, activeStepId]);
 
@@ -202,35 +370,34 @@ export function CoupleGuidedQuestionSection({
       </div>
 
       {phase === "guided" && currentStep ? (
-        <div ref={stepRegionRef} className="mt-6 space-y-5">
-          {currentStep.renderGuided()}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={goToReview}
-              className="min-h-11 self-start px-1 py-2 text-left text-sm font-semibold text-stone-700 underline-offset-2 hover:text-stone-950 hover:underline"
+        <>
+          <div
+            ref={stepContentRef}
+            className={`mt-6 ${guidedStepContentSpacerClass}`}
+          >
+            {currentStep.renderGuided()}
+          </div>
+          <GuidedNavFooter>
+            <GuidedNavTextButton
+              onAction={goToReview}
+              className="min-h-11 touch-manipulation self-start px-1 py-2 text-left text-sm font-semibold text-stone-700 underline-offset-2 hover:text-stone-950 hover:underline"
             >
               Review all answers
-            </button>
+            </GuidedNavTextButton>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <PrimaryButton
-                type="button"
-                onClick={goPrevious}
+              <GuidedNavButton
+                onAction={goPrevious}
                 disabled={isFirstStep}
-                className={`w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiSecondaryButtonClass}`}
+                className={guidedNavSecondaryClass}
               >
                 Previous
-              </PrimaryButton>
-              <PrimaryButton
-                type="button"
-                onClick={goNext}
-                className={`w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiCyanPrimaryButtonClass}`}
-              >
+              </GuidedNavButton>
+              <GuidedNavButton onAction={goNext} className={guidedNavPrimaryClass}>
                 {isLastStep ? "Review answers" : "Next"}
-              </PrimaryButton>
+              </GuidedNavButton>
             </div>
-          </div>
-        </div>
+          </GuidedNavFooter>
+        </>
       ) : (
         <div className="mt-6 space-y-5">
           {allAnswered ? (
@@ -245,38 +412,35 @@ export function CoupleGuidedQuestionSection({
               </p>
             )
           ) : null}
-          <div className="flex flex-col gap-5">
+          <div className={`flex flex-col gap-5 ${guidedStepContentSpacerClass} md:pb-0`}>
             {steps.map((step) => (
               <div key={step.id}>{step.renderReview()}</div>
             ))}
           </div>
-          <div className="flex flex-col gap-2 border-t border-stone-200 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <GuidedNavFooter>
             {allAnswered && (onCompletionPrimary ?? onContinueToNextChapter) ? (
-              <PrimaryButton
-                type="button"
-                onClick={onCompletionPrimary ?? onContinueToNextChapter}
+              <GuidedNavButton
+                onAction={() => (onCompletionPrimary ?? onContinueToNextChapter)?.()}
                 className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCyanPrimaryButtonClass}`}
               >
                 {completionPrimaryLabel ?? continueToNextChapterLabel}
-              </PrimaryButton>
+              </GuidedNavButton>
             ) : null}
             {allAnswered && onCompletionSecondary ? (
-              <PrimaryButton
-                type="button"
-                onClick={onCompletionSecondary}
+              <GuidedNavButton
+                onAction={onCompletionSecondary}
                 className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
               >
                 {completionSecondaryLabel ?? "Continue"}
-              </PrimaryButton>
+              </GuidedNavButton>
             ) : null}
-            <PrimaryButton
-              type="button"
-              onClick={goToGuided}
+            <GuidedNavButton
+              onAction={goToGuided}
               className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
             >
               Continue one at a time
-            </PrimaryButton>
-          </div>
+            </GuidedNavButton>
+          </GuidedNavFooter>
         </div>
       )}
     </PremiumCard>
