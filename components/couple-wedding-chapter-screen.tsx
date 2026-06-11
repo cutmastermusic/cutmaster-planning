@@ -27,7 +27,7 @@ import {
 } from "@/lib/coupleWeddingJourney";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { parseWeddingPartyLineup, WEDDING_PARTY_LINEUP_HELPER_COPY } from "@/lib/weddingPartyLineup";
-import type { CoupleOperationalReadinessInput } from "@/lib/coupleFinalReviewPlanning";
+import type { CoupleOperationalReadinessInput, CoupleFinalReviewSummaryInput } from "@/lib/coupleFinalReviewPlanning";
 import type { PlanningQuestionDef } from "@/types/planning";
 
 const COUPLE_WEDDING_GUIDED_CHAPTER_COPY: Record<
@@ -100,6 +100,7 @@ export type CoupleWeddingChapterScreenProps = {
     status: CoupleWeddingChapterStatus;
   }>;
   finalReviewOperationalInput: CoupleOperationalReadinessInput;
+  finalReviewSummaryInput: CoupleFinalReviewSummaryInput;
   finalReviewChapterComplete: boolean;
 };
 
@@ -217,6 +218,7 @@ export function CoupleWeddingChapterScreen({
   onReturnToDashboard,
   finalReviewStoryChapterRows,
   finalReviewOperationalInput,
+  finalReviewSummaryInput,
   finalReviewChapterComplete,
 }: CoupleWeddingChapterScreenProps) {
   if (chapterId === "your_team") {
@@ -236,6 +238,7 @@ export function CoupleWeddingChapterScreen({
       <CoupleFinalReviewSection
         storyChapterRows={finalReviewStoryChapterRows}
         operationalReadinessInput={finalReviewOperationalInput}
+        finalReviewSummaryInput={finalReviewSummaryInput}
         isChapterComplete={finalReviewChapterComplete}
         onOpenStoryChapter={onOpenPlanningChapter}
         onOpenTimeline={onOpenTimeline}

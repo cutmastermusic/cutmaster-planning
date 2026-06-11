@@ -10936,6 +10936,24 @@ export default function Home() {
       timelineItems.length,
     ],
   );
+  const coupleFinalReviewSummaryInput = useMemo(
+    () => ({
+      coupleNames: eventSettings.coupleNames ?? "",
+      weddingDate: eventSettings.weddingDate ?? "",
+      venue: eventSettings.venue ?? "",
+      answers: eventSettings.planningQuestionAnswers ?? {},
+      showWeddingPartyLineupSection,
+      showSpeechesToastsSection,
+    }),
+    [
+      eventSettings.coupleNames,
+      eventSettings.planningQuestionAnswers,
+      eventSettings.venue,
+      eventSettings.weddingDate,
+      showSpeechesToastsSection,
+      showWeddingPartyLineupSection,
+    ],
+  );
 
   const mergedTimelineItems: DisplayTimelineItem[] = useMemo(
     () =>
@@ -21012,6 +21030,7 @@ export default function Home() {
                 onReturnToDashboard={closeCouplePlanningChapter}
                 finalReviewStoryChapterRows={coupleFinalReviewStoryChapterRows}
                 finalReviewOperationalInput={coupleFinalReviewOperationalInput}
+                finalReviewSummaryInput={coupleFinalReviewSummaryInput}
                 finalReviewChapterComplete={coupleFinalReviewChapterComplete}
               />
             </section>

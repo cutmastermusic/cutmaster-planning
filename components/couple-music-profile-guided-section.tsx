@@ -28,12 +28,16 @@ export type CoupleMusicProfileGuidedSectionProps = {
   answers: Record<string, string | undefined>;
   onAnswerChange: (questionId: string, next: string) => void;
   onOpenMusicHub: () => void;
+  onContinueToNextChapter: () => void;
+  continueToNextChapterLabel: string;
 };
 
 export function CoupleMusicProfileGuidedSection({
   answers,
   onAnswerChange,
   onOpenMusicHub,
+  onContinueToNextChapter,
+  continueToNextChapterLabel,
 }: CoupleMusicProfileGuidedSectionProps) {
   const steps = useMemo((): CoupleGuidedQuestionStep[] => {
     const setSingle = (questionId: string, next: string) => onAnswerChange(questionId, next);
@@ -248,9 +252,11 @@ export function CoupleMusicProfileGuidedSection({
       steps={steps}
       answers={answers}
       completionTitle="We've got your vibe."
-      completionBody="Great! We have a strong understanding of the kind of celebration you're envisioning. Now let's start building your soundtrack."
-      completionPrimaryLabel="Open Music Hub"
-      onCompletionPrimary={onOpenMusicHub}
+      completionBody="Your music profile is saved. You can add songs in Music Hub anytime, but let's keep moving through your planning journey."
+      onContinueToNextChapter={onContinueToNextChapter}
+      continueToNextChapterLabel={continueToNextChapterLabel}
+      completionSecondaryLabel="Open Music Hub"
+      onCompletionSecondary={onOpenMusicHub}
     />
   );
 }

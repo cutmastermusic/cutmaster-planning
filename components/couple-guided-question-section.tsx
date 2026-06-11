@@ -54,6 +54,8 @@ export type CoupleGuidedQuestionSectionProps = {
   completionBody?: string;
   completionPrimaryLabel?: string;
   onCompletionPrimary?: () => void;
+  completionSecondaryLabel?: string;
+  onCompletionSecondary?: () => void;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
 };
@@ -98,6 +100,8 @@ export function CoupleGuidedQuestionSection({
   completionBody,
   completionPrimaryLabel,
   onCompletionPrimary,
+  completionSecondaryLabel,
+  onCompletionSecondary,
   onContinueToNextChapter,
   continueToNextChapterLabel = "Continue to next chapter",
 }: CoupleGuidedQuestionSectionProps) {
@@ -246,7 +250,7 @@ export function CoupleGuidedQuestionSection({
               <div key={step.id}>{step.renderReview()}</div>
             ))}
           </div>
-          <div className="flex flex-col gap-2 border-t border-stone-200 pt-5 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-col gap-2 border-t border-stone-200 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             {allAnswered && (onCompletionPrimary ?? onContinueToNextChapter) ? (
               <PrimaryButton
                 type="button"
@@ -254,6 +258,15 @@ export function CoupleGuidedQuestionSection({
                 className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCyanPrimaryButtonClass}`}
               >
                 {completionPrimaryLabel ?? continueToNextChapterLabel}
+              </PrimaryButton>
+            ) : null}
+            {allAnswered && onCompletionSecondary ? (
+              <PrimaryButton
+                type="button"
+                onClick={onCompletionSecondary}
+                className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
+              >
+                {completionSecondaryLabel ?? "Continue"}
               </PrimaryButton>
             ) : null}
             <PrimaryButton
