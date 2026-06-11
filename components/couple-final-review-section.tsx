@@ -6,6 +6,7 @@ import {
   CoupleMobileActionButton,
   CoupleMobileActionFooter,
   coupleMobileActionContentSpacerClass,
+  useCoupleMobileActionHandlers,
 } from "@/components/couple-mobile-action-button";
 import {
   PremiumCard,
@@ -49,24 +50,30 @@ function readinessRowActionLabel(status: CoupleWeddingChapterStatus): string {
   return "Open";
 }
 
+const finalReviewIncompleteSpacerClass =
+  "pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] md:pb-0";
+
 function ReadinessStatusRow({
   label,
   status,
   detail,
   actionLabel,
-  onClick,
+  onAction,
 }: {
   label: string;
   status?: CoupleWeddingChapterStatus;
   detail: string;
   actionLabel: string;
-  onClick: () => void;
+  onAction: () => void;
 }) {
+  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onAction);
+
   return (
     <button
       type="button"
+      onPointerDown={onPointerDown}
       onClick={onClick}
-      className="group flex w-full items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3 text-left transition hover:border-[#00D4FF]/45 hover:bg-[#00D4FF]/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
+      className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3.5 text-left transition hover:border-[#00D4FF]/45 hover:bg-[#00D4FF]/[0.04] active:scale-[0.99] active:border-[#00D4FF]/55 active:bg-[#00D4FF]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
     >
       <div className="min-w-0">
         <p className="text-sm font-semibold text-stone-950">{label}</p>
@@ -253,7 +260,7 @@ export function CoupleFinalReviewSection({
   }
 
   return (
-    <PremiumCard className={premiumFormSectionCardClass}>
+    <PremiumCard className={`${premiumFormSectionCardClass} ${finalReviewIncompleteSpacerClass}`}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
       <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
         Ready for a final pass?
@@ -282,7 +289,7 @@ export function CoupleFinalReviewSection({
                       : "Not started yet"
                 }
                 actionLabel={readinessRowActionLabel(row.status)}
-                onClick={() => onOpenStoryChapter(row.id)}
+                onAction={() => onOpenStoryChapter(row.id)}
               />
             ))}
           </div>
@@ -300,14 +307,14 @@ export function CoupleFinalReviewSection({
                 status={row.status}
                 detail={row.detail}
                 actionLabel={readinessRowActionLabel(row.status)}
-                onClick={operationalRowAction(row, onOpenTimeline, onOpenMusicHub, onOpenEventTeam)}
+                onAction={operationalRowAction(row, onOpenTimeline, onOpenMusicHub, onOpenEventTeam)}
               />
             ))}
             <ReadinessStatusRow
               label="Event Document"
               detail="Preview what your team will see."
               actionLabel="Open"
-              onClick={onOpenEventDocument}
+              onAction={onOpenEventDocument}
             />
           </div>
         </div>

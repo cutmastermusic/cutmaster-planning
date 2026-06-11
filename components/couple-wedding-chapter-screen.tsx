@@ -11,6 +11,7 @@ import {
   questionGuidedStep,
   type CoupleGuidedQuestionStep,
 } from "@/components/couple-guided-question-section";
+import { CoupleMobileActionButton } from "@/components/couple-mobile-action-button";
 import {
   PremiumCard,
   PrimaryButton,
@@ -136,13 +137,12 @@ function buildReceptionMomentSteps(
         <p className="text-base font-semibold text-stone-950">Your Wedding Party Entrance</p>
         <p className="mt-3 text-xs leading-relaxed text-stone-600">{WEDDING_PARTY_LINEUP_HELPER_COPY}</p>
         <p className="mt-4 text-sm font-medium text-stone-900">{input.weddingPartyLineupSummary}</p>
-        <PrimaryButton
-          type="button"
-          onClick={input.onOpenWeddingPartyLineupEditor}
-          className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+        <CoupleMobileActionButton
+          onAction={input.onOpenWeddingPartyLineupEditor}
+          className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
         >
           Add Wedding Party Entrance
-        </PrimaryButton>
+        </CoupleMobileActionButton>
       </PremiumCard>
     );
     steps.push({
@@ -164,13 +164,12 @@ function buildReceptionMomentSteps(
         <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
           {input.speechesToastsSummary}
         </p>
-        <PrimaryButton
-          type="button"
-          onClick={input.onOpenSpeechesToastsEditor}
-          className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}
+        <CoupleMobileActionButton
+          onAction={input.onOpenSpeechesToastsEditor}
+          className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
         >
           Plan Your Toasts
-        </PrimaryButton>
+        </CoupleMobileActionButton>
       </PremiumCard>
     );
     steps.push({
@@ -319,6 +318,7 @@ export function CoupleWeddingChapterScreen({
 
   return (
     <CoupleGuidedQuestionSection
+      key={chapterCopy.sectionId}
       sectionId={chapterCopy.sectionId}
       eyebrow={chapterCopy.eyebrow}
       title={chapterCopy.title}

@@ -37,7 +37,7 @@ function useReliableMobileAction(action: () => void, disabled = false) {
   }, [action, disabled]);
 }
 
-function useMobileActionHandlers(action: () => void, disabled = false) {
+export function useCoupleMobileActionHandlers(action: () => void, disabled = false) {
   const run = useReliableMobileAction(action, disabled);
   const skipClickRef = useRef(false);
 
@@ -77,7 +77,7 @@ export function CoupleMobileActionButton({
   disabled?: boolean;
   className?: string;
 }) {
-  const { onPointerDown, onClick } = useMobileActionHandlers(onAction, disabled);
+  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onAction, disabled);
 
   return (
     <button

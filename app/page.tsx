@@ -2875,6 +2875,7 @@ export default function Home() {
   const ceremonyTimelineStreamRef = useRef<HTMLDivElement | null>(null);
   /** Tracks last main nav context so we scroll to top only on real section/mode/auth changes. */
   const prevMainNavScrollRef = useRef<{ screen: Screen; mode: AppMode; auth: AuthStage } | null>(null);
+  const prevPlanningChapterRef = useRef<CoupleWeddingChapterId | null | undefined>(undefined);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const hasParsedInviteParams = useRef(false);
   const prevLoadedPlanningEventIdRef = useRef<string | null>(null);
@@ -6151,6 +6152,20 @@ export default function Home() {
     if (timelineStreamRef.current) timelineStreamRef.current.scrollTop = 0;
     if (ceremonyTimelineStreamRef.current) ceremonyTimelineStreamRef.current.scrollTop = 0;
   }, [activeScreen, appMode, authStage, hasHydrated]);
+
+  useLayoutEffect(() => {
+    if (!hasHydrated || typeof window === "undefined") return;
+    if (runOfShowOverlayActive) return;
+
+    const prev = prevPlanningChapterRef.current;
+    prevPlanningChapterRef.current = activePlanningChapterId;
+    if (prev === undefined) return;
+    if (prev === activePlanningChapterId) return;
+
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activePlanningChapterId, hasHydrated, runOfShowOverlayActive]);
 
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
   /** Same resolution as {@link AppHeader} — Cutmaster default is `/cmm-logo-white.png` (light artwork). */

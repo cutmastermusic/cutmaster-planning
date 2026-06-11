@@ -93,11 +93,14 @@ function GuidedNavButton({
   onAction,
   disabled = false,
   className,
+  /** When true, only onClick runs the action (avoids ghost taps after footer swaps). */
+  clickOnly = false,
 }: {
   children: ReactNode;
   onAction: () => void;
   disabled?: boolean;
   className?: string;
+  clickOnly?: boolean;
 }) {
   const { onPointerDown, onClick } = useGuidedNavHandlers(onAction, disabled);
 
@@ -106,7 +109,7 @@ function GuidedNavButton({
       type="button"
       disabled={disabled}
       className={`${guidedNavButtonBaseClass} ${className ?? ""}`.trim()}
-      onPointerDown={onPointerDown}
+      onPointerDown={clickOnly ? undefined : onPointerDown}
       onClick={onClick}
     >
       {children}
@@ -281,17 +284,41 @@ export function CoupleGuidedQuestionSection({
   });
 
   const stepContentRef = useRef<HTMLDivElement>(null);
+  /** Blocks ghost taps on review footer right after entering review from guided nav. */
+  const reviewTransitionGuardRef = useRef(false);
+  const reviewTransitionTimerRef = useRef<number | null>(null);
 
   const currentStep = steps[stepIndex];
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= steps.length - 1;
   const activeStepId = currentStep?.id;
 
-  const goToReview = useCallback(() => {
+  const enterReview = useCallback(() => {
+    reviewTransitionGuardRef.current = true;
+    if (reviewTransitionTimerRef.current !== null) {
+      window.clearTimeout(reviewTransitionTimerRef.current);
+    }
+    reviewTransitionTimerRef.current = window.setTimeout(() => {
+      reviewTransitionGuardRef.current = false;
+      reviewTransitionTimerRef.current = null;
+    }, 450);
     setPhase("review");
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (reviewTransitionTimerRef.current !== null) {
+        window.clearTimeout(reviewTransitionTimerRef.current);
+      }
+    };
+  }, []);
+
+  const goToReview = useCallback(() => {
+    enterReview();
+  }, [enterReview]);
+
   const goToGuided = useCallback(() => {
+    if (reviewTransitionGuardRef.current) return;
     const idx = firstUnansweredStepIndex(steps, answers);
     setStepIndex(idx === -1 ? 0 : idx);
     setPhase("guided");
@@ -302,12 +329,18 @@ export function CoupleGuidedQuestionSection({
   }, []);
 
   const goNext = useCallback(() => {
-    if (stepIndex >= steps.length - 1) {
-      setPhase("review");
-      return;
+    let shouldEnterReview = false;
+    setStepIndex((prev) => {
+      if (prev >= steps.length - 1) {
+        shouldEnterReview = true;
+        return prev;
+      }
+      return prev + 1;
+    });
+    if (shouldEnterReview) {
+      enterReview();
     }
-    setStepIndex(stepIndex + 1);
-  }, [stepIndex, steps.length]);
+  }, [steps.length, enterReview]);
 
   useEffect(() => {
     if (phase !== "guided" || !activeStepId) return;
@@ -318,18 +351,17 @@ export function CoupleGuidedQuestionSection({
     );
     if (!focusTarget) return;
 
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (isMobile) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     requestAnimationFrame(() => {
       focusTarget.focus({ preventScroll: true });
-      // On mobile the nav is fixed; scrolling the card caused footer hit-target drift.
-      if (!isMobile) {
-        focusTarget.scrollIntoView({
-          behavior: reduceMotion ? "auto" : "smooth",
-          block: "center",
-        });
-      }
+      focusTarget.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
     });
   }, [phase, stepIndex, activeStepId]);
 
@@ -380,7 +412,7 @@ export function CoupleGuidedQuestionSection({
           <GuidedNavFooter>
             <GuidedNavTextButton
               onAction={goToReview}
-              className="min-h-11 touch-manipulation self-start px-1 py-2 text-left text-sm font-semibold text-stone-700 underline-offset-2 hover:text-stone-950 hover:underline"
+              className="min-h-12 touch-manipulation self-start rounded-lg px-3 py-3 text-left text-sm font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-950 hover:underline active:bg-stone-100/80 active:text-stone-950 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
             >
               Review all answers
             </GuidedNavTextButton>
@@ -398,7 +430,7 @@ export function CoupleGuidedQuestionSection({
             </div>
           </GuidedNavFooter>
         </>
-      ) : (
+      ) : phase === "review" ? (
         <div className="mt-6 space-y-5">
           {allAnswered ? (
             completionTitle && completionBody ? (
@@ -436,13 +468,14 @@ export function CoupleGuidedQuestionSection({
             ) : null}
             <GuidedNavButton
               onAction={goToGuided}
+              clickOnly
               className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
             >
               Continue one at a time
             </GuidedNavButton>
           </GuidedNavFooter>
         </div>
-      )}
+      ) : null}
     </PremiumCard>
   );
 }
