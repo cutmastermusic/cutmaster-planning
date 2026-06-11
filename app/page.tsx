@@ -319,6 +319,7 @@ import {
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
+import { CoupleDashboardCompletionCard } from "@/components/couple-dashboard-completion-card";
 import {
   buildCoupleWeddingChapterCards,
   computeCoupleWeddingChapterCompletionPct,
@@ -5807,6 +5808,20 @@ export default function Home() {
     () => hasAnyCoupleWeddingStoryChapterStarted(coupleWeddingChapterCards),
     [coupleWeddingChapterCards],
   );
+  const isCoupleWeddingJourneyComplete = useMemo(
+    () =>
+      isCoupleWeddingPlanningView &&
+      sectionPlanningQuestionsEnabled &&
+      firstIncompleteCoupleChapter === null &&
+      coupleWeddingChapterCards.length > 0,
+    [
+      coupleWeddingChapterCards.length,
+      firstIncompleteCoupleChapter,
+      isCoupleWeddingPlanningView,
+      sectionPlanningQuestionsEnabled,
+    ],
+  );
+  const coupleChapterGridRef = useRef<HTMLDivElement>(null);
   const coupleActivePlanningChapterRow = useMemo(() => {
     if (!activePlanningChapterId) return null;
     return (
@@ -14888,8 +14903,17 @@ export default function Home() {
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">
-                          {isCoupleWeddingPlanningView ? "Your story progress" : "Planning progress"}
+                          {isCoupleWeddingPlanningView
+                            ? isCoupleWeddingJourneyComplete
+                              ? "Your planning journey"
+                              : "Your story progress"
+                            : "Planning progress"}
                         </p>
+                        {isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
+                          <p className="mt-1 text-[11px] leading-snug text-zinc-300">
+                            All six chapters complete
+                          </p>
+                        ) : null}
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
                           <div
                             className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
@@ -14987,7 +15011,17 @@ export default function Home() {
                 </div>
               ) : null}
 
-              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
+              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled && isCoupleWeddingJourneyComplete ? (
+                <CoupleDashboardCompletionCard
+                  onStartTimeline={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
+                  onOpenMusicHub={() => selectActiveScreen("Music Hub")}
+                  onPreviewEventPlan={() => selectActiveScreen("Event Prep")}
+                />
+              ) : null}
+
+              {isCoupleWeddingPlanningView &&
+              sectionPlanningQuestionsEnabled &&
+              !isCoupleWeddingJourneyComplete ? (
                 <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                     Welcome
@@ -15012,6 +15046,7 @@ export default function Home() {
                 </div>
               ) : null}
 
+              {!isCoupleWeddingJourneyComplete ? (
               <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Next step</p>
                 {"title" in coupleNextStep && coupleNextStep.title ? (
@@ -15042,15 +15077,18 @@ export default function Home() {
                     : `${completionPercent}% of your plan in place`}
                 </p>
               </div>
+              ) : null}
 
               {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
-                <div className="space-y-4">
+                <div ref={coupleChapterGridRef} className="space-y-4 scroll-mt-24">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Your wedding story
+                      {isCoupleWeddingJourneyComplete ? "Your chapters" : "Your wedding story"}
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                      Six short chapters—open one at a time, at your pace.
+                      {isCoupleWeddingJourneyComplete
+                        ? "All six chapters are complete. Tap any chapter to review or update your answers."
+                        : "Six short chapters—open one at a time, at your pace."}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
@@ -15145,7 +15183,9 @@ export default function Home() {
                             }`}
                           >
                             {chapter.status === "Complete"
-                              ? "Review"
+                              ? chapter.id === "final_review" && isCoupleWeddingJourneyComplete
+                                ? "View summary"
+                                : "Review"
                               : isCurrentChapter
                                 ? "Continue"
                                 : "Open chapter"}{" "}
@@ -15165,21 +15205,42 @@ export default function Home() {
                   {isCoupleWeddingPlanningView ? (
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                        Build your plan
+                        {isCoupleWeddingJourneyComplete
+                          ? "Before Your Final Planning Meeting"
+                          : "Build your plan"}
                       </p>
-                      <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                        Turn your story into timing, songs, and day-of contacts.
-                      </p>
+                      {isCoupleWeddingJourneyComplete ? (
+                        <>
+                          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                            Please complete the items below before your final planning meeting with our
+                            team.
+                          </p>
+                          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                            These details help us prepare your Event Plan and ensure everything is ready
+                            for review.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                          Turn your story into timing, songs, and day-of contacts.
+                        </p>
+                      )}
                     </div>
                   ) : null}
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                 {coupleHomePlanningSections.map((section) => {
+                  const isTimelineFocus =
+                    isCoupleWeddingJourneyComplete && section.id === "reception";
                   return (
                     <button
                       type="button"
                       key={section.id}
                       onClick={() => selectActiveScreen(section.screen)}
-                      className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                      className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
+                        isTimelineFocus
+                          ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
+                          : "border border-stone-300 bg-white shadow-none ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -15187,6 +15248,11 @@ export default function Home() {
                             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
                               {section.kicker}
                             </p>
+                            {isTimelineFocus ? (
+                              <span className="rounded-full border border-[#00D4FF]/45 bg-[#00D4FF]/15 px-2 py-0.5 text-[10px] font-semibold text-stone-900">
+                                Start here
+                              </span>
+                            ) : null}
                           </div>
                           <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
                             {section.title}
