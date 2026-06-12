@@ -37,6 +37,7 @@ import {
   replaceEventSongsGuarded as replaceEventSongs,
   replacePlanningQuestionAnswersGuarded as replacePlanningQuestionAnswers,
   replaceCeremonyPlanGuarded as replaceCeremonyPlan,
+  replaceMusicHubPlanGuarded as replaceMusicHubPlan,
   replaceDjScriptsGuarded as replaceDjScripts,
   replaceDjMusicNotesGuarded as replaceDjMusicNotes,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
@@ -75,7 +76,6 @@ import {
   PrimaryButton,
   SectionEmptyState,
   SectionTitle,
-  SongCard,
   TextArea,
   TextInput,
   darkUiWorkspaceJumpButtonClass,
@@ -320,6 +320,8 @@ import {
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import { CoupleDashboardCompletionCard } from "@/components/couple-dashboard-completion-card";
+import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
+import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import {
   buildCoupleWeddingChapterCards,
   computeCoupleWeddingChapterCompletionPct,
@@ -336,6 +338,18 @@ import {
   mergeMusicProfileIntoMusicHub,
   musicProfileHasBridgeableAnswers,
 } from "@/lib/mergeMusicProfileIntoMusicHub";
+import { resolveMusicProfileAnswersForDisplay } from "@/lib/coupleMusicProfilePlanning";
+import {
+  applyMusicHubPlanSnapshotToEventFields,
+  buildMusicHubPlanSnapshot,
+  clearMusicHubTasteFieldsOnEvent,
+  mergeHydratedEventsPreservingLocalMusicHubTaste,
+  parseMusicHubPlanJson,
+  toggleMusicGenreEraSelection,
+  toggleMusicTasteProfileChip,
+  updateMusicTasteProfileNotes,
+  updateMusicVibeDetailField,
+} from "@/lib/musicHubPlan";
 import { buildYourTeamPrefillAnswers } from "@/lib/coupleYourTeamPlanning";
 import { mergeYourTeamIntoEventTeam } from "@/lib/mergeYourTeamIntoEventTeam";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
@@ -400,6 +414,9 @@ import {
 /** Nested field block inside Planning Questions section groups — generous padding, clear vertical rhythm. */
 const planningQuestionFieldShellClass =
   "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
+
+/** Diagnostic isolation: false disables Music Profile → Music Hub auto-sync on entry. */
+const MUSIC_PROFILE_MUSIC_HUB_AUTO_SYNC_ENABLED = false;
 
 function PlanningQuestionAnswerEditor({
   q,
@@ -2897,6 +2914,9 @@ export default function Home() {
     setInviteAccessPreview,
   } = usePlanningApp();
   const persistUiSuppressBootCountRef = useRef(0);
+  const musicHubTasteDirtyRef = useRef(false);
+  const musicHubTasteDirtyRevisionRef = useRef(0);
+  const [musicHubTasteDirtyRevision, setMusicHubTasteDirtyRevision] = useState(0);
   const databaseHydrationCompleteRef = useRef(false);
   /** Active event id whose working state was loaded from DB (or explicit switch). */
   const dbWorkingStateReadyEventIdRef = useRef<string | null>(null);
@@ -3168,6 +3188,12 @@ export default function Home() {
   });
   const eventSettingsRef = useRef(eventSettings);
   eventSettingsRef.current = eventSettings;
+  const musicTasteProfileRef = useRef(musicTasteProfile);
+  musicTasteProfileRef.current = musicTasteProfile;
+  const musicGenreEraSelectionsRef = useRef(musicGenreEraSelections);
+  musicGenreEraSelectionsRef.current = musicGenreEraSelections;
+  const musicVibeDetailRef = useRef(musicVibeDetail);
+  musicVibeDetailRef.current = musicVibeDetail;
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -3822,6 +3848,28 @@ export default function Home() {
     [],
   );
 
+  const persistMusicHubPlanToDatabase = useCallback(
+    async (
+      eventId: string,
+      plan: Parameters<typeof replaceMusicHubPlan>[1],
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceMusicHubPlan(eventId, plan);
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist Music Hub plan to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [],
+  );
+
   const persistDjScriptsToDatabase = useCallback(
     async (
       eventId: string,
@@ -4078,6 +4126,15 @@ export default function Home() {
             ),
           );
 
+          await persistMusicHubPlanToDatabase(
+            activeEventId,
+            buildMusicHubPlanSnapshot({
+              musicGenreEraSelections,
+              musicTasteProfile,
+              musicVibeDetail,
+            }),
+          );
+
           await persistDjScriptsToDatabase(activeEventId, djScripts);
           await persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
         } catch (error) {
@@ -4177,6 +4234,7 @@ export default function Home() {
     persistSongsToDatabase,
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
+    persistMusicHubPlanToDatabase,
     persistDjScriptsToDatabase,
     persistDjMusicNotesToDatabase,
     currentRole,
@@ -4185,7 +4243,31 @@ export default function Home() {
     isActualCouple,
   ]);
 
+  const markMusicHubTasteDirty = useCallback(() => {
+    musicHubTasteDirtyRef.current = true;
+    setMusicHubTasteDirtyRevision((revision) => {
+      const next = revision + 1;
+      musicHubTasteDirtyRevisionRef.current = next;
+      return next;
+    });
+    if (persistPhaseHideTimeoutRef.current) {
+      window.clearTimeout(persistPhaseHideTimeoutRef.current);
+      persistPhaseHideTimeoutRef.current = null;
+    }
+    setPersistPhase("pending");
+  }, [setPersistPhase]);
+
   const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
+    const switchingEvent = Boolean(
+      prevLoadedPlanningEventIdRef.current &&
+        prevLoadedPlanningEventIdRef.current !== evt.id,
+    );
+    if (switchingEvent) {
+      musicHubTasteDirtyRef.current = false;
+      musicHubTasteDirtyRevisionRef.current = 0;
+      setMusicHubTasteDirtyRevision(0);
+    }
+    const preserveMusicHubTaste = musicHubTasteDirtyRef.current && !switchingEvent;
     if (
       prevLoadedPlanningEventIdRef.current &&
       prevLoadedPlanningEventIdRef.current !== evt.id
@@ -4251,8 +4333,11 @@ export default function Home() {
     setDoNotPlaySongs(dedupeSongEntries(cloneJson(normalized.doNotPlaySongs)));
     setPlayIfPossibleSongs(dedupeSongEntries(cloneJson(normalized.playIfPossibleSongs ?? [])));
     setMusicPlaylistLinks(cloneJson(normalized.musicPlaylistLinks ?? []));
-    setMusicGenreEraSelections(cloneJson(normalized.musicGenreEraSelections ?? []));
-    setMusicTasteProfile(normalizeMusicTasteProfile(normalized.musicTasteProfile));
+    if (!preserveMusicHubTaste) {
+      setMusicGenreEraSelections(cloneJson(normalized.musicGenreEraSelections ?? []));
+      setMusicTasteProfile(normalizeMusicTasteProfile(normalized.musicTasteProfile));
+      setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
+    }
     setCeremonyStartTime(evt.ceremonyStartTime);
     setCeremonyGuestArrivalTime(evt.ceremonyGuestArrivalTime ?? "");
     setOfficiantName(evt.officiantName);
@@ -4279,20 +4364,11 @@ export default function Home() {
     const nextTeamMembers = Array.isArray(evtTeamMembers)
       ? cloneJson(evtTeamMembers)
       : [];
-    console.log("[HYDRATE-DEBUG] loadEventPlanningIntoWorkingState →", {
-      evtId: evt.id,
-      hasShadow: Array.isArray(evtTeamMembers),
-      shadowLength: Array.isArray(evtTeamMembers)
-        ? evtTeamMembers.length
-        : null,
-      nextTeamMembers,
-    });
     setTeamMembers(nextTeamMembers);
     const evtNotes = (evt as EventRecord & { eventNotes?: EventNote[] }).eventNotes;
     setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
     setGeneralDjNotes(evt.generalDjNotes);
     setPlaylistVibeOverrides(cloneJson(evt.playlistVibeOverrides ?? {}));
-    setMusicVibeDetail(cloneJson(evt.musicVibeDetail ?? {}));
     setMcAnnouncements(evt.mcAnnouncements);
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
@@ -5029,32 +5105,26 @@ export default function Home() {
       layoutProfileForActiveEvent === "Gender-Neutral Wedding");
 
   const applyMusicProfileToMusicHub = useCallback(() => {
-    const answers = eventSettings.planningQuestionAnswers ?? {};
+    if (!MUSIC_PROFILE_MUSIC_HUB_AUTO_SYNC_ENABLED) return;
+    if (musicHubTasteDirtyRef.current) return;
+    const answers = resolveMusicProfileAnswersForDisplay(
+      eventSettingsRef.current.planningQuestionAnswers ?? {},
+    );
     if (!musicProfileHasBridgeableAnswers(answers)) return;
     const merged = mergeMusicProfileIntoMusicHub({
       planningQuestionAnswers: answers,
-      musicTasteProfile,
-      musicGenreEraSelections,
-      musicVibeDetail,
+      musicTasteProfile: musicTasteProfileRef.current,
+      musicGenreEraSelections: musicGenreEraSelectionsRef.current,
+      musicVibeDetail: musicVibeDetailRef.current,
     });
     if (!merged.changed) return;
     setMusicTasteProfile(merged.musicTasteProfile);
     setMusicGenreEraSelections(merged.musicGenreEraSelections);
     setMusicVibeDetail(merged.musicVibeDetail);
-  }, [
-    eventSettings.planningQuestionAnswers,
-    musicGenreEraSelections,
-    musicTasteProfile,
-    musicVibeDetail,
-  ]);
+  }, []);
 
   const selectActiveScreen = useCallback(
     (screen: Screen) => {
-      if (screen === "Music Hub" && isCoupleWeddingPlanningView) {
-        applyMusicProfileToMusicHub();
-        setActiveScreen(screen);
-        return;
-      }
       if (screen === "Event Team" && isCoupleWeddingPlanningView) {
         void applyYourTeamChapterToEventTeamRef
           .current?.()
@@ -5063,8 +5133,23 @@ export default function Home() {
       }
       setActiveScreen(screen);
     },
-    [applyMusicProfileToMusicHub, isCoupleWeddingPlanningView],
+    [isCoupleWeddingPlanningView],
   );
+
+  useEffect(() => {
+    if (!MUSIC_PROFILE_MUSIC_HUB_AUTO_SYNC_ENABLED) return;
+    if (!hasHydrated) return;
+    if (activeScreen !== "Music Hub") return;
+    if (!isCoupleWeddingPlanningView) return;
+    if (musicHubTasteDirtyRef.current) return;
+    applyMusicProfileToMusicHub();
+  }, [
+    activeScreen,
+    applyMusicProfileToMusicHub,
+    eventSettings.planningQuestionAnswers,
+    hasHydrated,
+    isCoupleWeddingPlanningView,
+  ]);
 
   const primaryPartyFieldLabel = PRIMARY_PARTY_FIELD_LABEL[layoutProfileForActiveEvent];
   const primaryPartyShortLabel = PRIMARY_PARTY_SHORT_LABEL[layoutProfileForActiveEvent];
@@ -8626,28 +8711,6 @@ export default function Home() {
           ...priorDbIds,
           ...databaseEvents.map((evt) => evt.id),
         ]);
-        console.log("[PERSIST-DEBUG] DB hydration → merged databaseEventIdsRef", {
-          priorCount: priorDbIds.size,
-          serverCount: databaseEvents.length,
-          mergedCount: databaseEventIdsRef.current.size,
-          mergedIds: Array.from(databaseEventIdsRef.current),
-        });
-
-        console.log(
-          "[HYDRATE-DEBUG] DB hydration → events from server:",
-          databaseEvents.map((evt) => ({
-            id: evt.id,
-            title: evt.title,
-            teamMemberCount: evt.eventTeamMembers?.length ?? 0,
-            teamMembers: evt.eventTeamMembers?.map((m) => ({
-              id: m.id,
-              name: m.name,
-              role: m.role,
-              order: m.order,
-              isActive: m.isActive,
-            })),
-          })),
-        );
 
         if (!databaseEvents.length) {
           databaseHydrationCompleteRef.current = true;
@@ -8831,7 +8894,12 @@ export default function Home() {
           // mock content.)
           seededEvent.generalDjNotes = "";
           seededEvent.mcAnnouncements = "";
-          seededEvent.musicVibeDetail = {};
+          const musicHubPlanFromDb = parseMusicHubPlanJson(dbEvent.musicHubPlan);
+          if (musicHubPlanFromDb) {
+            applyMusicHubPlanSnapshotToEventFields(seededEvent, musicHubPlanFromDb);
+          } else {
+            clearMusicHubTasteFieldsOnEvent(seededEvent);
+          }
           seededEvent.vendors = [];
           seededEvent.plannerNotes = [];
 
@@ -8851,7 +8919,17 @@ export default function Home() {
             dbEmptyPlanningByEventId,
             dbEmptyCeremonyByEventId,
           );
-          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalPlanning);
+          const { events: withLocalMusicHub, anyMerged: musicHubLocalTasteMerged } =
+            mergeHydratedEventsPreservingLocalMusicHubTaste(prev, withLocalPlanning);
+          if (musicHubLocalTasteMerged) {
+            musicHubTasteDirtyRef.current = true;
+            setMusicHubTasteDirtyRevision((revision) => {
+              const next = revision + 1;
+              musicHubTasteDirtyRevisionRef.current = next;
+              return next;
+            });
+          }
+          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalMusicHub);
           lastMergedHydratedEventsRef.current = merged;
           return merged;
         });
@@ -8875,14 +8953,6 @@ export default function Home() {
               eventTeamMembers?: TeamMember[];
             }).eventTeamMembers;
             const nextTeam = Array.isArray(evtTeam) ? cloneJson(evtTeam) : [];
-            console.log("[HYDRATE-DEBUG] DB hydration → setTeamMembers", {
-              prevActiveEventId: prev,
-              resolvedId,
-              resolvedEventTitle: resolvedEvent.meta?.couple,
-              hasShadow: Array.isArray(evtTeam),
-              teamMemberCount: nextTeam.length,
-              nextTeam,
-            });
             setTeamMembers(nextTeam);
             const evtNotes = (resolvedEvent as EventRecord & {
               eventNotes?: EventNote[];
@@ -8898,7 +8968,9 @@ export default function Home() {
             // defer DB autosave until after this sync completes.
             queueMicrotask(() => {
               loadEventPlanningIntoWorkingState(resolvedEvent);
-              persistUiSuppressBootCountRef.current += 1;
+              if (!musicHubTasteDirtyRef.current) {
+                persistUiSuppressBootCountRef.current += 1;
+              }
             });
             return resolvedId;
           });
@@ -9392,6 +9464,14 @@ export default function Home() {
               settingsForCeremonyDb,
             ),
           );
+          void persistMusicHubPlanToDatabase(
+            activeEventId,
+            buildMusicHubPlanSnapshot({
+              musicGenreEraSelections,
+              musicTasteProfile,
+              musicVibeDetail,
+            }),
+          );
           void persistDjScriptsToDatabase(activeEventId, djScripts);
           void persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
         } else {
@@ -9451,6 +9531,7 @@ export default function Home() {
     persistSongsToDatabase,
     persistPlanningQuestionAnswersToDatabase,
     persistCeremonyPlanToDatabase,
+    persistMusicHubPlanToDatabase,
     persistDjScriptsToDatabase,
     persistDjMusicNotesToDatabase,
     persistEventMetadataToDatabase,
@@ -9477,6 +9558,7 @@ export default function Home() {
     playlistVibeOverrides,
     musicVibeDetail,
     musicTasteProfile,
+    musicHubTasteDirtyRevision,
     mcAnnouncements,
     eventSettings,
     appSettings,
@@ -10041,26 +10123,35 @@ export default function Home() {
     setMusicPlaylistLinks((prev) => prev.filter((row) => row.id !== id));
   };
 
-  const toggleGenreEraChip = (label: string) => {
-    setMusicGenreEraSelections((prev) => {
-      if (prev.includes(label)) return prev.filter((x) => x !== label);
-      const next = [...prev, label];
-      next.sort(
-        (a, b) => (MUSIC_GENRE_ERA_ORDER.get(a) ?? 0) - (MUSIC_GENRE_ERA_ORDER.get(b) ?? 0),
+  const toggleGenreEraChip = useCallback(
+    (label: string) => {
+      setMusicGenreEraSelections((prev) =>
+        toggleMusicGenreEraSelection(prev, label, MUSIC_GENRE_ERA_ORDER),
       );
-      return next;
-    });
+      markMusicHubTasteDirty();
+    },
+    [markMusicHubTasteDirty],
+  );
+
+  const toggleMusicTasteChip = useCallback(
+    (
+      field: "danceFloorStyles" | "crowdPreferences" | "musicBehavior" | "lineDancesAndGroupSongs",
+      label: string,
+    ) => {
+      setMusicTasteProfile((prev) => toggleMusicTasteProfileChip(prev, field, label));
+      markMusicHubTasteDirty();
+    },
+    [markMusicHubTasteDirty],
+  );
+
+  const updateMusicHubVibeDetailField = (field: keyof MusicVibeDetail, value: string) => {
+    setMusicVibeDetail((prev) => updateMusicVibeDetailField(prev, field, value));
+    markMusicHubTasteDirty();
   };
 
-  const toggleMusicTasteChip = (
-    field: "danceFloorStyles" | "crowdPreferences" | "musicBehavior" | "lineDancesAndGroupSongs",
-    label: string,
-  ) => {
-    setMusicTasteProfile((prev) => {
-      const arr = prev[field] ?? [];
-      if (arr.includes(label)) return { ...prev, [field]: arr.filter((x) => x !== label) };
-      return { ...prev, [field]: [...arr, label] };
-    });
+  const updateMusicHubTasteNotes = (notes: string) => {
+    setMusicTasteProfile((prev) => updateMusicTasteProfileNotes(prev, notes));
+    markMusicHubTasteDirty();
   };
 
   const genreOtherSelected = musicGenreEraSelections.includes(MUSIC_GENRE_ERA_OTHER_CHIP);
@@ -10092,6 +10183,35 @@ export default function Home() {
       return;
     }
     setDoNotPlaySongs((prev) => updatePriority(prev));
+  };
+
+  const updateSong = (
+    listType: SongListType,
+    songId: string,
+    patch: Partial<Pick<SongEntry, "title" | "artist" | "notes">>,
+  ) => {
+    const applyUpdate = (songs: SongEntry[]) =>
+      songs.map((song) => {
+        if (song.id !== songId) return song;
+        return {
+          ...song,
+          ...(patch.title !== undefined ? { title: patch.title.trim() } : null),
+          ...(patch.artist !== undefined
+            ? { artist: patch.artist.trim() || undefined }
+            : null),
+          ...(patch.notes !== undefined ? { notes: patch.notes.trim() || undefined } : null),
+        };
+      });
+
+    if (listType === "mustPlay") {
+      setMustPlaySongs((prev) => applyUpdate(prev));
+      return;
+    }
+    if (listType === "playIfPossible") {
+      setPlayIfPossibleSongs((prev) => applyUpdate(prev));
+      return;
+    }
+    setDoNotPlaySongs((prev) => applyUpdate(prev));
   };
 
   const setGuestRequestStatus = (id: string, status: GuestRequestStatus) => {
@@ -12580,7 +12700,11 @@ export default function Home() {
           },
         };
       }
-      setActiveScreen(nav.screen);
+      if (nav.screen === "Music Hub" && isCoupleWeddingPlanningView) {
+        selectActiveScreen("Music Hub");
+      } else {
+        setActiveScreen(nav.screen);
+      }
       const delay = nav.screen === activeScreen ? 0 : 180;
       window.setTimeout(() => applyChecklistTaskFocus(nav.focus), delay);
     },
@@ -12590,6 +12714,8 @@ export default function Home() {
       sectionMusicNotesEnabled,
       activeScreen,
       applyChecklistTaskFocus,
+      isCoupleWeddingPlanningView,
+      selectActiveScreen,
       setActiveScreen,
       canAccessGrandEntranceOperations,
       openWeddingPartyLineupEditor,
@@ -15897,68 +16023,38 @@ export default function Home() {
               <div className="mt-5 space-y-6">
                 <div>
                   <p className={lightUiFormLabelClass}>Dance floor style</p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {MUSIC_TASTE_DANCE_FLOOR_OPTIONS.map((label) => {
-                      const on = musicTasteProfile.danceFloorStyles.includes(label);
-                      return (
-                        <button
-                          key={`taste-dance-${label}`}
-                          type="button"
-                          disabled={!canManageMusic}
-                          onClick={() => toggleMusicTasteChip("danceFloorStyles", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
-                            ? "border-black bg-[#00D4FF] text-black shadow-none"
-                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                            } disabled:opacity-45`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2.5">
+                    <MusicHubChipRow
+                      keyPrefix="taste-dance"
+                      options={MUSIC_TASTE_DANCE_FLOOR_OPTIONS}
+                      selected={musicTasteProfile.danceFloorStyles}
+                      disabled={!canManageMusic}
+                      onToggle={(label) => toggleMusicTasteChip("danceFloorStyles", label)}
+                    />
                   </div>
                 </div>
                 <div>
                   <p className={lightUiFormLabelClass}>Crowd preferences</p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {MUSIC_TASTE_CROWD_OPTIONS.map((label) => {
-                      const on = musicTasteProfile.crowdPreferences.includes(label);
-                      return (
-                        <button
-                          key={`taste-crowd-${label}`}
-                          type="button"
-                          disabled={!canManageMusic}
-                          onClick={() => toggleMusicTasteChip("crowdPreferences", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
-                            ? "border-black bg-[#00D4FF] text-black shadow-none"
-                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                            } disabled:opacity-45`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2.5">
+                    <MusicHubChipRow
+                      keyPrefix="taste-crowd"
+                      options={MUSIC_TASTE_CROWD_OPTIONS}
+                      selected={musicTasteProfile.crowdPreferences}
+                      disabled={!canManageMusic}
+                      onToggle={(label) => toggleMusicTasteChip("crowdPreferences", label)}
+                    />
                   </div>
                 </div>
                 <div>
                   <p className={lightUiFormLabelClass}>Music behavior</p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {MUSIC_TASTE_BEHAVIOR_OPTIONS.map((label) => {
-                      const on = musicTasteProfile.musicBehavior.includes(label);
-                      return (
-                        <button
-                          key={`taste-behavior-${label}`}
-                          type="button"
-                          disabled={!canManageMusic}
-                          onClick={() => toggleMusicTasteChip("musicBehavior", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
-                            ? "border-black bg-[#00D4FF] text-black shadow-none"
-                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                            } disabled:opacity-45`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2.5">
+                    <MusicHubChipRow
+                      keyPrefix="taste-behavior"
+                      options={MUSIC_TASTE_BEHAVIOR_OPTIONS}
+                      selected={musicTasteProfile.musicBehavior}
+                      disabled={!canManageMusic}
+                      onToggle={(label) => toggleMusicTasteChip("musicBehavior", label)}
+                    />
                   </div>
                 </div>
                 <div>
@@ -15966,24 +16062,14 @@ export default function Home() {
                   <p className="mt-1 text-xs leading-relaxed text-stone-500">
                     No judgement here — check all that apply.
                   </p>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {MUSIC_TASTE_LINE_DANCE_OPTIONS.map((label) => {
-                      const selected = (musicTasteProfile.lineDancesAndGroupSongs ?? []).includes(label);
-                      return (
-                        <button
-                          key={`taste-line-dance-${label}`}
-                          type="button"
-                          disabled={!canManageMusic}
-                          onClick={() => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
-                          className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${selected
-                            ? "border-black bg-[#00D4FF] text-black shadow-none"
-                            : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                            } disabled:opacity-45`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2.5">
+                    <MusicHubChipRow
+                      keyPrefix="taste-line-dance"
+                      options={MUSIC_TASTE_LINE_DANCE_OPTIONS}
+                      selected={musicTasteProfile.lineDancesAndGroupSongs ?? []}
+                      disabled={!canManageMusic}
+                      onToggle={(label) => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
+                    />
                   </div>
                 </div>
               </div>
@@ -15992,7 +16078,7 @@ export default function Home() {
                   id="music-taste-dance-floor-vibe"
                   label="Describe your ideal dance floor vibe (optional)"
                   value={musicTasteProfile.danceFloorVibeNotes ?? ""}
-                  onChange={(v) => setMusicTasteProfile((p) => ({ ...p, danceFloorVibeNotes: v }))}
+                  onChange={updateMusicHubTasteNotes}
                   rows={3}
                   placeholder="e.g. Big energy after dinner, singalongs guests know, then room for a few surprises…"
                   disabled={!canManageMusic}
@@ -16008,24 +16094,14 @@ export default function Home() {
               <p className="mt-1 text-sm text-stone-600">
                 Tap everything that fits—this is a quick map, not a test.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {MUSIC_GENRE_ERA_OPTIONS.map((label) => {
-                  const on = musicGenreEraSelections.includes(label);
-                  return (
-                    <button
-                      key={`genre-${label}`}
-                      type="button"
-                      disabled={!canManageMusic}
-                      onClick={() => toggleGenreEraChip(label)}
-                      className={`min-h-10 rounded-full border px-3.5 py-2 text-left text-[13px] font-medium transition sm:min-h-9 ${on
-                        ? "border-black bg-[#00D4FF] text-black shadow-none"
-                        : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
-                        } disabled:opacity-45`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+              <div className="mt-4">
+                <MusicHubChipRow
+                  keyPrefix="genre"
+                  options={MUSIC_GENRE_ERA_OPTIONS}
+                  selected={musicGenreEraSelections}
+                  disabled={!canManageMusic}
+                  onToggle={toggleGenreEraChip}
+                />
               </div>
               {genreOtherSelected ? (
                 <div className="mt-5 border-t border-stone-100 pt-5">
@@ -16033,9 +16109,7 @@ export default function Home() {
                     id="music-genre-other-styles"
                     label="Other styles (describe)"
                     value={musicVibeDetail.genres ?? ""}
-                    onChange={(value) =>
-                      setMusicVibeDetail((prev) => ({ ...prev, genres: value }))
-                    }
+                    onChange={(value) => updateMusicHubVibeDetailField("genres", value)}
                     rows={2}
                     placeholder="e.g. Afrobeats, K-pop, classic rock deep cuts…"
                     disabled={!canManageMusic}
@@ -16137,7 +16211,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
+            <div className="space-y-5">
               {sectionMustPlayEnabled && (
                 <PremiumCard variant="accent" id="music-hub-must-play">
                   <div className="flex items-center justify-between gap-2">
@@ -16149,8 +16223,8 @@ export default function Home() {
                       {mustPlaySongs.length}
                     </span>
                   </div>
-                  <div className="mt-3 space-y-2">
-                    {mustPlaySongs.length === 0 ? (
+                  {mustPlaySongs.length === 0 ? (
+                    <div className="mt-3">
                       <SectionEmptyState
                         wrapWithCard={false}
                         title="No must-plays yet"
@@ -16168,18 +16242,17 @@ export default function Home() {
                           disabled: !canManageMusic,
                         }}
                       />
-                    ) : null}
-                    {mustPlaySongs.map((song) => (
-                      <SongCard
-                        key={song.id}
-                        song={song}
-                        listType="mustPlay"
-                        onTogglePriority={togglePriority}
-                        onRemove={removeSong}
-                        disabled={!canManageMusic}
-                      />
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <MusicHubSongList
+                      songs={mustPlaySongs}
+                      listType="mustPlay"
+                      onTogglePriority={togglePriority}
+                      onRemove={removeSong}
+                      onUpdateSong={updateSong}
+                      disabled={!canManageMusic}
+                    />
+                  )}
                 </PremiumCard>
               )}
 
@@ -16196,8 +16269,8 @@ export default function Home() {
                       {playIfPossibleSongs.length}
                     </span>
                   </div>
-                  <div className="mt-3 space-y-2">
-                    {playIfPossibleSongs.length === 0 ? (
+                  {playIfPossibleSongs.length === 0 ? (
+                    <div className="mt-3">
                       <SectionEmptyState
                         wrapWithCard={false}
                         title="No “play if possible” yet"
@@ -16215,18 +16288,17 @@ export default function Home() {
                           disabled: !canManageMusic,
                         }}
                       />
-                    ) : null}
-                    {playIfPossibleSongs.map((song) => (
-                      <SongCard
-                        key={song.id}
-                        song={song}
-                        listType="playIfPossible"
-                        onTogglePriority={togglePriority}
-                        onRemove={removeSong}
-                        disabled={!canManageMusic}
-                      />
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <MusicHubSongList
+                      songs={playIfPossibleSongs}
+                      listType="playIfPossible"
+                      onTogglePriority={togglePriority}
+                      onRemove={removeSong}
+                      onUpdateSong={updateSong}
+                      disabled={!canManageMusic}
+                    />
+                  )}
                 </PremiumCard>
               )}
 
@@ -16243,8 +16315,8 @@ export default function Home() {
                       {doNotPlaySongs.length}
                     </span>
                   </div>
-                  <div className="mt-3 space-y-2">
-                    {doNotPlaySongs.length === 0 ? (
+                  {doNotPlaySongs.length === 0 ? (
+                    <div className="mt-3">
                       <SectionEmptyState
                         wrapWithCard={false}
                         title="Nothing on the block list"
@@ -16262,18 +16334,17 @@ export default function Home() {
                           disabled: !canManageMusic,
                         }}
                       />
-                    ) : null}
-                    {doNotPlaySongs.map((song) => (
-                      <SongCard
-                        key={song.id}
-                        song={song}
-                        listType="doNotPlay"
-                        onTogglePriority={togglePriority}
-                        onRemove={removeSong}
-                        disabled={!canManageMusic}
-                      />
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <MusicHubSongList
+                      songs={doNotPlaySongs}
+                      listType="doNotPlay"
+                      onTogglePriority={togglePriority}
+                      onRemove={removeSong}
+                      onUpdateSong={updateSong}
+                      disabled={!canManageMusic}
+                    />
+                  )}
                 </PremiumCard>
               )}
             </div>
@@ -16450,71 +16521,64 @@ export default function Home() {
                     Open guest requests
                   </PrimaryButton>
                 </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 p-3">
                     <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-800">Approved</p>
-                    <div className="mt-2 space-y-2">
-                      {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
+                    {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
+                      <div className="mt-2">
                         <SectionEmptyState
                           wrapWithCard={false}
                           cardClassName="border-emerald-200/80 bg-white py-3"
                           title="No approvals yet"
                           description="Approved picks stay ready for the DJ."
                         />
-                      ) : (
-                        guestRequests
-                          .filter((r) => r.status === "Approved")
-                          .map((request) => (
-                            <div
-                              key={`hub-approved-${request.id}`}
-                              className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-sm"
-                            >
-                              <p className="text-sm text-stone-900">
-                                {request.songTitle}
-                                {request.artist ? (
-                                  <span className="font-normal text-stone-600"> — {request.artist}</span>
-                                ) : null}
-                              </p>
-                              <p className="mt-1 text-[11px] text-stone-500">{request.guestName}</p>
-                            </div>
-                          ))
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2">
+                        <MusicHubGuestRequestList
+                          requests={guestRequests
+                            .filter((r) => r.status === "Approved")
+                            .map((request) => ({
+                              id: request.id,
+                              songTitle: request.songTitle,
+                              artist: request.artist,
+                              guestName: request.guestName,
+                              dedication: request.dedication,
+                              status: request.status,
+                            }))}
+                          onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="rounded-xl border border-violet-200/90 bg-violet-50/70 p-3">
                     <p className="text-[11px] uppercase tracking-[0.14em] text-violet-900">Pending</p>
-                    <div className="mt-2 space-y-2">
-                      {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
+                    {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
+                      <div className="mt-2">
                         <SectionEmptyState
                           wrapWithCard={false}
                           cardClassName="border-violet-200/80 bg-white py-3"
                           title="Inbox is clear"
                           description="New requests appear here when guests submit."
                         />
-                      ) : (
-                        guestRequests
-                          .filter((r) => r.status === "Pending")
-                          .map((request) => (
-                            <div
-                              key={`hub-pending-${request.id}`}
-                              className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-sm"
-                            >
-                              <p className="text-sm text-stone-900">
-                                {request.songTitle}
-                                {request.artist ? (
-                                  <span className="font-normal text-stone-600"> — {request.artist}</span>
-                                ) : null}
-                              </p>
-                              <p className="mt-1 text-[11px] text-stone-500">{request.guestName}</p>
-                              <span
-                                className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${guestRequestStatusBadgeClass(request.status)}`}
-                              >
-                                {request.status}
-                              </span>
-                            </div>
-                          ))
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2">
+                        <MusicHubGuestRequestList
+                          requests={guestRequests
+                            .filter((r) => r.status === "Pending")
+                            .map((request) => ({
+                              id: request.id,
+                              songTitle: request.songTitle,
+                              artist: request.artist,
+                              guestName: request.guestName,
+                              dedication: request.dedication,
+                              status: request.status,
+                            }))}
+                          onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </PremiumCard>
@@ -16549,9 +16613,7 @@ export default function Home() {
                       id="music-hub-energy"
                       label="Energy arc"
                       value={musicVibeDetail.energy ?? ""}
-                      onChange={(value) =>
-                        setMusicVibeDetail((prev) => ({ ...prev, energy: value }))
-                      }
+                      onChange={(value) => updateMusicHubVibeDetailField("energy", value)}
                       rows={3}
                       disabled={!canManageMusic}
                       placeholder="Warm welcome → peak dance → softer landing…"
@@ -16560,9 +16622,7 @@ export default function Home() {
                       id="music-hub-crowd"
                       label="Crowd notes"
                       value={musicVibeDetail.crowdNotes ?? ""}
-                      onChange={(value) =>
-                        setMusicVibeDetail((prev) => ({ ...prev, crowdNotes: value }))
-                      }
+                      onChange={(value) => updateMusicHubVibeDetailField("crowdNotes", value)}
                       rows={3}
                       disabled={!canManageMusic}
                       placeholder="Families, college friends, shy dancers up front…"
@@ -16575,9 +16635,7 @@ export default function Home() {
                           : "Clean / content preferences"
                       }
                       value={musicVibeDetail.cleanMusicPrefs ?? ""}
-                      onChange={(value) =>
-                        setMusicVibeDetail((prev) => ({ ...prev, cleanMusicPrefs: value }))
-                      }
+                      onChange={(value) => updateMusicHubVibeDetailField("cleanMusicPrefs", value)}
                       rows={3}
                       disabled={!canManageMusic}
                       placeholder="Radio edits, avoid explicit, requests handling…"

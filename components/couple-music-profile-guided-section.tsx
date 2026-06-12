@@ -16,8 +16,12 @@ import {
   MUSIC_PROFILE_LINE_DANCE_ATTITUDE_OPTIONS,
   MUSIC_PROFILE_LINE_DANCE_PICK_OPTIONS,
   MUSIC_PROFILE_QUESTION_IDS,
-  formatPlanningQuestionChipAnswerForDisplay,
-  parsePlanningQuestionChipAnswer,
+  normalizeMusicProfileImportanceAnswer,
+  parseMusicProfileDanceFloorAnswer,
+  parseMusicProfileDecadesAnswer,
+  parseMusicProfileGenresAnswer,
+  parseMusicProfileLineDancesPickAnswer,
+  resolveMusicProfileAnswersForDisplay,
   serializePlanningQuestionChipAnswer,
 } from "@/lib/coupleMusicProfilePlanning";
 
@@ -39,16 +43,18 @@ export function CoupleMusicProfileGuidedSection({
   onContinueToNextChapter,
   continueToNextChapterLabel,
 }: CoupleMusicProfileGuidedSectionProps) {
+  const resolvedAnswers = useMemo(() => resolveMusicProfileAnswersForDisplay(answers), [answers]);
+
   const steps = useMemo((): CoupleGuidedQuestionStep[] => {
     const setSingle = (questionId: string, next: string) => onAnswerChange(questionId, next);
     const setChips = (questionId: string, next: string[]) =>
       onAnswerChange(questionId, serializePlanningQuestionChipAnswer(next));
 
-    const renderChipReview = (label: string, raw: string | undefined) => (
+    const renderChipReview = (label: string, values: string[]) => (
       <div className={planningQuestionFieldShellClass}>
         <p className={lightUiFormLabelClass}>{label}</p>
         <p className="mt-2 text-sm leading-relaxed text-stone-900">
-          {formatPlanningQuestionChipAnswerForDisplay(raw) || (
+          {values.length > 0 ? values.join(", ") : (
             <span className="text-stone-500">None selected</span>
           )}
         </p>
@@ -68,34 +74,45 @@ export function CoupleMusicProfileGuidedSection({
       {
         id: "music-profile-importance",
         isAnswered: (nextAnswers) =>
-          Boolean((nextAnswers[MUSIC_PROFILE_QUESTION_IDS.importance] ?? "").trim()),
+          Boolean(
+            normalizeMusicProfileImportanceAnswer(
+              resolveMusicProfileAnswersForDisplay(nextAnswers)[MUSIC_PROFILE_QUESTION_IDS.importance],
+            ),
+          ),
         renderGuided: () => (
           <CouplePlanningChipSelect
             label="How important is music to your wedding?"
             mode="single"
             options={MUSIC_PROFILE_IMPORTANCE_OPTIONS}
-            value={answers[MUSIC_PROFILE_QUESTION_IDS.importance] ?? ""}
+            value={normalizeMusicProfileImportanceAnswer(
+              resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.importance],
+            )}
             onChange={(next) => setSingle(MUSIC_PROFILE_QUESTION_IDS.importance, next as string)}
           />
         ),
         renderReview: () =>
           renderSingleReview(
             "How important is music to your wedding?",
-            answers[MUSIC_PROFILE_QUESTION_IDS.importance],
+            normalizeMusicProfileImportanceAnswer(
+              resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.importance],
+            ),
           ),
       },
       {
         id: "music-profile-dance-floor",
         isAnswered: (nextAnswers) =>
-          parsePlanningQuestionChipAnswer(nextAnswers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle])
-            .length > 0,
+          parseMusicProfileDanceFloorAnswer(
+            resolveMusicProfileAnswersForDisplay(nextAnswers)[
+              MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle
+            ],
+          ).length > 0,
         renderGuided: () => (
           <CouplePlanningChipSelect
             label="What kind of dance floor are you hoping for?"
             mode="multi"
             options={MUSIC_PROFILE_DANCE_FLOOR_OPTIONS}
-            value={parsePlanningQuestionChipAnswer(
-              answers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle],
+            value={parseMusicProfileDanceFloorAnswer(
+              resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle],
             )}
             onChange={(next) =>
               setChips(MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle, next as string[])
@@ -105,44 +122,52 @@ export function CoupleMusicProfileGuidedSection({
         renderReview: () =>
           renderChipReview(
             "What kind of dance floor are you hoping for?",
-            answers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle],
+            parseMusicProfileDanceFloorAnswer(
+              resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle],
+            ),
           ),
       },
       {
         id: "music-profile-decades",
         isAnswered: (nextAnswers) =>
-          parsePlanningQuestionChipAnswer(nextAnswers[MUSIC_PROFILE_QUESTION_IDS.decades]).length > 0,
+          parseMusicProfileDecadesAnswer(
+            resolveMusicProfileAnswersForDisplay(nextAnswers)[MUSIC_PROFILE_QUESTION_IDS.decades],
+          ).length > 0,
         renderGuided: () => (
           <CouplePlanningChipSelect
             label="Which decades should we lean into?"
             mode="multi"
             options={MUSIC_PROFILE_DECADE_OPTIONS}
-            value={parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.decades])}
+            value={parseMusicProfileDecadesAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.decades])}
             onChange={(next) => setChips(MUSIC_PROFILE_QUESTION_IDS.decades, next as string[])}
           />
         ),
         renderReview: () =>
           renderChipReview(
             "Which decades should we lean into?",
-            answers[MUSIC_PROFILE_QUESTION_IDS.decades],
+            parseMusicProfileDecadesAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.decades]),
           ),
       },
       {
         id: "music-profile-genres-love",
         isAnswered: (nextAnswers) =>
-          parsePlanningQuestionChipAnswer(nextAnswers[MUSIC_PROFILE_QUESTION_IDS.genresLove]).length >
-          0,
+          parseMusicProfileGenresAnswer(
+            resolveMusicProfileAnswersForDisplay(nextAnswers)[MUSIC_PROFILE_QUESTION_IDS.genresLove],
+          ).length > 0,
         renderGuided: () => (
           <CouplePlanningChipSelect
             label="What genres do you love?"
             mode="multi"
             options={MUSIC_PROFILE_GENRE_OPTIONS}
-            value={parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.genresLove])}
+            value={parseMusicProfileGenresAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.genresLove])}
             onChange={(next) => setChips(MUSIC_PROFILE_QUESTION_IDS.genresLove, next as string[])}
           />
         ),
         renderReview: () =>
-          renderChipReview("What genres do you love?", answers[MUSIC_PROFILE_QUESTION_IDS.genresLove]),
+          renderChipReview(
+            "What genres do you love?",
+            parseMusicProfileGenresAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.genresLove]),
+          ),
       },
       {
         id: "music-profile-genres-avoid",
@@ -154,27 +179,33 @@ export function CoupleMusicProfileGuidedSection({
             optionalHint="Optional — skip if nothing comes to mind."
             mode="multi"
             options={MUSIC_PROFILE_GENRE_OPTIONS}
-            value={parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid])}
+            value={parseMusicProfileGenresAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid])}
             onChange={(next) => setChips(MUSIC_PROFILE_QUESTION_IDS.genresAvoid, next as string[])}
           />
         ),
         renderReview: () =>
           renderChipReview(
             "Are there any genres you'd rather avoid?",
-            answers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid],
+            parseMusicProfileGenresAnswer(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid]),
           ),
       },
       {
         id: "music-profile-line-dances",
         isAnswered: (nextAnswers) =>
-          Boolean((nextAnswers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? "").trim()),
+          Boolean(
+            (
+              resolveMusicProfileAnswersForDisplay(nextAnswers)[
+                MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude
+              ] ?? ""
+            ).trim(),
+          ),
         renderGuided: () => (
           <div className="space-y-4">
             <CouplePlanningChipSelect
               label="How do you feel about line dances?"
               mode="single"
               options={MUSIC_PROFILE_LINE_DANCE_ATTITUDE_OPTIONS}
-              value={answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? ""}
+              value={resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? ""}
               onChange={(next) =>
                 setSingle(MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude, next as string)
               }
@@ -184,8 +215,8 @@ export function CoupleMusicProfileGuidedSection({
               optionalHint="Optional — select any you'd enjoy."
               mode="multi"
               options={MUSIC_PROFILE_LINE_DANCE_PICK_OPTIONS}
-              value={parsePlanningQuestionChipAnswer(
-                answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick],
+              value={parseMusicProfileLineDancesPickAnswer(
+                resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick],
               )}
               onChange={(next) =>
                 setChips(MUSIC_PROFILE_QUESTION_IDS.lineDancesPick, next as string[])
@@ -197,11 +228,13 @@ export function CoupleMusicProfileGuidedSection({
           <div className="space-y-4">
             {renderSingleReview(
               "How do you feel about line dances?",
-              answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude],
+              resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude],
             )}
             {renderChipReview(
               "Any line dances you'd welcome?",
-              answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick],
+              parseMusicProfileLineDancesPickAnswer(
+                resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick],
+              ),
             )}
           </div>
         ),
@@ -215,7 +248,7 @@ export function CoupleMusicProfileGuidedSection({
             <TextArea
               id="music-profile-other-notes"
               label="Anything else about your music preferences you'd like us to know?"
-              value={answers[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? ""}
+              value={resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? ""}
               onChange={(next) => setSingle(MUSIC_PROFILE_QUESTION_IDS.otherNotes, next)}
               rows={4}
               placeholder="Share anything unique about your guests, culture, or dance-floor vision…"
@@ -233,7 +266,7 @@ export function CoupleMusicProfileGuidedSection({
               Anything else about your music preferences you&apos;d like us to know?
             </p>
             <p className="mt-2 text-sm leading-relaxed text-stone-900">
-              {(answers[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? "").trim() || (
+              {(resolvedAnswers[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? "").trim() || (
                 <span className="text-stone-500">No additional notes</span>
               )}
             </p>
@@ -241,7 +274,7 @@ export function CoupleMusicProfileGuidedSection({
         ),
       },
     ];
-  }, [answers, onAnswerChange]);
+  }, [resolvedAnswers, onAnswerChange]);
 
   return (
     <CoupleGuidedQuestionSection
@@ -250,7 +283,7 @@ export function CoupleMusicProfileGuidedSection({
       title="Let's talk about the music"
       intro="Most couples add songs over time, but before we build playlists, we'd love to understand the kind of celebration you're imagining."
       steps={steps}
-      answers={answers}
+      answers={resolvedAnswers}
       completionTitle="We've got your vibe."
       completionBody="Your music profile is saved. You can add songs in Music Hub anytime, but let's keep moving through your planning journey."
       onContinueToNextChapter={onContinueToNextChapter}

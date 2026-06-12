@@ -7,7 +7,11 @@ import {
 } from "@/data/musicTasteProfileCatalog";
 import {
   MUSIC_PROFILE_QUESTION_IDS,
-  parsePlanningQuestionChipAnswer,
+  parseMusicProfileDanceFloorAnswer,
+  parseMusicProfileDecadesAnswer,
+  parseMusicProfileGenresAnswer,
+  parseMusicProfileLineDancesPickAnswer,
+  resolveMusicProfileAnswersForDisplay,
 } from "@/lib/coupleMusicProfilePlanning";
 import type { MusicTasteProfile, MusicVibeDetail } from "@/types/planning";
 
@@ -151,25 +155,25 @@ function mapLineDanceAttitude(attitude: string): string[] {
 export function mergeMusicProfileIntoMusicHub(
   input: MergeMusicProfileIntoMusicHubInput,
 ): MergeMusicProfileIntoMusicHubResult {
-  const answers = input.planningQuestionAnswers;
+  const answers = resolveMusicProfileAnswersForDisplay(input.planningQuestionAnswers);
   let changed = false;
 
   const taste = normalizeMusicTasteProfile(input.musicTasteProfile);
   let genreEra = [...input.musicGenreEraSelections];
   let vibeDetail: MusicVibeDetail = { ...input.musicVibeDetail };
 
-  const danceFloorProfile = parsePlanningQuestionChipAnswer(
+  const danceFloorProfile = parseMusicProfileDanceFloorAnswer(
     answers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle],
   );
-  const decadesProfile = parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.decades]);
-  const genresLoveProfile = parsePlanningQuestionChipAnswer(
+  const decadesProfile = parseMusicProfileDecadesAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.decades]);
+  const genresLoveProfile = parseMusicProfileGenresAnswer(
     answers[MUSIC_PROFILE_QUESTION_IDS.genresLove],
   );
-  const genresAvoidProfile = parsePlanningQuestionChipAnswer(
+  const genresAvoidProfile = parseMusicProfileGenresAnswer(
     answers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid],
   );
   const lineDanceAttitude = (answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? "").trim();
-  const lineDancePicks = parsePlanningQuestionChipAnswer(
+  const lineDancePicks = parseMusicProfileLineDancesPickAnswer(
     answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick],
   );
   const importance = (answers[MUSIC_PROFILE_QUESTION_IDS.importance] ?? "").trim();
@@ -238,14 +242,15 @@ export function mergeMusicProfileIntoMusicHub(
 export function musicProfileHasBridgeableAnswers(
   answers: Record<string, string | undefined>,
 ): boolean {
+  const resolved = resolveMusicProfileAnswersForDisplay(answers);
   return (
-    Boolean((answers[MUSIC_PROFILE_QUESTION_IDS.importance] ?? "").trim()) ||
-    parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle]).length > 0 ||
-    parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.decades]).length > 0 ||
-    parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.genresLove]).length > 0 ||
-    parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.genresAvoid]).length > 0 ||
-    Boolean((answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? "").trim()) ||
-    parsePlanningQuestionChipAnswer(answers[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick]).length > 0 ||
-    Boolean((answers[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? "").trim())
+    Boolean((resolved[MUSIC_PROFILE_QUESTION_IDS.importance] ?? "").trim()) ||
+    parseMusicProfileDanceFloorAnswer(resolved[MUSIC_PROFILE_QUESTION_IDS.danceFloorStyle]).length > 0 ||
+    parseMusicProfileDecadesAnswer(resolved[MUSIC_PROFILE_QUESTION_IDS.decades]).length > 0 ||
+    parseMusicProfileGenresAnswer(resolved[MUSIC_PROFILE_QUESTION_IDS.genresLove]).length > 0 ||
+    parseMusicProfileGenresAnswer(resolved[MUSIC_PROFILE_QUESTION_IDS.genresAvoid]).length > 0 ||
+    Boolean((resolved[MUSIC_PROFILE_QUESTION_IDS.lineDancesAttitude] ?? "").trim()) ||
+    parseMusicProfileLineDancesPickAnswer(resolved[MUSIC_PROFILE_QUESTION_IDS.lineDancesPick]).length > 0 ||
+    Boolean((resolved[MUSIC_PROFILE_QUESTION_IDS.otherNotes] ?? "").trim())
   );
 }

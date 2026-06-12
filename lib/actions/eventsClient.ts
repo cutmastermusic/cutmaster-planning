@@ -20,6 +20,7 @@ import {
   deleteEvent,
   getEvents,
   replaceCeremonyPlan,
+  replaceMusicHubPlan,
   replaceDjScripts,
   replaceDjMusicNotes,
   replaceCeremonyTimelineItems,
@@ -42,6 +43,7 @@ type ReplaceEventTeamMembersArgs = Parameters<typeof replaceEventTeamMembers>[1]
 type ReplaceEventNotesArgs = Parameters<typeof replaceEventNotes>[1];
 type ReplacePlanningQuestionAnswersArgs = Parameters<typeof replacePlanningQuestionAnswers>[1];
 type ReplaceCeremonyPlanArgs = Parameters<typeof replaceCeremonyPlan>[1];
+type ReplaceMusicHubPlanArgs = Parameters<typeof replaceMusicHubPlan>[1];
 type ReplaceDjScriptsArgs = Parameters<typeof replaceDjScripts>[1];
 type ReplaceDjMusicNotesArgs = Parameters<typeof replaceDjMusicNotes>[1];
 type CreateEventArgs = Parameters<typeof createEvent>[0];
@@ -136,6 +138,14 @@ export async function replaceCeremonyPlanGuarded(
 ) {
   assertPayloadFitsServerAction("replaceCeremonyPlan", plan);
   return replaceCeremonyPlan(eventId, plan);
+}
+
+export async function replaceMusicHubPlanGuarded(
+  eventId: string,
+  plan: ReplaceMusicHubPlanArgs,
+) {
+  assertPayloadFitsServerAction("replaceMusicHubPlan", plan);
+  return replaceMusicHubPlan(eventId, plan);
 }
 
 export async function replaceDjScriptsGuarded(

@@ -11,6 +11,10 @@ import {
   planningQuestionAnswersWithLegacyGrandEntranceColumns,
   type PlanningQuestionAnswersRecord,
 } from "@/lib/planningPersistence";
+import {
+  buildMusicHubPlanSnapshot,
+  type EventMusicHubPlanSnapshot,
+} from "@/lib/musicHubPlan";
 import type { EventCeremonyPlanSnapshot } from "@/types/planning";
 
 /**
@@ -208,6 +212,21 @@ export async function replaceCeremonyPlan(eventId: string, plan: EventCeremonyPl
     select: {
       id: true,
       ceremonyPlan: true,
+    },
+  });
+}
+
+export async function replaceMusicHubPlan(eventId: string, plan: EventMusicHubPlanSnapshot) {
+  logActionPayload("replaceMusicHubPlan", plan);
+  const normalized = buildMusicHubPlanSnapshot(plan);
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      musicHubPlan: normalized as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      musicHubPlan: true,
     },
   });
 }

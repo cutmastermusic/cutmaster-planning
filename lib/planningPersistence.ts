@@ -24,9 +24,21 @@ export function parsePlanningQuestionAnswersJson(value: unknown): PlanningQuesti
   }
   const out: PlanningQuestionAnswersRecord = {};
   for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
-    if (trimmed) out[key] = trimmed;
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (trimmed) out[key] = trimmed;
+      continue;
+    }
+    if (Array.isArray(raw)) {
+      const labels = raw.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+      if (labels.length > 0) {
+        out[key] = JSON.stringify(labels);
+      }
+      continue;
+    }
+    if (typeof raw === "number" || typeof raw === "boolean") {
+      out[key] = String(raw);
+    }
   }
   return out;
 }

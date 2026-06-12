@@ -62,6 +62,8 @@ model Event {
   planningQuestionAnswers Json?
   /** DB-backed ceremony planning fields (times, notes, processional songs). */
   ceremonyPlan            Json?
+  /** DB-backed Music Hub taste / genre / vibe selections. */
+  musicHubPlan            Json?
   /** DB-backed DJ-only operational scripts (Show Book). Not client-facing. */
   djScripts               Json?
   /** DB-backed DJ-only operational music notes (Show Book). Not client-facing. */
