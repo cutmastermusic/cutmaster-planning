@@ -8129,6 +8129,7 @@ export default function Home() {
       const approvedGuestCount = guestRequests.filter((r) => r.status === "Approved").length;
       const completion =
         pendingGuestCount > 0 ? 52 : guestRequests.length === 0 ? 72 : 100;
+      const guestRequestsPostJourney = isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete;
       cards.push({
         id: "guest-requests",
         kicker: "Guests",
@@ -8136,15 +8137,30 @@ export default function Home() {
         description: "Song ideas and notes from the people celebrating with you.",
         screen: "Guest Requests",
         completion,
-        ctaLabel: pendingGuestCount > 0 ? "Continue" : "Review",
-        pendingBadge: pendingGuestCount > 0 ? `${pendingGuestCount} pending` : undefined,
+        ctaLabel: guestRequestsPostJourney
+          ? pendingGuestCount > 0
+            ? "Take a look"
+            : "Open"
+          : pendingGuestCount > 0
+            ? "Continue"
+            : "Review",
+        pendingBadge:
+          pendingGuestCount > 0
+            ? guestRequestsPostJourney
+              ? `${pendingGuestCount} new`
+              : `${pendingGuestCount} pending`
+            : undefined,
         statLine:
           guestRequests.length === 0
             ? "No requests yet"
-            : `${guestRequests.length} total · ${approvedGuestCount} approved`,
+            : guestRequestsPostJourney
+              ? `${guestRequests.length} total · ${approvedGuestCount} saved to your list`
+              : `${guestRequests.length} total · ${approvedGuestCount} approved`,
         statSubline:
           pendingGuestCount > 0
-            ? `${pendingGuestCount} waiting for your review`
+            ? guestRequestsPostJourney
+              ? `${pendingGuestCount} worth a look when you have a moment`
+              : `${pendingGuestCount} waiting for your review`
             : guestRequests.length > 0
               ? "Inbox is clear"
               : "Share the link when invitations go out",
@@ -8233,6 +8249,7 @@ export default function Home() {
     hasKeyTimelineMoments,
     hasMomentPlaylistLines,
     isCoupleWeddingPlanningView,
+    isCoupleWeddingJourneyComplete,
     mustPlaySongs.length,
     playIfPossibleSongs.length,
     musicPlaylistLinks.length,
@@ -15110,13 +15127,13 @@ export default function Home() {
                         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">
                           {isCoupleWeddingPlanningView
                             ? isCoupleWeddingJourneyComplete
-                              ? "Your planning journey"
+                              ? "Your wedding story"
                               : "Your story progress"
                             : "Planning progress"}
                         </p>
                         {isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
                           <p className="mt-1 text-[11px] leading-snug text-zinc-300">
-                            All six chapters complete
+                            Chapters saved—you&apos;re onto the details phase
                           </p>
                         ) : null}
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
@@ -15303,7 +15320,7 @@ export default function Home() {
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-stone-700">
                       {isCoupleWeddingJourneyComplete
-                        ? "All six chapters are complete. Tap any chapter to review or update your answers."
+                        ? "Everything you shared is saved. Tap any chapter to read or update your answers."
                         : "Six short chapters—open one at a time, at your pace."}
                     </p>
                   </div>
@@ -15374,7 +15391,15 @@ export default function Home() {
                         </div>
                         <div className="mt-4">
                           <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
-                            <span>{chapter.status}</span>
+                            <span>
+                              {isCoupleWeddingJourneyComplete
+                                ? chapter.status === "Complete"
+                                  ? "Saved"
+                                  : chapter.status === "In Progress"
+                                    ? "In progress"
+                                    : "Not started"
+                                : chapter.status}
+                            </span>
                             <span className="tabular-nums font-semibold text-stone-700">
                               {chapter.completionPct}%
                             </span>
@@ -15400,8 +15425,10 @@ export default function Home() {
                           >
                             {chapter.status === "Complete"
                               ? chapter.id === "final_review" && isCoupleWeddingJourneyComplete
-                                ? "View summary"
-                                : "Review"
+                                ? "See your summary"
+                                : isCoupleWeddingJourneyComplete
+                                  ? "Open"
+                                  : "Review"
                               : isCurrentChapter
                                 ? "Continue"
                                 : "Open chapter"}{" "}
@@ -15421,7 +15448,7 @@ export default function Home() {
                   <details className="group rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3 sm:px-5 sm:py-4">
                     <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500 [&::-webkit-details-marker]:hidden">
                       <span className="flex items-center justify-between gap-2">
-                        More planning areas
+                        Explore more of your plan
                         <span
                           className="text-[10px] font-semibold normal-case tracking-normal text-stone-400 transition-transform group-open:rotate-180"
                           aria-hidden
@@ -15430,7 +15457,7 @@ export default function Home() {
                         </span>
                       </span>
                       <p className="mt-2 text-sm font-normal normal-case tracking-normal text-stone-600">
-                        Event team, Event Plan, and other sections from your plan.
+                        Event team, Event Plan, and anything else you&apos;d like to peek at.
                       </p>
                     </summary>
                     <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
@@ -15471,7 +15498,7 @@ export default function Home() {
                           </div>
                           <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
                             <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
-                              {section.ctaLabel} →
+                              {section.ctaLabel === "Review" ? "Open" : section.ctaLabel} →
                             </span>
                           </div>
                         </button>

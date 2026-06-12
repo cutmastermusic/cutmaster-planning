@@ -46,7 +46,7 @@ function QuickLinkTile({
         <p className="mt-2 text-xs font-medium text-stone-800">{link.statLine}</p>
       ) : null}
       <span className="mt-auto pt-3 text-xs font-semibold text-stone-700 transition group-hover:text-stone-950">
-        Open →
+        Take a look →
       </span>
     </button>
   );
@@ -76,7 +76,7 @@ function HintRow({
           <p className="mt-1 text-sm leading-snug text-stone-800">{hint.message}</p>
         </div>
         <span className="shrink-0 pt-0.5 text-xs font-semibold text-stone-600 transition group-hover:text-stone-900">
-          Open →
+          Take a look →
         </span>
       </button>
     </li>
@@ -114,7 +114,7 @@ export function CoupleFinalPlanningPrepDashboard({
     <div className="space-y-5">
       <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/80 via-white to-[#00D4FF]/[0.05] px-5 py-5 shadow-sm sm:px-6 sm:py-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-          Wedding journey complete
+          Story complete
         </p>
         <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
           🎉 Your planning story is complete
@@ -125,15 +125,15 @@ export function CoupleFinalPlanningPrepDashboard({
 
         <div className="mt-5 rounded-xl border border-stone-200/90 bg-white/80 px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-            Your final planning meeting
+            Before we meet
           </p>
           <p className="mt-2 text-sm leading-relaxed text-stone-700">
-            This is a working session with your Cutmaster team—not a test or submission. We&apos;ll walk
-            through your timeline, music, ceremony cues, and anything else on your mind.
+            Your final planning meeting is a relaxed working session with your Cutmaster team. We&apos;ll
+            walk through your timeline, music, ceremony cues, and anything else on your mind.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-stone-700">
-            Bring questions, rough timing, and song ideas. Details you add here help us prepare your Event
-            Plan so the conversation stays focused on your day.
+            Bring questions, rough timing, and song ideas whenever you have them. What you add here helps
+            us prepare your Event Plan so we can focus on your day together.
           </p>
           {teamParts.length > 0 ? (
             <p className="mt-3 text-xs leading-relaxed text-stone-600">
@@ -155,7 +155,8 @@ export function CoupleFinalPlanningPrepDashboard({
             Quick access
           </p>
           <p className="mt-2 text-sm leading-relaxed text-stone-700">
-            Jump to the areas we&apos;ll most likely talk through together.
+            A few places we&apos;ll probably walk through together—open any section whenever you&apos;re
+            curious.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {quickLinks.map((link) => (
@@ -167,12 +168,12 @@ export function CoupleFinalPlanningPrepDashboard({
 
       <PremiumCard className="border-stone-200 bg-white shadow-sm">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-          Helpful details
+          Optional ideas before you meet
         </p>
         {hints.length > 0 ? (
           <>
             <p className="mt-2 text-sm leading-relaxed text-stone-700">
-              A few things you might still add—optional, and helpful to revisit before your meeting.
+              If you have a few spare minutes, these are nice touches—not requirements.
             </p>
             <ul className="mt-4 space-y-2">
               {hints.map((hint) => (
@@ -182,8 +183,8 @@ export function CoupleFinalPlanningPrepDashboard({
           </>
         ) : (
           <p className="mt-2 text-sm leading-relaxed text-stone-700">
-            Your timeline, music, and story look well filled in. You can still refine anything before your
-            meeting—we&apos;ll walk through it together.
+            You&apos;re in great shape. You can still tweak anything before we meet—we&apos;ll walk through
+            it together.
           </p>
         )}
       </PremiumCard>
