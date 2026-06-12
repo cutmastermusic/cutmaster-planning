@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  authorizePlatformAccess,
+  authorizePlatformMutation,
+} from "@/lib/eventAccess/authorize";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_COMPANY_TEAM_SEED = [
@@ -44,6 +48,7 @@ async function getDemoUser() {
 }
 
 export async function getCompanyTeamMembers() {
+  await authorizePlatformAccess();
   const demoUser = await getDemoUser();
   let rows = await prisma.companyTeamMember.findMany({
     where: { ownerId: demoUser.id },
@@ -78,6 +83,7 @@ export async function replaceCompanyTeamMembers(
     order: number;
   }>,
 ) {
+  await authorizePlatformMutation("workspace:team:write");
   const demoUser = await getDemoUser();
   const existingRows = await prisma.companyTeamMember.findMany({
     where: { ownerId: demoUser.id },

@@ -126,3 +126,30 @@ export async function authorizeEventMutation(
 ): Promise<AuthorizedActor> {
   return authorizeEventAccess(eventId, capability);
 }
+
+export async function authorizePlatformAccess(): Promise<SessionAccessProfile> {
+  const access = await requireAuth();
+
+  if (access.readScope === "bypass") {
+    return access;
+  }
+
+  if (access.platformRole === "ADMIN") {
+    return access;
+  }
+
+  throw new EventAccessError(
+    "CAPABILITY_DENIED",
+    "Platform administrator access is required.",
+  );
+}
+
+export async function authorizePlatformMutation(
+  capability: EventCapability,
+): Promise<SessionAccessProfile> {
+  const access = await authorizePlatformAccess();
+  const actor: CapabilityActor =
+    access.readScope === "bypass" ? "bypass" : "platform-admin";
+  assertCapabilityAllowed(actor, capability);
+  return access;
+}

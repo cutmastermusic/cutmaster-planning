@@ -16,7 +16,13 @@ import {
   type EventMusicHubPlanSnapshot,
 } from "@/lib/musicHubPlan";
 import type { EventCeremonyPlanSnapshot } from "@/types/planning";
-import { authorizeEventMutation } from "@/lib/eventAccess/authorize";
+import { authorizeEventMutation, authorizeEventAccess, authorizePlatformMutation } from "@/lib/eventAccess/authorize";
+import { roleHasCapability } from "@/lib/eventAccess/capabilities";
+import { EventAccessError } from "@/lib/eventAccess/errors";
+import {
+  applyCoupleSafeEventDataUpdate,
+  type DatabaseEventMetadataUpdate,
+} from "@/lib/coupleSafety";
 import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import {
   accessibleEventIdsFromMemberships,
@@ -98,6 +104,24 @@ type EventData = {
   eventStatus?: string | null;
 };
 
+function eventDataToMetadataUpdate(data: EventData): DatabaseEventMetadataUpdate {
+  return {
+    title: data.title,
+    date: data.date ?? null,
+    type: data.type,
+    venue: data.venue,
+    venueAddress: data.venueAddress,
+    assignedDj: data.assignedDj,
+    packageName: data.packageName,
+    plannerName: data.plannerName,
+    plannerEmail: data.plannerEmail,
+    ceremonyLocation: data.ceremonyLocation,
+    receptionLocation: data.receptionLocation,
+    internalNotes: data.internalNotes,
+    eventStatus: data.eventStatus ?? undefined,
+  };
+}
+
 export async function getEvents() {
   const events = await prisma.event.findMany({
     orderBy: {
@@ -155,6 +179,7 @@ export async function getEventsForSession() {
 }
 
 export async function createEvent(data: EventData) {
+  await authorizePlatformMutation("event:create");
   logActionPayload("createEvent", data);
   try {
     const demoUser = await prisma.user.upsert({
@@ -306,6 +331,7 @@ export async function replaceDjScripts(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "dj-ops:write");
   logActionPayload("replaceDjScripts", scripts);
   return prisma.event.update({
     where: { id: eventId },
@@ -327,6 +353,7 @@ export async function replaceDjMusicNotes(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "dj-ops:write");
   logActionPayload("replaceDjMusicNotes", notes);
   return prisma.event.update({
     where: { id: eventId },
@@ -341,30 +368,85 @@ export async function replaceDjMusicNotes(
 }
 
 export async function updateEvent(id: string, data: EventData) {
+  const actor = await authorizeEventAccess(id);
+
+  if (!actor.bypass && !actor.platformAdmin) {
+    const capability =
+      actor.eventMemberRole === "COUPLE" ? "event:metadata:couple-write" : "event:metadata:write";
+    if (!roleHasCapability(actor.capabilityActor, capability)) {
+      throw new EventAccessError(
+        "CAPABILITY_DENIED",
+        `Capability "${capability}" is not allowed for this role.`,
+      );
+    }
+  }
+
+  let metadata = eventDataToMetadataUpdate(data);
+
+  if (!actor.bypass && !actor.platformAdmin && actor.eventMemberRole === "COUPLE") {
+    const existing = await prisma.event.findUnique({
+      where: { id },
+      select: {
+        title: true,
+        date: true,
+        type: true,
+        venue: true,
+        venueAddress: true,
+        assignedDj: true,
+        packageName: true,
+        plannerName: true,
+        plannerEmail: true,
+        ceremonyLocation: true,
+        receptionLocation: true,
+        internalNotes: true,
+        eventStatus: true,
+      },
+    });
+
+    if (existing) {
+      metadata = applyCoupleSafeEventDataUpdate(metadata, {
+        title: existing.title,
+        date: existing.date,
+        type: existing.type,
+        venue: existing.venue,
+        venueAddress: existing.venueAddress,
+        assignedDj: existing.assignedDj,
+        packageName: existing.packageName,
+        plannerName: existing.plannerName,
+        plannerEmail: existing.plannerEmail,
+        ceremonyLocation: existing.ceremonyLocation,
+        receptionLocation: existing.receptionLocation,
+        internalNotes: existing.internalNotes,
+        eventStatus: existing.eventStatus,
+      });
+    }
+  }
+
   logActionPayload("updateEvent", data);
   return prisma.event.update({
     where: {
       id,
     },
     data: {
-      title: data.title,
-      date: data.date,
-      type: data.type,
-      venue: data.venue,
-      venueAddress: data.venueAddress,
-      assignedDj: data.assignedDj,
-      packageName: data.packageName,
-      plannerName: data.plannerName,
-      plannerEmail: data.plannerEmail,
-      ceremonyLocation: data.ceremonyLocation,
-      receptionLocation: data.receptionLocation,
-      internalNotes: data.internalNotes,
-      eventStatus: data.eventStatus ?? undefined,
+      title: metadata.title,
+      date: metadata.date,
+      type: metadata.type,
+      venue: metadata.venue,
+      venueAddress: metadata.venueAddress,
+      assignedDj: metadata.assignedDj,
+      packageName: metadata.packageName,
+      plannerName: metadata.plannerName,
+      plannerEmail: metadata.plannerEmail,
+      ceremonyLocation: metadata.ceremonyLocation,
+      receptionLocation: metadata.receptionLocation,
+      internalNotes: metadata.internalNotes,
+      eventStatus: metadata.eventStatus ?? undefined,
     },
   });
 }
 
 export async function deleteEvent(id: string) {
+  await authorizeEventMutation(id, "event:delete");
   logActionPayload("deleteEvent", { id });
 
   const eventExists = await prisma.event.findUnique({
@@ -709,6 +791,7 @@ export async function replaceEventNotes(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "notes:write");
   logActionPayload("replaceEventNotes", notes);
   const eventExists = await prisma.event.findUnique({
     where: { id: eventId },
