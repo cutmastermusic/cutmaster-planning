@@ -3396,6 +3396,20 @@ export default function Home() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  type TeamMemberDraftSnapshot = {
+    name: string;
+    role: TeamMemberRole;
+    company: string;
+    email: string;
+    phone: string;
+    notes: string;
+    website: string;
+    instagram: string;
+    arrivalTime: string;
+    specialCoordinationNotes: string;
+    isActive: boolean;
+  };
+  const teamModalBaselineRef = useRef<TeamMemberDraftSnapshot | null>(null);
   const [eventNotes, setEventNotes] = useState<EventNote[]>([]);
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
   const [noteCategoryDraft, setNoteCategoryDraft] = useState<string>("General");
@@ -5737,7 +5751,8 @@ export default function Home() {
       canActorManageEventTeamMember(teamMemberBeingEdited, canManageInternalEventTeam));
   const teamModalShowsCompanyField =
     teamRoleDraft !== "Admin" && teamRoleDraft !== "DJ";
-  const canEditEventCover = effectiveRole !== "DJ";
+  const canEditEventCover = effectiveRole !== "DJ" && effectiveRole !== "Couple";
+  const canEditChecklistStatus = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canEditEventStatus = effectiveRole === "Admin" || effectiveRole === "Planner";
   /** Session-only hero preview — not sent to server actions (Base64 exceeds action body limit). */
   const applyEventCoverPhoto = useCallback(
@@ -6865,7 +6880,45 @@ export default function Home() {
     setTeamArrivalDraft("");
     setTeamCoordinationDraft("");
     setTeamActiveDraft(true);
+    teamModalBaselineRef.current = null;
   };
+
+  const captureTeamMemberDraftSnapshot = useCallback(
+    (): TeamMemberDraftSnapshot => ({
+      name: teamNameDraft.trim(),
+      role: teamRoleDraft,
+      company: teamCompanyDraft.trim(),
+      email: teamEmailDraft.trim(),
+      phone: teamPhoneDraft.trim(),
+      notes: teamNotesDraft.trim(),
+      website: teamWebsiteDraft.trim(),
+      instagram: teamInstagramDraft.trim(),
+      arrivalTime: teamArrivalDraft.trim(),
+      specialCoordinationNotes: teamCoordinationDraft.trim(),
+      isActive: teamActiveDraft,
+    }),
+    [
+      teamNameDraft,
+      teamRoleDraft,
+      teamCompanyDraft,
+      teamEmailDraft,
+      teamPhoneDraft,
+      teamNotesDraft,
+      teamWebsiteDraft,
+      teamInstagramDraft,
+      teamArrivalDraft,
+      teamCoordinationDraft,
+      teamActiveDraft,
+    ],
+  );
+
+  const teamModalHasUnsavedChanges = useMemo(() => {
+    if (!teamModalOpen || !teamModalBaselineRef.current) return false;
+    return (
+      JSON.stringify(teamModalBaselineRef.current) !==
+      JSON.stringify(captureTeamMemberDraftSnapshot())
+    );
+  }, [teamModalOpen, captureTeamMemberDraftSnapshot]);
 
   const startEditingTeamMember = (member: TeamMember) => {
     if (!canActorManageEventTeamMember(member, canManageInternalEventTeam)) {
@@ -6888,6 +6941,19 @@ export default function Home() {
     setTeamArrivalDraft(member.arrivalTime ?? "");
     setTeamCoordinationDraft(member.specialCoordinationNotes ?? "");
     setTeamActiveDraft(member.isActive);
+    teamModalBaselineRef.current = {
+      name: member.name,
+      role: member.role,
+      company: member.company ?? "",
+      email: member.email,
+      phone: member.phone,
+      notes: member.notes,
+      website: member.website ?? "",
+      instagram: member.instagram ?? "",
+      arrivalTime: member.arrivalTime ?? "",
+      specialCoordinationNotes: member.specialCoordinationNotes ?? "",
+      isActive: member.isActive,
+    };
     setTeamFormStatus({ kind: "success", message: `Editing ${member.name}.` });
     setTeamModalOpen(true);
   };
@@ -6895,10 +6961,32 @@ export default function Home() {
   const openAddTeamMemberModal = () => {
     resetTeamMemberDraft();
     setTeamFormStatus(null);
+    teamModalBaselineRef.current = {
+      name: "",
+      role: canManageInternalEventTeam ? "DJ" : DEFAULT_EVENT_TEAM_VENDOR_ROLE,
+      company: "",
+      email: "",
+      phone: "",
+      notes: "",
+      website: "",
+      instagram: "",
+      arrivalTime: "",
+      specialCoordinationNotes: "",
+      isActive: true,
+    };
     setTeamModalOpen(true);
   };
 
   const closeTeamMemberModal = () => {
+    if (
+      isEventTeamPersistenceContext &&
+      teamModalHasUnsavedChanges &&
+      !window.confirm(
+        "Discard unsaved changes? Contacts are only saved when you tap Save — they are not autosaved.",
+      )
+    ) {
+      return;
+    }
     setTeamModalOpen(false);
     resetTeamMemberDraft();
   };
@@ -9687,76 +9775,105 @@ export default function Home() {
             ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
             : eventSettings;
 
-          void persistEventMetadataToDatabase(
-            activeEventId,
-            eventSettings,
-            isActualCouple,
-            preservedSettings,
-          );
-          void persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore).then(
-            (result) => {
-              if (result.ok || ("skipped" in result && result.skipped)) {
-                return;
-              }
-              if (!("error" in result)) return;
-              const errorMessage =
-                result.error instanceof Error ? result.error.message : String(result.error);
-              console.error("[PERSIST-DEBUG] autosave timeline persist failed", errorMessage);
-            },
-          );
-          void persistSongsToDatabase(
-            activeEventId,
-            mustPlaySongs,
-            doNotPlaySongs,
-            playIfPossibleSongs,
-          );
-          // Guest requests are added via local state only, so the debounced autosave must mirror
-          // them to the DB (same full-replace the explicit commit uses); otherwise a refresh
-          // re-hydrates from the DB and drops requests added since the last event/role switch.
-          void replaceGuestRequests(
-            activeEventId,
-            guestRequests.map((request, index) => ({
-              guestName: request.guestName,
-              songTitle: request.songTitle,
-              artist: request.artist,
-              dedication: request.dedication,
-              status: request.status,
-              addedToMustPlay: request.addedToMustPlay,
-              addedToDoNotPlay: request.addedToDoNotPlay,
-              order: index,
-            })),
-          );
-          void persistPlanningQuestionAnswersToDatabase(
-            activeEventId,
-            eventSettings.planningQuestionAnswers ?? {},
-          );
-          void persistCeremonyPlanToDatabase(
-            activeEventId,
-            buildCeremonyPlanWithClientDetails(
-              {
-                ceremonyStartTime,
-                ceremonyGuestArrivalTime,
-                officiantName,
-                ceremonyNotes,
-                microphoneNeeds,
-                weddingPartyProcessional,
-                brideGroomProcessional,
-                unityCeremonySong,
-                recessionalSong,
-              },
-              settingsForCeremonyDb,
+          const dbPersistTasks: Array<Promise<unknown>> = [
+            persistEventMetadataToDatabase(
+              activeEventId,
+              eventSettings,
+              isActualCouple,
+              preservedSettings,
             ),
-          );
-          void persistMusicHubPlanToDatabase(
-            activeEventId,
-            buildMusicHubPlanSnapshot({
-              musicGenreEraSelections,
-              musicTasteProfile,
-              musicVibeDetail,
-            }),
-          );
-          void persistDjScriptsToDatabase(activeEventId, djScripts);
-          void persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
+            persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore),
+            persistSongsToDatabase(
+              activeEventId,
+              mustPlaySongs,
+              doNotPlaySongs,
+              playIfPossibleSongs,
+            ),
+            replaceGuestRequests(
+              activeEventId,
+              guestRequests.map((request, index) => ({
+                guestName: request.guestName,
+                songTitle: request.songTitle,
+                artist: request.artist,
+                dedication: request.dedication,
+                status: request.status,
+                addedToMustPlay: request.addedToMustPlay,
+                addedToDoNotPlay: request.addedToDoNotPlay,
+                order: index,
+              })),
+            ),
+            persistPlanningQuestionAnswersToDatabase(
+              activeEventId,
+              eventSettings.planningQuestionAnswers ?? {},
+            ),
+            persistCeremonyPlanToDatabase(
+              activeEventId,
+              buildCeremonyPlanWithClientDetails(
+                {
+                  ceremonyStartTime,
+                  ceremonyGuestArrivalTime,
+                  officiantName,
+                  ceremonyNotes,
+                  microphoneNeeds,
+                  weddingPartyProcessional,
+                  brideGroomProcessional,
+                  unityCeremonySong,
+                  recessionalSong,
+                },
+                settingsForCeremonyDb,
+              ),
+            ),
+            persistMusicHubPlanToDatabase(
+              activeEventId,
+              buildMusicHubPlanSnapshot({
+                musicGenreEraSelections,
+                musicTasteProfile,
+                musicVibeDetail,
+              }),
+            ),
+          ];
+
+          if (!isActualCouple) {
+            dbPersistTasks.push(
+              persistDjScriptsToDatabase(activeEventId, djScripts),
+              persistDjMusicNotesToDatabase(activeEventId, djMusicNotes),
+            );
+          }
+
+          void (async () => {
+            const results = await Promise.all(dbPersistTasks);
+            const dbPersistOk = results.every((result) => {
+              if (result && typeof result === "object" && "ok" in result) {
+                return Boolean((result as { ok: boolean }).ok);
+              }
+              return true;
+            });
+
+            if (!dbPersistOk) {
+              console.error("[PERSIST-DEBUG] autosave DB persist failed for one or more writes");
+              if (showPersistUi) {
+                setPersistPhase("idle");
+              }
+              return;
+            }
+
+            if (persistUiSuppressBootCountRef.current > 0) {
+              persistUiSuppressBootCountRef.current -= 1;
+              return;
+            }
+
+            if (showPersistUi) {
+              setPersistBaseline(true);
+              setPersistPhase("saved");
+              if (persistPhaseHideTimeoutRef.current) {
+                window.clearTimeout(persistPhaseHideTimeoutRef.current);
+              }
+              persistPhaseHideTimeoutRef.current = window.setTimeout(() => {
+                setPersistPhase("idle");
+                persistPhaseHideTimeoutRef.current = null;
+              }, 2400);
+            }
+          })();
         } else {
           logDbPersistGuard("autosave DB persist skipped", {
             activeEventId,
@@ -9767,19 +9884,9 @@ export default function Home() {
             songCounts,
             timelineCounts,
           });
-        }
-        setPersistBaseline(true);
-        if (persistUiSuppressBootCountRef.current > 0) {
-          persistUiSuppressBootCountRef.current -= 1;
-        } else {
-          setPersistPhase("saved");
-          if (persistPhaseHideTimeoutRef.current) {
-            window.clearTimeout(persistPhaseHideTimeoutRef.current);
-          }
-          persistPhaseHideTimeoutRef.current = window.setTimeout(() => {
+          if (showPersistUi) {
             setPersistPhase("idle");
-            persistPhaseHideTimeoutRef.current = null;
-          }, 2400);
+          }
         }
       } catch {
         if (persistUiSuppressBootCountRef.current > 0) {
@@ -15479,7 +15586,7 @@ export default function Home() {
                         onClick={() => setActiveScreen("Event Settings")}
                         className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-11 sm:w-auto sm:px-3 sm:py-2 sm:text-[11px]"
                       >
-                        Event details & cover photo
+                        Event details{canEditEventCover ? " & cover photo" : ""}
                       </PrimaryButton>
                     </div>
                   ) : null}
@@ -16242,6 +16349,7 @@ export default function Home() {
               showDoNotPlay={sectionDoNotPlayEnabled}
             />
 
+            {!isCoupleView ? (
             <PremiumCard
               id="music-hub-playlist-links"
               className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
@@ -16251,7 +16359,7 @@ export default function Home() {
                 Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste.
               </p>
               <p className="mt-2 text-xs text-stone-500">
-                Playlist song extraction coming later—we never pull tracks from a link automatically today.
+                Saved on this device only until cloud sync is available—they won&apos;t follow you to a new browser or phone.
               </p>
               <div className="mt-4 space-y-3">
                 <TextInput
@@ -16385,6 +16493,7 @@ export default function Home() {
                 </div>
               )}
             </PremiumCard>
+            ) : null}
 
             <PremiumCard
               id="music-hub-spotify-import"
@@ -20697,6 +20806,15 @@ export default function Home() {
               aria-hidden
               onChange={handleEventCoverPhotoChange}
             />
+            {isCoupleView ? (
+              <PremiumCard>
+                <SectionTitle className="text-stone-950">Cover photo</SectionTitle>
+                <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                  Cover photo upload is coming soon. For now, your dashboard uses the default hero image—uploads are not
+                  saved to your account yet.
+                </p>
+              </PremiumCard>
+            ) : (
             <PremiumCard>
               <SectionTitle className="text-stone-950">Visual identity & cover photo</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
@@ -20745,6 +20863,7 @@ export default function Home() {
                 <p className="mt-3 text-xs leading-relaxed text-stone-600">Cover editing is not available for the DJ role in this build.</p>
               ) : null}
             </PremiumCard>
+            )}
             {!isCoupleView ? (
             <PremiumCard>
               <SectionTitle className="text-stone-950">Event status</SectionTitle>
@@ -21276,6 +21395,7 @@ export default function Home() {
                     >
                       Status
                     </label>
+                    {canEditChecklistStatus ? (
                     <select
                       id={`task-status-${task.id}`}
                       value={task.status}
@@ -21298,6 +21418,11 @@ export default function Home() {
                         ),
                       )}
                     </select>
+                    ) : (
+                      <p className="mt-1 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800">
+                        {task.status}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3">
@@ -22186,6 +22311,19 @@ export default function Home() {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
               <div className="space-y-3">
+                {isEventTeamPersistenceContext ? (
+                  <p
+                    className={`rounded-xl border px-3 py-2 text-xs leading-relaxed ${
+                      teamModalHasUnsavedChanges
+                        ? "border-amber-300 bg-amber-50 text-amber-950"
+                        : "border-stone-200 bg-stone-50 text-stone-700"
+                    }`}
+                  >
+                    {teamModalHasUnsavedChanges
+                      ? "Unsaved changes — tap Save to store this contact in your event."
+                      : "Contacts save when you tap Save. They are not autosaved."}
+                  </p>
+                ) : null}
                 <div>
                   <label htmlFor="team-member-role" className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-600">
                     {isCoupleView ? "Vendor type" : "Role"}
