@@ -7,14 +7,42 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+/// Cutmaster platform identity — not event-scoped role.
+enum PlatformRole {
+  ADMIN
+  STAFF
+}
 
-  events Event[]
-  companyTeamMembers CompanyTeamMember[]
+/// Role on a specific event.
+enum EventMemberRole {
+  COUPLE
+  DJ
+  PLANNER
+  ADMIN
+}
+
+enum EventMemberStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  authSubject  String?       @unique @db.Uuid
+  platformRole PlatformRole?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now()) @updatedAt
+
+  events                 Event[]
+  companyTeamMembers     CompanyTeamMember[]
+  eventMembers           EventMember[]
+  eventMembersInvited    EventMember[]       @relation("EventMemberInvitedBy")
+  invitesCreated         EventInvite[]       @relation("InviteCreatedBy")
+
+  @@index([platformRole])
 }
 
 model CompanyTeamMember {
@@ -77,8 +105,69 @@ model Event {
   guestRequests GuestRequest[]
   eventTeamMembers EventTeamMember[]
   eventNotes EventNote[]
+  members EventMember[]
+  invites EventInvite[]
 
   createdAt DateTime @default(now())
+}
+
+model EventMember {
+  id          String            @id @default(cuid())
+  eventId     String
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  userId      String?
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  email       String
+  displayName String?
+
+  role        EventMemberRole
+  status      EventMemberStatus @default(PENDING)
+
+  invitedById String?
+  invitedBy   User?             @relation("EventMemberInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  invitedAt   DateTime          @default(now())
+  acceptedAt  DateTime?
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  invites     EventInvite[]
+
+  @@unique([eventId, email])
+  @@index([eventId, status])
+  @@index([userId])
+  @@index([email])
+}
+
+model EventInvite {
+  id            String          @id @default(cuid())
+  eventId       String
+  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  eventMemberId String?
+  eventMember   EventMember?    @relation(fields: [eventMemberId], references: [id], onDelete: SetNull)
+
+  email         String
+  role          EventMemberRole
+
+  tokenHash     String          @unique
+
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  revokedAt     DateTime?
+
+  createdById   String?
+  createdBy     User?           @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([eventId])
+  @@index([email])
+  @@index([expiresAt])
 }
 
 model Timeline {
