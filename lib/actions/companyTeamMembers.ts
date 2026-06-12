@@ -1,9 +1,9 @@
 "use server";
 
 import {
-  authorizePlatformAccess,
   authorizePlatformMutation,
 } from "@/lib/eventAccess/authorize";
+import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_COMPANY_TEAM_SEED = [
@@ -48,7 +48,16 @@ async function getDemoUser() {
 }
 
 export async function getCompanyTeamMembers() {
-  await authorizePlatformAccess();
+  const access = await resolveSessionAccess();
+
+  if (access.readScope === "none") {
+    return [];
+  }
+
+  if (access.readScope !== "bypass" && access.platformRole !== "ADMIN") {
+    return [];
+  }
+
   const demoUser = await getDemoUser();
   let rows = await prisma.companyTeamMember.findMany({
     where: { ownerId: demoUser.id },

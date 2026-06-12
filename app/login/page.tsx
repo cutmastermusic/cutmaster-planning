@@ -11,12 +11,23 @@ import {
 } from "@/lib/auth/authConfig";
 
 type LoginPageProps = {
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; next?: string; email?: string }>;
 };
+
+function sanitizeNextPath(next: string | undefined): string {
+  if (!next) return "/";
+  const trimmed = next.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return "/";
+  }
+  return trimmed;
+}
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = searchParams ? await searchParams : undefined;
   const authError = params?.error;
+  const nextPath = sanitizeNextPath(params?.next);
+  const defaultEmail = params?.email?.trim() ?? "";
   const supabaseConfigured = isSupabaseConfigured();
   const authMode = getAuthMode();
   const bypassEnabled = isAuthBypassEnabled();
@@ -51,7 +62,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <p className="mb-3 text-xs text-stone-600">
               We&apos;ll email you a secure sign-in link. No password required.
             </p>
-            <MagicLinkLoginForm showPrototypeLink={canUsePrototypeLogin} />
+            <MagicLinkLoginForm
+              showPrototypeLink={canUsePrototypeLogin}
+              nextPath={nextPath}
+              defaultEmail={defaultEmail}
+            />
           </div>
         ) : (
           <div className="mt-3 space-y-3 text-xs text-stone-600">

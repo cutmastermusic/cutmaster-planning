@@ -9,12 +9,27 @@ import { PrimaryButton, TextInput } from "@/components/planning-ui";
 
 type MagicLinkLoginFormProps = {
   showPrototypeLink?: boolean;
+  nextPath?: string;
+  defaultEmail?: string;
 };
 
 type FormStatus = "idle" | "sending" | "sent" | "error";
 
-export function MagicLinkLoginForm({ showPrototypeLink = true }: MagicLinkLoginFormProps) {
-  const [email, setEmail] = useState("");
+function sanitizeNextPath(next: string | undefined): string {
+  if (!next) return "/";
+  const trimmed = next.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return "/";
+  }
+  return trimmed;
+}
+
+export function MagicLinkLoginForm({
+  showPrototypeLink = true,
+  nextPath = "/",
+  defaultEmail = "",
+}: MagicLinkLoginFormProps) {
+  const [email, setEmail] = useState(defaultEmail);
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -36,7 +51,7 @@ export function MagicLinkLoginForm({ showPrototypeLink = true }: MagicLinkLoginF
       const { error } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
-          emailRedirectTo: getAuthCallbackUrl("/"),
+          emailRedirectTo: getAuthCallbackUrl(sanitizeNextPath(nextPath)),
         },
       });
 

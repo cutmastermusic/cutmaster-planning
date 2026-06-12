@@ -71,6 +71,8 @@ Existing database variables remain required:
 - `https://cutmaster-planning.vercel.app/auth/callback`
 - Optional local: `http://127.0.0.1:3000/auth/callback`
 
+Invite accept return paths use `?next=/invite/accept?token=…` through `/login` and `/auth/callback` — no extra redirect URL entries are required beyond the callback routes above.
+
 Enable Email provider (magic link / OTP). Password auth is not required for Phase 2.
 
 ### Phase 2 behavior notes

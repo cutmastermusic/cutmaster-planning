@@ -140,6 +140,7 @@ import {
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
 import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
+import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
 import { NoEventAccessState } from "@/components/auth/no-event-access-state";
 import { accessibleEventIdsFromMemberships } from "@/lib/eventAccess/readScope";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -3303,6 +3304,13 @@ export default function Home() {
     authSession.readScope === "member" &&
     authSession.isCouplePortalSession &&
     accessibleCoupleEvents.length === 0;
+
+  const useRealEventInvites =
+    authSession.supabaseConfigured &&
+    !authSession.bypassEnabled &&
+    authSession.readScope !== "bypass" &&
+    databaseEventsLoaded &&
+    databaseEventIdsRef.current.has(activeEventId);
 
   const [allEventsSearch, setAllEventsSearch] = useState("");
   const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
@@ -9221,10 +9229,21 @@ export default function Home() {
     }
   }, [activeEventId]);
 
+  const companyTeamAuthLoaded = authSession.loaded;
+  const companyTeamReadScope = authSession.readScope;
+  const companyTeamPlatformRole = authSession.platformRole;
+
   useEffect(() => {
-    const loadCompanyTeam = async () => {
+    if (!companyTeamAuthLoaded) return;
+    if (companyTeamReadScope === "none") return;
+    if (companyTeamReadScope !== "bypass" && companyTeamPlatformRole !== "ADMIN") return;
+
+    let cancelled = false;
+
+    void (async () => {
       try {
         const rows = await getCompanyTeamMembers();
+        if (cancelled) return;
         setCompanyTeamMembers(
           rows.map((row) => ({
             id: row.id,
@@ -9239,10 +9258,12 @@ export default function Home() {
       } catch (error) {
         console.error("Failed to load company team members:", error);
       }
-    };
+    })();
 
-    void loadCompanyTeam();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [companyTeamAuthLoaded, companyTeamReadScope, companyTeamPlatformRole]);
 
   useEffect(() => {
     if (authStage !== "app" || appMode !== "event" || !isCoupleView) return;
@@ -19621,6 +19642,15 @@ export default function Home() {
               </p>
             </div>
 
+            {useRealEventInvites ? (
+              <EventInviteAdminSection
+                eventId={activeEventId}
+                canInvite={canInviteCollaborators}
+                modalOpen={inviteModalOpen}
+                onModalOpenChange={setInviteModalOpen}
+              />
+            ) : (
+              <>
             <PremiumCard variant="accent">
               <SectionTitle>App access</SectionTitle>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
@@ -19742,6 +19772,8 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ))}
+              </>
+            )}
 
             <PremiumCard className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80">
               <SectionTitle className="text-stone-950">How access levels work</SectionTitle>
@@ -22272,7 +22304,7 @@ export default function Home() {
         </div>
       )}
 
-      {inviteModalOpen && (
+      {inviteModalOpen && !useRealEventInvites && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
@@ -22316,6 +22348,15 @@ export default function Home() {
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="mt-5">
+              <PrimaryButton
+                type="button"
+                onClick={handleInviteCollaborator}
+                className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+              >
+                Add collaborator (prototype)
+              </PrimaryButton>
             </div>
           </div>
         </div>
