@@ -28,6 +28,7 @@ import {
   accessibleEventIdsFromMemberships,
   shouldUseUnscopedReads,
 } from "@/lib/eventAccess/readScope";
+import { shapeEventReadForMembershipRole } from "@/lib/eventAccess/shapeEventForActor";
 
 const EVENT_READ_INCLUDE = {
   timelines: {
@@ -122,7 +123,7 @@ function eventDataToMetadataUpdate(data: EventData): DatabaseEventMetadataUpdate
   };
 }
 
-export async function getEvents() {
+async function fetchAllEventsUnscoped() {
   const events = await prisma.event.findMany({
     orderBy: {
       createdAt: "desc",
@@ -130,9 +131,20 @@ export async function getEvents() {
     include: EVENT_READ_INCLUDE,
   });
 
-  logHydratedEvents("getEvents", events);
+  logHydratedEvents("fetchAllEventsUnscoped", events);
 
   return events;
+}
+
+/** Unscoped event reads — platform admin / bypass only. */
+export async function getEvents() {
+  const access = await resolveSessionAccess();
+
+  if (!shouldUseUnscopedReads(access.readScope)) {
+    throw new EventAccessError("FORBIDDEN", "You do not have access to load events.");
+  }
+
+  return fetchAllEventsUnscoped();
 }
 
 export async function getEventsForSession() {
@@ -142,7 +154,7 @@ export async function getEventsForSession() {
     console.log(
       `[event-read] getEventsForSession readScope=${access.readScope} user=${access.dbUser?.id ?? "none"} → unscoped`,
     );
-    return getEvents();
+    return fetchAllEventsUnscoped();
   }
 
   if (access.readScope === "none" || !access.dbUser) {
@@ -160,6 +172,10 @@ export async function getEventsForSession() {
     return [];
   }
 
+  const roleByEventId = new Map(
+    access.memberships.map((membership) => [membership.eventId, membership.role]),
+  );
+
   const events = await prisma.event.findMany({
     where: {
       id: { in: eventIds },
@@ -170,12 +186,16 @@ export async function getEventsForSession() {
     include: EVENT_READ_INCLUDE,
   });
 
-  console.log(
-    `[event-read] getEventsForSession readScope=member user=${access.dbUser.id} → ${events.length} events`,
+  const shapedEvents = events.map((event) =>
+    shapeEventReadForMembershipRole(event, roleByEventId.get(event.id)),
   );
-  logHydratedEvents("getEventsForSession", events);
 
-  return events;
+  console.log(
+    `[event-read] getEventsForSession readScope=member user=${access.dbUser.id} → ${shapedEvents.length} events`,
+  );
+  logHydratedEvents("getEventsForSession", shapedEvents);
+
+  return shapedEvents;
 }
 
 export async function createEvent(data: EventData) {

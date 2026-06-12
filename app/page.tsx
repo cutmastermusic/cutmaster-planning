@@ -143,6 +143,9 @@ import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
 import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
 import { NoEventAccessState } from "@/components/auth/no-event-access-state";
 import { accessibleEventIdsFromMemberships } from "@/lib/eventAccess/readScope";
+import {
+  stripStaffOnlyFieldsFromClientEventRecord,
+} from "@/lib/eventAccess/shapeEventForActor";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
@@ -2955,6 +2958,24 @@ export default function Home() {
     () => authSession.coupleMemberships.map((membership) => membership.eventId),
     [authSession.coupleMemberships],
   );
+  const shouldStripStaffFieldsForCoupleHydration = useCallback(
+    (eventId: string): boolean => {
+      if (authSession.isCouplePortalSession) {
+        return true;
+      }
+      if (!authSession.loaded || authSession.readScope !== "member") {
+        return false;
+      }
+      const membership = authSession.memberships.find((m) => m.eventId === eventId);
+      return membership?.role === "COUPLE";
+    },
+    [
+      authSession.isCouplePortalSession,
+      authSession.loaded,
+      authSession.readScope,
+      authSession.memberships,
+    ],
+  );
   const persistUiSuppressBootCountRef = useRef(0);
   const musicHubTasteDirtyRef = useRef(false);
   const musicHubTasteDirtyRevisionRef = useRef(0);
@@ -4323,7 +4344,10 @@ export default function Home() {
     setPersistPhase("pending");
   }, [setPersistPhase]);
 
-  const loadEventPlanningIntoWorkingState = (evt: EventRecord) => {
+  const loadEventPlanningIntoWorkingState = (incoming: EventRecord) => {
+    const evt = shouldStripStaffFieldsForCoupleHydration(incoming.id)
+      ? (stripStaffOnlyFieldsFromClientEventRecord(incoming) as EventRecord)
+      : incoming;
     const switchingEvent = Boolean(
       prevLoadedPlanningEventIdRef.current &&
         prevLoadedPlanningEventIdRef.current !== evt.id,
@@ -8825,6 +8849,8 @@ export default function Home() {
     );
   }, [activeEventId, eventSettings.plannerEmail, eventSettings.plannerName, teamMembers]);
   useEffect(() => {
+    if (!authSession.loaded) return;
+
     const loadDatabaseEvents = async () => {
       dbWorkingStateReadyEventIdRef.current = null;
       databaseHydrationCompleteRef.current = false;
@@ -9037,6 +9063,10 @@ export default function Home() {
           seededEvent.djScripts = parseDjScriptsJson(dbEvent.djScripts);
           seededEvent.djMusicNotes = parseDjMusicNotesJson(dbEvent.djMusicNotes);
 
+          if (shouldStripStaffFieldsForCoupleHydration(dbEvent.id)) {
+            return stripStaffOnlyFieldsFromClientEventRecord(seededEvent) as EventRecord;
+          }
+
           return seededEvent;
         });
 
@@ -9117,7 +9147,7 @@ export default function Home() {
     };
 
     loadDatabaseEvents();
-  }, []);
+  }, [authSession.loaded, shouldStripStaffFieldsForCoupleHydration]);
 
   useEffect(() => {
     if (!authSession.loaded || !authSession.usesScopedEventReads) return;
