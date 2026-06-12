@@ -263,6 +263,8 @@ import { buildPlanningProgressChecks } from "@/utils/planningProgress";
 import {
   buildNewWeddingCeremonyTimelineItems,
   buildNewWeddingMainTimelineItems,
+  dedupeCeremonyTimelineDefaultDuplicates,
+  filterCeremonyPresetAppendItems,
 } from "@/lib/weddingDefaultTimelineMoments";
 import {
   isGrandEntranceTimelineItem,
@@ -320,6 +322,11 @@ import {
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import { CoupleDashboardCompletionCard } from "@/components/couple-dashboard-completion-card";
+import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
+import {
+  buildCoupleTimelineReviewGapLabels,
+  receptionTimelineRowMissingSong,
+} from "@/lib/coupleTimelineGuidance";
 import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
 import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import {
@@ -363,6 +370,7 @@ import { SpeechesToastsPreview } from "@/components/speeches-toasts-preview";
 import { buildRunOfShowQuickContacts } from "@/lib/runOfShowLiveReference";
 import { WeddingPartyLineupPreview } from "@/components/wedding-party-lineup-preview";
 import {
+  filterMainPresetAppendItems,
   findMissingDefaultMainTimelineMoments,
   getDefaultMainTimelineMoments,
   insertRestoredDefaultTimelineMoment,
@@ -4285,7 +4293,9 @@ export default function Home() {
 
     const normalized = normalizeEventRecordAfterFormalitiesMerge(evt);
     let nextTimelineItems = cloneJson(normalized.timelineItems);
-    let nextCeremonyTimelineItems = cloneJson(normalized.ceremonyTimelineItems ?? []);
+    let nextCeremonyTimelineItems = dedupeCeremonyTimelineDefaultDuplicates(
+      cloneJson(normalized.ceremonyTimelineItems ?? []),
+    );
     const hasDbRunOfShowDone =
       nextTimelineItems.some((item) => item.runOfShowDone) ||
       nextCeremonyTimelineItems.some((item) => item.runOfShowDone);
@@ -5480,8 +5490,21 @@ export default function Home() {
         layoutProfileForActiveEvent,
       );
 
-      setCeremonyTimelineItems((prev) => (replaceExisting ? ceremonyItems : [...prev, ...ceremonyItems]));
-      setTimelineItems((prev) => (replaceExisting ? mainItems : [...prev, ...mainItems]));
+      setCeremonyTimelineItems((prev) => {
+        if (replaceExisting) return ceremonyItems;
+        const toAppend = filterCeremonyPresetAppendItems(prev, ceremonyItems);
+        return [...prev, ...toAppend];
+      });
+      setTimelineItems((prev) => {
+        if (replaceExisting) return mainItems;
+        const toAppend = filterMainPresetAppendItems(
+          prev,
+          mainItems,
+          layoutProfileForActiveEvent,
+          presets,
+        );
+        return [...prev, ...toAppend];
+      });
     },
     [buildTimelineItemsFromPresets, closeCeremonyTimelineCardExpanded, closeReceptionTimelineCardExpanded, layoutProfileForActiveEvent],
   );
@@ -5815,23 +5838,6 @@ export default function Home() {
   const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
   const isTimelineWorkspaceScreen =
     activeScreen === "Timeline" || activeScreen === "Reception Timeline";
-  const showUnifiedTimelineWorkspace =
-    authStage === "app" &&
-    appMode === "event" &&
-    isTimelineWorkspaceScreen &&
-    unifiedEventTimeline;
-  const showCeremonyOnlyTimelineWorkspace =
-    authStage === "app" &&
-    appMode === "event" &&
-    activeScreen === "Ceremony" &&
-    sectionCeremonyEnabled &&
-    !unifiedEventTimeline;
-  const showReceptionOnlyTimelineWorkspace =
-    authStage === "app" &&
-    appMode === "event" &&
-    isTimelineWorkspaceScreen &&
-    sectionReceptionTimelineEnabled &&
-    !unifiedEventTimeline;
   useEffect(() => {
     if (!hasHydrated) return;
     if (unifiedEventTimeline && activeScreen === "Ceremony") {
@@ -5906,6 +5912,27 @@ export default function Home() {
       sectionPlanningQuestionsEnabled,
     ],
   );
+
+  const showUnifiedTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    isTimelineWorkspaceScreen &&
+    unifiedEventTimeline;
+
+  const showCeremonyOnlyTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    activeScreen === "Ceremony" &&
+    sectionCeremonyEnabled &&
+    !unifiedEventTimeline;
+
+  const showReceptionOnlyTimelineWorkspace =
+    authStage === "app" &&
+    appMode === "event" &&
+    isTimelineWorkspaceScreen &&
+    sectionReceptionTimelineEnabled &&
+    !unifiedEventTimeline;
+
   const coupleChapterGridRef = useRef<HTMLDivElement>(null);
   const coupleActivePlanningChapterRow = useMemo(() => {
     if (!activePlanningChapterId) return null;
@@ -5984,6 +6011,17 @@ export default function Home() {
   const hasKeyTimelineMoments = computeKeyTimelineMoments(planningChecklistInput);
   const hasFinalDjNotes = computeFinalDjNotesComplete(planningChecklistInput);
   const hasEventDetailsComplete = computeEventDetailsComplete(planningChecklistInput);
+
+  const showCouplePostJourneyTimelineGuidance =
+    isCoupleWeddingPlanningView &&
+    isCoupleWeddingJourneyComplete &&
+    activeScreen === "Timeline" &&
+    sectionReceptionTimelineEnabled;
+
+  const coupleTimelineReviewGapLabels = useMemo(
+    () => buildCoupleTimelineReviewGapLabels(planningChecklistInput),
+    [planningChecklistInput],
+  );
 
   const planningChecklistDueConfig = useMemo(
     (): PlanningChecklistDueConfig => ({
@@ -8881,8 +8919,8 @@ export default function Home() {
           seededEvent.timelineItems = mapDatabaseRowsToMainTimelineItems(
             mainDbTimeline?.items ?? [],
           );
-          seededEvent.ceremonyTimelineItems = mapDatabaseRowsToCeremonyTimelineItems(
-            ceremonyDbTimeline?.items ?? [],
+          seededEvent.ceremonyTimelineItems = dedupeCeremonyTimelineDefaultDuplicates(
+            mapDatabaseRowsToCeremonyTimelineItems(ceremonyDbTimeline?.items ?? []),
           );
 
           // Event Document data-integrity: these fields have no column on the
@@ -9077,7 +9115,9 @@ export default function Home() {
       const loadedEvents = parsed.events.map((evt) => ({
         ...evt,
         lastUpdatedAt: typeof evt.lastUpdatedAt === "number" ? evt.lastUpdatedAt : Date.now(),
-        ceremonyTimelineItems: buildCeremonyTimelineFromLegacyEvent(evt),
+        ceremonyTimelineItems: dedupeCeremonyTimelineDefaultDuplicates(
+          buildCeremonyTimelineFromLegacyEvent(evt),
+        ),
         collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
         ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
@@ -16704,6 +16744,9 @@ export default function Home() {
                   trail={["Event timeline"]}
                   onBack={() => setActiveScreen("Dashboard")}
                 />
+                {showCouplePostJourneyTimelineGuidance ? (
+                  <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
+                ) : null}
                 {!canEditTimeline && (
                   <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
                     <p className="text-xs font-medium text-amber-950">
@@ -16713,7 +16756,7 @@ export default function Home() {
                 )}
                 <div className="no-print flex min-w-0 items-start justify-between gap-2">
                   <h2 className="min-w-0 text-xl font-semibold tracking-tight text-stone-900 sm:text-lg md:text-xl">
-                    Event timeline
+                    {isCoupleView ? "Timeline" : "Event timeline"}
                   </h2>
                   <PersistEcho
                     persistFeedback={persistFeedback}
@@ -16723,7 +16766,7 @@ export default function Home() {
                 </div>
                 <TimelinePhaseSectionHeader
                   id="timeline-section-ceremony"
-                  title="Ceremony"
+                  title={isCoupleView ? "Ceremony Timeline" : "Ceremony"}
                   onAdd={openCeremonyTimelineComposer}
                   addLabel="+ Ceremony moment"
                   addDisabled={!canEditTimeline}
@@ -17412,15 +17455,20 @@ export default function Home() {
             <section
               className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-0" : ""}`}
             >
+              {showCouplePostJourneyTimelineGuidance && !showUnifiedTimelineWorkspace ? (
+                <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
+              ) : null}
               {showUnifiedTimelineWorkspace ? (
                 <>
                   <div className="scroll-mt-6 mt-4 border-t border-stone-200/90 sm:mt-5">
                     <TimelinePhaseSectionHeader
                       id="timeline-section-reception"
                       title={
-                        eventPrepReceptionHeading === "Reception Timeline"
-                          ? "Reception"
-                          : eventPrepReceptionHeading
+                        isCoupleView
+                          ? "Reception Timeline"
+                          : eventPrepReceptionHeading === "Reception Timeline"
+                            ? "Reception"
+                            : eventPrepReceptionHeading
                       }
                       onAdd={openReceptionTimelineComposerAtTop}
                       addLabel="+ Reception moment"
@@ -17477,7 +17525,7 @@ export default function Home() {
                     </p>
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                    {canEditTimeline ? (
+                    {canEditTimeline && !isCoupleView ? (
                       <PrimaryButton
                         type="button"
                         onClick={() => {
@@ -17491,7 +17539,7 @@ export default function Home() {
                         Import Timeline
                       </PrimaryButton>
                     ) : null}
-                    {hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
+                    {!isCoupleView && hasAnyTimelinePresetTools && mainTimelinePresetsForActiveEvent.length > 0 ? (
                       <details className="group w-full rounded-xl border border-stone-300 bg-white shadow-sm sm:w-auto sm:min-w-[220px]">
                         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-900 sm:min-h-0 sm:text-[12px] [&::-webkit-details-marker]:hidden">
                           <span>Preset tools</span>
@@ -17810,6 +17858,7 @@ export default function Home() {
                               </div>
                               <div className={TIMELINE_CARD_ACTION_RAIL_CLASS}>
                                 <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                                  {!isCoupleView ? (
                                   <span
                                     className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px] ${item.category === "Formalities"
                                       ? "border-stone-500 bg-stone-200 text-stone-900"
@@ -17818,7 +17867,8 @@ export default function Home() {
                                   >
                                     {item.category}
                                   </span>
-                                  {item.needsDjMcAttention ? (
+                                  ) : null}
+                                  {!isCoupleView && item.needsDjMcAttention ? (
                                     <span className="rounded border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#4c3266] md:rounded-md md:px-2 md:py-0.5 md:text-[11px]">
                                       DJ/MC
                                     </span>
@@ -17931,6 +17981,7 @@ export default function Home() {
                                     />
                                   </div>
                                   <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                    {!isCoupleView ? (
                                     <span
                                       className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${item.category === "Formalities"
                                         ? "border-stone-500 bg-stone-200 text-stone-900"
@@ -17939,7 +17990,8 @@ export default function Home() {
                                     >
                                       {item.category}
                                     </span>
-                                    {item.needsDjMcAttention ? (
+                                    ) : null}
+                                    {!isCoupleView && item.needsDjMcAttention ? (
                                       <span className="rounded-md border border-[#7E52A0]/55 bg-[#7E52A0]/12 px-2 py-0.5 text-[10px] font-semibold text-[#4c3266]">
                                         DJ/MC
                                       </span>
@@ -17951,6 +18003,13 @@ export default function Home() {
                                     kind={cueKind}
                                     preview={songArtistCompact}
                                     hasSong
+                                    className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
+                                  />
+                                ) : receptionTimelineRowMissingSong(item) ? (
+                                  <TimelineSongCueLine
+                                    kind="Song"
+                                    preview="Song details needed"
+                                    hasSong={false}
                                     className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
                                   />
                                 ) : null}
@@ -18121,7 +18180,7 @@ export default function Home() {
                                 onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow ?? null)}
                                 disabled={!canEditTimeline}
                               />
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                              <div className={`grid grid-cols-1 gap-2 ${!isCoupleView ? "sm:grid-cols-2" : ""} md:gap-3`}>
                                 <TextInput
                                   id={`timeline-inline-time-${item.id}`}
                                   label="Time"
@@ -18131,6 +18190,7 @@ export default function Home() {
                                   onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)}
                                   disabled={!canEditTimeline}
                                 />
+                                {!isCoupleView ? (
                                 <div>
                                   <label
                                     htmlFor={`timeline-inline-cat-${item.id}`}
@@ -18155,6 +18215,7 @@ export default function Home() {
                                     ))}
                                   </select>
                                 </div>
+                                ) : null}
                               </div>
                               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
                                 <TextInput
@@ -18203,6 +18264,7 @@ export default function Home() {
                                 disabled={!canEditTimeline}
                                 labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
                               />
+                              {!isCoupleView ? (
                               <PrimaryButton
                                 type="button"
                                 onClick={() =>
@@ -18220,6 +18282,7 @@ export default function Home() {
                               >
                                 {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
                               </PrimaryButton>
+                              ) : null}
 
                               <details className="rounded-lg border border-stone-200 bg-stone-50">
                                 <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">

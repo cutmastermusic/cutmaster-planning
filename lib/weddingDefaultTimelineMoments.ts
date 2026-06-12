@@ -63,6 +63,83 @@ export function buildNewWeddingCeremonyTimelineItems(): CeremonyTimelineItem[] {
   }));
 }
 
+const DEFAULT_CEREMONY_MOMENT_KEYS = new Set(
+  NEW_WEDDING_CEREMONY_TIMELINE_MOMENTS.map((moment) => moment.toLowerCase()),
+);
+
+export function isDefaultWeddingCeremonyMoment(moment: string): boolean {
+  return DEFAULT_CEREMONY_MOMENT_KEYS.has(moment.trim().toLowerCase());
+}
+
+function ceremonyTimelineRowDetailScore(item: CeremonyTimelineItem): number {
+  let score = 0;
+  if (item.timeOrOrder?.trim()) score += 4;
+  if (item.songTitle?.trim()) score += 2;
+  if (item.artist?.trim()) score += 2;
+  if (item.notes?.trim()) score += 1;
+  return score;
+}
+
+/**
+ * Collapse duplicate default wedding ceremony rows (e.g. preset append after seed).
+ * Keeps the richest row per default moment title; custom duplicate titles are preserved.
+ */
+export function dedupeCeremonyTimelineDefaultDuplicates(
+  items: CeremonyTimelineItem[],
+): CeremonyTimelineItem[] {
+  const groups = new Map<string, CeremonyTimelineItem[]>();
+
+  for (const item of items) {
+    if (!isDefaultWeddingCeremonyMoment(item.moment)) continue;
+    const key = item.moment.trim().toLowerCase();
+    const bucket = groups.get(key) ?? [];
+    bucket.push(item);
+    groups.set(key, bucket);
+  }
+
+  if ([...groups.values()].every((group) => group.length <= 1)) {
+    return items;
+  }
+
+  const pickBest = (rows: CeremonyTimelineItem[]): CeremonyTimelineItem =>
+    rows.reduce((best, row) =>
+      ceremonyTimelineRowDetailScore(row) > ceremonyTimelineRowDetailScore(best) ? row : best,
+    );
+
+  const seenDefault = new Set<string>();
+  const result: CeremonyTimelineItem[] = [];
+
+  for (const item of items) {
+    const key = item.moment.trim().toLowerCase();
+    if (!isDefaultWeddingCeremonyMoment(item.moment)) {
+      result.push(item);
+      continue;
+    }
+    if (seenDefault.has(key)) continue;
+    seenDefault.add(key);
+    const group = groups.get(key)!;
+    result.push(group.length === 1 ? item : pickBest(group));
+  }
+
+  return result;
+}
+
+/** When appending presets, skip default ceremony moments that already exist. */
+export function filterCeremonyPresetAppendItems(
+  existing: CeremonyTimelineItem[],
+  incoming: CeremonyTimelineItem[],
+): CeremonyTimelineItem[] {
+  const existingDefaultKeys = new Set(
+    existing
+      .filter((item) => isDefaultWeddingCeremonyMoment(item.moment))
+      .map((item) => item.moment.trim().toLowerCase()),
+  );
+  return incoming.filter((item) => {
+    if (!isDefaultWeddingCeremonyMoment(item.moment)) return true;
+    return !existingDefaultKeys.has(item.moment.trim().toLowerCase());
+  });
+}
+
 /**
  * Reception/main timeline rows for a newly created Wedding event only.
  * Structure and order are fixed; all times and songs stay blank.

@@ -75,6 +75,32 @@ export function findMissingDefaultMainTimelineMoments(
   );
 }
 
+/** When appending presets, skip default main moments that already exist on the timeline. */
+export function filterMainPresetAppendItems(
+  existing: TimelineItem[],
+  incoming: TimelineItem[],
+  layoutProfile: EventLayoutProfile,
+  mainPresets: TimelinePresetItem[],
+): TimelineItem[] {
+  const defaults = getDefaultMainTimelineMoments(layoutProfile, mainPresets);
+  const existingDefaultKeys = new Set<string>();
+
+  for (const item of existing) {
+    for (const def of defaults) {
+      if (timelineItemMatchesDefaultMoment(item, def)) {
+        existingDefaultKeys.add(def.key);
+        break;
+      }
+    }
+  }
+
+  return incoming.filter((item) => {
+    const matchedDef = defaults.find((def) => timelineItemMatchesDefaultMoment(item, def));
+    if (!matchedDef) return true;
+    return !existingDefaultKeys.has(matchedDef.key);
+  });
+}
+
 function createTimelineItemFromDefault(def: DefaultTimelineMomentDef): TimelineItem {
   if (def.key === "speeches-toasts") {
     return createSpeechesToastsTimelineItem();
