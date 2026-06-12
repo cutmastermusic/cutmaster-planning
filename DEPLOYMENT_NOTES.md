@@ -160,3 +160,22 @@ NEXT_PUBLIC_AUTH_MODE=hybrid
 Never set `AUTH_BYPASS=true` in production (build fails intentionally).
 
 For production rollback without redeploying code: temporarily set `NEXT_PUBLIC_AUTH_MODE=prototype` only if Supabase is also disabled — prefer bootstrapping platform ADMIN instead.
+
+## Write Authorization Helpers (Phase 4A)
+
+Phase 4A adds server-side authorization **helpers only**. No Server Actions are wrapped yet — all writes behave exactly as before.
+
+New modules:
+
+| Module | Purpose |
+|--------|---------|
+| `lib/eventAccess/errors.ts` | `EventAccessError` with `UNAUTHENTICATED`, `FORBIDDEN`, `CAPABILITY_DENIED` |
+| `lib/eventAccess/capabilities.ts` | `EventCapability` matrix by platform ADMIN, event member role, and bypass |
+| `lib/eventAccess/authorize.ts` | `requireAuth()`, `authorizeEventAccess()`, `authorizeEventMutation()` |
+| `lib/coupleSafety.ts` | `applyCoupleSafeEventDataUpdate()` (prepared, not wired to `updateEvent` yet) |
+
+Helpers use `resolveSessionAccess()` and ACTIVE `EventMember` rows from Phase 3. They never trust client `currentRole`.
+
+Bypass / prototype mode (`readScope === bypass`) allows all capabilities through the helper layer.
+
+Phase 4B+ will call these helpers at the top of Server Actions. Until then, production write behavior is unchanged.

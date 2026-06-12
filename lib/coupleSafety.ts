@@ -105,6 +105,31 @@ export function buildDatabaseEventUpdateForRole(
   };
 }
 
+/** Staff-owned Event metadata columns — preserved on couple server writes (Phase 4B+). */
+const STAFF_OWNED_EVENT_DATA_KEYS = [
+  "type",
+  "assignedDj",
+  "packageName",
+  "plannerName",
+  "plannerEmail",
+  "internalNotes",
+  "eventStatus",
+] as const satisfies readonly (keyof DatabaseEventMetadataUpdate)[];
+
+export function applyCoupleSafeEventDataUpdate(
+  incoming: DatabaseEventMetadataUpdate,
+  existing: DatabaseEventMetadataUpdate,
+): DatabaseEventMetadataUpdate {
+  const preservedStaffFields = Object.fromEntries(
+    STAFF_OWNED_EVENT_DATA_KEYS.map((key) => [key, existing[key]]),
+  ) as Pick<DatabaseEventMetadataUpdate, (typeof STAFF_OWNED_EVENT_DATA_KEYS)[number]>;
+
+  return {
+    ...incoming,
+    ...preservedStaffFields,
+  };
+}
+
 export function restoreRolePreviewForSession(
   currentRole: UserRole | null | undefined,
   storedPreview: UserRole | null | undefined,
