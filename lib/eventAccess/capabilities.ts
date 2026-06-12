@@ -14,7 +14,8 @@ export type EventCapability =
   | "team:write"
   | "notes:write"
   | "dj-ops:write"
-  | "workspace:team:write";
+  | "workspace:team:write"
+  | "event:invite:write";
 
 export type EventMemberRoleKey = "ADMIN" | "DJ" | "PLANNER" | "COUPLE";
 
@@ -37,6 +38,7 @@ const ALL_EVENT_CAPABILITIES: EventCapability[] = [
   "notes:write",
   "dj-ops:write",
   "workspace:team:write",
+  "event:invite:write",
 ];
 
 const CAPABILITY_MATRIX: Record<CapabilityActor, ReadonlySet<EventCapability>> = {
@@ -57,6 +59,7 @@ const CAPABILITY_MATRIX: Record<CapabilityActor, ReadonlySet<EventCapability>> =
     "team:write",
     "notes:write",
     "dj-ops:write",
+    "event:invite:write",
   ]),
   DJ: new Set([
     "event:read",
@@ -78,6 +81,7 @@ const CAPABILITY_MATRIX: Record<CapabilityActor, ReadonlySet<EventCapability>> =
     "timeline:write",
     "team:write",
     "notes:write",
+    "event:invite:write",
   ]),
   COUPLE: new Set([
     "event:read",

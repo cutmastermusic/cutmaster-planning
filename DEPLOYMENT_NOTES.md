@@ -179,3 +179,51 @@ Helpers use `resolveSessionAccess()` and ACTIVE `EventMember` rows from Phase 3.
 Bypass / prototype mode (`readScope === bypass`) allows all capabilities through the helper layer.
 
 Phase 4B+ will call these helpers at the top of Server Actions. Until then, production write behavior is unchanged.
+
+## Event Invites (Phase 5A foundation)
+
+Phase 5A adds **DB-backed invite Server Actions** and secure token utilities. There is **no email provider**, **no `/invite/accept` route**, and **no admin UI wiring** yet — the prototype invite flow in the app remains unchanged.
+
+### Server Actions (`lib/actions/eventInvites.ts`)
+
+| Action | Auth | Purpose |
+|--------|------|---------|
+| `createEventInvite(eventId, { email, displayName? })` | `event:invite:write` | Creates PENDING `EventMember` + `EventInvite`; returns copyable `inviteUrl` |
+| `getInviteAcceptPreview(rawToken)` | Public | Safe preview: event title, invited email, expiry (does not activate) |
+| `acceptEventInvite(rawToken)` | Supabase session | Validates token + email match; sets member ACTIVE |
+| `listEventInvites(eventId)` | `event:invite:write` | Admin list for future UI (not wired yet) |
+
+### Token strategy
+
+- Raw token: 32-byte cryptographically secure value (`lib/invites/token.ts`).
+- Only **SHA-256 hash** stored in `EventInvite.tokenHash`.
+- Raw token appears **once** in the returned `inviteUrl` — never persisted.
+- Invite URL format: `{SITE_URL}/invite/accept?token=…` (route not built yet).
+
+### Expiry
+
+- Default **14 days** from creation (`expiresAt`).
+- Expired, revoked, or already-accepted invites are rejected on preview and accept.
+
+### Email delivery
+
+- **No Resend or other provider yet.**
+- Admin must **copy/paste `inviteUrl`** and send it manually (email, text, etc.).
+
+### Wrong-email protection
+
+- `acceptEventInvite` requires a real Supabase session (not bypass/prototype).
+- Logged-in email must **exactly match** the invited email (case-insensitive).
+- Mismatch returns a clear error; membership is not activated.
+
+### Who can create invites
+
+Capability: `event:invite:write` — allowed for bypass, platform ADMIN, event ADMIN, and PLANNER. **Not** allowed for COUPLE.
+
+Phase 5A supports **COUPLE invites only** (role is enforced server-side).
+
+### Manual testing (until UI is wired)
+
+Call `createEventInvite` from a script or temporary admin hook, copy the returned URL, and test accept after magic-link login with the invited email.
+
+The SQL bootstrap in “Pilot EventMember for couple testing” above remains valid for direct DB seeding during development.
