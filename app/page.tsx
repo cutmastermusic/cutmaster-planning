@@ -370,7 +370,10 @@ import {
   updateMusicVibeDetailField,
 } from "@/lib/musicHubPlan";
 import { buildYourTeamPrefillAnswers } from "@/lib/coupleYourTeamPlanning";
-import { mergeYourTeamIntoEventTeam } from "@/lib/mergeYourTeamIntoEventTeam";
+import {
+  mergeYourTeamIntoEventTeam,
+  yourTeamChapterHasMergeableBookings,
+} from "@/lib/mergeYourTeamIntoEventTeam";
 import { CeremonyCoverageControl } from "@/components/ceremony-coverage-control";
 import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import { GrandEntranceDetailSheet, type GrandEntranceDetailDraft } from "@/components/grand-entrance-detail-sheet";
@@ -4241,6 +4244,7 @@ export default function Home() {
               musicGenreEraSelections,
               musicTasteProfile,
               musicVibeDetail,
+              musicPlaylistLinks,
             }),
           );
 
@@ -7175,19 +7179,25 @@ export default function Home() {
         planningQuestionAnswers: answers,
         teamMembers: roster,
       });
-      if (!merged.changed) return;
-      teamMembersRef.current = merged.teamMembers;
-      setTeamMembers(merged.teamMembers);
-      setEvents((prev) =>
-        prev.map((evt) =>
-          evt.id === activeEventId
-            ? ({
-                ...evt,
-                eventTeamMembers: cloneJson(merged.teamMembers),
-              } as EventRecord)
-            : evt,
-        ),
-      );
+      if (merged.changed) {
+        teamMembersRef.current = merged.teamMembers;
+        setTeamMembers(merged.teamMembers);
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? ({
+                  ...evt,
+                  eventTeamMembers: cloneJson(merged.teamMembers),
+                } as EventRecord)
+              : evt,
+          ),
+        );
+      }
+      const shouldPersistRoster =
+        merged.changed ||
+        (yourTeamChapterHasMergeableBookings(answers) &&
+          databaseEventIdsRef.current.has(activeEventId));
+      if (!shouldPersistRoster) return;
       const result = await writeTeamMembersToDatabase(merged.teamMembers);
       if (!result.ok) {
         console.error("Failed to persist Your Team chapter merge", result.error);
@@ -9829,6 +9839,7 @@ export default function Home() {
                 musicGenreEraSelections,
                 musicTasteProfile,
                 musicVibeDetail,
+                musicPlaylistLinks,
               }),
             ),
           ];
@@ -10502,15 +10513,18 @@ export default function Home() {
     setMusicNewPlaylistUrl("");
     setMusicNewPlaylistLabel("");
     setMusicNewPlaylistNotes("");
+    markMusicHubTasteDirty();
     logActivity("song_added", `Added playlist link${entry.label ? `: ${entry.label}` : ""}`);
   };
 
   const updateMusicPlaylistLink = (id: string, patch: Partial<SharedPlaylistLink>) => {
     setMusicPlaylistLinks((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    markMusicHubTasteDirty();
   };
 
   const removeMusicPlaylistLink = (id: string) => {
     setMusicPlaylistLinks((prev) => prev.filter((row) => row.id !== id));
+    markMusicHubTasteDirty();
   };
 
   const toggleGenreEraChip = useCallback(
@@ -16349,7 +16363,6 @@ export default function Home() {
               showDoNotPlay={sectionDoNotPlayEnabled}
             />
 
-            {!isCoupleView ? (
             <PremiumCard
               id="music-hub-playlist-links"
               className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
@@ -16358,9 +16371,15 @@ export default function Home() {
               <p className="mt-1 text-sm leading-snug text-stone-600">
                 Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste.
               </p>
-              <p className="mt-2 text-xs text-stone-500">
-                Saved on this device only until cloud sync is available—they won&apos;t follow you to a new browser or phone.
-              </p>
+              {isCoupleView ? (
+                <p className="mt-2 text-xs text-stone-500">
+                  Saved to your event—links follow you across refresh, logout, and other devices.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-stone-500">
+                  Saved to this event in the cloud for couples and staff to access from any device.
+                </p>
+              )}
               <div className="mt-4 space-y-3">
                 <TextInput
                   id="music-new-playlist-url"
@@ -16493,7 +16512,6 @@ export default function Home() {
                 </div>
               )}
             </PremiumCard>
-            ) : null}
 
             <PremiumCard
               id="music-hub-spotify-import"

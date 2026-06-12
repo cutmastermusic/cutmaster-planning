@@ -3,13 +3,19 @@ import {
   musicTasteProfileHasSelections,
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
-import type { EventRecord, MusicTasteProfile, MusicVibeDetail } from "@/types/planning";
+import type {
+  EventRecord,
+  MusicTasteProfile,
+  MusicVibeDetail,
+  SharedPlaylistLink,
+} from "@/types/planning";
 import { cloneJson } from "@/utils/planning";
 
 export type EventMusicHubPlanSnapshot = {
   musicGenreEraSelections: string[];
   musicTasteProfile: MusicTasteProfile;
   musicVibeDetail: MusicVibeDetail;
+  musicPlaylistLinks: SharedPlaylistLink[];
 };
 
 function hasMusicVibeDetailSelections(detail: MusicVibeDetail | undefined): boolean {
@@ -22,11 +28,34 @@ function hasMusicVibeDetailSelections(detail: MusicVibeDetail | undefined): bool
   );
 }
 
+function parseSharedPlaylistLinks(raw: unknown): SharedPlaylistLink[] {
+  if (!Array.isArray(raw)) return [];
+  const links: SharedPlaylistLink[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const row = entry as Record<string, unknown>;
+    const url = typeof row.url === "string" ? row.url.trim() : "";
+    if (!url) continue;
+    const id =
+      typeof row.id === "string" && row.id.trim()
+        ? row.id.trim()
+        : `pl-${links.length + 1}`;
+    links.push({
+      id,
+      url,
+      label: typeof row.label === "string" && row.label.trim() ? row.label.trim() : undefined,
+      notes: typeof row.notes === "string" && row.notes.trim() ? row.notes.trim() : undefined,
+    });
+  }
+  return links;
+}
+
 export function emptyMusicHubPlanSnapshot(): EventMusicHubPlanSnapshot {
   return {
     musicGenreEraSelections: [],
     musicTasteProfile: emptyMusicTasteProfile(),
     musicVibeDetail: {},
+    musicPlaylistLinks: [],
   };
 }
 
@@ -53,6 +82,7 @@ export function parseMusicHubPlanJson(value: unknown): EventMusicHubPlanSnapshot
     musicGenreEraSelections: genreEra,
     musicTasteProfile: normalizeMusicTasteProfile(raw.musicTasteProfile as MusicTasteProfile | undefined),
     musicVibeDetail: parseMusicVibeDetail(raw.musicVibeDetail),
+    musicPlaylistLinks: parseSharedPlaylistLinks(raw.musicPlaylistLinks),
   };
 }
 
@@ -63,7 +93,8 @@ export function isMusicHubPlanSnapshotEmpty(
   return (
     plan.musicGenreEraSelections.length === 0 &&
     !musicTasteProfileHasSelections(plan.musicTasteProfile) &&
-    !hasMusicVibeDetailSelections(plan.musicVibeDetail)
+    !hasMusicVibeDetailSelections(plan.musicVibeDetail) &&
+    plan.musicPlaylistLinks.length === 0
   );
 }
 
@@ -71,6 +102,7 @@ export function buildMusicHubPlanSnapshot(input: {
   musicGenreEraSelections: string[];
   musicTasteProfile: MusicTasteProfile;
   musicVibeDetail: MusicVibeDetail;
+  musicPlaylistLinks?: SharedPlaylistLink[];
 }): EventMusicHubPlanSnapshot {
   const vibe = input.musicVibeDetail ?? {};
   return {
@@ -82,6 +114,7 @@ export function buildMusicHubPlanSnapshot(input: {
       crowdNotes: vibe.crowdNotes?.trim() || undefined,
       cleanMusicPrefs: vibe.cleanMusicPrefs?.trim() || undefined,
     },
+    musicPlaylistLinks: parseSharedPlaylistLinks(input.musicPlaylistLinks ?? []),
   };
 }
 
@@ -92,6 +125,7 @@ export function applyMusicHubPlanSnapshotToEventFields(
   evt.musicGenreEraSelections = cloneJson(plan.musicGenreEraSelections);
   evt.musicTasteProfile = cloneJson(plan.musicTasteProfile);
   evt.musicVibeDetail = cloneJson(plan.musicVibeDetail);
+  evt.musicPlaylistLinks = cloneJson(plan.musicPlaylistLinks);
 }
 
 export function clearMusicHubTasteFieldsOnEvent(evt: EventRecord): void {
@@ -159,6 +193,23 @@ function unionStringArrays(...groups: readonly (readonly string[])[]): string[] 
   return next;
 }
 
+function unionPlaylistLinks(
+  hydrated: readonly SharedPlaylistLink[],
+  prior: readonly SharedPlaylistLink[],
+): SharedPlaylistLink[] {
+  const next: SharedPlaylistLink[] = cloneJson([...hydrated]);
+  for (const link of prior) {
+    if (!link.url.trim()) continue;
+    const exists = next.some(
+      (existing) =>
+        existing.id === link.id ||
+        existing.url.trim().toLowerCase() === link.url.trim().toLowerCase(),
+    );
+    if (!exists) next.push(cloneJson(link));
+  }
+  return next;
+}
+
 function preferNonEmptyText(local: string | undefined, db: string | undefined): string | undefined {
   const localTrimmed = local?.trim();
   if (localTrimmed) return local;
@@ -171,6 +222,7 @@ export function eventRecordToMusicHubPlanSnapshot(evt: EventRecord): EventMusicH
     musicGenreEraSelections: evt.musicGenreEraSelections ?? [],
     musicTasteProfile: normalizeMusicTasteProfile(evt.musicTasteProfile),
     musicVibeDetail: evt.musicVibeDetail ?? {},
+    musicPlaylistLinks: evt.musicPlaylistLinks ?? [],
   });
 }
 
@@ -212,6 +264,16 @@ function priorMusicHubTasteExtendsHydrated(
     if (priorValue !== (hydrated.musicVibeDetail[field] ?? "").trim()) return true;
   }
 
+  for (const link of prior.musicPlaylistLinks) {
+    if (!link.url.trim()) continue;
+    const exists = hydrated.musicPlaylistLinks.some(
+      (existing) =>
+        existing.id === link.id ||
+        existing.url.trim().toLowerCase() === link.url.trim().toLowerCase(),
+    );
+    if (!exists) return true;
+  }
+
   return isMusicHubPlanSnapshotEmpty(hydrated);
 }
 
@@ -232,6 +294,10 @@ export function mergePriorMusicHubTasteIntoHydratedEvent(
     musicGenreEraSelections: unionStringArrays(
       hydratedPlan.musicGenreEraSelections,
       priorPlan.musicGenreEraSelections,
+    ),
+    musicPlaylistLinks: unionPlaylistLinks(
+      hydratedPlan.musicPlaylistLinks,
+      priorPlan.musicPlaylistLinks,
     ),
     musicTasteProfile: normalizeMusicTasteProfile({
       danceFloorStyles: unionStringArrays(

@@ -29,6 +29,10 @@ import {
   shouldUseUnscopedReads,
 } from "@/lib/eventAccess/readScope";
 import { shapeEventReadForMembershipRole } from "@/lib/eventAccess/shapeEventForActor";
+import {
+  actorRequiresCoupleSafeTeamWrite,
+  enforceCoupleSafeEventTeamReplace,
+} from "@/lib/eventTeam/coupleTeamWriteGuard";
 
 const EVENT_READ_INCLUDE = {
   timelines: {
@@ -711,7 +715,10 @@ export async function replaceEventTeamMembers(
     order: number;
   }>,
 ) {
-  await authorizeEventMutation(eventId, "team:write");
+  const actor = await authorizeEventMutation(eventId, "team:write");
+  if (actorRequiresCoupleSafeTeamWrite(actor)) {
+    teamMembers = await enforceCoupleSafeEventTeamReplace(eventId, teamMembers);
+  }
   logActionPayload("replaceEventTeamMembers", teamMembers);
   console.log("replaceEventTeamMembers CALLED");
   console.log(
