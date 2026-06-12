@@ -139,6 +139,7 @@ import {
   musicTasteProfileHasSelections,
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
   AppMode,
@@ -2925,6 +2926,11 @@ export default function Home() {
     inviteAccessPreview,
     setInviteAccessPreview,
   } = usePlanningApp();
+  const authSession = useAuthSession();
+  const handleSignOut = useCallback(async () => {
+    await authSession.signOut();
+    setAuthStage("login");
+  }, [authSession.signOut, setAuthStage]);
   const persistUiSuppressBootCountRef = useRef(0);
   const musicHubTasteDirtyRef = useRef(false);
   const musicHubTasteDirtyRevisionRef = useRef(0);
@@ -13336,6 +13342,9 @@ export default function Home() {
                   {perspectiveBannerLabel(currentRole, rolePreview)}
                 </span>
               </span>
+              {authSession.loaded && authSession.email ? (
+                <span className="text-[11px] text-stone-500">Account: {authSession.email}</span>
+              ) : null}
               {showRolePreviewSwitcher ? (
               <div className="flex flex-wrap gap-1.5">
                 {PERSPECTIVE_ROLES.map((role) => (
@@ -13374,7 +13383,9 @@ export default function Home() {
                   )}
                 </PrimaryButton>
                 <PrimaryButton
-                  onClick={() => setAuthStage("login")}
+                  onClick={() => {
+                    void handleSignOut();
+                  }}
                   className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
                 >
                   Sign out
@@ -13401,6 +13412,19 @@ export default function Home() {
               <p className="mt-2 text-xs text-stone-600">
                 Prototype login for role-based planning access.
               </p>
+              {authSession.loaded && authSession.email ? (
+                <p className="mt-2 text-xs text-stone-600">Signed in as {authSession.email}</p>
+              ) : null}
+              {process.env.NEXT_PUBLIC_AUTH_MODE !== "prototype" ? (
+                <p className="mt-3 text-xs text-stone-600">
+                  <a
+                    href="/login"
+                    className="font-semibold text-stone-950 underline underline-offset-2"
+                  >
+                    Sign in with email
+                  </a>
+                </p>
+              ) : null}
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {(["Admin", "DJ", "Couple", "Planner"] as UserRole[]).map((role) => (
                   <PrimaryButton

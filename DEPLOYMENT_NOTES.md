@@ -43,3 +43,39 @@ Resolution:
 - Imported local .env variables into cutmaster-planning.
 - Redeployed.
 - Event creation restored.
+
+## Supabase Auth (Phase 2)
+
+Configure these environment variables on **cutmaster-planning** only (not cutmaster-planning-9rep):
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key |
+| `NEXT_PUBLIC_SITE_URL` | Yes (production) | `https://cutmaster-planning.vercel.app` |
+| `NEXT_PUBLIC_AUTH_MODE` | Optional | Default `hybrid` (magic link + prototype picker) |
+| `AUTH_BYPASS` | Dev only | **Never set in production** — build will fail if `AUTH_BYPASS=true` in production |
+
+Existing database variables remain required:
+- `DATABASE_URL`
+- `DIRECT_URL`
+
+### Supabase Dashboard → Authentication → URL configuration
+
+**Site URL:**
+- Production: `https://cutmaster-planning.vercel.app`
+- Local dev: `http://localhost:3000`
+
+**Redirect URLs (allowlist):**
+- `http://localhost:3000/auth/callback`
+- `https://cutmaster-planning.vercel.app/auth/callback`
+- Optional local: `http://127.0.0.1:3000/auth/callback`
+
+Enable Email provider (magic link / OTP). Password auth is not required for Phase 2.
+
+### Phase 2 behavior notes
+
+- Magic link login syncs `auth.users.id` → Prisma `User.authSubject`.
+- Prototype role picker remains available in `hybrid` mode.
+- `getEvents()` is still unscoped; Server Actions are not yet guarded.
+- `AUTH_BYPASS=true` is blocked at startup in production builds.
