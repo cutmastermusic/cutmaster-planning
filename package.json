@@ -11,12 +11,15 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@react-email/components": "^0.0.36",
+    "@react-email/render": "^1.4.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.105.4",
     "next": "16.2.5",
     "pg": "^8.20.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^4.8.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

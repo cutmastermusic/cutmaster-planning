@@ -9,6 +9,8 @@ import {
   type EventInviteListItem,
   type EventInviteListState,
 } from "@/lib/actions/eventInvites";
+import { formatInviteExpiryDate } from "@/lib/email/formatInviteExpiry";
+import type { InviteEmailDeliveryResult } from "@/lib/email/types";
 import { isEventAccessError } from "@/lib/eventAccess/errors";
 
 type EventInviteAdminSectionProps = {
@@ -21,14 +23,9 @@ type EventInviteAdminSectionProps = {
 type CreateInviteSuccess = {
   inviteUrl: string;
   expiresAt: Date;
+  recipientEmail: string;
+  emailDelivery: InviteEmailDeliveryResult;
 };
-
-function formatExpiryDate(date: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(date));
-}
 
 function inviteStateLabel(state: EventInviteListState): string {
   switch (state) {
@@ -62,6 +59,34 @@ function inviteStateBadgeClass(state: EventInviteListState): string {
     default:
       return "border-stone-300 bg-stone-100 text-stone-700";
   }
+}
+
+function emailDeliveryMessage(delivery: InviteEmailDeliveryResult, recipientEmail: string): {
+  tone: "success" | "warning";
+  title: string;
+  body: string;
+} {
+  if (delivery.status === "sent") {
+    return {
+      tone: "success",
+      title: "Invite created",
+      body: `Planning Portal access email sent to ${recipientEmail}. You can also copy the secure link below as a backup.`,
+    };
+  }
+
+  if (delivery.status === "skipped") {
+    return {
+      tone: "warning",
+      title: "Invite created",
+      body: "Email delivery is not configured in this environment. Copy the secure link below and send it to the recipient.",
+    };
+  }
+
+  return {
+    tone: "warning",
+    title: "Invite created — email not delivered",
+    body: `The invite was saved, but the email could not be sent (${delivery.error}). Copy the secure link below and send it manually.`,
+  };
 }
 
 export function EventInviteAdminSection({
@@ -146,7 +171,7 @@ export function EventInviteAdminSection({
   const handleCreateInvite = async () => {
     const email = inviteEmail.trim();
     if (!email) {
-      setCreateError("Enter the couple's email address.");
+      setCreateError("Enter the recipient's email address.");
       return;
     }
 
@@ -163,6 +188,8 @@ export function EventInviteAdminSection({
       setCreateSuccess({
         inviteUrl: result.inviteUrl,
         expiresAt: result.expiresAt,
+        recipientEmail: email,
+        emailDelivery: result.emailDelivery,
       });
       await reloadInvites();
     } catch (error) {
@@ -188,13 +215,18 @@ export function EventInviteAdminSection({
     }
   };
 
+  const successMessage = createSuccess
+    ? emailDeliveryMessage(createSuccess.emailDelivery, createSuccess.recipientEmail)
+    : null;
+
   return (
     <>
       <PremiumCard variant="accent">
-        <SectionTitle>App access</SectionTitle>
+        <SectionTitle>Planning Portal access</SectionTitle>
         <p className="mt-2 text-sm leading-relaxed text-stone-600">
-          Invite the couple to sign in and plan this event. Copy the secure link and send it by email
-          or text—automated email delivery is coming soon.
+          Invite collaborators to sign in and work in the Planning Portal for this event. An email
+          is sent automatically when you create an invite; you can also copy the secure link as a
+          backup.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">
@@ -216,7 +248,7 @@ export function EventInviteAdminSection({
               }}
               className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
             >
-              Invite couple
+              Send portal invite
             </PrimaryButton>
           </div>
         ) : null}
@@ -228,7 +260,7 @@ export function EventInviteAdminSection({
         </PremiumCard>
       ) : invites.length === 0 ? (
         <PremiumCard className="border-stone-200 bg-white p-4 shadow-sm ring-1 ring-stone-200/80 sm:p-5">
-          <p className="text-xs text-stone-600">No couple invitations yet.</p>
+          <p className="text-xs text-stone-600">No portal invitations yet.</p>
         </PremiumCard>
       ) : (
         invites.map((row) => (
@@ -247,7 +279,7 @@ export function EventInviteAdminSection({
                   </p>
                 ) : null}
                 <p className="mt-2 text-[13px] leading-relaxed text-stone-600">
-                  Expires {formatExpiryDate(row.expiresAt)}
+                  Expires {formatInviteExpiryDate(row.expiresAt)}
                 </p>
               </div>
               <span
@@ -264,7 +296,7 @@ export function EventInviteAdminSection({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
-              <SectionTitle className="text-stone-950">Invite couple</SectionTitle>
+              <SectionTitle className="text-stone-950">Planning Portal access</SectionTitle>
               <PrimaryButton
                 type="button"
                 onClick={handleCloseModal}
@@ -274,12 +306,18 @@ export function EventInviteAdminSection({
               </PrimaryButton>
             </div>
 
-            {createSuccess ? (
+            {createSuccess && successMessage ? (
               <div className="mt-4 space-y-3">
-                <p className="text-xs font-semibold text-emerald-900">Invite created</p>
+                <p
+                  className={`text-xs font-semibold ${
+                    successMessage.tone === "success" ? "text-emerald-900" : "text-amber-900"
+                  }`}
+                >
+                  {successMessage.title}
+                </p>
+                <p className="text-xs text-stone-600">{successMessage.body}</p>
                 <p className="text-xs text-stone-600">
-                  Expires {formatExpiryDate(createSuccess.expiresAt)}. Copy the link and send it to
-                  the couple.
+                  Expires {formatInviteExpiryDate(createSuccess.expiresAt)}.
                 </p>
                 <p className="break-all rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-stone-700">
                   {createSuccess.inviteUrl}
@@ -305,14 +343,14 @@ export function EventInviteAdminSection({
                   label="Email"
                   value={inviteEmail}
                   onChange={setInviteEmail}
-                  placeholder="couple@example.com"
+                  placeholder="name@example.com"
                 />
                 <TextInput
                   id="real-invite-name"
                   label="Display name (optional)"
                   value={inviteDisplayName}
                   onChange={setInviteDisplayName}
-                  placeholder="Alex & Jordan"
+                  placeholder="Jamie Rivera"
                 />
                 {createError ? <p className="text-xs text-red-700">{createError}</p> : null}
                 <PrimaryButton

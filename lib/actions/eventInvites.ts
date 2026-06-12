@@ -2,6 +2,10 @@
 
 import type { EventMemberStatus } from "@/lib/generated/prisma/client";
 import { getSiteUrl } from "@/lib/auth/authConfig";
+import {
+  sendPlanningPortalInviteEmail,
+} from "@/lib/email/sendPlanningPortalInviteEmail";
+import type { InviteEmailDeliveryResult } from "@/lib/email/types";
 import { authorizeEventMutation, requireAuth } from "@/lib/eventAccess/authorize";
 import { EventAccessError } from "@/lib/eventAccess/errors";
 import { generateInviteToken, hashInviteToken } from "@/lib/invites/token";
@@ -27,6 +31,7 @@ export type CreateEventInviteResult = {
   expiresAt: Date;
   inviteId: string;
   eventMemberId: string;
+  emailDelivery: InviteEmailDeliveryResult;
 };
 
 export type InviteAcceptPreview = {
@@ -135,12 +140,12 @@ export async function createEventInvite(
     throw new EventAccessError("FORBIDDEN", "A valid email address is required.");
   }
 
-  const eventExists = await prisma.event.findUnique({
+  const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true },
+    select: { id: true, title: true },
   });
 
-  if (!eventExists) {
+  if (!event) {
     throw new EventAccessError("FORBIDDEN", "Event not found.");
   }
 
@@ -220,11 +225,21 @@ export async function createEventInvite(
     };
   });
 
+  const inviteUrl = buildInviteUrl(rawToken);
+  const emailDelivery = await sendPlanningPortalInviteEmail({
+    to: normalizedEmail,
+    recipientName: displayName,
+    eventTitle: event.title,
+    inviteUrl,
+    expiresAt: result.expiresAt,
+  });
+
   return {
-    inviteUrl: buildInviteUrl(rawToken),
+    inviteUrl,
     expiresAt: result.expiresAt,
     inviteId: result.inviteId,
     eventMemberId: result.eventMemberId,
+    emailDelivery,
   };
 }
 
