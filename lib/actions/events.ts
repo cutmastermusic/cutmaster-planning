@@ -206,6 +206,7 @@ export async function updateGrandEntranceDetail(
     coupleEntranceScript: string;
   },
 ) {
+  await authorizeEventMutation(eventId, "planning:grand-entrance:write");
   logActionPayload("updateGrandEntranceDetail", detail);
   const existing = await prisma.event.findUnique({
     where: { id: eventId },
@@ -243,6 +244,7 @@ export async function replacePlanningQuestionAnswers(
   eventId: string,
   answers: PlanningQuestionAnswersRecord,
 ) {
+  await authorizeEventMutation(eventId, "planning:answers:write");
   logActionPayload("replacePlanningQuestionAnswers", answers);
   const legacy = planningQuestionAnswersWithLegacyGrandEntranceColumns(answers);
   return prisma.event.update({
