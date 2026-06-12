@@ -321,7 +321,11 @@ import {
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
-import { CoupleDashboardCompletionCard } from "@/components/couple-dashboard-completion-card";
+import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
+import {
+  buildCoupleFinalPlanningHints,
+  type CoupleFinalPlanningQuickLink,
+} from "@/lib/coupleFinalPlanningPrep";
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
 import {
   buildCoupleTimelineReviewGapLabels,
@@ -11643,6 +11647,41 @@ export default function Home() {
     ],
   );
 
+  const coupleFinalPlanningHints = useMemo(
+    () =>
+      buildCoupleFinalPlanningHints({
+        planningGaps: couplePlanningGapsForDashboard,
+        timelineGapLabels: coupleTimelineReviewGapLabels,
+        timelineScreen: coupleTimelineEntryScreen ?? primaryTimelineScreenForHome,
+        pendingGuestRequestCount: coupleAttentionSummary.pendingGuestCount,
+        sectionGuestRequestsEnabled,
+      }),
+    [
+      coupleAttentionSummary.pendingGuestCount,
+      couplePlanningGapsForDashboard,
+      coupleTimelineEntryScreen,
+      coupleTimelineReviewGapLabels,
+      primaryTimelineScreenForHome,
+      sectionGuestRequestsEnabled,
+    ],
+  );
+
+  const coupleFinalPlanningQuickLinks = useMemo((): CoupleFinalPlanningQuickLink[] => {
+    if (!isCoupleWeddingJourneyComplete) return [];
+    const linkIds = ["reception", "music", "ceremony", "guest-requests"];
+    return linkIds
+      .map((id) => coupleHomePlanningSections.find((section) => section.id === id))
+      .filter((section): section is (typeof coupleHomePlanningSections)[number] => Boolean(section))
+      .map((section) => ({
+        id: section.id,
+        label: section.title,
+        description: section.description,
+        statLine: section.statLine,
+        screen: section.screen,
+        badge: section.pendingBadge,
+      }));
+  }, [coupleHomePlanningSections, isCoupleWeddingJourneyComplete]);
+
   const coupleContinueJourney = useMemo(() => {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
     const chapterId = firstIncompleteCoupleChapter;
@@ -15178,10 +15217,21 @@ export default function Home() {
               ) : null}
 
               {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled && isCoupleWeddingJourneyComplete ? (
-                <CoupleDashboardCompletionCard
-                  onStartTimeline={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
-                  onOpenMusicHub={() => selectActiveScreen("Music Hub")}
-                  onPreviewEventPlan={() => selectActiveScreen("Event Prep")}
+                <CoupleFinalPlanningPrepDashboard
+                  hints={coupleFinalPlanningHints}
+                  quickLinks={coupleFinalPlanningQuickLinks}
+                  assignedDjName={
+                    eventSettings.assignedDj?.trim()
+                      ? getTeamMemberName(eventSettings.assignedDj)
+                      : null
+                  }
+                  plannerName={eventSettings.plannerName?.trim() || null}
+                  onNavigate={selectActiveScreen}
+                  onPreviewEventPlan={
+                    eventNavItems.includes("Event Prep")
+                      ? () => selectActiveScreen("Event Prep")
+                      : undefined
+                  }
                 />
               ) : null}
 
@@ -15367,46 +15417,87 @@ export default function Home() {
 
               {coupleHomePlanningSections.length > 0 &&
               (!isCoupleWeddingPlanningView || coupleWeddingStoryChapterStarted) ? (
+                isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
+                  <details className="group rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3 sm:px-5 sm:py-4">
+                    <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500 [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center justify-between gap-2">
+                        More planning areas
+                        <span
+                          className="text-[10px] font-semibold normal-case tracking-normal text-stone-400 transition-transform group-open:rotate-180"
+                          aria-hidden
+                        >
+                          ▼
+                        </span>
+                      </span>
+                      <p className="mt-2 text-sm font-normal normal-case tracking-normal text-stone-600">
+                        Event team, Event Plan, and other sections from your plan.
+                      </p>
+                    </summary>
+                    <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
+                      {coupleHomePlanningSections.map((section) => (
+                        <button
+                          type="button"
+                          key={section.id}
+                          onClick={() => selectActiveScreen(section.screen)}
+                          className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
+                                {section.kicker}
+                              </p>
+                              <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+                                {section.title}
+                              </h3>
+                              <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
+                                {section.description}
+                              </p>
+                              {section.statLine || section.statSubline ? (
+                                <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
+                                  {section.statLine ? (
+                                    <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
+                                  ) : null}
+                                  {section.statSubline ? (
+                                    <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                            {section.pendingBadge ? (
+                              <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
+                                {section.pendingBadge}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
+                            <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
+                              {section.ctaLabel} →
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                ) : (
                 <div className="space-y-4">
                   {isCoupleWeddingPlanningView ? (
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                        {isCoupleWeddingJourneyComplete
-                          ? "Before Your Final Planning Meeting"
-                          : "Build your plan"}
+                        Build your plan
                       </p>
-                      {isCoupleWeddingJourneyComplete ? (
-                        <>
-                          <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                            Please complete the items below before your final planning meeting with our
-                            team.
-                          </p>
-                          <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                            These details help us prepare your Event Plan and ensure everything is ready
-                            for review.
-                          </p>
-                        </>
-                      ) : (
-                        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                          Turn your story into timing, songs, and day-of contacts.
-                        </p>
-                      )}
+                      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+                        Turn your story into timing, songs, and day-of contacts.
+                      </p>
                     </div>
                   ) : null}
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
                 {coupleHomePlanningSections.map((section) => {
-                  const isTimelineFocus =
-                    isCoupleWeddingJourneyComplete && section.id === "reception";
                   return (
                     <button
                       type="button"
                       key={section.id}
                       onClick={() => selectActiveScreen(section.screen)}
-                      className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
-                        isTimelineFocus
-                          ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
-                          : "border border-stone-300 bg-white shadow-none ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                      }`}
+                      className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -15414,11 +15505,6 @@ export default function Home() {
                             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
                               {section.kicker}
                             </p>
-                            {isTimelineFocus ? (
-                              <span className="rounded-full border border-[#00D4FF]/45 bg-[#00D4FF]/15 px-2 py-0.5 text-[10px] font-semibold text-stone-900">
-                                Start here
-                              </span>
-                            ) : null}
                           </div>
                           <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
                             {section.title}
@@ -15465,6 +15551,7 @@ export default function Home() {
                 })}
                   </div>
                 </div>
+                )
               ) : null}
 
             </section>

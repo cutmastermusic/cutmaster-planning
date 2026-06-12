@@ -29,7 +29,7 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
       {hasGaps ? (
         <details className="group mt-4 rounded-xl border border-stone-200/90 bg-white/80 shadow-sm">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-2.5 text-sm font-medium text-stone-900 [&::-webkit-details-marker]:hidden">
-            <span>Timeline items to review ({gapLabels.length})</span>
+            <span>Timeline items to revisit ({gapLabels.length})</span>
             <span
               className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 transition-transform group-open:rotate-180"
               aria-hidden
@@ -51,7 +51,7 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
         </details>
       ) : (
         <p className="mt-3 rounded-lg border border-stone-200/90 bg-white/70 px-3 py-2 text-xs leading-relaxed text-stone-600">
-          Timeline looks ready for review.
+          Your timeline looks well filled in—helpful to revisit before your meeting.
         </p>
       )}
     </PremiumCard>
