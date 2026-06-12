@@ -16,6 +16,53 @@ import {
   type EventMusicHubPlanSnapshot,
 } from "@/lib/musicHubPlan";
 import type { EventCeremonyPlanSnapshot } from "@/types/planning";
+import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
+import {
+  accessibleEventIdsFromMemberships,
+  shouldUseUnscopedReads,
+} from "@/lib/eventAccess/readScope";
+
+const EVENT_READ_INCLUDE = {
+  timelines: {
+    include: {
+      items: true,
+    },
+  },
+  songs: true,
+  guestRequests: true,
+  eventTeamMembers: {
+    orderBy: { order: "asc" as const },
+  },
+  eventNotes: {
+    orderBy: { order: "asc" as const },
+  },
+};
+
+function logHydratedEvents(actionName: string, events: Array<{ id: string; title: string; eventTeamMembers: unknown[] }>) {
+  console.log(
+    `[HYDRATE-DEBUG] (server) ${actionName} → eventTeamMembers per event:`,
+    events.map((evt) => ({
+      eventId: evt.id,
+      title: evt.title,
+      teamMemberCount: evt.eventTeamMembers.length,
+      teamMembers: (evt.eventTeamMembers as Array<{
+        id: string;
+        name: string;
+        role: string;
+        order: number;
+        isActive: boolean;
+        email: string | null;
+      }>).map((m) => ({
+        id: m.id,
+        name: m.name,
+        role: m.role,
+        order: m.order,
+        isActive: m.isActive,
+        email: m.email,
+      })),
+    })),
+  );
+}
 
 /**
  * Log a single line per Server Action invocation describing the size of the
@@ -55,39 +102,53 @@ export async function getEvents() {
     orderBy: {
       createdAt: "desc",
     },
-    include: {
-      timelines: {
-        include: {
-          items: true,
-        },
-      },
-      songs: true,
-      guestRequests: true,
-      eventTeamMembers: {
-        orderBy: { order: "asc" },
-      },
-      eventNotes: {
-        orderBy: { order: "asc" },
-      },
+    include: EVENT_READ_INCLUDE,
+  });
+
+  logHydratedEvents("getEvents", events);
+
+  return events;
+}
+
+export async function getEventsForSession() {
+  const access = await resolveSessionAccess();
+
+  if (shouldUseUnscopedReads(access.readScope)) {
+    console.log(
+      `[event-read] getEventsForSession readScope=${access.readScope} user=${access.dbUser?.id ?? "none"} → unscoped`,
+    );
+    return getEvents();
+  }
+
+  if (access.readScope === "none" || !access.dbUser) {
+    console.log(
+      `[event-read] getEventsForSession readScope=${access.readScope} user=${access.dbUser?.id ?? "none"} → 0 events`,
+    );
+    return [];
+  }
+
+  const eventIds = accessibleEventIdsFromMemberships(access.memberships);
+  if (!eventIds.length) {
+    console.log(
+      `[event-read] getEventsForSession readScope=member user=${access.dbUser.id} → 0 events (no memberships)`,
+    );
+    return [];
+  }
+
+  const events = await prisma.event.findMany({
+    where: {
+      id: { in: eventIds },
     },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: EVENT_READ_INCLUDE,
   });
 
   console.log(
-    "[HYDRATE-DEBUG] (server) getEvents → eventTeamMembers per event:",
-    events.map((evt) => ({
-      eventId: evt.id,
-      title: evt.title,
-      teamMemberCount: evt.eventTeamMembers.length,
-      teamMembers: evt.eventTeamMembers.map((m) => ({
-        id: m.id,
-        name: m.name,
-        role: m.role,
-        order: m.order,
-        isActive: m.isActive,
-        email: m.email,
-      })),
-    })),
+    `[event-read] getEventsForSession readScope=member user=${access.dbUser.id} → ${events.length} events`,
   );
+  logHydratedEvents("getEventsForSession", events);
 
   return events;
 }

@@ -18,7 +18,7 @@
 import {
   createEvent,
   deleteEvent,
-  getEvents,
+  getEventsForSession,
   replaceCeremonyPlan,
   replaceMusicHubPlan,
   replaceDjScripts,
@@ -50,7 +50,7 @@ type CreateEventArgs = Parameters<typeof createEvent>[0];
 type UpdateEventArgs = Parameters<typeof updateEvent>[1];
 type UpdateGrandEntranceDetailArgs = Parameters<typeof updateGrandEntranceDetail>[1];
 
-export { getEvents };
+export { getEventsForSession };
 
 export async function createEventGuarded(data: CreateEventArgs) {
   assertPayloadFitsServerAction("createEvent", data);

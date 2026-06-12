@@ -77,5 +77,86 @@ Enable Email provider (magic link / OTP). Password auth is not required for Phas
 
 - Magic link login syncs `auth.users.id` → Prisma `User.authSubject`.
 - Prototype role picker remains available in `hybrid` mode.
-- `getEvents()` is still unscoped; Server Actions are not yet guarded.
 - `AUTH_BYPASS=true` is blocked at startup in production builds.
+
+## Event-Scoped Reads (Phase 3)
+
+The app now loads events via `getEventsForSession()` instead of unscoped reads for authenticated Supabase users.
+
+### Read scope rules
+
+| Session | Read scope | Events returned |
+|---------|------------|-----------------|
+| `AUTH_BYPASS=true` or `NEXT_PUBLIC_AUTH_MODE=prototype` | bypass | All events (legacy dev behavior) |
+| Supabase authenticated + `User.platformRole = ADMIN` | all | All events |
+| Supabase authenticated + ACTIVE `EventMember` rows | member | Only member events |
+| Supabase unauthenticated (production mode) | none | No DB events |
+| Supabase configured, no session, not bypass | none | No DB events |
+
+**Write Server Actions are not guarded yet** — read scoping only.
+
+### Couple portal
+
+- Authenticated users with ACTIVE `EventMember.role = COUPLE` enter **couple portal mode**.
+- One couple event → lands on event Dashboard; no All Events workspace.
+- Multiple couple events → minimal chooser (not the admin All Events list).
+- Zero accessible couple events → “Your event isn’t ready yet” empty state.
+
+### Bootstrap platform ADMIN (run before production cutover)
+
+```sql
+UPDATE "User"
+SET "platformRole" = 'ADMIN'
+WHERE email = 'admin@cutmastermusic.com';
+```
+
+Replace email with the staff account that will magic-link in. Verify:
+
+```sql
+SELECT id, email, "platformRole", "authSubject" FROM "User" WHERE email = 'admin@cutmastermusic.com';
+```
+
+### Pilot EventMember for couple testing
+
+After the couple user magic-links (so `User.id` exists):
+
+```sql
+INSERT INTO "EventMember" (
+  "id",
+  "eventId",
+  "userId",
+  "email",
+  "displayName",
+  "role",
+  "status",
+  "acceptedAt",
+  "createdAt",
+  "updatedAt"
+) VALUES (
+  'replace-with-cuid',
+  'replace-with-real-event-id',
+  'replace-with-user-id',
+  'couple@example.com',
+  'Alex & Jordan',
+  'COUPLE',
+  'ACTIVE',
+  NOW(),
+  NOW(),
+  NOW()
+);
+```
+
+Generate `id` with any cuid, or use Prisma Studio. Events without `EventMember` rows remain visible only to platform ADMIN and bypass/prototype mode.
+
+### Rollback / local dev bypass
+
+To restore unscoped reads locally:
+
+```
+AUTH_BYPASS=true
+NEXT_PUBLIC_AUTH_MODE=hybrid
+```
+
+Never set `AUTH_BYPASS=true` in production (build fails intentionally).
+
+For production rollback without redeploying code: temporarily set `NEXT_PUBLIC_AUTH_MODE=prototype` only if Supabase is also disabled — prefer bootstrapping platform ADMIN instead.

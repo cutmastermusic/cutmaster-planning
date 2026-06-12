@@ -13,8 +13,11 @@ const INITIAL_STATE: AuthContextResult = {
   authMode: "hybrid",
   supabaseConfigured: false,
   bypassEnabled: false,
+  readScope: "bypass",
   email: null,
   dbUser: null,
+  platformRole: null,
+  memberships: [],
 };
 
 export function useAuthSession() {
@@ -50,11 +53,23 @@ export function useAuthSession() {
     await refresh();
   }, [refresh]);
 
+  const coupleMemberships = context.memberships.filter((membership) => membership.role === "COUPLE");
+  const isCouplePortalSession =
+    loaded &&
+    context.mode === "supabase" &&
+    context.readScope === "member" &&
+    coupleMemberships.length > 0;
+  const usesScopedEventReads =
+    loaded && (context.readScope === "member" || context.readScope === "none");
+
   return {
     ...context,
     loaded,
     refresh,
     signOut,
     isAuthenticated: context.mode === "supabase" && Boolean(context.email),
+    coupleMemberships,
+    isCouplePortalSession,
+    usesScopedEventReads,
   };
 }

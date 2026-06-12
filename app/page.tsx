@@ -27,7 +27,7 @@ import {
 import {
   createEventGuarded as createDatabaseEvent,
   deleteEventGuarded as deleteDatabaseEvent,
-  getEvents as getDatabaseEvents,
+  getEventsForSession as getDatabaseEvents,
   updateEventGuarded as updateDatabaseEvent,
   replaceGuestRequestsGuarded as replaceGuestRequests,
   replaceEventTeamMembersGuarded as replaceEventTeamMembers,
@@ -139,6 +139,9 @@ import {
   musicTasteProfileHasSelections,
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
+import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
+import { NoEventAccessState } from "@/components/auth/no-event-access-state";
+import { accessibleEventIdsFromMemberships } from "@/lib/eventAccess/readScope";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
@@ -2927,15 +2930,36 @@ export default function Home() {
     setInviteAccessPreview,
   } = usePlanningApp();
   const authSession = useAuthSession();
+  const [couplePortalPickerResolved, setCouplePortalPickerResolved] = useState(false);
   const handleSignOut = useCallback(async () => {
     await authSession.signOut();
+    setCouplePortalPickerResolved(false);
     setAuthStage("login");
   }, [authSession.signOut, setAuthStage]);
+  const accessibleDbEventIds = useMemo(() => {
+    if (!authSession.loaded || !authSession.usesScopedEventReads) {
+      return null;
+    }
+    if (authSession.readScope === "none") {
+      return new Set<string>();
+    }
+    return new Set(accessibleEventIdsFromMemberships(authSession.memberships));
+  }, [
+    authSession.loaded,
+    authSession.usesScopedEventReads,
+    authSession.readScope,
+    authSession.memberships,
+  ]);
+  const couplePortalEventIds = useMemo(
+    () => authSession.coupleMemberships.map((membership) => membership.eventId),
+    [authSession.coupleMemberships],
+  );
   const persistUiSuppressBootCountRef = useRef(0);
   const musicHubTasteDirtyRef = useRef(false);
   const musicHubTasteDirtyRevisionRef = useRef(0);
   const [musicHubTasteDirtyRevision, setMusicHubTasteDirtyRevision] = useState(0);
   const databaseHydrationCompleteRef = useRef(false);
+  const [databaseEventsLoaded, setDatabaseEventsLoaded] = useState(false);
   /** Active event id whose working state was loaded from DB (or explicit switch). */
   const dbWorkingStateReadyEventIdRef = useRef<string | null>(null);
   const applyYourTeamChapterToEventTeamRef = useRef<
@@ -3263,6 +3287,22 @@ export default function Home() {
     }),
   );
   eventsRef.current = events;
+
+  const accessibleCoupleEvents = useMemo(
+    () => events.filter((evt) => couplePortalEventIds.includes(evt.id)),
+    [events, couplePortalEventIds],
+  );
+  const showCoupleEventChooser =
+    authSession.isCouplePortalSession &&
+    couplePortalEventIds.length > 1 &&
+    !couplePortalPickerResolved;
+  const showCoupleNoEventState =
+    authSession.loaded &&
+    databaseEventsLoaded &&
+    authSession.mode === "supabase" &&
+    authSession.readScope === "member" &&
+    authSession.isCouplePortalSession &&
+    accessibleCoupleEvents.length === 0;
 
   const [allEventsSearch, setAllEventsSearch] = useState("");
   const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
@@ -6588,6 +6628,10 @@ export default function Home() {
   ]);
 
   const visibleEvents = useMemo(() => {
+    if (authSession.loaded && authSession.usesScopedEventReads && accessibleDbEventIds) {
+      return events.filter((evt) => accessibleDbEventIds.has(evt.id));
+    }
+
     let list: EventRecord[];
     if (!currentRole || currentRole === "Admin") {
       list = events;
@@ -6614,7 +6658,15 @@ export default function Home() {
       return [pinned, ...list];
     }
     return list;
-  }, [events, currentRole, companyTeamMembers, activeEventId]);
+  }, [
+    events,
+    currentRole,
+    companyTeamMembers,
+    activeEventId,
+    authSession.loaded,
+    authSession.usesScopedEventReads,
+    accessibleDbEventIds,
+  ]);
 
   const parseEventDateTime = useCallback((value: string) => {
     const parsed = Date.parse(value);
@@ -7843,6 +7895,9 @@ export default function Home() {
   }, []);
 
   const workspaceNavItems: Screen[] = useMemo(() => {
+    if (authSession.isCouplePortalSession) {
+      return ["Notification Center"];
+    }
     if (effectiveRole === "Admin") {
       return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
     }
@@ -7853,7 +7908,7 @@ export default function Home() {
       return ["All Events", "Notification Center"];
     }
     return ["All Events", "Notification Center"];
-  }, [effectiveRole]);
+  }, [effectiveRole, authSession.isCouplePortalSession]);
 
   const eventNavItems: Screen[] = useMemo(() => {
     return buildEventNavItemsForRole(effectiveRole, {
@@ -8779,6 +8834,7 @@ export default function Home() {
 
         if (!databaseEvents.length) {
           databaseHydrationCompleteRef.current = true;
+          setDatabaseEventsLoaded(true);
           return;
         }
 
@@ -9039,17 +9095,118 @@ export default function Home() {
             });
             return resolvedId;
           });
+          databaseHydrationCompleteRef.current = true;
+          setDatabaseEventsLoaded(true);
         } else {
           databaseHydrationCompleteRef.current = true;
+          setDatabaseEventsLoaded(true);
         }
       } catch (error) {
         console.error("Failed to load database events:", error);
         databaseHydrationCompleteRef.current = true;
+        setDatabaseEventsLoaded(true);
       }
     };
 
     loadDatabaseEvents();
   }, []);
+
+  useEffect(() => {
+    if (!authSession.loaded || !authSession.usesScopedEventReads) return;
+
+    const allowed = new Set(accessibleEventIdsFromMemberships(authSession.memberships));
+
+    setEvents((prev) =>
+      prev.filter((evt) => {
+        if (!databaseEventIdsRef.current.has(evt.id)) {
+          return false;
+        }
+        return allowed.has(evt.id);
+      }),
+    );
+
+    setActiveEventId((prev) => {
+      if (allowed.has(prev)) return prev;
+      const nextId = authSession.memberships[0]?.eventId;
+      return nextId ?? prev;
+    });
+  }, [
+    authSession.loaded,
+    authSession.usesScopedEventReads,
+    authSession.memberships,
+    authSession.readScope,
+  ]);
+
+  useEffect(() => {
+    if (!authSession.loaded || !authSession.isCouplePortalSession) return;
+
+    window.setTimeout(() => {
+      setCurrentRole("Couple");
+      setRolePreview("Couple");
+
+      if (couplePortalEventIds.length === 1) {
+        const eventId = couplePortalEventIds[0];
+        setCouplePortalPickerResolved(true);
+        setAppMode("event");
+        setActiveEventId(eventId);
+        setActiveScreen("Dashboard");
+        setAuthStage("app");
+        const evt = events.find((item) => item.id === eventId);
+        if (evt) {
+          loadEventPlanningIntoWorkingState(evt);
+        }
+        return;
+      }
+
+      if (couplePortalEventIds.length > 1 && couplePortalPickerResolved) {
+        setAppMode("event");
+        setAuthStage("app");
+      }
+    }, 0);
+  }, [
+    authSession.loaded,
+    authSession.isCouplePortalSession,
+    couplePortalEventIds,
+    couplePortalPickerResolved,
+    events,
+    loadEventPlanningIntoWorkingState,
+    setAuthStage,
+    setActiveScreen,
+    setCurrentRole,
+  ]);
+
+  useEffect(() => {
+    if (!authSession.isCouplePortalSession || !couplePortalPickerResolved) return;
+    if (appMode !== "events") return;
+    window.setTimeout(() => {
+      setAppMode("event");
+      setActiveScreen("Dashboard");
+    }, 0);
+  }, [
+    authSession.isCouplePortalSession,
+    couplePortalPickerResolved,
+    appMode,
+    setActiveScreen,
+  ]);
+
+  useEffect(() => {
+    if (!authSession.isCouplePortalSession || !couplePortalPickerResolved) return;
+    if (appMode !== "events") return;
+    if (
+      activeScreen === "All Events" ||
+      activeScreen === "Command Center" ||
+      activeScreen === "Team" ||
+      activeScreen === "Settings"
+    ) {
+      window.setTimeout(() => setActiveScreen("Dashboard"), 0);
+    }
+  }, [
+    authSession.isCouplePortalSession,
+    couplePortalPickerResolved,
+    appMode,
+    activeScreen,
+    setActiveScreen,
+  ]);
 
   useEffect(() => {
     if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) {
@@ -13397,6 +13554,32 @@ export default function Home() {
       </div>
 
       <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
+        {showCoupleNoEventState ? (
+          <NoEventAccessState
+            email={authSession.email}
+            onSignOut={() => {
+              void handleSignOut();
+            }}
+          />
+        ) : showCoupleEventChooser ? (
+          <CoupleEventChooser
+            events={accessibleCoupleEvents}
+            onSelect={(eventId) => {
+              setCouplePortalPickerResolved(true);
+              setCurrentRole("Couple");
+              setRolePreview("Couple");
+              setAppMode("event");
+              setActiveEventId(eventId);
+              setActiveScreen("Dashboard");
+              setAuthStage("app");
+              const evt = events.find((item) => item.id === eventId);
+              if (evt) {
+                loadEventPlanningIntoWorkingState(evt);
+              }
+            }}
+          />
+        ) : (
+          <>
         {authStage === "app" && (
           <EventNavSegmented
             items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
@@ -14570,7 +14753,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "events" && activeScreen === "All Events" && (
+        {authStage === "app" && appMode === "events" && activeScreen === "All Events" && !authSession.isCouplePortalSession && (
           <section className={workspaceSectionClass}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">Events</SectionTitle>
@@ -14944,7 +15127,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && (
+        {authStage === "app" && appMode === "event" && !authSession.isCouplePortalSession && (
           <div className="mt-4">
             <PrimaryButton
               onClick={() => {
@@ -14960,7 +15143,7 @@ export default function Home() {
           </div>
         )}
 
-        {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && (
+        {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
           <section className={`${workspaceSectionClass} cm-section-enter`}>
             <div className="grid gap-3 xl:grid-cols-[1.8fr_1fr]">
               <div className="space-y-3">
@@ -21627,6 +21810,8 @@ export default function Home() {
               </PremiumCard>
             )}
           </section>
+        )}
+          </>
         )}
       </main>
 

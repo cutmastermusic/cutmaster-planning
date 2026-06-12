@@ -1,18 +1,10 @@
 "use server";
 
-import {
-  getAuthMode,
-  isAuthBypassEnabled,
-  isSupabaseConfigured,
-  type AuthMode,
-} from "@/lib/auth/authConfig";
-import {
-  AuthUserLinkConflictError,
-  getOrCreateUserFromSession,
-} from "@/lib/auth/getOrCreateUserFromSession";
+import type { AuthContextMode } from "@/lib/eventAccess/types";
+import type { EventMembership, ReadScope } from "@/lib/eventAccess/types";
+import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import { createClient } from "@/lib/supabase/server";
-
-export type AuthContextMode = "supabase" | "bypass" | "prototype" | "anonymous";
+import { isSupabaseConfigured, type AuthMode } from "@/lib/auth/authConfig";
 
 export type AuthContextDbUser = {
   id: string;
@@ -26,71 +18,25 @@ export type AuthContextResult = {
   authMode: AuthMode;
   supabaseConfigured: boolean;
   bypassEnabled: boolean;
+  readScope: ReadScope;
   email: string | null;
   dbUser: AuthContextDbUser | null;
+  platformRole: string | null;
+  memberships: EventMembership[];
 };
 
 export async function getAuthContext(): Promise<AuthContextResult> {
-  const authMode = getAuthMode();
-  const supabaseConfigured = isSupabaseConfigured();
-  const bypassEnabled = isAuthBypassEnabled();
-
-  const base = {
-    authMode,
-    supabaseConfigured,
-    bypassEnabled,
-  };
-
-  if (!supabaseConfigured) {
-    return {
-      ...base,
-      mode: bypassEnabled ? "bypass" : "prototype",
-      email: null,
-      dbUser: null,
-    };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user?.email) {
-    return {
-      ...base,
-      mode: bypassEnabled
-        ? "bypass"
-        : authMode === "prototype"
-          ? "prototype"
-          : "anonymous",
-      email: null,
-      dbUser: null,
-    };
-  }
-
-  let dbUser: AuthContextDbUser | null = null;
-
-  try {
-    const row = await getOrCreateUserFromSession(user);
-    dbUser = {
-      id: row.id,
-      email: row.email,
-      name: row.name,
-      platformRole: row.platformRole,
-    };
-  } catch (error) {
-    if (error instanceof AuthUserLinkConflictError) {
-      console.error("[getAuthContext] auth link conflict:", error.message);
-    } else {
-      console.error("[getAuthContext] user sync failed:", error);
-    }
-  }
-
+  const access = await resolveSessionAccess();
   return {
-    ...base,
-    mode: bypassEnabled ? "bypass" : "supabase",
-    email: user.email,
-    dbUser,
+    mode: access.mode,
+    authMode: access.authMode,
+    supabaseConfigured: access.supabaseConfigured,
+    bypassEnabled: access.bypassEnabled,
+    readScope: access.readScope,
+    email: access.email,
+    dbUser: access.dbUser,
+    platformRole: access.platformRole,
+    memberships: access.memberships,
   };
 }
 
