@@ -1,7 +1,6 @@
 "use server";
 
-import type { AuthContextMode } from "@/lib/eventAccess/types";
-import type { EventMembership, ReadScope } from "@/lib/eventAccess/types";
+import type { AuthContextMode, EventMembership, ReadScope, SessionIssue } from "@/lib/eventAccess/types";
 import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured, type AuthMode } from "@/lib/auth/authConfig";
@@ -23,6 +22,7 @@ export type AuthContextResult = {
   dbUser: AuthContextDbUser | null;
   platformRole: string | null;
   memberships: EventMembership[];
+  sessionIssue: SessionIssue | null;
 };
 
 export async function getAuthContext(): Promise<AuthContextResult> {
@@ -37,6 +37,7 @@ export async function getAuthContext(): Promise<AuthContextResult> {
     dbUser: access.dbUser,
     platformRole: access.platformRole,
     memberships: access.memberships,
+    sessionIssue: access.sessionIssue,
   };
 }
 

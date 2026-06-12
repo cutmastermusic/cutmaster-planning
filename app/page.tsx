@@ -3325,6 +3325,14 @@ export default function Home() {
     authSession.readScope === "member" &&
     authSession.isCouplePortalSession &&
     accessibleCoupleEvents.length === 0;
+  const showAuthSessionIssueState =
+    authSession.loaded &&
+    authSession.supabaseConfigured &&
+    !authSession.bypassEnabled &&
+    authSession.mode === "supabase" &&
+    Boolean(authSession.email) &&
+    authSession.readScope === "none" &&
+    authSession.sessionIssue != null;
 
   const useRealEventInvites =
     authSession.supabaseConfigured &&
@@ -13605,9 +13613,18 @@ export default function Home() {
       </div>
 
       <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
-        {showCoupleNoEventState ? (
+        {showAuthSessionIssueState ? (
           <NoEventAccessState
             email={authSession.email}
+            variant={authSession.sessionIssue ?? "user_sync_failed"}
+            onSignOut={() => {
+              void handleSignOut();
+            }}
+          />
+        ) : showCoupleNoEventState ? (
+          <NoEventAccessState
+            email={authSession.email}
+            variant="no_event"
             onSignOut={() => {
               void handleSignOut();
             }}

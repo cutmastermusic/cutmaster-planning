@@ -18,6 +18,7 @@ const INITIAL_STATE: AuthContextResult = {
   dbUser: null,
   platformRole: null,
   memberships: [],
+  sessionIssue: null,
 };
 
 export function useAuthSession() {

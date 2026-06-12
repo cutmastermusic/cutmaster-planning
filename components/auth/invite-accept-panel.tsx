@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { PremiumCard, PrimaryButton, SectionTitle } from "@/components/planning-ui";
 import { getAuthContext, signOut } from "@/lib/actions/auth";
 import {
   acceptEventInvite,
-  getInviteAcceptPreview,
+  resolveInviteAcceptPreview,
   type InviteAcceptPreview,
 } from "@/lib/actions/eventInvites";
 import { isEventAccessError } from "@/lib/eventAccess/errors";
+import {
+  getInviteUnavailableCopy,
+  type InviteUnavailableReason,
+} from "@/lib/invites/inviteAcceptMessages";
 
 type InviteAcceptPanelProps = {
   token: string;
@@ -19,7 +21,11 @@ type InviteAcceptPanelProps = {
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "invalid"; message: string }
+  | {
+      kind: "unavailable";
+      reason: InviteUnavailableReason;
+      eventTitle?: string | null;
+    }
   | { kind: "ready"; preview: InviteAcceptPreview };
 
 function normalizeEmail(email: string): string {
@@ -42,8 +48,48 @@ function buildLoginHref(token: string, invitedEmail: string): string {
   return `/login?${params.toString()}`;
 }
 
+function InviteUnavailableState({
+  reason,
+  eventTitle,
+}: {
+  reason: InviteUnavailableReason;
+  eventTitle?: string | null;
+}) {
+  const copy = getInviteUnavailableCopy(reason, { eventTitle });
+
+  return (
+    <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
+      <PremiumCard variant="accent">
+        <SectionTitle>{copy.title}</SectionTitle>
+        <p className="mt-2 text-xs leading-relaxed text-stone-600">{copy.message}</p>
+        <div className="mt-4 space-y-2">
+          <PrimaryButton
+            type="button"
+            onClick={() => {
+              window.location.href = copy.primaryCta.href;
+            }}
+            className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+          >
+            {copy.primaryCta.label}
+          </PrimaryButton>
+          {copy.secondaryCta ? (
+            <PrimaryButton
+              type="button"
+              onClick={() => {
+                window.location.href = copy.secondaryCta!.href;
+              }}
+              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
+            >
+              {copy.secondaryCta.label}
+            </PrimaryButton>
+          ) : null}
+        </div>
+      </PremiumCard>
+    </section>
+  );
+}
+
 export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
-  const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>({ kind: "loading" });
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
@@ -64,29 +110,24 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
       void (async () => {
         if (!token.trim()) {
           if (!cancelled) {
-            setLoadState({
-              kind: "invalid",
-              message: "This invite link is missing a token. Ask your planner for a new link.",
-            });
+            setLoadState({ kind: "unavailable", reason: "invalid" });
           }
           return;
         }
 
-        try {
-          const preview = await getInviteAcceptPreview(token);
-          if (!cancelled) {
-            setLoadState({ kind: "ready", preview });
-          }
-        } catch (error) {
-          if (!cancelled) {
-            setLoadState({
-              kind: "invalid",
-              message: isEventAccessError(error)
-                ? error.message
-                : "This invite link is invalid or has expired.",
-            });
-          }
+        const result = await resolveInviteAcceptPreview(token);
+        if (cancelled) return;
+
+        if (result.status === "unavailable") {
+          setLoadState({
+            kind: "unavailable",
+            reason: result.reason,
+            eventTitle: result.eventTitle,
+          });
+          return;
         }
+
+        setLoadState({ kind: "ready", preview: result.preview });
       })();
 
       void (async () => {
@@ -119,12 +160,21 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
     }
   };
 
+  const handleSignOutAndContinue = async (invitedEmail: string) => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      window.location.href = buildLoginHref(token, invitedEmail);
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
       await signOut();
       await refreshAuth();
-      router.refresh();
     } finally {
       setSigningOut(false);
     }
@@ -141,23 +191,9 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
     );
   }
 
-  if (loadState.kind === "invalid") {
+  if (loadState.kind === "unavailable") {
     return (
-      <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
-        <PremiumCard variant="accent">
-          <SectionTitle>Invitation unavailable</SectionTitle>
-          <p className="mt-2 text-xs leading-relaxed text-stone-600">{loadState.message}</p>
-          <PrimaryButton
-            type="button"
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-            className="mt-4 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
-          >
-            Go to sign in
-          </PrimaryButton>
-        </PremiumCard>
-      </section>
+      <InviteUnavailableState reason={loadState.reason} eventTitle={loadState.eventTitle} />
     );
   }
 
@@ -189,7 +225,8 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
         {!isAuthenticated ? (
           <div className="mt-5 space-y-3">
             <p className="text-xs leading-relaxed text-stone-600">
-              Sign in with the email above to accept this invitation and open your planning portal.
+              Sign in with <span className="font-semibold text-stone-900">{invitedEmail}</span> to
+              accept this invitation and open your planning portal.
             </p>
             <PrimaryButton
               type="button"
@@ -198,14 +235,15 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               }}
               className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
             >
-              Continue with invited email
+              Sign in with invited email
             </PrimaryButton>
           </div>
         ) : emailMatches ? (
           <div className="mt-5 space-y-3">
-            <p className="text-xs text-stone-600">
-              Signed in as <span className="font-semibold text-stone-900">{sessionEmail}</span>
-            </p>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-950">
+              <p className="font-semibold">Signed in with the invited email</p>
+              <p className="mt-1">{sessionEmail}</p>
+            </div>
             {acceptError ? <p className="text-xs text-red-700">{acceptError}</p> : null}
             <PrimaryButton
               type="button"
@@ -220,21 +258,37 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
           </div>
         ) : (
           <div className="mt-5 space-y-3">
+            <p className="text-xs font-semibold text-stone-900">
+              This invitation must be accepted with the invited email address.
+            </p>
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-relaxed text-amber-950">
               <p>
-                <span className="font-semibold">This invitation was sent to:</span>
-                <br />
-                {invitedEmail}
+                <span className="font-semibold uppercase tracking-[0.08em] text-amber-900">
+                  Invited email
+                </span>
               </p>
-              <p className="mt-2">
-                <span className="font-semibold">You are currently signed in as:</span>
-                <br />
-                {sessionEmail}
+              <p className="mt-1 font-semibold text-stone-900">{invitedEmail}</p>
+              <p className="mt-3">
+                <span className="font-semibold uppercase tracking-[0.08em] text-amber-900">
+                  Signed in as
+                </span>
               </p>
+              <p className="mt-1 font-semibold text-stone-900">{sessionEmail}</p>
             </div>
             <p className="text-xs leading-relaxed text-stone-600">
-              Sign out and open this link again using the invited email address to accept.
+              Sign out, then sign in again using the invited email address to accept this
+              invitation.
             </p>
+            <PrimaryButton
+              type="button"
+              onClick={() => {
+                void handleSignOutAndContinue(invitedEmail);
+              }}
+              disabled={signingOut}
+              className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60"
+            >
+              {signingOut ? "Signing out…" : `Sign in with ${invitedEmail}`}
+            </PrimaryButton>
             <PrimaryButton
               type="button"
               onClick={() => {
@@ -243,18 +297,8 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               disabled={signingOut}
               className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50 disabled:opacity-60"
             >
-              {signingOut ? "Signing out…" : "Sign out"}
+              Sign out only
             </PrimaryButton>
-            <p className="text-xs text-stone-600">
-              After signing out,{" "}
-              <Link
-                href={buildLoginHref(token, invitedEmail)}
-                className="font-semibold text-stone-950 underline underline-offset-2"
-              >
-                continue with {invitedEmail}
-              </Link>
-              .
-            </p>
           </div>
         )}
       </PremiumCard>

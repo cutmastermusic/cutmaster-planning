@@ -10,6 +10,8 @@ export type EventMembership = {
   status: string;
 };
 
+export type SessionIssue = "auth_link_conflict" | "user_sync_failed";
+
 export type SessionAccessDbUser = {
   id: string;
   email: string;
@@ -27,4 +29,5 @@ export type SessionAccessProfile = {
   dbUser: SessionAccessDbUser | null;
   platformRole: string | null;
   memberships: EventMembership[];
+  sessionIssue: SessionIssue | null;
 };

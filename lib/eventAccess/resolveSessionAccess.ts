@@ -53,6 +53,7 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
       dbUser: null,
       platformRole: null,
       memberships: [],
+      sessionIssue: null,
     };
   }
 
@@ -70,6 +71,7 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
       dbUser: null,
       platformRole: null,
       memberships: [],
+      sessionIssue: null,
     };
   }
 
@@ -94,6 +96,7 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
         dbUser,
         platformRole: row.platformRole,
         memberships: [],
+        sessionIssue: null,
       };
     }
 
@@ -106,8 +109,12 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
       dbUser,
       platformRole: row.platformRole,
       memberships,
+      sessionIssue: null,
     };
   } catch (error) {
+    const sessionIssue =
+      error instanceof AuthUserLinkConflictError ? "auth_link_conflict" : "user_sync_failed";
+
     if (error instanceof AuthUserLinkConflictError) {
       console.error("[resolveSessionAccess] auth link conflict:", error.message);
     } else {
@@ -122,6 +129,7 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
       dbUser,
       platformRole: dbUser?.platformRole ?? null,
       memberships,
+      sessionIssue,
     };
   }
 }

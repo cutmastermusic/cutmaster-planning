@@ -5,6 +5,13 @@ import { getSiteUrl } from "@/lib/auth/authConfig";
 import { authorizeEventMutation, requireAuth } from "@/lib/eventAccess/authorize";
 import { EventAccessError } from "@/lib/eventAccess/errors";
 import { generateInviteToken, hashInviteToken } from "@/lib/invites/token";
+import {
+  classifyInviteRecord,
+  getInviteUnavailableMessage,
+  type InviteAcceptPreviewResult,
+  type InviteUnavailableReason,
+} from "@/lib/invites/inviteAcceptMessages";
+import { resolveInviteAcceptPreview as resolveInviteAcceptPreviewFromDb } from "@/lib/invites/inviteAcceptState";
 import { prisma } from "@/lib/prisma";
 
 const INVITE_EXPIRY_DAYS = 14;
@@ -63,32 +70,11 @@ function buildInviteUrl(rawToken: string): string {
   return `${getSiteUrl()}${INVITE_ACCEPT_PATH}?token=${encodeURIComponent(rawToken)}`;
 }
 
-const INVALID_INVITE_MESSAGE = "This invite link is invalid or has expired.";
-
-async function findUsableInviteByRawToken(rawToken: string) {
-  const token = rawToken.trim();
-  if (!token) {
-    return null;
-  }
-
-  const tokenHash = hashInviteToken(token);
-  const invite = await prisma.eventInvite.findUnique({
-    where: { tokenHash },
-    include: {
-      event: { select: { id: true, title: true } },
-      eventMember: true,
-    },
-  });
-
-  if (!invite) {
-    return null;
-  }
-
-  if (invite.revokedAt || invite.acceptedAt || invite.expiresAt.getTime() <= Date.now()) {
-    return null;
-  }
-
-  return invite;
+function throwInviteUnavailable(
+  reason: InviteUnavailableReason,
+  options?: { eventTitle?: string | null },
+): never {
+  throw new EventAccessError("FORBIDDEN", getInviteUnavailableMessage(reason, options));
 }
 
 function assertSupabaseSessionForAccept(
@@ -243,17 +229,17 @@ export async function createEventInvite(
 }
 
 export async function getInviteAcceptPreview(rawToken: string): Promise<InviteAcceptPreview> {
-  const invite = await findUsableInviteByRawToken(rawToken);
+  const result = await resolveInviteAcceptPreviewFromDb(rawToken);
 
-  if (!invite) {
-    throw new EventAccessError("FORBIDDEN", INVALID_INVITE_MESSAGE);
+  if (result.status === "unavailable") {
+    throwInviteUnavailable(result.reason, { eventTitle: result.eventTitle });
   }
 
-  return {
-    eventTitle: invite.event.title,
-    invitedEmail: invite.email,
-    expiresAt: invite.expiresAt,
-  };
+  return result.preview;
+}
+
+export async function resolveInviteAcceptPreview(rawToken: string): Promise<InviteAcceptPreviewResult> {
+  return resolveInviteAcceptPreviewFromDb(rawToken);
 }
 
 export async function acceptEventInvite(rawToken: string): Promise<AcceptEventInviteResult> {
@@ -264,7 +250,7 @@ export async function acceptEventInvite(rawToken: string): Promise<AcceptEventIn
   const token = rawToken.trim();
 
   if (!token) {
-    throw new EventAccessError("FORBIDDEN", INVALID_INVITE_MESSAGE);
+    throwInviteUnavailable("invalid");
   }
 
   const tokenHash = hashInviteToken(token);
@@ -273,16 +259,18 @@ export async function acceptEventInvite(rawToken: string): Promise<AcceptEventIn
     const invite = await tx.eventInvite.findUnique({
       where: { tokenHash },
       include: {
+        event: { select: { title: true } },
         eventMember: true,
       },
     });
 
-    if (!invite || invite.revokedAt || invite.acceptedAt || invite.expiresAt.getTime() <= Date.now()) {
-      throw new EventAccessError("FORBIDDEN", INVALID_INVITE_MESSAGE);
+    const classified = classifyInviteRecord(invite);
+    if (classified.status === "unavailable") {
+      throwInviteUnavailable(classified.reason, { eventTitle: classified.eventTitle });
     }
 
-    if (!invite.eventMemberId || !invite.eventMember) {
-      throw new EventAccessError("FORBIDDEN", INVALID_INVITE_MESSAGE);
+    if (!invite?.eventMemberId || !invite.eventMember) {
+      throwInviteUnavailable("invalid");
     }
 
     if (normalizeInviteEmail(invite.email) !== sessionEmail) {
