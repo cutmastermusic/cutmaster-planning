@@ -16,6 +16,7 @@ import {
   type EventMusicHubPlanSnapshot,
 } from "@/lib/musicHubPlan";
 import type { EventCeremonyPlanSnapshot } from "@/types/planning";
+import { authorizeEventMutation } from "@/lib/eventAccess/authorize";
 import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import {
   accessibleEventIdsFromMemberships,
@@ -263,6 +264,7 @@ export async function replacePlanningQuestionAnswers(
 }
 
 export async function replaceCeremonyPlan(eventId: string, plan: EventCeremonyPlanSnapshot) {
+  await authorizeEventMutation(eventId, "ceremony-plan:write");
   logActionPayload("replaceCeremonyPlan", plan);
   const normalized = parseCeremonyPlanJson(plan) ?? plan;
   return prisma.event.update({
@@ -278,6 +280,7 @@ export async function replaceCeremonyPlan(eventId: string, plan: EventCeremonyPl
 }
 
 export async function replaceMusicHubPlan(eventId: string, plan: EventMusicHubPlanSnapshot) {
+  await authorizeEventMutation(eventId, "music-hub:write");
   logActionPayload("replaceMusicHubPlan", plan);
   const normalized = buildMusicHubPlanSnapshot(plan);
   return prisma.event.update({
@@ -409,6 +412,7 @@ export async function replaceMainTimelineItems(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "timeline:write");
   logActionPayload("replaceMainTimelineItems", items);
   const timeline = await prisma.timeline.upsert({
     where: {
@@ -470,6 +474,7 @@ export async function replaceCeremonyTimelineItems(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "timeline:write");
   logActionPayload("replaceCeremonyTimelineItems", items);
   const timeline = await prisma.timeline.upsert({
     where: {
@@ -525,6 +530,7 @@ export async function replaceEventSongs(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "songs:write");
   logActionPayload(`replaceEventSongs[${listType}]`, songs);
   await prisma.eventSong.deleteMany({
     where: {
@@ -559,6 +565,7 @@ export async function replaceGuestRequests(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "guest-requests:write");
   logActionPayload("replaceGuestRequests", guestRequests);
   await prisma.guestRequest.deleteMany({
     where: {
@@ -600,6 +607,7 @@ export async function replaceEventTeamMembers(
     order: number;
   }>,
 ) {
+  await authorizeEventMutation(eventId, "team:write");
   logActionPayload("replaceEventTeamMembers", teamMembers);
   console.log("replaceEventTeamMembers CALLED");
   console.log(
