@@ -27,20 +27,12 @@ function getCopy(variant: NoEventAccessVariant, email?: string | null) {
         signOutLabel: "Sign out and try again",
       };
     case "access_removed":
-      return {
-        title: "Access removed",
-        message: email
-          ? `Planning Portal access for ${email} was removed from this event. Contact your planner if you believe this is a mistake.`
-          : "Your Planning Portal access to this event was removed. Contact your planner if you believe this is a mistake.",
-        signOutLabel: "Sign out",
-      };
     case "no_event":
     default:
       return {
-        title: "Your event isn't ready yet",
-        message: email
-          ? `We couldn't find an event linked to ${email} yet. Your planner will send you access when everything is set up.`
-          : "We couldn't find an event linked to your account yet. Your planner will send you access when everything is set up.",
+        title: "No Active Event Access",
+        message:
+          "We couldn't find any active event access associated with this account. If you believe this is a mistake, please contact your planner.",
         signOutLabel: "Sign out",
       };
   }
