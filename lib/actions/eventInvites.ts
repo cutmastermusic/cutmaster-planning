@@ -9,6 +9,7 @@ import type { InviteEmailDeliveryResult } from "@/lib/email/types";
 import { authorizeEventMutation, requireAuth } from "@/lib/eventAccess/authorize";
 import { EventAccessError } from "@/lib/eventAccess/errors";
 import { generateInviteToken, hashInviteToken } from "@/lib/invites/token";
+import { decryptInviteToken, encryptInviteToken } from "@/lib/invites/tokenEncryption";
 import {
   classifyInviteRecord,
   getInviteUnavailableMessage,
@@ -59,6 +60,7 @@ export type EventInviteListItem = {
   acceptedAt: Date | null;
   revokedAt: Date | null;
   inviteState: EventInviteListState;
+  hasRetrievableLink: boolean;
 };
 
 function normalizeInviteEmail(email: string): string {
@@ -127,6 +129,67 @@ function resolveInviteListState(input: {
   }
 
   return "pending";
+}
+
+async function loadCoupleInviteForEvent(eventId: string, inviteId: string) {
+  await authorizeEventMutation(eventId, "event:invite:write");
+
+  const invite = await prisma.eventInvite.findFirst({
+    where: {
+      id: inviteId,
+      eventId,
+      role: "COUPLE",
+    },
+    include: {
+      event: { select: { title: true } },
+      eventMember: true,
+    },
+  });
+
+  if (!invite) {
+    throw new EventAccessError("FORBIDDEN", "Invite not found.");
+  }
+
+  const member = invite.eventMember;
+  const memberStatus = member?.status ?? "PENDING";
+  const inviteState = resolveInviteListState({
+    memberStatus,
+    expiresAt: invite.expiresAt,
+    acceptedAt: invite.acceptedAt,
+    revokedAt: invite.revokedAt,
+  });
+
+  return { invite, inviteState, memberStatus };
+}
+
+function resolveRetrievableInviteUrl(invite: { tokenEnc: string | null }): string {
+  const rawToken = decryptInviteToken(invite.tokenEnc);
+  if (!rawToken) {
+    throw new EventAccessError(
+      "FORBIDDEN",
+      "This invite link is unavailable. Send a new invite to generate a fresh link.",
+    );
+  }
+
+  return buildInviteUrl(rawToken);
+}
+
+async function loadCoupleMemberForEvent(eventId: string, eventMemberId: string) {
+  await authorizeEventMutation(eventId, "event:invite:write");
+
+  const member = await prisma.eventMember.findFirst({
+    where: {
+      id: eventMemberId,
+      eventId,
+      role: "COUPLE",
+    },
+  });
+
+  if (!member) {
+    throw new EventAccessError("FORBIDDEN", "Portal member not found.");
+  }
+
+  return member;
 }
 
 export async function createEventInvite(
@@ -213,6 +276,7 @@ export async function createEventInvite(
         email: normalizedEmail,
         role: "COUPLE",
         tokenHash,
+        tokenEnc: encryptInviteToken(rawToken),
         expiresAt,
         createdById,
       },
@@ -343,6 +407,13 @@ export async function listEventInvites(eventId: string): Promise<EventInviteList
     const member = row.eventMember;
     const memberStatus = member?.status ?? "PENDING";
     const memberAcceptedAt = member?.acceptedAt ?? null;
+    const inviteState = resolveInviteListState({
+      memberStatus,
+      expiresAt: row.expiresAt,
+      acceptedAt: row.acceptedAt,
+      revokedAt: row.revokedAt,
+      now,
+    });
 
     return {
       inviteId: row.id,
@@ -355,13 +426,98 @@ export async function listEventInvites(eventId: string): Promise<EventInviteList
       expiresAt: row.expiresAt,
       acceptedAt: row.acceptedAt,
       revokedAt: row.revokedAt,
-      inviteState: resolveInviteListState({
-        memberStatus,
-        expiresAt: row.expiresAt,
-        acceptedAt: row.acceptedAt,
-        revokedAt: row.revokedAt,
-        now,
-      }),
+      inviteState,
+      hasRetrievableLink: inviteState === "pending" && Boolean(row.tokenEnc),
     };
+  });
+}
+
+export async function getEventInviteUrl(
+  eventId: string,
+  inviteId: string,
+): Promise<{ inviteUrl: string }> {
+  const { invite, inviteState } = await loadCoupleInviteForEvent(eventId, inviteId);
+
+  if (inviteState !== "pending") {
+    throw new EventAccessError("FORBIDDEN", "Only pending invites have a copyable link.");
+  }
+
+  return { inviteUrl: resolveRetrievableInviteUrl(invite) };
+}
+
+export async function resendEventInvite(
+  eventId: string,
+  inviteId: string,
+): Promise<{ emailDelivery: InviteEmailDeliveryResult }> {
+  const { invite, inviteState } = await loadCoupleInviteForEvent(eventId, inviteId);
+
+  if (inviteState !== "pending") {
+    throw new EventAccessError("FORBIDDEN", "Only pending invites can be resent.");
+  }
+
+  const inviteUrl = resolveRetrievableInviteUrl(invite);
+  const emailDelivery = await sendPlanningPortalInviteEmail({
+    to: invite.email,
+    recipientName: invite.eventMember?.displayName ?? null,
+    eventTitle: invite.event.title,
+    inviteUrl,
+    expiresAt: invite.expiresAt,
+  });
+
+  return { emailDelivery };
+}
+
+export async function revokeEventInvite(eventId: string, inviteId: string): Promise<void> {
+  const { invite, inviteState } = await loadCoupleInviteForEvent(eventId, inviteId);
+
+  if (inviteState !== "pending") {
+    throw new EventAccessError("FORBIDDEN", "Only pending invites can be revoked.");
+  }
+
+  const revokedAt = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.eventInvite.update({
+      where: { id: invite.id },
+      data: { revokedAt },
+    });
+
+    if (invite.eventMemberId && invite.eventMember?.status === "PENDING") {
+      await tx.eventMember.update({
+        where: { id: invite.eventMemberId },
+        data: { status: "REVOKED" },
+      });
+    }
+  });
+}
+
+export async function removeEventMemberPortalAccess(
+  eventId: string,
+  eventMemberId: string,
+): Promise<void> {
+  const member = await loadCoupleMemberForEvent(eventId, eventMemberId);
+
+  if (member.status !== "ACTIVE") {
+    throw new EventAccessError("FORBIDDEN", "This member does not have active portal access.");
+  }
+
+  const revokedAt = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.eventMember.update({
+      where: { id: eventMemberId },
+      data: {
+        status: "REVOKED",
+        userId: null,
+      },
+    });
+
+    await tx.eventInvite.updateMany({
+      where: {
+        eventMemberId,
+        revokedAt: null,
+      },
+      data: { revokedAt },
+    });
   });
 }

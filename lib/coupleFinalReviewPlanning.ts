@@ -1,4 +1,12 @@
 import type { CoupleWeddingChapterStatus } from "@/lib/coupleWeddingJourney";
+import {
+  CEREMONY_CHAPTER_QUESTION_IDS,
+  ceremonyCutmasterServicesLabelFromValue,
+  ceremonyLocationLabelFromValue,
+  hasLegacyCeremonyPlanningAnswer,
+  normalizeCeremonyCutmasterServicesAnswer,
+  normalizeCeremonyLocationAnswer,
+} from "@/lib/coupleCeremonyPlanning";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import {
   MUSIC_PROFILE_QUESTION_IDS,
@@ -188,9 +196,39 @@ function buildAboutYouSummaryLines(
 function buildCeremonySummaryLines(
   answers: Record<string, string | undefined>,
 ): CoupleFinalReviewSummaryLine[] {
-  const ceremony = trimSummaryText(answers.pq_ceremony);
-  if (!ceremony) return [];
-  return [{ label: "Ceremony vision", value: firstLinePreview(ceremony) }];
+  if (hasLegacyCeremonyPlanningAnswer(answers)) {
+    const ceremony = trimSummaryText(answers.pq_ceremony);
+    if (!ceremony) return [];
+    return [{ label: "Ceremony notes", value: firstLinePreview(ceremony) }];
+  }
+
+  const lines: CoupleFinalReviewSummaryLine[] = [];
+  const services = normalizeCeremonyCutmasterServicesAnswer(
+    answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
+  );
+  if (services) {
+    lines.push({
+      label: "Ceremony audio",
+      value: ceremonyCutmasterServicesLabelFromValue(services),
+    });
+  }
+
+  const startTime = trimSummaryText(answers[CEREMONY_CHAPTER_QUESTION_IDS.startTime]);
+  if (startTime) {
+    lines.push({ label: "Ceremony start", value: truncateSummaryText(startTime) });
+  }
+
+  const location = normalizeCeremonyLocationAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.location]);
+  if (location) {
+    const locationLabel = ceremonyLocationLabelFromValue(location);
+    const details = trimSummaryText(answers[CEREMONY_CHAPTER_QUESTION_IDS.locationDetails]);
+    lines.push({
+      label: "Ceremony location",
+      value: location === "different" && details ? `${locationLabel} · ${truncateSummaryText(details)}` : locationLabel,
+    });
+  }
+
+  return lines;
 }
 
 function buildReceptionMomentsSummaryLines(

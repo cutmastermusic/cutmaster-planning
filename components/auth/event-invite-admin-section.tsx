@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { PremiumCard, PrimaryButton, SectionTitle, TextInput } from "@/components/planning-ui";
 import {
   createEventInvite,
+  getEventInviteUrl,
   listEventInvites,
+  removeEventMemberPortalAccess,
+  resendEventInvite,
+  revokeEventInvite,
   type EventInviteListItem,
   type EventInviteListState,
 } from "@/lib/actions/eventInvites";
@@ -25,6 +29,13 @@ type CreateInviteSuccess = {
   expiresAt: Date;
   recipientEmail: string;
   emailDelivery: InviteEmailDeliveryResult;
+};
+
+type RowFeedbackTone = "success" | "error" | "warning";
+
+type RowFeedback = {
+  tone: RowFeedbackTone;
+  message: string;
 };
 
 function inviteStateLabel(state: EventInviteListState): string {
@@ -61,7 +72,10 @@ function inviteStateBadgeClass(state: EventInviteListState): string {
   }
 }
 
-function emailDeliveryMessage(delivery: InviteEmailDeliveryResult, recipientEmail: string): {
+function emailDeliveryMessage(
+  delivery: InviteEmailDeliveryResult,
+  recipientEmail: string,
+): {
   tone: "success" | "warning";
   title: string;
   body: string;
@@ -89,6 +103,83 @@ function emailDeliveryMessage(delivery: InviteEmailDeliveryResult, recipientEmai
   };
 }
 
+function resendDeliveryFeedback(delivery: InviteEmailDeliveryResult, email: string): RowFeedback {
+  if (delivery.status === "sent") {
+    return { tone: "success", message: `Invite email resent to ${email}.` };
+  }
+  if (delivery.status === "skipped") {
+    return {
+      tone: "warning",
+      message: "Email delivery is not configured. Copy the invite link and send it manually.",
+    };
+  }
+  return {
+    tone: "error",
+    message: `Could not resend email (${delivery.error}). Copy the link and send it manually.`,
+  };
+}
+
+function actionErrorMessage(error: unknown, fallback: string): string {
+  return isEventAccessError(error) ? error.message : fallback;
+}
+
+const secondaryActionButtonClass =
+  "rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60";
+
+const dangerActionButtonClass =
+  "rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-950 shadow-sm hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60";
+
+function InvitePersonCard({
+  row,
+  feedback,
+  children,
+}: {
+  row: EventInviteListItem;
+  feedback?: RowFeedback | null;
+  children?: ReactNode;
+}) {
+  return (
+    <PremiumCard className="border-stone-200 bg-white p-4 shadow-sm ring-1 ring-stone-200/80 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
+            {row.displayName || row.email}
+          </p>
+          {row.displayName ? (
+            <p className="mt-1 text-sm leading-snug text-stone-700 [overflow-wrap:anywhere]">
+              {row.email}
+            </p>
+          ) : null}
+          <p className="mt-2 text-[13px] leading-relaxed text-stone-600">
+            {row.inviteState === "active" && row.memberAcceptedAt
+              ? `Active since ${formatInviteExpiryDate(row.memberAcceptedAt)}`
+              : `Expires ${formatInviteExpiryDate(row.expiresAt)}`}
+          </p>
+        </div>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${inviteStateBadgeClass(row.inviteState)}`}
+        >
+          {inviteStateLabel(row.inviteState)}
+        </span>
+      </div>
+      {feedback ? (
+        <p
+          className={`mt-3 text-xs leading-relaxed ${
+            feedback.tone === "success"
+              ? "text-emerald-900"
+              : feedback.tone === "warning"
+                ? "text-amber-900"
+                : "text-rose-900"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      ) : null}
+      {children ? <div className="mt-3 flex flex-wrap gap-2">{children}</div> : null}
+    </PremiumCard>
+  );
+}
+
 export function EventInviteAdminSection({
   eventId,
   canInvite,
@@ -103,6 +194,8 @@ export function EventInviteAdminSection({
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<CreateInviteSuccess | null>(null);
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
+  const [rowFeedback, setRowFeedback] = useState<Record<string, RowFeedback>>({});
+  const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -146,14 +239,33 @@ export function EventInviteAdminSection({
     }
   }, [eventId]);
 
-  const activeCount = useMemo(
-    () => invites.filter((row) => row.inviteState === "active").length,
+  const activeInvites = useMemo(() => {
+    const seen = new Set<string>();
+    return invites.filter((row) => {
+      if (row.inviteState !== "active") return false;
+      if (seen.has(row.eventMemberId)) return false;
+      seen.add(row.eventMemberId);
+      return true;
+    });
+  }, [invites]);
+
+  const pendingInvites = useMemo(
+    () => invites.filter((row) => row.inviteState === "pending"),
     [invites],
   );
-  const pendingCount = useMemo(
-    () => invites.filter((row) => row.inviteState === "pending").length,
+
+  const inactiveInvites = useMemo(
+    () =>
+      invites.filter(
+        (row) =>
+          row.inviteState !== "active" &&
+          row.inviteState !== "pending",
+      ),
     [invites],
   );
+
+  const activeCount = activeInvites.length;
+  const pendingCount = pendingInvites.length;
 
   const resetModalFields = () => {
     setInviteEmail("");
@@ -166,6 +278,21 @@ export function EventInviteAdminSection({
   const handleCloseModal = () => {
     onModalOpenChange(false);
     resetModalFields();
+  };
+
+  const setFeedback = (key: string, feedback: RowFeedback | null) => {
+    setRowFeedback((prev) => {
+      if (!feedback) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: feedback };
+    });
+  };
+
+  const setBusy = (key: string, busy: boolean) => {
+    setRowBusy((prev) => ({ ...prev, [key]: busy }));
   };
 
   const handleCreateInvite = async () => {
@@ -194,24 +321,108 @@ export function EventInviteAdminSection({
       await reloadInvites();
     } catch (error) {
       setCreateError(
-        isEventAccessError(error)
-          ? error.message
-          : "Could not create the invite. Try again.",
+        actionErrorMessage(error, "Could not create the invite. Try again."),
       );
     } finally {
       setCreating(false);
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!createSuccess?.inviteUrl) return;
+  const handleCopyUrl = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(createSuccess.inviteUrl);
+      await navigator.clipboard.writeText(url);
       setCopyStatus("copied");
       window.setTimeout(() => setCopyStatus(""), 1800);
     } catch {
       setCopyStatus("error");
       window.setTimeout(() => setCopyStatus(""), 2200);
+    }
+  };
+
+  const handleCopyPendingLink = async (row: EventInviteListItem) => {
+    const key = `copy:${row.inviteId}`;
+    setBusy(key, true);
+    setFeedback(key, null);
+
+    try {
+      const { inviteUrl } = await getEventInviteUrl(eventId, row.inviteId);
+      await navigator.clipboard.writeText(inviteUrl);
+      setFeedback(key, { tone: "success", message: "Invite link copied to clipboard." });
+    } catch (error) {
+      setFeedback(key, {
+        tone: "error",
+        message: actionErrorMessage(error, "Could not copy the invite link."),
+      });
+    } finally {
+      setBusy(key, false);
+    }
+  };
+
+  const handleResendInvite = async (row: EventInviteListItem) => {
+    const key = `resend:${row.inviteId}`;
+    setBusy(key, true);
+    setFeedback(key, null);
+
+    try {
+      const result = await resendEventInvite(eventId, row.inviteId);
+      setFeedback(key, resendDeliveryFeedback(result.emailDelivery, row.email));
+    } catch (error) {
+      setFeedback(key, {
+        tone: "error",
+        message: actionErrorMessage(error, "Could not resend the invite."),
+      });
+    } finally {
+      setBusy(key, false);
+    }
+  };
+
+  const handleRevokeInvite = async (row: EventInviteListItem) => {
+    const label = row.displayName || row.email;
+    const confirmed = window.confirm(
+      `Revoke the pending invite for ${label}? The invite link will stop working immediately.`,
+    );
+    if (!confirmed) return;
+
+    const key = `revoke:${row.inviteId}`;
+    setBusy(key, true);
+    setFeedback(key, null);
+
+    try {
+      await revokeEventInvite(eventId, row.inviteId);
+      setFeedback(key, { tone: "success", message: "Invite revoked." });
+      await reloadInvites();
+    } catch (error) {
+      setFeedback(key, {
+        tone: "error",
+        message: actionErrorMessage(error, "Could not revoke the invite."),
+      });
+    } finally {
+      setBusy(key, false);
+    }
+  };
+
+  const handleRemoveAccess = async (row: EventInviteListItem) => {
+    const label = row.displayName || row.email;
+    const confirmed = window.confirm(
+      `Remove Planning Portal access for ${label}? They will lose access to this event only.`,
+    );
+    if (!confirmed) return;
+
+    const key = `remove:${row.eventMemberId}`;
+    setBusy(key, true);
+    setFeedback(key, null);
+
+    try {
+      await removeEventMemberPortalAccess(eventId, row.eventMemberId);
+      setFeedback(key, { tone: "success", message: "Portal access removed." });
+      await reloadInvites();
+    } catch (error) {
+      setFeedback(key, {
+        tone: "error",
+        message: actionErrorMessage(error, "Could not remove portal access."),
+      });
+    } finally {
+      setBusy(key, false);
     }
   };
 
@@ -263,33 +474,106 @@ export function EventInviteAdminSection({
           <p className="text-xs text-stone-600">No portal invitations yet.</p>
         </PremiumCard>
       ) : (
-        invites.map((row) => (
-          <PremiumCard
-            key={row.inviteId}
-            className="border-stone-200 bg-white p-4 shadow-sm ring-1 ring-stone-200/80 sm:p-5"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
-                  {row.displayName || row.email}
-                </p>
-                {row.displayName ? (
-                  <p className="mt-1 text-sm leading-snug text-stone-700 [overflow-wrap:anywhere]">
-                    {row.email}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-[13px] leading-relaxed text-stone-600">
-                  Expires {formatInviteExpiryDate(row.expiresAt)}
-                </p>
-              </div>
-              <span
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${inviteStateBadgeClass(row.inviteState)}`}
-              >
-                {inviteStateLabel(row.inviteState)}
-              </span>
+        <div className="space-y-4">
+          {activeInvites.length > 0 ? (
+            <div className="space-y-3">
+              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                Active portal users
+              </p>
+              {activeInvites.map((row) => {
+                const feedbackKey = `remove:${row.eventMemberId}`;
+                return (
+                  <InvitePersonCard
+                    key={row.eventMemberId}
+                    row={row}
+                    feedback={rowFeedback[feedbackKey] ?? null}
+                  >
+                    {canInvite ? (
+                      <PrimaryButton
+                        type="button"
+                        disabled={Boolean(rowBusy[feedbackKey])}
+                        onClick={() => {
+                          void handleRemoveAccess(row);
+                        }}
+                        className={dangerActionButtonClass}
+                      >
+                        {rowBusy[feedbackKey] ? "Removing…" : "Remove access"}
+                      </PrimaryButton>
+                    ) : null}
+                  </InvitePersonCard>
+                );
+              })}
             </div>
-          </PremiumCard>
-        ))
+          ) : null}
+
+          {pendingInvites.length > 0 ? (
+            <div className="space-y-3">
+              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                Pending invites
+              </p>
+              {pendingInvites.map((row) => {
+                const copyKey = `copy:${row.inviteId}`;
+                const resendKey = `resend:${row.inviteId}`;
+                const revokeKey = `revoke:${row.inviteId}`;
+                const feedback =
+                  rowFeedback[copyKey] ??
+                  rowFeedback[resendKey] ??
+                  rowFeedback[revokeKey] ??
+                  null;
+
+                return (
+                  <InvitePersonCard key={row.inviteId} row={row} feedback={feedback}>
+                    {canInvite ? (
+                      <>
+                        <PrimaryButton
+                          type="button"
+                          disabled={!row.hasRetrievableLink || Boolean(rowBusy[copyKey])}
+                          onClick={() => {
+                            void handleCopyPendingLink(row);
+                          }}
+                          className={secondaryActionButtonClass}
+                        >
+                          {rowBusy[copyKey] ? "Copying…" : "Copy link"}
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          disabled={!row.hasRetrievableLink || Boolean(rowBusy[resendKey])}
+                          onClick={() => {
+                            void handleResendInvite(row);
+                          }}
+                          className={secondaryActionButtonClass}
+                        >
+                          {rowBusy[resendKey] ? "Resending…" : "Resend"}
+                        </PrimaryButton>
+                        <PrimaryButton
+                          type="button"
+                          disabled={Boolean(rowBusy[revokeKey])}
+                          onClick={() => {
+                            void handleRevokeInvite(row);
+                          }}
+                          className={dangerActionButtonClass}
+                        >
+                          {rowBusy[revokeKey] ? "Revoking…" : "Revoke"}
+                        </PrimaryButton>
+                      </>
+                    ) : null}
+                  </InvitePersonCard>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {inactiveInvites.length > 0 ? (
+            <div className="space-y-3">
+              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                Past invitations
+              </p>
+              {inactiveInvites.map((row) => (
+                <InvitePersonCard key={row.inviteId} row={row} />
+              ))}
+            </div>
+          ) : null}
+        </div>
       )}
 
       {modalOpen ? (
@@ -325,7 +609,7 @@ export function EventInviteAdminSection({
                 <PrimaryButton
                   type="button"
                   onClick={() => {
-                    void handleCopyLink();
+                    void handleCopyUrl(createSuccess.inviteUrl);
                   }}
                   className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
                 >

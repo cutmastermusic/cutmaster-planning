@@ -154,6 +154,7 @@ model EventInvite {
   role          EventMemberRole
 
   tokenHash     String          @unique
+  tokenEnc      String?
 
   expiresAt     DateTime
   acceptedAt    DateTime?
