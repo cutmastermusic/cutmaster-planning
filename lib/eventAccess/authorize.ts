@@ -96,6 +96,13 @@ export async function authorizeEventAccess(
 
   const membership = findActiveMembership(access.memberships, eventId);
   if (!membership) {
+    console.info("[portal-access] event access denied — no active membership", {
+      eventId,
+      userId: access.dbUser?.id ?? null,
+      email: access.email,
+      membershipCount: access.memberships.length,
+      membershipEventIds: access.memberships.map((row) => row.eventId),
+    });
     throw new EventAccessError("FORBIDDEN", "You do not have access to this event.");
   }
 

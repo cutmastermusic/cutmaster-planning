@@ -17,13 +17,20 @@ async function loadActiveMemberships(
   const rows = await prisma.eventMember.findMany({
     where: {
       status: "ACTIVE",
-      OR: [{ userId: dbUser.id }, { email: { equals: dbUser.email, mode: "insensitive" } }],
+      userId: dbUser.id,
     },
     select: {
       eventId: true,
       role: true,
       status: true,
     },
+  });
+
+  console.info("[portal-access] loaded active memberships", {
+    userId: dbUser.id,
+    email: dbUser.email,
+    count: rows.length,
+    eventIds: rows.map((row) => row.eventId),
   });
 
   return rows.map((row) => ({

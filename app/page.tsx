@@ -143,7 +143,11 @@ import { AccountMenu } from "@/components/auth/account-menu";
 import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
 import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
 import { NoEventAccessState } from "@/components/auth/no-event-access-state";
-import { accessibleEventIdsFromMemberships } from "@/lib/eventAccess/readScope";
+import {
+  accessibleEventIdsFromMemberships,
+  filterDatabaseEventsForSessionAccess,
+  resolveActiveEventIdForSessionAccess,
+} from "@/lib/eventAccess/readScope";
 import {
   stripStaffOnlyFieldsFromClientEventRecord,
 } from "@/lib/eventAccess/shapeEventForActor";
@@ -3081,6 +3085,7 @@ export default function Home() {
   } = usePlanningApp();
   const authSession = useAuthSession();
   const [couplePortalPickerResolved, setCouplePortalPickerResolved] = useState(false);
+  const [portalAccessRemoved, setPortalAccessRemoved] = useState(false);
   const couplePortalBootstrapRef = useRef<{
     initialized: boolean;
     planningLoadedForEventId: string | null;
@@ -3441,6 +3446,7 @@ export default function Home() {
     await authSession.signOut();
 
     setCouplePortalPickerResolved(false);
+    setPortalAccessRemoved(false);
     couplePortalBootstrapRef.current = { initialized: false, planningLoadedForEventId: null };
     couplePortalNavRestoreAppliedRef.current = false;
     pendingCoupleNavRestoreRef.current = null;
@@ -3535,8 +3541,8 @@ export default function Home() {
     databaseEventsLoaded &&
     authSession.mode === "supabase" &&
     authSession.readScope === "member" &&
-    authSession.isCouplePortalSession &&
-    accessibleCoupleEvents.length === 0;
+    Boolean(authSession.email) &&
+    authSession.memberships.length === 0;
   const showAuthSessionIssueState =
     authSession.loaded &&
     authSession.supabaseConfigured &&
@@ -3561,13 +3567,6 @@ export default function Home() {
     "date-asc" | "date-desc" | "recently-updated" | "alpha"
   >("date-asc");
 
-  const activeEvent = events.find((e) => e.id === activeEventId) ?? events[0];
-  const weddingDetails: WeddingDetails = activeEvent?.meta ?? {
-    couple: "",
-    date: "",
-    venue: "",
-  };
-
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<"new" | "edit">("new");
   const [eventModalStatus, setEventModalStatus] = useState<{
@@ -3589,6 +3588,53 @@ export default function Home() {
   const teamMembersRef = useRef(teamMembers);
   teamMembersRef.current = teamMembers;
   const [companyTeamMembers, setCompanyTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const visibleEvents = useMemo(() => {
+    if (authSession.loaded && authSession.usesScopedEventReads && accessibleDbEventIds) {
+      return events.filter((evt) => accessibleDbEventIds.has(evt.id));
+    }
+
+    let list: EventRecord[];
+    if (!currentRole || currentRole === "Admin") {
+      list = events;
+    } else if (currentRole === "DJ") {
+      const activeDj = companyTeamMembers.find((member) => member.role === "DJ" && member.isActive);
+      if (activeDj) {
+        list = events.filter(
+          (evt) =>
+            evt.settings?.assignedDj === activeDj.id ||
+            evt.settings?.assignedDj === activeDj.name,
+        );
+      } else {
+        list = [];
+      }
+    } else {
+      list = events.filter((evt) =>
+        (evt.collaborators ?? []).some(
+          (c) => c.role === currentRole && c.status === "Accepted",
+        ),
+      );
+    }
+    const pinned = activeEventId ? events.find((evt) => evt.id === activeEventId) : undefined;
+    if (pinned && !list.some((evt) => evt.id === pinned.id)) {
+      return [pinned, ...list];
+    }
+    return list;
+  }, [
+    events,
+    currentRole,
+    companyTeamMembers,
+    activeEventId,
+    authSession.loaded,
+    authSession.usesScopedEventReads,
+    accessibleDbEventIds,
+  ]);
+  const activeEvent =
+    visibleEvents.find((event) => event.id === activeEventId) ?? visibleEvents[0];
+  const weddingDetails: WeddingDetails = activeEvent?.meta ?? {
+    couple: "",
+    date: "",
+    venue: "",
+  };
   const isEventTeamPersistenceContext = appMode === "event";
   const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
   const [teamNameDraft, setTeamNameDraft] = useState("");
@@ -6998,47 +7044,6 @@ export default function Home() {
     timelineStreamRef,
   ]);
 
-  const visibleEvents = useMemo(() => {
-    if (authSession.loaded && authSession.usesScopedEventReads && accessibleDbEventIds) {
-      return events.filter((evt) => accessibleDbEventIds.has(evt.id));
-    }
-
-    let list: EventRecord[];
-    if (!currentRole || currentRole === "Admin") {
-      list = events;
-    } else if (currentRole === "DJ") {
-      const activeDj = companyTeamMembers.find((member) => member.role === "DJ" && member.isActive);
-      if (activeDj) {
-        list = events.filter(
-          (evt) =>
-            evt.settings?.assignedDj === activeDj.id ||
-            evt.settings?.assignedDj === activeDj.name,
-        );
-      } else {
-        list = [];
-      }
-    } else {
-      list = events.filter((evt) =>
-        (evt.collaborators ?? []).some(
-          (c) => c.role === currentRole && c.status === "Accepted",
-        ),
-      );
-    }
-    const pinned = activeEventId ? events.find((evt) => evt.id === activeEventId) : undefined;
-    if (pinned && !list.some((evt) => evt.id === pinned.id)) {
-      return [pinned, ...list];
-    }
-    return list;
-  }, [
-    events,
-    currentRole,
-    companyTeamMembers,
-    activeEventId,
-    authSession.loaded,
-    authSession.usesScopedEventReads,
-    accessibleDbEventIds,
-  ]);
-
   const parseEventDateTime = useCallback((value: string) => {
     const parsed = Date.parse(value);
     return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
@@ -9575,26 +9580,82 @@ export default function Home() {
     if (!authSession.loaded || !authSession.usesScopedEventReads) return;
 
     const allowed = new Set(accessibleEventIdsFromMemberships(authSession.memberships));
+    const databaseEventIds = databaseEventIdsRef.current;
 
-    setEvents((prev) =>
-      prev.filter((evt) => {
-        if (!databaseEventIdsRef.current.has(evt.id)) {
-          return false;
-        }
-        return allowed.has(evt.id);
-      }),
+    setEvents((prev) => {
+      if (
+        authSession.readScope === "member" &&
+        allowed.size === 0 &&
+        prev.some((evt) => databaseEventIds.has(evt.id))
+      ) {
+        queueMicrotask(() => {
+          setPortalAccessRemoved(true);
+          console.info("[portal-access] cleared local event workspace after access removal", {
+            email: authSession.email,
+            previousEventIds: prev
+              .filter((evt) => databaseEventIds.has(evt.id))
+              .map((evt) => evt.id),
+          });
+        });
+      } else if (allowed.size > 0) {
+        queueMicrotask(() => setPortalAccessRemoved(false));
+      }
+
+      return filterDatabaseEventsForSessionAccess(
+        prev,
+        authSession.readScope,
+        authSession.memberships,
+        databaseEventIds,
+      );
+    });
+
+    setActiveEventId((prev) =>
+      resolveActiveEventIdForSessionAccess(prev, authSession.readScope, authSession.memberships),
     );
 
-    setActiveEventId((prev) => {
-      if (allowed.has(prev)) return prev;
-      const nextId = authSession.memberships[0]?.eventId;
-      return nextId ?? prev;
-    });
+    if (authSession.readScope === "member" && allowed.size === 0 && authSession.email) {
+      setAppMode("events");
+      setCouplePortalPickerResolved(false);
+      couplePortalBootstrapRef.current = {
+        initialized: false,
+        planningLoadedForEventId: null,
+      };
+      couplePortalNavRestoreAppliedRef.current = false;
+      pendingCoupleNavRestoreRef.current = null;
+
+      if (typeof window !== "undefined") {
+        try {
+          const storageKey = "cutmaster_planning_events_v1";
+          const raw = window.localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              events?: unknown[];
+              activeEventId?: string;
+              appState?: Partial<LocalAppStateBackup>;
+            };
+            parsed.events = [];
+            parsed.activeEventId = "";
+            if (parsed.appState) {
+              parsed.appState = {
+                ...parsed.appState,
+                appMode: "events",
+                activeScreen: "All Events",
+                activePlanningChapterId: null,
+              };
+            }
+            window.localStorage.setItem(storageKey, JSON.stringify(parsed));
+          }
+        } catch (error) {
+          console.warn("[portal-access] failed to purge local portal workspace", error);
+        }
+      }
+    }
   }, [
     authSession.loaded,
     authSession.usesScopedEventReads,
     authSession.memberships,
     authSession.readScope,
+    authSession.email,
   ]);
 
   useEffect(() => {
@@ -10050,9 +10111,27 @@ export default function Home() {
         return next;
       };
 
-      const payloadEvents = events.map((e) => {
+      const scopedEvents =
+        authSession.loaded && authSession.usesScopedEventReads
+          ? filterDatabaseEventsForSessionAccess(
+              events,
+              authSession.readScope,
+              authSession.memberships,
+              databaseEventIdsRef.current,
+            )
+          : events;
+      const scopedActiveEventId =
+        authSession.loaded && authSession.usesScopedEventReads
+          ? resolveActiveEventIdForSessionAccess(
+              activeEventId,
+              authSession.readScope,
+              authSession.memberships,
+            )
+          : activeEventId;
+
+      const payloadEvents = scopedEvents.map((e) => {
         const merged =
-          e.id === activeEventId
+          e.id === scopedActiveEventId
             ? {
               ...e,
               lastUpdatedAt: Date.now(),
@@ -10102,7 +10181,7 @@ export default function Home() {
 
       const payload = {
         events: payloadEvents,
-        activeEventId,
+        activeEventId: scopedActiveEventId,
         templates,
         teamMembers: companyTeamMembers,
         companyTeamMembers,
@@ -10132,10 +10211,11 @@ export default function Home() {
           JSON.stringify(appSettings),
         );
         const timelineDbBacked = Boolean(
-          activeEventId && databaseEventIdsRef.current.has(activeEventId),
+          scopedActiveEventId && databaseEventIdsRef.current.has(scopedActiveEventId),
         );
         const eventStillInWorkspace = Boolean(
-          activeEventId && payloadEvents.some((evt) => evt.id === activeEventId),
+          scopedActiveEventId &&
+            payloadEvents.some((evt) => evt.id === scopedActiveEventId),
         );
         const timelineHydrationComplete = databaseHydrationCompleteRef.current;
         const dbWorkingStateReadyEventId = dbWorkingStateReadyEventIdRef.current;
@@ -10305,6 +10385,10 @@ export default function Home() {
     hasHydrated,
     events,
     activeEventId,
+    authSession.loaded,
+    authSession.usesScopedEventReads,
+    authSession.readScope,
+    authSession.memberships,
     templates,
     companyTeamMembers,
     activities,
@@ -14165,7 +14249,7 @@ export default function Home() {
         ) : showCoupleNoEventState ? (
           <NoEventAccessState
             email={authSession.email}
-            variant="no_event"
+            variant={portalAccessRemoved ? "access_removed" : "no_event"}
             onSignOut={() => {
               void handleSignOut();
             }}

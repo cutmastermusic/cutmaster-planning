@@ -1,7 +1,7 @@
 import { PremiumCard, PrimaryButton, SectionTitle } from "@/components/planning-ui";
 import type { SessionIssue } from "@/lib/eventAccess/types";
 
-export type NoEventAccessVariant = "no_event" | SessionIssue;
+export type NoEventAccessVariant = "no_event" | "access_removed" | SessionIssue;
 
 type NoEventAccessStateProps = {
   email?: string | null;
@@ -25,6 +25,14 @@ function getCopy(variant: NoEventAccessVariant, email?: string | null) {
         message:
           "We couldn't finish setting up your account after sign-in. Sign out and try again. If this keeps happening, contact your planner or Cutmaster support.",
         signOutLabel: "Sign out and try again",
+      };
+    case "access_removed":
+      return {
+        title: "Access removed",
+        message: email
+          ? `Planning Portal access for ${email} was removed from this event. Contact your planner if you believe this is a mistake.`
+          : "Your Planning Portal access to this event was removed. Contact your planner if you believe this is a mistake.",
+        signOutLabel: "Sign out",
       };
     case "no_event":
     default:

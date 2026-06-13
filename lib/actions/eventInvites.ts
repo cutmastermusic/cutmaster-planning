@@ -520,4 +520,10 @@ export async function removeEventMemberPortalAccess(
       data: { revokedAt },
     });
   });
+
+  console.info("[portal-access] removed active portal access", {
+    eventId,
+    eventMemberId,
+    email: member.email,
+  });
 }
