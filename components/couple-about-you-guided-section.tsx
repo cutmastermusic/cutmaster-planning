@@ -1,11 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
 } from "@/components/couple-guided-question-section";
+import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
 import type { PlanningQuestionDef } from "@/types/planning";
 
 export type CoupleAboutYouGuidedSectionProps = {
@@ -29,8 +30,13 @@ export function CoupleAboutYouGuidedSection({
   onContinueToNextChapter,
   continueToNextChapterLabel,
 }: CoupleAboutYouGuidedSectionProps) {
-  const steps = questions.map((question) =>
-    questionGuidedStep(question, renderEditor, onAnswerChange, answers),
+  const steps = useMemo(
+    () => questions.map((question) => questionGuidedStep(question, renderEditor, onAnswerChange, answers)),
+    [questions, renderEditor, onAnswerChange, answers],
+  );
+  const reviewIncompleteHint = useMemo(
+    () => buildGuidedChapterReviewIncompleteHint(steps, answers),
+    [steps, answers],
   );
 
   return (
@@ -41,6 +47,7 @@ export function CoupleAboutYouGuidedSection({
       intro="Before we talk about timelines, music, and logistics, tell us a little about yourselves."
       steps={steps}
       answers={answers}
+      reviewIncompleteHint={reviewIncompleteHint}
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
     />

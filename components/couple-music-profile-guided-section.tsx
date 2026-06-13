@@ -24,6 +24,7 @@ import {
   resolveMusicProfileAnswersForDisplay,
   serializePlanningQuestionChipAnswer,
 } from "@/lib/coupleMusicProfilePlanning";
+import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
 
 const planningQuestionFieldShellClass =
   "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
@@ -73,6 +74,7 @@ export function CoupleMusicProfileGuidedSection({
     return [
       {
         id: "music-profile-importance",
+        missingLabel: "How important is music to your wedding?",
         isAnswered: (nextAnswers) =>
           Boolean(
             normalizeMusicProfileImportanceAnswer(
@@ -100,6 +102,7 @@ export function CoupleMusicProfileGuidedSection({
       },
       {
         id: "music-profile-dance-floor",
+        missingLabel: "What kind of dance floor are you hoping for?",
         isAnswered: (nextAnswers) =>
           parseMusicProfileDanceFloorAnswer(
             resolveMusicProfileAnswersForDisplay(nextAnswers)[
@@ -129,6 +132,7 @@ export function CoupleMusicProfileGuidedSection({
       },
       {
         id: "music-profile-decades",
+        missingLabel: "Which decades should we lean into?",
         isAnswered: (nextAnswers) =>
           parseMusicProfileDecadesAnswer(
             resolveMusicProfileAnswersForDisplay(nextAnswers)[MUSIC_PROFILE_QUESTION_IDS.decades],
@@ -150,6 +154,7 @@ export function CoupleMusicProfileGuidedSection({
       },
       {
         id: "music-profile-genres-love",
+        missingLabel: "What genres do you love?",
         isAnswered: (nextAnswers) =>
           parseMusicProfileGenresAnswer(
             resolveMusicProfileAnswersForDisplay(nextAnswers)[MUSIC_PROFILE_QUESTION_IDS.genresLove],
@@ -191,6 +196,7 @@ export function CoupleMusicProfileGuidedSection({
       },
       {
         id: "music-profile-line-dances",
+        missingLabel: "How do you feel about line dances?",
         isAnswered: (nextAnswers) =>
           Boolean(
             (
@@ -276,6 +282,11 @@ export function CoupleMusicProfileGuidedSection({
     ];
   }, [resolvedAnswers, onAnswerChange]);
 
+  const reviewIncompleteHint = useMemo(
+    () => buildGuidedChapterReviewIncompleteHint(steps, resolvedAnswers),
+    [steps, resolvedAnswers],
+  );
+
   return (
     <CoupleGuidedQuestionSection
       sectionId="music-profile-guided"
@@ -284,6 +295,7 @@ export function CoupleMusicProfileGuidedSection({
       intro="Most couples add songs over time, but before we build playlists, we'd love to understand the kind of celebration you're imagining."
       steps={steps}
       answers={resolvedAnswers}
+      reviewIncompleteHint={reviewIncompleteHint}
       completionTitle="We've got your vibe."
       completionBody="Your music profile is saved. You can add songs in Music Hub anytime, but let's keep moving through your planning journey."
       onContinueToNextChapter={onContinueToNextChapter}

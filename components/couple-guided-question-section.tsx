@@ -167,6 +167,8 @@ export type CoupleGuidedQuestionStep = {
   isAnswered: (answers: Record<string, string | undefined>) => boolean;
   /** When true, step is excluded from the progress bar count (still required for review completion). */
   optional?: boolean;
+  /** Human-readable label for missing-field review hints. */
+  missingLabel?: string;
   renderGuided: () => ReactNode;
   renderReview: () => ReactNode;
 };
@@ -205,6 +207,7 @@ export function questionGuidedStep(
 ): CoupleGuidedQuestionStep {
   return {
     id: question.id,
+    missingLabel: question.label,
     isAnswered: (nextAnswers) => Boolean((nextAnswers[question.id] ?? "").trim()),
     renderGuided: () =>
       renderEditor({
@@ -420,7 +423,7 @@ export function CoupleGuidedQuestionSection({
               onAction={goToReview}
               className="min-h-12 touch-manipulation self-start rounded-lg px-3 py-3 text-left text-sm font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-950 hover:underline active:bg-stone-100/80 active:text-stone-950 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
             >
-              Review all answers
+              See all answers so far
             </GuidedNavTextButton>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <GuidedNavButton
@@ -431,7 +434,7 @@ export function CoupleGuidedQuestionSection({
                 Previous
               </GuidedNavButton>
               <GuidedNavButton onAction={goNext} className={guidedNavPrimaryClass}>
-                {isLastStep ? "Review answers" : "Next"}
+                {isLastStep ? "Finish & review chapter" : "Next"}
               </GuidedNavButton>
             </div>
           </GuidedNavFooter>
@@ -452,7 +455,7 @@ export function CoupleGuidedQuestionSection({
               className="rounded-xl border border-rose-200/90 bg-rose-50/90 px-4 py-4"
               role="alert"
             >
-              <p className="text-sm font-semibold text-rose-950">Could not continue yet</p>
+              <p className="text-sm font-semibold text-rose-950">A few answers are still needed</p>
               <p className="mt-2 text-sm leading-relaxed text-rose-950">{continueBlockedMessage}</p>
             </div>
           ) : null}

@@ -27,6 +27,7 @@ import {
   type CoupleWeddingChapterStatus,
 } from "@/lib/coupleWeddingJourney";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
+import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
 import { parseWeddingPartyLineup, WEDDING_PARTY_LINEUP_HELPER_COPY } from "@/lib/weddingPartyLineup";
 import type { CoupleOperationalReadinessInput, CoupleFinalReviewSummaryInput } from "@/lib/coupleFinalReviewPlanning";
 import type { PlanningQuestionDef } from "@/types/planning";
@@ -153,6 +154,7 @@ function buildReceptionMomentSteps(
     );
     steps.push({
       id: GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
+      missingLabel: "Wedding party entrance",
       isAnswered: (answers) =>
         parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0,
       renderGuided: renderLineupStep,
@@ -183,6 +185,7 @@ function buildReceptionMomentSteps(
     );
     steps.push({
       id: SPEECHES_TOASTS_PLANNING_KEY,
+      missingLabel: "Speeches / toasts",
       isAnswered: (answers) =>
         parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0,
       renderGuided: renderToastsStep,
@@ -327,6 +330,8 @@ export function CoupleWeddingChapterScreen({
     );
   }
 
+  const reviewIncompleteHint = buildGuidedChapterReviewIncompleteHint(steps, answers);
+
   return (
     <CoupleGuidedQuestionSection
       key={chapterCopy.sectionId}
@@ -337,6 +342,7 @@ export function CoupleWeddingChapterScreen({
       completionMessage={chapterCopy.completionMessage}
       steps={steps}
       answers={answers}
+      reviewIncompleteHint={reviewIncompleteHint}
       {...chapterContinueProps}
     />
   );
