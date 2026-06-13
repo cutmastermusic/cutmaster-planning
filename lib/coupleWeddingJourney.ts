@@ -1,5 +1,10 @@
 import type { PlanningQuestionDef } from "@/types/planning";
 import { computePlanningQuestionGroupCompletion } from "@/data/planningQuestionGroups";
+import {
+  computeCeremonyChapterCompletionPct,
+  countCeremonyRequiredStepsAnswered,
+  countCeremonyRequiredStepsTotal,
+} from "@/lib/coupleCeremonyPlanning";
 import { computeMusicProfileChapterCompletionPct, MUSIC_PROFILE_GUIDED_STEP_COUNT } from "@/lib/coupleMusicProfilePlanning";
 import {
   computeYourTeamChapterCompletionPct,
@@ -113,6 +118,10 @@ export function computeCoupleWeddingChapterCompletionPct(
     return computeMusicProfileChapterCompletionPct(answers);
   }
 
+  if (chapterId === "ceremony") {
+    return computeCeremonyChapterCompletionPct(answers);
+  }
+
   if (chapterId === "reception_moments") {
     const row = planningQuestionsGroupedBySection.find((entry) => entry.group.id === chapterId);
     return computeReceptionMomentsChapterCompletionPct(input, row?.questions);
@@ -154,7 +163,7 @@ const CHAPTER_CARD_COPY: Record<
   ceremony: {
     kicker: "Chapter 2",
     title: "Ceremony",
-    description: "Share how you imagine the moment you say I do.",
+    description: "Ceremony audio with Cutmaster, start time, and location—short and practical.",
     isPlaceholder: false,
   },
   reception_moments: {
@@ -205,6 +214,12 @@ export function buildCoupleWeddingChapterCards(
     } else if (id === "music_vibe") {
       statLine = `${completionPct}% complete · ${MUSIC_PROFILE_GUIDED_STEP_COUNT} steps`;
       statSubline = "Capture your vibe before building playlists in Music Hub";
+    } else if (id === "ceremony") {
+      const requiredTotal = countCeremonyRequiredStepsTotal(input.answers);
+      const answered = countCeremonyRequiredStepsAnswered(input.answers);
+      const stepLabel = requiredTotal === 1 ? "step" : "steps";
+      statLine = `${completionPct}% complete · ${answered}/${requiredTotal} ${stepLabel}`;
+      statSubline = "Say No to Cutmaster ceremony audio if we are not providing it";
     } else if (id === "your_team") {
       const answered = countYourTeamRequiredStepsAnswered(input.answers);
       statLine = `${completionPct}% complete · ${answered}/5 steps`;

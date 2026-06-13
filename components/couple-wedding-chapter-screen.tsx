@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
+import { CoupleCeremonyGuidedSection } from "@/components/couple-ceremony-guided-section";
 import { CoupleFinalReviewSection } from "@/components/couple-final-review-section";
 import { CoupleMusicProfileGuidedSection } from "@/components/couple-music-profile-guided-section";
 import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guided-section";
@@ -52,9 +53,9 @@ const COUPLE_WEDDING_GUIDED_CHAPTER_COPY: Record<
   ceremony: {
     sectionId: "ceremony-guided",
     eyebrow: "Ceremony",
-    title: "Let's talk about your ceremony",
-    intro: "Tell us how you imagine the moment you say I do.",
-    completionMessage: "Thanks — this helps us plan a ceremony that feels right for you.",
+    title: "Ceremony services checkpoint",
+    intro: "A quick pass on ceremony audio and logistics—exact details can wait if you are still deciding.",
+    completionMessage: "Thanks — this helps us know what to plan for your ceremony.",
   },
   reception_moments: {
     sectionId: "reception-moments-guided",
@@ -280,6 +281,16 @@ export function CoupleWeddingChapterScreen({
         answers={answers}
         onAnswerChange={onAnswerChange}
         renderEditor={renderQuestionEditor}
+        {...chapterContinueProps}
+      />
+    );
+  }
+
+  if (chapterId === "ceremony") {
+    return (
+      <CoupleCeremonyGuidedSection
+        answers={answers}
+        onAnswerChange={onAnswerChange}
         {...chapterContinueProps}
       />
     );
