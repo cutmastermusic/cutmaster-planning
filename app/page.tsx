@@ -351,6 +351,7 @@ import {
   firstIncompleteCoupleWeddingStoryChapter,
   hasAnyCoupleWeddingStoryChapterStarted,
   nextCoupleWeddingChapterAfter,
+  COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER,
   type CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
 import {
@@ -2050,6 +2051,117 @@ type EventNavSectionFlags = {
   sectionPlanningQuestionsEnabled: boolean;
 };
 
+function buildEventNavSectionFlagsFromSettings(
+  settings: EventSettings | undefined,
+): EventNavSectionFlags {
+  return {
+    sectionCeremonyEnabled: settings?.sectionCeremonyEnabled ?? true,
+    sectionReceptionTimelineEnabled: settings?.sectionReceptionTimelineEnabled ?? true,
+    sectionPlaylistsEnabled: settings?.sectionPlaylistsEnabled ?? true,
+    sectionMustPlayEnabled: settings?.sectionMustPlayEnabled ?? true,
+    sectionDoNotPlayEnabled: settings?.sectionDoNotPlayEnabled ?? true,
+    sectionMcScriptEnabled: settings?.sectionMcScriptEnabled ?? true,
+    sectionVendorContactsEnabled: settings?.sectionVendorContactsEnabled ?? true,
+    sectionMusicNotesEnabled: settings?.sectionMusicNotesEnabled ?? true,
+    sectionGuestRequestsEnabled: settings?.sectionGuestRequestsEnabled ?? true,
+    sectionPlanningChecklistEnabled: settings?.sectionPlanningChecklistEnabled ?? true,
+    sectionPlanningQuestionsEnabled: settings?.sectionPlanningQuestionsEnabled ?? true,
+  };
+}
+
+function buildCoupleAllowedActiveEventScreens(sectionFlags: EventNavSectionFlags): Screen[] {
+  const eventNav = buildEventNavItemsForRole("Couple", sectionFlags);
+  const extras: Screen[] = [];
+  if (sectionFlags.sectionReceptionTimelineEnabled) {
+    extras.push("Reception Timeline");
+  }
+  if (sectionFlags.sectionGuestRequestsEnabled) {
+    extras.push("Guest Requests");
+  }
+  if (sectionFlags.sectionPlanningQuestionsEnabled) {
+    extras.push("Planning Questions");
+  }
+  return [...eventNav, ...extras];
+}
+
+function isCoupleAdminOnlyScreen(screen: Screen): boolean {
+  return (
+    screen === "Scripts" ||
+    screen === "Notes" ||
+    screen === "Command Center" ||
+    screen === "All Events" ||
+    screen === "Team" ||
+    screen === "Settings"
+  );
+}
+
+function resolveCouplePortalNavRestore(params: {
+  storedScreen: Screen;
+  storedChapterId: CoupleWeddingChapterId | null;
+  sectionFlags: EventNavSectionFlags;
+  isCoupleWeddingPlanningView: boolean;
+}): { screen: Screen; chapterId: CoupleWeddingChapterId | null; reason: string } {
+  const allowed = buildCoupleAllowedActiveEventScreens(params.sectionFlags);
+  const screen = migrateLegacyScreenId(params.storedScreen);
+  const storedChapterId = params.storedChapterId;
+
+  if (isCoupleAdminOnlyScreen(screen) || !allowed.includes(screen)) {
+    console.info("[couple-nav] restore fallback — screen not client-safe", {
+      storedScreen: screen,
+      allowed,
+    });
+    return { screen: "Dashboard", chapterId: null, reason: "stored screen not client-safe" };
+  }
+
+  if (screen === "Reception Hub") {
+    const mapped = params.sectionFlags.sectionReceptionTimelineEnabled ? "Timeline" : "Dashboard";
+    console.info("[couple-nav] restore mapped Reception Hub", { mapped });
+    return {
+      screen: mapped,
+      chapterId: null,
+      reason: mapped === "Dashboard" ? "Reception Hub unavailable" : "mapped Reception Hub to Timeline",
+    };
+  }
+
+  if (screen === "Planning Questions") {
+    if (!params.sectionFlags.sectionPlanningQuestionsEnabled) {
+      console.info("[couple-nav] restore fallback — Planning Questions disabled");
+      return { screen: "Dashboard", chapterId: null, reason: "Planning Questions disabled" };
+    }
+
+    if (params.isCoupleWeddingPlanningView) {
+      const validStored =
+        storedChapterId && COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER.includes(storedChapterId)
+          ? storedChapterId
+          : null;
+      if (validStored) {
+        console.info("[couple-nav] restore Planning Questions with stored chapter", {
+          chapterId: validStored,
+        });
+        return {
+          screen,
+          chapterId: validStored,
+          reason: "restored Planning Questions with stored chapter",
+        };
+      }
+      console.info("[couple-nav] restore Planning Questions — chapter resolves after hydrate", {
+        storedChapterId,
+      });
+      return {
+        screen,
+        chapterId: null,
+        reason: "Planning Questions pending chapter resolution",
+      };
+    }
+
+    console.info("[couple-nav] restore Planning Questions");
+    return { screen, chapterId: null, reason: "restored Planning Questions" };
+  }
+
+  console.info("[couple-nav] restore stored screen", { screen });
+  return { screen, chapterId: null, reason: "restored stored screen" };
+}
+
 /** Shared by event nav and perspective switching so role changes keep the same event + valid screen. */
 function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Screen[] {
   const includeExportScreens =
@@ -2942,10 +3054,17 @@ export default function Home() {
     initialized: boolean;
     planningLoadedForEventId: string | null;
   }>({ initialized: false, planningLoadedForEventId: null });
+  const couplePortalNavRestoreAppliedRef = useRef(false);
+  const pendingCoupleNavRestoreRef = useRef<{
+    screen: Screen;
+    chapterId: CoupleWeddingChapterId | null;
+  } | null>(null);
   const handleSignOut = useCallback(async () => {
     await authSession.signOut();
     setCouplePortalPickerResolved(false);
     couplePortalBootstrapRef.current = { initialized: false, planningLoadedForEventId: null };
+    couplePortalNavRestoreAppliedRef.current = false;
+    pendingCoupleNavRestoreRef.current = null;
     setAuthStage("login");
   }, [authSession.signOut, setAuthStage]);
   const accessibleDbEventIds = useMemo(() => {
@@ -9322,12 +9441,47 @@ export default function Home() {
         initialized: false,
         planningLoadedForEventId: null,
       };
+      couplePortalNavRestoreAppliedRef.current = false;
       return;
     }
 
     window.setTimeout(() => {
       setCurrentRole("Couple");
       setRolePreview("Couple");
+
+      const applyCouplePortalNavRestore = (eventId: string, evt: EventRecord | undefined) => {
+        if (couplePortalNavRestoreAppliedRef.current) return;
+        if (!evt) return;
+
+        const pending = pendingCoupleNavRestoreRef.current;
+        const sectionFlags = buildEventNavSectionFlagsFromSettings(evt.settings);
+        const layoutProfile = resolveLayoutProfileForDisplay(
+          evt.settings ?? { eventType: appSettings.defaultEventType },
+          appSettings.defaultEventType,
+        );
+        const isCoupleWeddingPlanningView =
+          layoutProfile === "Wedding" || layoutProfile === "Gender-Neutral Wedding";
+        const resolved = resolveCouplePortalNavRestore({
+          storedScreen: pending?.screen ?? "Dashboard",
+          storedChapterId: pending?.chapterId ?? null,
+          sectionFlags,
+          isCoupleWeddingPlanningView,
+        });
+
+        console.info("[couple-nav] restore on bootstrap", {
+          eventId,
+          storedScreen: pending?.screen ?? "Dashboard",
+          storedChapterId: pending?.chapterId ?? null,
+          resolvedScreen: resolved.screen,
+          resolvedChapterId: resolved.chapterId,
+          reason: resolved.reason,
+        });
+
+        setActiveScreen(resolved.screen);
+        setActivePlanningChapterId(resolved.chapterId);
+        couplePortalNavRestoreAppliedRef.current = true;
+        pendingCoupleNavRestoreRef.current = null;
+      };
 
       if (couplePortalEventIds.length === 1) {
         const eventId = couplePortalEventIds[0];
@@ -9337,11 +9491,12 @@ export default function Home() {
         setAuthStage("app");
 
         if (!couplePortalBootstrapRef.current.initialized) {
-          setActiveScreen("Dashboard");
           couplePortalBootstrapRef.current.initialized = true;
         }
 
         const evt = events.find((item) => item.id === eventId);
+        applyCouplePortalNavRestore(eventId, evt);
+
         if (
           evt &&
           databaseEventIdsRef.current.has(eventId) &&
@@ -9359,16 +9514,24 @@ export default function Home() {
         if (!couplePortalBootstrapRef.current.initialized) {
           couplePortalBootstrapRef.current.initialized = true;
         }
+        const eventId = activeEventId;
+        if (eventId && couplePortalEventIds.includes(eventId)) {
+          const evt = events.find((item) => item.id === eventId);
+          applyCouplePortalNavRestore(eventId, evt);
+        }
       }
     }, 0);
   }, [
     authSession.loaded,
     authSession.isCouplePortalSession,
+    activeEventId,
+    appSettings.defaultEventType,
     couplePortalEventIds,
     couplePortalPickerResolved,
     events,
     setAuthStage,
     setActiveScreen,
+    setActivePlanningChapterId,
     setCurrentRole,
     setRolePreview,
   ]);
@@ -9631,7 +9794,12 @@ export default function Home() {
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
         setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
-        setActiveScreen(migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard"));
+        const restoredScreen = migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard");
+        setActiveScreen(restoredScreen);
+        pendingCoupleNavRestoreRef.current = {
+          screen: restoredScreen,
+          chapterId: parsed.appState.activePlanningChapterId ?? null,
+        };
       }
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
       if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
@@ -10032,6 +10200,7 @@ export default function Home() {
 
   useEffect(() => {
     if (authStage !== "app") return;
+    if (authSession.isCouplePortalSession && !couplePortalNavRestoreAppliedRef.current) return;
     if (appMode === "events") {
       if (!workspaceNavItems.includes(activeScreen)) {
         window.setTimeout(() => setActiveScreen("All Events"), 0);
@@ -10049,6 +10218,7 @@ export default function Home() {
   }, [
     activeScreen,
     appMode,
+    authSession.isCouplePortalSession,
     authStage,
     allowedActiveEventScreens,
     effectiveRole,
