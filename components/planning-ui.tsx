@@ -22,6 +22,7 @@ type AppHeaderProps = {
   weddingDetails: WeddingDetails;
   persistFeedback: PersistFeedback;
   appSettings: AppSettings;
+  accountMenu?: ReactNode;
 };
 
 type BottomNavProps = {
@@ -630,12 +631,16 @@ export function AppHeader({
   weddingDetails,
   persistFeedback,
   appSettings,
+  accountMenu,
 }: AppHeaderProps) {
   const saveLabel = getPersistFeedbackLabel(persistFeedback, "full");
   const saveTone = getPersistFeedbackTone(persistFeedback, "light");
 
   return (
-    <header className="rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
+    <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
+      {accountMenu ? (
+        <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">{accountMenu}</div>
+      ) : null}
       <div className="relative mx-auto w-full max-w-[220px]">
         <Image
           src={appSettings.logoUrl || "/cmm-logo-white.png"}

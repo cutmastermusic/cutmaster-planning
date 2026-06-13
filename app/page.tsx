@@ -139,6 +139,7 @@ import {
   musicTasteProfileHasSelections,
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
+import { AccountMenu } from "@/components/auth/account-menu";
 import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
 import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
 import { NoEventAccessState } from "@/components/auth/no-event-access-state";
@@ -2480,6 +2481,29 @@ function perspectiveRoleLabel(role: UserRole): string {
   return role === "Couple" ? "Client" : role;
 }
 
+function resolveAccountRoleLabel(params: {
+  isCouplePortalSession: boolean;
+  platformRole: string | null;
+  readScope: string;
+  memberships: Array<{ role: string }>;
+  currentRole: UserRole | null;
+  effectiveRole: UserRole;
+}): UserRole {
+  if (params.isCouplePortalSession) return "Couple";
+  if (params.platformRole === "ADMIN") return "Admin";
+  if (params.readScope === "bypass" || params.readScope === "all") {
+    return params.currentRole ?? params.effectiveRole;
+  }
+  const membershipRoles = new Set(
+    params.memberships.map((membership) => membership.role.toUpperCase()),
+  );
+  if (membershipRoles.has("ADMIN")) return "Admin";
+  if (membershipRoles.has("DJ")) return "DJ";
+  if (membershipRoles.has("PLANNER")) return "Planner";
+  if (membershipRoles.has("COUPLE")) return "Couple";
+  return params.currentRole ?? params.effectiveRole;
+}
+
 /** Couple-facing label for the Planning Questions screen — internal screen id unchanged. */
 const COUPLE_ABOUT_YOUR_DAY_LABEL = "About your day";
 
@@ -3059,14 +3083,6 @@ export default function Home() {
     screen: Screen;
     chapterId: CoupleWeddingChapterId | null;
   } | null>(null);
-  const handleSignOut = useCallback(async () => {
-    await authSession.signOut();
-    setCouplePortalPickerResolved(false);
-    couplePortalBootstrapRef.current = { initialized: false, planningLoadedForEventId: null };
-    couplePortalNavRestoreAppliedRef.current = false;
-    pendingCoupleNavRestoreRef.current = null;
-    setAuthStage("login");
-  }, [authSession.signOut, setAuthStage]);
   const accessibleDbEventIds = useMemo(() => {
     if (!authSession.loaded || !authSession.usesScopedEventReads) {
       return null;
@@ -3411,6 +3427,63 @@ export default function Home() {
   const [vendors, setVendors] = useState<Vendor[]>(() => normalizeVendorsArray(initialVendors));
 
   const [appMode, setAppMode] = useState<AppMode>("events");
+  const handleSignOut = useCallback(async () => {
+    await authSession.signOut();
+
+    setCouplePortalPickerResolved(false);
+    couplePortalBootstrapRef.current = { initialized: false, planningLoadedForEventId: null };
+    couplePortalNavRestoreAppliedRef.current = false;
+    pendingCoupleNavRestoreRef.current = null;
+    dbWorkingStateReadyEventIdRef.current = null;
+
+    setCurrentRole(null);
+    setRolePreview("Admin");
+    setInviteAccessPreview(null);
+    setActivePlanningChapterId(null);
+    setAppMode("events");
+    setActiveScreen("All Events");
+    setAuthStage("login");
+
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem("cutmaster_planning_events_v1");
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            appState?: Partial<LocalAppStateBackup>;
+          };
+          if (parsed.appState) {
+            parsed.appState = {
+              ...parsed.appState,
+              authStage: "login",
+              currentRole: null,
+              rolePreview: "Admin",
+              inviteAccessPreview: null,
+              activePlanningChapterId: null,
+              activeScreen: "All Events",
+              appMode: "events",
+            };
+            window.localStorage.setItem("cutmaster_planning_events_v1", JSON.stringify(parsed));
+          }
+        }
+      } catch {
+        /* ignore corrupt storage */
+      }
+    }
+
+    if (authSession.supabaseConfigured && !authSession.bypassEnabled) {
+      window.location.href = "/login";
+    }
+  }, [
+    authSession.bypassEnabled,
+    authSession.signOut,
+    authSession.supabaseConfigured,
+    setActivePlanningChapterId,
+    setActiveScreen,
+    setAppMode,
+    setAuthStage,
+    setCurrentRole,
+    setInviteAccessPreview,
+  ]);
   const [activeEventId, setActiveEventId] = useState<string>("evt-1");
   // Tracks event ids that exist in the Postgres database. Server actions like
   // `replaceEventTeamMembers` require a real DB event id (FK constraint), so
@@ -13866,6 +13939,25 @@ export default function Home() {
     }
   };
 
+  const accountRoleLabel = resolveAccountRoleLabel({
+    isCouplePortalSession: authSession.isCouplePortalSession,
+    platformRole: authSession.platformRole,
+    readScope: authSession.readScope,
+    memberships: authSession.memberships,
+    currentRole,
+    effectiveRole,
+  });
+  const showAccountMenu =
+    authSession.loaded &&
+    (Boolean(authSession.email) || (authStage === "app" && Boolean(currentRole)));
+  const accountMenu = showAccountMenu ? (
+    <AccountMenu
+      email={authSession.email}
+      roleLabel={accountRoleLabel}
+      onSignOut={handleSignOut}
+    />
+  ) : null;
+
   if (!hasHydrated) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
@@ -13879,6 +13971,7 @@ export default function Home() {
               coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
               logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
             }}
+            accountMenu={accountMenu}
           />
           <section className={workspaceSectionClass}>
             {Array.from({ length: 3 }).map((_, index) => (
@@ -13907,6 +14000,7 @@ export default function Home() {
             coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
             logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
           }}
+          accountMenu={accountMenu}
         />
 
         {authStage === "app" && (
@@ -13917,9 +14011,6 @@ export default function Home() {
                   {perspectiveBannerLabel(currentRole, rolePreview)}
                 </span>
               </span>
-              {authSession.loaded && authSession.email ? (
-                <span className="text-[11px] text-stone-500">Account: {authSession.email}</span>
-              ) : null}
               {showRolePreviewSwitcher ? (
               <div className="flex flex-wrap gap-1.5">
                 {PERSPECTIVE_ROLES.map((role) => (
@@ -13945,27 +14036,17 @@ export default function Home() {
                 labelStyle="full"
                 className="text-right sm:max-w-[10rem]"
               />
-              <div className="flex items-center gap-2">
-                <PrimaryButton
-                  onClick={() => setActiveScreen("Notification Center")}
-                  className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-                >
-                  Notifications
-                  {unreadBadgeCount > 0 && (
-                    <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
-                      {unreadBadgeCount}
-                    </span>
-                  )}
-                </PrimaryButton>
-                <PrimaryButton
-                  onClick={() => {
-                    void handleSignOut();
-                  }}
-                  className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-                >
-                  Sign out
-                </PrimaryButton>
-              </div>
+              <PrimaryButton
+                onClick={() => setActiveScreen("Notification Center")}
+                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
+              >
+                Notifications
+                {unreadBadgeCount > 0 && (
+                  <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
+                    {unreadBadgeCount}
+                  </span>
+                )}
+              </PrimaryButton>
             </div>
           </div>
         )}
