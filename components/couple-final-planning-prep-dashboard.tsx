@@ -114,10 +114,10 @@ export function CoupleFinalPlanningPrepDashboard({
     <div className="space-y-5">
       <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/80 via-white to-[#00D4FF]/[0.05] px-5 py-5 shadow-sm sm:px-6 sm:py-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-          Story complete
+          Planning complete
         </p>
         <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
-          🎉 Your planning story is complete
+          🎉 Planning chapters complete
         </h3>
         <p className="mt-2 text-sm font-medium leading-relaxed text-stone-800">
           We&apos;ve got the vision. Now we&apos;ll shape the day-of details together.

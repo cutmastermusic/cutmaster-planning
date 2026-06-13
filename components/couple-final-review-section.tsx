@@ -160,7 +160,7 @@ function CoupleFinalReviewCompletionCelebration({
 
         <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#00D4FF]/[0.06] px-5 py-6">
           <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
-            🎉 Your Story Is Complete
+            🎉 Final review complete
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-stone-800">
             You&apos;ve shared your story, your ceremony vision, your reception plans, your music
@@ -270,7 +270,7 @@ export function CoupleFinalReviewSection({
         there.
       </p>
       <p className="mt-2 text-sm leading-relaxed text-stone-700">
-        Complete the chapters below to finish your planning journey.
+        Finish any chapters below still marked incomplete.
       </p>
 
       <div className="mt-6 space-y-6">

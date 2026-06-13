@@ -347,6 +347,7 @@ import {
   computeCoupleWeddingChapterCompletionPct,
   computeCoupleWeddingStoryHeroProgressPct,
   coupleWeddingChapterDashboardCtaLabel,
+  coupleWeddingChapterCardFooterLabel,
   coupleWeddingChapterNavLabel,
   firstIncompleteCoupleWeddingChapter,
   firstIncompleteCoupleWeddingStoryChapter,
@@ -12454,6 +12455,7 @@ export default function Home() {
     const chapterId = firstIncompleteCoupleChapter;
     if (!chapterId) return null;
     const chapter = coupleWeddingChapterCards.find((entry) => entry.id === chapterId);
+    const chapterStatus = chapter?.status ?? "Not Started";
     return {
       chapterId,
       body: chapter
@@ -12461,11 +12463,10 @@ export default function Home() {
           ? `Start with ${chapter.title}—${chapter.description}`
           : `Pick up ${chapter.title} where you left off.`
         : "Continue your wedding story one chapter at a time.",
-      ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
+      ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, chapterStatus),
     };
   }, [
     coupleWeddingChapterCards,
-    coupleWeddingStoryChapterStarted,
     firstIncompleteCoupleChapter,
     isCoupleWeddingPlanningView,
     sectionPlanningQuestionsEnabled,
@@ -12475,13 +12476,17 @@ export default function Home() {
     if (!isCoupleWeddingPlanningView || !sectionPlanningQuestionsEnabled) return null;
     const chapterId = firstIncompleteCoupleChapter;
     if (!chapterId) return null;
+    const chapter = coupleWeddingChapterCards.find((entry) => entry.id === chapterId);
     return {
       chapterId,
-      ctaLabel: coupleWeddingChapterDashboardCtaLabel(chapterId, coupleWeddingStoryChapterStarted),
+      ctaLabel: coupleWeddingChapterDashboardCtaLabel(
+        chapterId,
+        chapter?.status ?? "Not Started",
+      ),
     };
   }, [
+    coupleWeddingChapterCards,
     firstIncompleteCoupleChapter,
-    coupleWeddingStoryChapterStarted,
     isCoupleWeddingPlanningView,
     sectionPlanningQuestionsEnabled,
   ]);
@@ -12506,9 +12511,9 @@ export default function Home() {
       sectionPlanningQuestionsEnabled &&
       hasEventDetailsComplete &&
       !firstIncompleteCoupleStoryChapter;
-    const storyCompleteTitle = "Your story is complete";
+    const storyCompleteTitle = "Chapters 1–4 complete";
     const storyCompleteBody =
-      "Your story is saved. Next we'll help you build the details of your day including timing, music selections, and vendor information.";
+      "Nice work on About You through Music Profile. Your Team and Final Review are next when you're ready.";
 
     type CoupleNextStepResult = {
       body: string;
@@ -15938,13 +15943,17 @@ export default function Home() {
                         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">
                           {isCoupleWeddingPlanningView
                             ? isCoupleWeddingJourneyComplete
-                              ? "Your wedding story"
-                              : "Your story progress"
+                              ? "Planning chapters complete"
+                              : "Chapters 1–4 progress"
                             : "Planning progress"}
                         </p>
                         {isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
                           <p className="mt-1 text-[11px] leading-snug text-zinc-300">
-                            Chapters saved—you&apos;re onto the details phase
+                            All six chapters saved—you&apos;re onto the details phase
+                          </p>
+                        ) : isCoupleWeddingPlanningView ? (
+                          <p className="mt-1 text-[11px] leading-snug text-zinc-300">
+                            About You through Music Profile · six chapters total
                           </p>
                         ) : null}
                         <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
@@ -16065,7 +16074,8 @@ export default function Home() {
 
               {isCoupleWeddingPlanningView &&
               sectionPlanningQuestionsEnabled &&
-              !isCoupleWeddingJourneyComplete ? (
+              !isCoupleWeddingJourneyComplete &&
+              !coupleWeddingStoryChapterStarted ? (
                 <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                     Welcome
@@ -16117,7 +16127,7 @@ export default function Home() {
                 </PrimaryButton>
                 <p className="mt-3 text-[11px] tabular-nums text-stone-500">
                   {isCoupleWeddingPlanningView
-                    ? `${coupleWeddingStoryHeroProgressPct}% of your story complete`
+                    ? `${coupleWeddingStoryHeroProgressPct}% of Chapters 1–4 complete`
                     : `${completionPercent}% of your plan in place`}
                 </p>
               </div>
@@ -16234,16 +16244,7 @@ export default function Home() {
                                   : "text-stone-700 group-hover:text-stone-900"
                             }`}
                           >
-                            {chapter.status === "Complete"
-                              ? chapter.id === "final_review" && isCoupleWeddingJourneyComplete
-                                ? "See your summary"
-                                : isCoupleWeddingJourneyComplete
-                                  ? "Open"
-                                  : "Review"
-                              : isCurrentChapter
-                                ? "Continue"
-                                : "Open chapter"}{" "}
-                            →
+                            {coupleWeddingChapterCardFooterLabel(chapter.status)} →
                           </span>
                         </div>
                       </button>

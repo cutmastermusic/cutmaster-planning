@@ -212,9 +212,9 @@ export function buildCoupleWeddingChapterCards(
     } else if (id === "final_review") {
       statLine =
         completionPct >= 100
-          ? "Your story chapters look complete"
-          : "Unlocks when earlier chapters are complete";
-      statSubline = "Preview what your team receives before the day";
+          ? "Ready for your final pass"
+          : "Opens for a final pass once Chapters 1–5 are complete";
+      statSubline = "Tap anytime to see what still needs attention";
     } else if (visibleQuestions.length > 0) {
       const answered = visibleQuestions.filter((q) => (input.answers[q.id] ?? "").trim()).length;
       statLine = `${completionPct}% complete · ${answered}/${visibleQuestions.length} answered`;
@@ -261,13 +261,23 @@ export function hasAnyCoupleWeddingStoryChapterStarted(
 
 export function coupleWeddingChapterDashboardCtaLabel(
   chapterId: CoupleWeddingChapterId,
-  hasAnyStoryChapterStarted: boolean,
+  status: CoupleWeddingChapterStatus,
 ): string {
   const title = coupleWeddingChapterNavLabel(chapterId);
-  if (!hasAnyStoryChapterStarted && chapterId === "about_you") {
-    return "Begin About You";
+  if (status === "Not Started") {
+    return `Start ${title}`;
   }
-  return `Continue ${title}`;
+  if (status === "In Progress") {
+    return `Continue ${title}`;
+  }
+  return `Open ${title}`;
+}
+
+/** Short footer label on couple dashboard chapter cards (status only). */
+export function coupleWeddingChapterCardFooterLabel(status: CoupleWeddingChapterStatus): string {
+  if (status === "Complete") return "Revisit";
+  if (status === "In Progress") return "Continue";
+  return "Start";
 }
 
 export function firstIncompleteCoupleWeddingStoryChapter(
