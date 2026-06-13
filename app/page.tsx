@@ -3203,6 +3203,8 @@ export default function Home() {
   const effectiveRole = resolveEffectiveRole(currentRole, rolePreview);
   const showRolePreviewSwitcher = canUseRolePreviewSwitcher(currentRole);
   const isActualCouple = isActualCoupleSession(currentRole);
+  const sessionIsCoupleForPersist =
+    isActualCouple || authSession.isCouplePortalSession;
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -3825,6 +3827,7 @@ export default function Home() {
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
       const dbBacked = databaseEventIdsRef.current.has(eventId);
       if (!dbBacked) {
+        console.info("[song-persist] skip — event not database-backed", { eventId });
         return {
           ok: false,
           error: new Error(`Event "${eventId}" is not a database-backed event.`),
@@ -3839,8 +3842,8 @@ export default function Home() {
 
       if (!force) {
         if (dbWorkingStateReadyEventIdRef.current !== eventId) {
-          console.warn(
-            "[DB-PERSIST-GUARD] skip replaceEventSongs — working state not ready",
+          console.info(
+            "[song-persist] skip — working state not ready",
             {
               eventId,
               dbWorkingStateReadyEventId: dbWorkingStateReadyEventIdRef.current,
@@ -3859,8 +3862,8 @@ export default function Home() {
           const snapshot = eventsRef.current.find((evt) => evt.id === eventId);
           const snapshotSongCount = snapshot ? countEventSongs(snapshot) : 0;
           if (snapshotSongCount > 0) {
-            console.warn(
-              "[DB-PERSIST-GUARD] skip replaceEventSongs — refusing empty replace over snapshot songs",
+            console.info(
+              "[song-persist] skip — refusing empty replace over snapshot songs",
               {
                 eventId,
                 incomingTotal,
@@ -3909,9 +3912,15 @@ export default function Home() {
             order: index,
           })),
         );
+        console.info("[song-persist] saved", {
+          eventId,
+          mustPlayCount: incomingMust.length,
+          doNotPlayCount: incomingDoNot.length,
+          playIfPossibleCount: incomingPif.length,
+        });
         return { ok: true };
       } catch (error) {
-        console.error("Failed to persist songs to database:", error);
+        console.error("[song-persist] failed", { eventId, error });
         return { ok: false, error };
       }
     },
@@ -9335,6 +9344,7 @@ export default function Home() {
         const evt = events.find((item) => item.id === eventId);
         if (
           evt &&
+          databaseEventIdsRef.current.has(eventId) &&
           couplePortalBootstrapRef.current.planningLoadedForEventId !== eventId
         ) {
           loadEventPlanningIntoWorkingStateRef.current(evt);
@@ -9810,8 +9820,7 @@ export default function Home() {
           eventStillInWorkspace &&
           timelineDbBacked &&
           timelineHydrationComplete &&
-          dbWorkingStateReadyEventId === activeEventId &&
-          timelineSuppressBoot <= 0;
+          dbWorkingStateReadyEventId === activeEventId;
 
         if (dbPersistAllowed) {
           logDbPersistGuard("autosave DB persist running", {
@@ -9820,12 +9829,13 @@ export default function Home() {
             databaseHydrationComplete: timelineHydrationComplete,
             dbWorkingStateReadyEventId,
             suppressBoot: timelineSuppressBoot,
+            sessionIsCoupleForPersist,
             songCounts,
             timelineCounts,
           });
 
           const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
-          const settingsForCeremonyDb = isActualCouple
+          const settingsForCeremonyDb = sessionIsCoupleForPersist
             ? mergeCoupleSafeEventSettings(eventSettings, preservedSettings)
             : eventSettings;
 
@@ -9833,7 +9843,7 @@ export default function Home() {
             persistEventMetadataToDatabase(
               activeEventId,
               eventSettings,
-              isActualCouple,
+              sessionIsCoupleForPersist,
               preservedSettings,
             ),
             persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore),
@@ -9888,7 +9898,7 @@ export default function Home() {
             ),
           ];
 
-          if (!isActualCouple) {
+          if (!sessionIsCoupleForPersist) {
             dbPersistTasks.push(
               persistDjScriptsToDatabase(activeEventId, djScripts),
               persistDjMusicNotesToDatabase(activeEventId, djMusicNotes),
@@ -9936,6 +9946,7 @@ export default function Home() {
             databaseHydrationComplete: timelineHydrationComplete,
             dbWorkingStateReadyEventId,
             suppressBoot: timelineSuppressBoot,
+            sessionIsCoupleForPersist,
             songCounts,
             timelineCounts,
           });
@@ -10007,7 +10018,7 @@ export default function Home() {
     mcAnnouncements,
     eventSettings,
     appSettings,
-    isActualCouple,
+    sessionIsCoupleForPersist,
     setPersistPhase,
     setPersistBaseline,
   ]);
