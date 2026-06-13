@@ -2938,9 +2938,14 @@ export default function Home() {
   } = usePlanningApp();
   const authSession = useAuthSession();
   const [couplePortalPickerResolved, setCouplePortalPickerResolved] = useState(false);
+  const couplePortalBootstrapRef = useRef<{
+    initialized: boolean;
+    planningLoadedForEventId: string | null;
+  }>({ initialized: false, planningLoadedForEventId: null });
   const handleSignOut = useCallback(async () => {
     await authSession.signOut();
     setCouplePortalPickerResolved(false);
+    couplePortalBootstrapRef.current = { initialized: false, planningLoadedForEventId: null };
     setAuthStage("login");
   }, [authSession.signOut, setAuthStage]);
   const accessibleDbEventIds = useMemo(() => {
@@ -4592,6 +4597,8 @@ export default function Home() {
       });
     }
   };
+  const loadEventPlanningIntoWorkingStateRef = useRef(loadEventPlanningIntoWorkingState);
+  loadEventPlanningIntoWorkingStateRef.current = loadEventPlanningIntoWorkingState;
 
   const switchToEvent = (nextEventId: string) => {
     // Locate the full hydrated event by id from the live events state.
@@ -6375,11 +6382,28 @@ export default function Home() {
       activeScreen === "Planning Questions" &&
       !activePlanningChapterId
     ) {
-      setActiveScreen("Dashboard");
+      const fallbackChapter =
+        firstIncompleteCoupleChapter ?? coupleWeddingChapterCards[0]?.id ?? null;
+      window.setTimeout(() => {
+        if (fallbackChapter) {
+          console.info(
+            "[couple-nav] Planning Questions opened without chapter — selecting",
+            fallbackChapter,
+          );
+          setActivePlanningChapterId(fallbackChapter);
+          return;
+        }
+        console.info(
+          "[couple-nav] Planning Questions opened without chapter — returning to Dashboard",
+        );
+        setActiveScreen("Dashboard");
+      }, 0);
     }
   }, [
     activePlanningChapterId,
     activeScreen,
+    coupleWeddingChapterCards,
+    firstIncompleteCoupleChapter,
     hasHydrated,
     isCoupleWeddingPlanningView,
     setActiveScreen,
@@ -9282,7 +9306,15 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    if (!authSession.loaded || !authSession.isCouplePortalSession) return;
+    if (!authSession.loaded) return;
+
+    if (!authSession.isCouplePortalSession) {
+      couplePortalBootstrapRef.current = {
+        initialized: false,
+        planningLoadedForEventId: null,
+      };
+      return;
+    }
 
     window.setTimeout(() => {
       setCurrentRole("Couple");
@@ -9293,11 +9325,20 @@ export default function Home() {
         setCouplePortalPickerResolved(true);
         setAppMode("event");
         setActiveEventId(eventId);
-        setActiveScreen("Dashboard");
         setAuthStage("app");
+
+        if (!couplePortalBootstrapRef.current.initialized) {
+          setActiveScreen("Dashboard");
+          couplePortalBootstrapRef.current.initialized = true;
+        }
+
         const evt = events.find((item) => item.id === eventId);
-        if (evt) {
-          loadEventPlanningIntoWorkingState(evt);
+        if (
+          evt &&
+          couplePortalBootstrapRef.current.planningLoadedForEventId !== eventId
+        ) {
+          loadEventPlanningIntoWorkingStateRef.current(evt);
+          couplePortalBootstrapRef.current.planningLoadedForEventId = eventId;
         }
         return;
       }
@@ -9305,6 +9346,9 @@ export default function Home() {
       if (couplePortalEventIds.length > 1 && couplePortalPickerResolved) {
         setAppMode("event");
         setAuthStage("app");
+        if (!couplePortalBootstrapRef.current.initialized) {
+          couplePortalBootstrapRef.current.initialized = true;
+        }
       }
     }, 0);
   }, [
@@ -9313,10 +9357,10 @@ export default function Home() {
     couplePortalEventIds,
     couplePortalPickerResolved,
     events,
-    loadEventPlanningIntoWorkingState,
     setAuthStage,
     setActiveScreen,
     setCurrentRole,
+    setRolePreview,
   ]);
 
   useEffect(() => {
@@ -9984,9 +10028,22 @@ export default function Home() {
       return;
     }
     if (!allowedActiveEventScreens.includes(activeScreen)) {
+      console.info("[couple-nav] Screen not in allowedActiveEventScreens — returning to Dashboard", {
+        activeScreen,
+        effectiveRole,
+        allowedActiveEventScreens,
+      });
       window.setTimeout(() => setActiveScreen("Dashboard"), 0);
     }
-  }, [activeScreen, appMode, authStage, allowedActiveEventScreens, setActiveScreen, workspaceNavItems]);
+  }, [
+    activeScreen,
+    appMode,
+    authStage,
+    allowedActiveEventScreens,
+    effectiveRole,
+    setActiveScreen,
+    workspaceNavItems,
+  ]);
 
   useEffect(() => {
     if (!hasHydrated) return;
