@@ -6,13 +6,12 @@ import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guide
 import { CoupleCeremonyGuidedSection } from "@/components/couple-ceremony-guided-section";
 import { CoupleFinalReviewSection } from "@/components/couple-final-review-section";
 import { CoupleMusicProfileGuidedSection } from "@/components/couple-music-profile-guided-section";
+import { CoupleReceptionMomentsGuidedSection } from "@/components/couple-reception-moments-guided-section";
 import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guided-section";
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
-  type CoupleGuidedQuestionStep,
 } from "@/components/couple-guided-question-section";
-import { CoupleMobileActionButton } from "@/components/couple-mobile-action-button";
 import {
   PremiumCard,
   PrimaryButton,
@@ -27,9 +26,8 @@ import {
   type CoupleWeddingChapterId,
   type CoupleWeddingChapterStatus,
 } from "@/lib/coupleWeddingJourney";
-import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
+import { SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
-import { parseWeddingPartyLineup, WEDDING_PARTY_LINEUP_HELPER_COPY } from "@/lib/weddingPartyLineup";
 import type { CoupleOperationalReadinessInput, CoupleFinalReviewSummaryInput } from "@/lib/coupleFinalReviewPlanning";
 import type { PlanningQuestionDef } from "@/types/planning";
 
@@ -115,97 +113,6 @@ function visibleQuestionsForRow(row: GroupedPlanningQuestionsRow | null): Planni
       question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
       question.id !== SPEECHES_TOASTS_PLANNING_KEY,
   );
-}
-
-function buildReceptionMomentSteps(
-  visibleQuestions: PlanningQuestionDef[],
-  input: Pick<
-    CoupleWeddingChapterScreenProps,
-    | "answers"
-    | "showWeddingPartyLineupSection"
-    | "showSpeechesToastsSection"
-    | "weddingPartyLineupSummary"
-    | "speechesToastsSummary"
-    | "onOpenWeddingPartyLineupEditor"
-    | "onOpenSpeechesToastsEditor"
-    | "renderQuestionEditor"
-    | "onAnswerChange"
-  >,
-): CoupleGuidedQuestionStep[] {
-  const steps: CoupleGuidedQuestionStep[] = [];
-
-  if (input.showWeddingPartyLineupSection) {
-    const hasLineup =
-      parseWeddingPartyLineup(input.answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0;
-    const lineupCtaLabel = hasLineup
-      ? "Edit Wedding Party Entrance"
-      : "Add Wedding Party Entrance";
-    const renderLineupStep = () => (
-      <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-        <p className="text-base font-semibold text-stone-950">Your Wedding Party Entrance</p>
-        <p className="mt-3 text-xs leading-relaxed text-stone-600">{WEDDING_PARTY_LINEUP_HELPER_COPY}</p>
-        <p className="mt-4 text-sm font-medium text-stone-900">{input.weddingPartyLineupSummary}</p>
-        <CoupleMobileActionButton
-          onAction={input.onOpenWeddingPartyLineupEditor}
-          className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
-        >
-          {lineupCtaLabel}
-        </CoupleMobileActionButton>
-      </PremiumCard>
-    );
-    steps.push({
-      id: GRAND_ENTRANCE_PLANNING_LINEUP_KEY,
-      missingLabel: "Wedding party entrance",
-      isAnswered: (answers) =>
-        parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0,
-      renderGuided: renderLineupStep,
-      renderReview: renderLineupStep,
-    });
-  }
-
-  if (input.showSpeechesToastsSection) {
-    const hasToasts =
-      parseSpeechesToasts(input.answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0;
-    const toastsCtaLabel = hasToasts ? "Edit Toasts & Speeches" : "Plan Your Toasts";
-    const renderToastsStep = () => (
-      <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-        <p className="text-base font-semibold text-stone-950">Speeches / Toasts</p>
-        <p className="mt-3 text-xs leading-relaxed text-stone-600">
-          Add each speaker with their role and name in toast order.
-        </p>
-        <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
-          {input.speechesToastsSummary}
-        </p>
-        <CoupleMobileActionButton
-          onAction={input.onOpenSpeechesToastsEditor}
-          className={`mt-4 w-full sm:w-auto ${lightUiCyanPrimaryButtonClass}`}
-        >
-          {toastsCtaLabel}
-        </CoupleMobileActionButton>
-      </PremiumCard>
-    );
-    steps.push({
-      id: SPEECHES_TOASTS_PLANNING_KEY,
-      missingLabel: "Speeches / toasts",
-      isAnswered: (answers) =>
-        parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0,
-      renderGuided: renderToastsStep,
-      renderReview: renderToastsStep,
-    });
-  }
-
-  for (const question of visibleQuestions) {
-    steps.push(
-      questionGuidedStep(
-        question,
-        input.renderQuestionEditor,
-        input.onAnswerChange,
-        input.answers,
-      ),
-    );
-  }
-
-  return steps;
 }
 
 export function CoupleWeddingChapterScreen({
@@ -308,25 +215,30 @@ export function CoupleWeddingChapterScreen({
     );
   }
 
+  if (chapterId === "reception_moments") {
+    return (
+      <CoupleReceptionMomentsGuidedSection
+        questions={visibleQuestions}
+        answers={answers}
+        onAnswerChange={onAnswerChange}
+        renderQuestionEditor={renderQuestionEditor}
+        showWeddingPartyLineupSection={showWeddingPartyLineupSection}
+        showSpeechesToastsSection={showSpeechesToastsSection}
+        weddingPartyLineupSummary={weddingPartyLineupSummary}
+        speechesToastsSummary={speechesToastsSummary}
+        onOpenWeddingPartyLineupEditor={onOpenWeddingPartyLineupEditor}
+        onOpenSpeechesToastsEditor={onOpenSpeechesToastsEditor}
+        {...chapterContinueProps}
+      />
+    );
+  }
+
   const chapterCopy = COUPLE_WEDDING_GUIDED_CHAPTER_COPY[chapterId];
   if (!chapterCopy) return null;
 
-  const steps =
-    chapterId === "reception_moments"
-      ? buildReceptionMomentSteps(visibleQuestions, {
-          answers,
-          showWeddingPartyLineupSection,
-          showSpeechesToastsSection,
-          weddingPartyLineupSummary,
-          speechesToastsSummary,
-          onOpenWeddingPartyLineupEditor,
-          onOpenSpeechesToastsEditor,
-          renderQuestionEditor,
-          onAnswerChange,
-        })
-      : visibleQuestions.map((question) =>
-          questionGuidedStep(question, renderQuestionEditor, onAnswerChange, answers),
-        );
+  const steps = visibleQuestions.map((question) =>
+    questionGuidedStep(question, renderQuestionEditor, onAnswerChange, answers),
+  );
 
   if (steps.length === 0) {
     return (

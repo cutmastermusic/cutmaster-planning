@@ -1,6 +1,11 @@
 import type { PlanningQuestionDef } from "@/types/planning";
 import { computePlanningQuestionGroupCompletion } from "@/data/planningQuestionGroups";
 import {
+  computeReceptionMomentsChapterCompletionPct,
+  countReceptionMomentsRequiredStepsAnswered,
+  countReceptionMomentsRequiredStepsTotal,
+} from "@/lib/coupleReceptionMomentsPlanning";
+import {
   computeCeremonyChapterCompletionPct,
   countCeremonyRequiredStepsAnswered,
   countCeremonyRequiredStepsTotal,
@@ -11,8 +16,7 @@ import {
   countYourTeamRequiredStepsAnswered,
 } from "@/lib/coupleYourTeamPlanning";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
-import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
-import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
+import { SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 
 export type CoupleWeddingChapterId =
   | "about_you"
@@ -79,31 +83,6 @@ function chapterStatusFromPct(pct: number): CoupleWeddingChapterStatus {
   return "In Progress";
 }
 
-function computeReceptionMomentsChapterCompletionPct(
-  input: CoupleWeddingJourneyProgressInput,
-  rowQuestions?: PlanningQuestionDef[],
-): number {
-  const { answers } = input;
-  const visibleQuestions = rowQuestions ? visibleQuestionsForGroup(rowQuestions) : [];
-
-  let totalSteps = visibleQuestions.length;
-  let answeredSteps = visibleQuestions.filter((q) => (answers[q.id] ?? "").trim()).length;
-  if (input.showWeddingPartyLineupSection) {
-    totalSteps += 1;
-    if (parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length > 0) {
-      answeredSteps += 1;
-    }
-  }
-  if (input.showSpeechesToastsSection) {
-    totalSteps += 1;
-    if (parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0) {
-      answeredSteps += 1;
-    }
-  }
-  if (totalSteps === 0) return 0;
-  return Math.round((answeredSteps / totalSteps) * 100);
-}
-
 export function computeCoupleWeddingChapterCompletionPct(
   chapterId: CoupleWeddingChapterId,
   input: CoupleWeddingJourneyProgressInput,
@@ -124,7 +103,12 @@ export function computeCoupleWeddingChapterCompletionPct(
 
   if (chapterId === "reception_moments") {
     const row = planningQuestionsGroupedBySection.find((entry) => entry.group.id === chapterId);
-    return computeReceptionMomentsChapterCompletionPct(input, row?.questions);
+    return computeReceptionMomentsChapterCompletionPct({
+      answers,
+      showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
+      showSpeechesToastsSection: input.showSpeechesToastsSection,
+      rowQuestions: row?.questions,
+    });
   }
 
   if (chapterId === "final_review") {
@@ -206,11 +190,21 @@ export function buildCoupleWeddingChapterCards(
     let statSubline = "Short answers are enough—you can update anytime";
 
     if (id === "reception_moments") {
-      const stepCount =
-        visibleQuestions.length +
-        (input.showWeddingPartyLineupSection ? 1 : 0) +
-        (input.showSpeechesToastsSection ? 1 : 0);
-      statLine = `${completionPct}% complete · ${stepCount} ${stepCount === 1 ? "step" : "steps"}`;
+      const requiredTotal = countReceptionMomentsRequiredStepsTotal({
+        answers: input.answers,
+        showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
+        showSpeechesToastsSection: input.showSpeechesToastsSection,
+        rowQuestions: visibleQuestions,
+      });
+      const answered = countReceptionMomentsRequiredStepsAnswered({
+        answers: input.answers,
+        showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
+        showSpeechesToastsSection: input.showSpeechesToastsSection,
+        rowQuestions: visibleQuestions,
+      });
+      const stepLabel = requiredTotal === 1 ? "step" : "steps";
+      statLine = `${completionPct}% complete · ${answered}/${requiredTotal} ${stepLabel}`;
+      statSubline = "Not sure yet is fine—you can revisit wedding party and toasts anytime";
     } else if (id === "music_vibe") {
       statLine = `${completionPct}% complete · ${MUSIC_PROFILE_GUIDED_STEP_COUNT} steps`;
       statSubline = "Capture your vibe before building playlists in Music Hub";
