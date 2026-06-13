@@ -4394,6 +4394,10 @@ export default function Home() {
               order: index,
             })),
           );
+          console.info("[guest-requests] commit saved", {
+            eventId: activeEventId,
+            count: guestRequests.length,
+          });
 
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers", {
             activeEventId,
@@ -4682,7 +4686,12 @@ export default function Home() {
     setRecessionalSong(cloneJson(evt.recessionalSong));
     setPlannerNotes(cloneJson(evt.plannerNotes));
     setVendors(cloneJson(normalized.vendors ?? []));
-    setGuestRequests(cloneJson(evt.guestRequests));
+    const nextGuestRequests = Array.isArray(evt.guestRequests) ? cloneJson(evt.guestRequests) : [];
+    setGuestRequests(nextGuestRequests);
+    console.info("[guest-requests] hydrate working state", {
+      eventId: evt.id,
+      count: nextGuestRequests.length,
+    });
     // Team members are per-event (DB-backed via EventTeamMember rows). Drive
     // the global `teamMembers` working state from the event we're entering so
     // the Event Team UI reflects the selected event, not whatever set was
@@ -5001,7 +5010,7 @@ export default function Home() {
       recessionalSong: cloneJson(recessionalSong),
       plannerNotes: templateSuggestions,
       vendors: cloneJson(vendors),
-      guestRequests: cloneJson(guestRequests),
+      guestRequests: [],
       generalDjNotes,
       musicVibeDetail: cloneJson(musicVibeDetail),
       musicTasteProfile: cloneJson(musicTasteProfile),
@@ -5199,6 +5208,7 @@ export default function Home() {
         date,
         venue,
       };
+      newEvent.guestRequests = [];
       const timelinePresetDefaults =
         appSettings.timelinePresetSets?.[createLayoutProfile] ??
         getDefaultTimelinePresetSets()[createLayoutProfile] ??
@@ -5274,6 +5284,12 @@ export default function Home() {
               );
             }
           }
+
+          await replaceGuestRequests(savedDatabaseEvent.id, []);
+          console.info("[guest-requests] initialized empty on create", {
+            eventId: savedDatabaseEvent.id,
+            count: 0,
+          });
         } catch (error) {
           console.error("Failed to save event to database:", error);
           const detail =
@@ -9400,6 +9416,10 @@ export default function Home() {
               addedToMustPlay: request.addedToMustPlay,
               addedToDoNotPlay: request.addedToDoNotPlay,
             }));
+          console.info("[guest-requests] hydrate from database", {
+            eventId: dbEvent.id,
+            count: seededEvent.guestRequests.length,
+          });
 
           (seededEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers =
             (dbEvent.eventTeamMembers ?? [])
@@ -9821,6 +9841,7 @@ export default function Home() {
         ),
         collaborators: Array.isArray(evt.collaborators) ? evt.collaborators : [],
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
+        guestRequests: Array.isArray(evt.guestRequests) ? evt.guestRequests : [],
         ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
         mustPlaySongs: dedupeSongEntries(Array.isArray(evt.mustPlaySongs) ? evt.mustPlaySongs : []),
         doNotPlaySongs: dedupeSongEntries(Array.isArray(evt.doNotPlaySongs) ? evt.doNotPlaySongs : []),
@@ -10176,7 +10197,12 @@ export default function Home() {
                 addedToDoNotPlay: request.addedToDoNotPlay,
                 order: index,
               })),
-            ),
+            ).then(() => {
+              console.info("[guest-requests] autosave saved", {
+                eventId: activeEventId,
+                count: guestRequests.length,
+              });
+            }),
             persistPlanningQuestionAnswersToDatabase(
               activeEventId,
               eventSettings.planningQuestionAnswers ?? {},
