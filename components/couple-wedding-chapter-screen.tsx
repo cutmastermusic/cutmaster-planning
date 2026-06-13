@@ -89,6 +89,7 @@ export type CoupleWeddingChapterScreenProps = {
   onOpenSpeechesToastsEditor: () => void;
   onContinueToNextChapter: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
   continueToNextChapterLabel: string;
+  yourTeamContinueBlockedMessage?: string | null;
   onOpenMusicHub: () => void;
   onOpenEventTeam: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
   onOpenEventPrep: () => void;
@@ -217,6 +218,7 @@ export function CoupleWeddingChapterScreen({
   onOpenSpeechesToastsEditor,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  yourTeamContinueBlockedMessage = null,
   onOpenMusicHub,
   onOpenEventTeam,
   onOpenEventPrep,
@@ -236,6 +238,7 @@ export function CoupleWeddingChapterScreen({
         onOpenEventTeam={onOpenEventTeam}
         onContinueToNextChapter={onContinueToNextChapter}
         continueToNextChapterLabel={continueToNextChapterLabel}
+        continueBlockedMessage={yourTeamContinueBlockedMessage}
       />
     );
   }

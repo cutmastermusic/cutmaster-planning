@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 
 import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-select";
 import {
@@ -23,6 +23,8 @@ import {
   dispositionLabelFromRoleSlot,
   formatYourTeamOtherPartnersForDisplay,
   formatYourTeamRoleSlotForDisplay,
+  describeYourTeamChapterMissingFields,
+  formatYourTeamChapterMissingSummary,
   isYourTeamOtherPartnersAnswered,
   isYourTeamRoleSlotAnswered,
   parseYourTeamOtherPartnersAnswer,
@@ -122,6 +124,7 @@ export type CoupleYourTeamGuidedSectionProps = {
   onOpenEventTeam: (answers: Record<string, string | undefined>) => void | Promise<void>;
   onContinueToNextChapter: (answers: Record<string, string | undefined>) => void | Promise<void>;
   continueToNextChapterLabel: string;
+  continueBlockedMessage?: string | null;
 };
 
 const bookedContactPromptClass =
@@ -383,7 +386,23 @@ export function CoupleYourTeamGuidedSection({
   onOpenEventTeam,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  continueBlockedMessage = null,
 }: CoupleYourTeamGuidedSectionProps) {
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
+  const handleAnswerChange = useCallback(
+    (questionId: string, next: string) => {
+      answersRef.current = { ...answersRef.current, [questionId]: next };
+      onAnswerChange(questionId, next);
+    },
+    [onAnswerChange],
+  );
+
+  const reviewIncompleteHint = useMemo(() => {
+    const missing = describeYourTeamChapterMissingFields(answers);
+    return formatYourTeamChapterMissingSummary(missing);
+  }, [answers]);
   const steps = useMemo((): CoupleGuidedQuestionStep[] => {
     const renderRoleReview = (questionId: string, label: string) => (
       <div className={planningQuestionFieldShellClass}>
@@ -405,7 +424,7 @@ export function CoupleYourTeamGuidedSection({
             label={YOUR_TEAM_STEP_QUESTIONS.planner}
             dispositionOptions={YOUR_TEAM_PLANNER_DISPOSITION_OPTIONS}
             answers={answers}
-            onAnswerChange={onAnswerChange}
+            onAnswerChange={handleAnswerChange}
           />
         ),
         renderReview: () =>
@@ -421,7 +440,7 @@ export function CoupleYourTeamGuidedSection({
             label={YOUR_TEAM_STEP_QUESTIONS.photographer}
             dispositionOptions={YOUR_TEAM_PHOTOGRAPHER_DISPOSITION_OPTIONS}
             answers={answers}
-            onAnswerChange={onAnswerChange}
+            onAnswerChange={handleAnswerChange}
           />
         ),
         renderReview: () =>
@@ -440,7 +459,7 @@ export function CoupleYourTeamGuidedSection({
             label={YOUR_TEAM_STEP_QUESTIONS.videographer}
             dispositionOptions={YOUR_TEAM_VIDEOGRAPHER_DISPOSITION_OPTIONS}
             answers={answers}
-            onAnswerChange={onAnswerChange}
+            onAnswerChange={handleAnswerChange}
           />
         ),
         renderReview: () =>
@@ -459,7 +478,7 @@ export function CoupleYourTeamGuidedSection({
             label={YOUR_TEAM_STEP_QUESTIONS.officiant}
             dispositionOptions={YOUR_TEAM_OFFICIANT_DISPOSITION_OPTIONS}
             answers={answers}
-            onAnswerChange={onAnswerChange}
+            onAnswerChange={handleAnswerChange}
           />
         ),
         renderReview: () =>
@@ -508,7 +527,7 @@ export function CoupleYourTeamGuidedSection({
         ),
       },
     ];
-  }, [answers, onAnswerChange]);
+  }, [answers, handleAnswerChange]);
 
   return (
     <CoupleGuidedQuestionSection
@@ -520,10 +539,12 @@ export function CoupleYourTeamGuidedSection({
       answers={answers}
       completionTitle="You're all set for now."
       completionBody="We'll keep your vendor contacts handy for day-of coordination. You can add or update details anytime."
-      onContinueToNextChapter={() => onContinueToNextChapter(answers)}
+      reviewIncompleteHint={reviewIncompleteHint}
+      continueBlockedMessage={continueBlockedMessage}
+      onContinueToNextChapter={() => onContinueToNextChapter(answersRef.current)}
       continueToNextChapterLabel={continueToNextChapterLabel}
       completionSecondaryLabel="Manage vendor contacts"
-      onCompletionSecondary={() => onOpenEventTeam(answers)}
+      onCompletionSecondary={() => onOpenEventTeam(answersRef.current)}
     />
   );
 }

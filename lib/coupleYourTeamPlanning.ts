@@ -261,6 +261,95 @@ export function isYourTeamChapterComplete(answers: Record<string, string | undef
   return computeYourTeamChapterCompletionPct(answers) >= 100;
 }
 
+export type YourTeamMissingField = {
+  questionId: string;
+  label: string;
+  detail: string;
+};
+
+const YOUR_TEAM_REQUIRED_FIELD_LABELS: Record<
+  (typeof YOUR_TEAM_REQUIRED_QUESTION_IDS)[number],
+  string
+> = {
+  [YOUR_TEAM_QUESTION_IDS.planner]: "Wedding planner",
+  [YOUR_TEAM_QUESTION_IDS.photographer]: "Photographer",
+  [YOUR_TEAM_QUESTION_IDS.videographer]: "Videographer",
+  [YOUR_TEAM_QUESTION_IDS.officiant]: "Officiant",
+  [YOUR_TEAM_QUESTION_IDS.otherPartners]: "Other vendors",
+};
+
+function yourTeamRoleSlotMissingDetail(questionId: string, raw: string | undefined): string {
+  const parsed = parseYourTeamRoleSlotAnswer(raw);
+  if (!parsed) return "Choose an option to continue.";
+  if (parsed.status === "booked" && !bookedContactIsValid(parsed.contact)) {
+    return "Add a business or contact name, or change your answer if you have not booked yet.";
+  }
+  return "Choose an option to continue.";
+}
+
+function yourTeamOtherPartnersMissingDetail(raw: string | undefined): string {
+  const parsed = parseYourTeamOtherPartnersAnswer(raw);
+  if (!parsed) return "Choose whether you have other vendors to share.";
+  if (parsed.status !== "booked") return "Choose an option to continue.";
+  const partners = parsed.partners ?? [];
+  if (partners.length === 0) {
+    return 'Select at least one vendor type, or choose "Not right now" if none apply.';
+  }
+  if (partners.some((partner) => !bookedContactIsValid(partner))) {
+    return "Each selected vendor needs a business or contact name, or remove unused vendors.";
+  }
+  return "Choose an option to continue.";
+}
+
+export function describeYourTeamChapterMissingFields(
+  answers: Record<string, string | undefined>,
+): YourTeamMissingField[] {
+  const missing: YourTeamMissingField[] = [];
+  for (const questionId of YOUR_TEAM_REQUIRED_QUESTION_IDS) {
+    const complete =
+      questionId === YOUR_TEAM_QUESTION_IDS.otherPartners
+        ? isYourTeamOtherPartnersAnswered(answers[questionId])
+        : isYourTeamRoleSlotAnswered(answers[questionId]);
+    if (complete) continue;
+    missing.push({
+      questionId,
+      label: YOUR_TEAM_REQUIRED_FIELD_LABELS[questionId],
+      detail:
+        questionId === YOUR_TEAM_QUESTION_IDS.otherPartners
+          ? yourTeamOtherPartnersMissingDetail(answers[questionId])
+          : yourTeamRoleSlotMissingDetail(questionId, answers[questionId]),
+    });
+  }
+  return missing;
+}
+
+export function formatYourTeamChapterMissingSummary(
+  missing: YourTeamMissingField[],
+): string | null {
+  if (missing.length === 0) return null;
+  if (missing.length === 1) {
+    return `${missing[0].label}: ${missing[0].detail}`;
+  }
+  return `Still needed — ${missing.map((field) => field.label).join(", ")}. ${missing[0].detail}`;
+}
+
+/** Merge guided answers with Event Team / settings prefill before completion checks. */
+export function resolveYourTeamChapterAnswersForCompletion(
+  input: BuildYourTeamPrefillInput & {
+    chapterAnswers?: Record<string, string | undefined>;
+  },
+): Record<string, string | undefined> {
+  const base = {
+    ...input.answers,
+    ...(input.chapterAnswers ?? {}),
+  };
+  const prefill = buildYourTeamPrefillAnswers({
+    ...input,
+    answers: base,
+  });
+  return { ...base, ...prefill };
+}
+
 export function formatYourTeamRoleSlotForDisplay(raw: string | undefined): string {
   const parsed = parseYourTeamRoleSlotAnswer(raw);
   if (!parsed) return "Not answered yet";

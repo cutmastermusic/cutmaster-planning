@@ -371,7 +371,13 @@ import {
   updateMusicTasteProfileNotes,
   updateMusicVibeDetailField,
 } from "@/lib/musicHubPlan";
-import { buildYourTeamPrefillAnswers } from "@/lib/coupleYourTeamPlanning";
+import {
+  buildYourTeamPrefillAnswers,
+  computeYourTeamChapterCompletionPct,
+  describeYourTeamChapterMissingFields,
+  formatYourTeamChapterMissingSummary,
+  resolveYourTeamChapterAnswersForCompletion,
+} from "@/lib/coupleYourTeamPlanning";
 import {
   mergeYourTeamIntoEventTeam,
   yourTeamChapterHasMergeableBookings,
@@ -3158,6 +3164,9 @@ export default function Home() {
   const [guestFormDedication, setGuestFormDedication] = useState("");
   const [guestSubmitBanner, setGuestSubmitBanner] = useState("");
   const [activePlanningChapterId, setActivePlanningChapterId] = useState<CoupleWeddingChapterId | null>(
+    null,
+  );
+  const [yourTeamContinueBlockedMessage, setYourTeamContinueBlockedMessage] = useState<string | null>(
     null,
   );
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>(seedMergedTimelineItems);
@@ -6507,6 +6516,7 @@ export default function Home() {
   const openCouplePlanningChapter = useCallback(
     (chapterId: CoupleWeddingChapterId) => {
       if (chapterId === "your_team") {
+        setYourTeamContinueBlockedMessage(null);
         const answers = eventSettings.planningQuestionAnswers ?? {};
         const prefill = buildYourTeamPrefillAnswers({
           answers,
@@ -6556,6 +6566,66 @@ export default function Home() {
       setActiveScreen("Dashboard");
     },
     [setActiveScreen],
+  );
+  const handleCoupleYourTeamChapterContinue = useCallback(
+    async (chapterAnswers?: Record<string, string | undefined>) => {
+      const resolved = resolveYourTeamChapterAnswersForCompletion({
+        answers: eventSettingsRef.current.planningQuestionAnswers ?? {},
+        chapterAnswers,
+        teamMembers: teamMembersRef.current,
+        plannerName: eventSettingsRef.current.plannerName ?? "",
+        plannerEmail: eventSettingsRef.current.plannerEmail ?? "",
+        officiantName,
+      });
+      const missing = describeYourTeamChapterMissingFields(resolved);
+      const completionPct = computeYourTeamChapterCompletionPct(resolved);
+      console.info("[your-team] chapter continue decision", {
+        complete: missing.length === 0,
+        completionPct,
+        missingQuestionIds: missing.map((field) => field.questionId),
+      });
+
+      if (missing.length > 0) {
+        setYourTeamContinueBlockedMessage(
+          formatYourTeamChapterMissingSummary(missing) ??
+            "Please finish the required vendor questions before continuing.",
+        );
+        return;
+      }
+
+      setYourTeamContinueBlockedMessage(null);
+      setEventSettings((prev) => ({
+        ...prev,
+        planningQuestionAnswers: {
+          ...(prev.planningQuestionAnswers ?? {}),
+          ...resolved,
+        } as Record<string, string>,
+      }));
+
+      if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
+        const persistResult = await persistPlanningQuestionAnswersToDatabase(
+          activeEventId,
+          resolved,
+        );
+        if (!persistResult.ok) {
+          console.error(
+            "[your-team] failed to persist planning answers before continue",
+            persistResult.error,
+          );
+        }
+      }
+
+      await applyYourTeamChapterToEventTeamRef.current?.({
+        planningQuestionAnswers: resolved,
+      });
+      continueToNextCoupleChapter("your_team");
+    },
+    [
+      activeEventId,
+      continueToNextCoupleChapter,
+      officiantName,
+      persistPlanningQuestionAnswersToDatabase,
+    ],
   );
   /** Run Of Show is operator-facing only — not for couple/client packet review. */
   const canAccessRunOfShow = effectiveRole !== "Couple";
@@ -22066,12 +22136,12 @@ export default function Home() {
                 onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
                 onContinueToNextChapter={async (chapterAnswers) => {
                   if (activePlanningChapterId === "your_team") {
-                    await applyYourTeamChapterToEventTeam({
-                      planningQuestionAnswers: chapterAnswers,
-                    });
+                    await handleCoupleYourTeamChapterContinue(chapterAnswers);
+                    return;
                   }
                   continueToNextCoupleChapter(activePlanningChapterId);
                 }}
+                yourTeamContinueBlockedMessage={yourTeamContinueBlockedMessage}
                 continueToNextChapterLabel={coupleActiveChapterContinueLabel}
                 onOpenMusicHub={() => {
                   closeCouplePlanningChapter();

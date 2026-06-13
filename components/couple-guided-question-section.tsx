@@ -185,8 +185,12 @@ export type CoupleGuidedQuestionSectionProps = {
   onCompletionPrimary?: () => void;
   completionSecondaryLabel?: string;
   onCompletionSecondary?: () => void;
-  onContinueToNextChapter?: () => void;
+  onContinueToNextChapter?: () => void | Promise<void>;
   continueToNextChapterLabel?: string;
+  /** Shown on review when required steps are still incomplete. */
+  reviewIncompleteHint?: string | null;
+  /** Shown when chapter continue was blocked after review (e.g. stale or unsaved answers). */
+  continueBlockedMessage?: string | null;
 };
 
 export function questionGuidedStep(
@@ -265,6 +269,8 @@ export function CoupleGuidedQuestionSection({
   onCompletionSecondary,
   onContinueToNextChapter,
   continueToNextChapterLabel = "Continue to next chapter",
+  reviewIncompleteHint = null,
+  continueBlockedMessage = null,
 }: CoupleGuidedQuestionSectionProps) {
   const flowStepCount = steps.length;
   const requiredStepCount = countProgressSteps(steps);
@@ -320,7 +326,7 @@ export function CoupleGuidedQuestionSection({
   const goToGuided = useCallback(() => {
     if (reviewTransitionGuardRef.current) return;
     const idx = firstUnansweredStepIndex(steps, answers);
-    setStepIndex(idx === -1 ? 0 : idx);
+    setStepIndex(idx === -1 ? Math.max(0, steps.length - 1) : idx);
     setPhase("guided");
   }, [steps, answers]);
 
@@ -432,6 +438,24 @@ export function CoupleGuidedQuestionSection({
         </>
       ) : phase === "review" ? (
         <div className="mt-6 space-y-5">
+          {!allAnswered && reviewIncompleteHint ? (
+            <div
+              className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-4"
+              role="status"
+            >
+              <p className="text-sm font-semibold text-amber-950">A few details are still needed</p>
+              <p className="mt-2 text-sm leading-relaxed text-amber-950">{reviewIncompleteHint}</p>
+            </div>
+          ) : null}
+          {continueBlockedMessage ? (
+            <div
+              className="rounded-xl border border-rose-200/90 bg-rose-50/90 px-4 py-4"
+              role="alert"
+            >
+              <p className="text-sm font-semibold text-rose-950">Could not continue yet</p>
+              <p className="mt-2 text-sm leading-relaxed text-rose-950">{continueBlockedMessage}</p>
+            </div>
+          ) : null}
           {allAnswered ? (
             completionTitle && completionBody ? (
               <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-4">
@@ -466,13 +490,23 @@ export function CoupleGuidedQuestionSection({
                 {completionSecondaryLabel ?? "Continue"}
               </GuidedNavButton>
             ) : null}
-            <GuidedNavButton
-              onAction={goToGuided}
-              clickOnly
-              className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
-            >
-              Continue one at a time
-            </GuidedNavButton>
+            {!allAnswered ? (
+              <GuidedNavButton
+                onAction={goToGuided}
+                clickOnly
+                className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
+              >
+                Go to unanswered questions
+              </GuidedNavButton>
+            ) : (
+              <GuidedNavButton
+                onAction={goToGuided}
+                clickOnly
+                className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
+              >
+                Edit answers one at a time
+              </GuidedNavButton>
+            )}
           </GuidedNavFooter>
         </div>
       ) : null}
