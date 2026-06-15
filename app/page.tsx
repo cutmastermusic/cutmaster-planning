@@ -2123,6 +2123,11 @@ function isCoupleAdminOnlyScreen(screen: Screen): boolean {
   );
 }
 
+/** Event-mode screens that are never workspace (All Events) tabs. */
+function isLikelyEventWorkspaceScreen(screen: Screen): boolean {
+  return !isCoupleAdminOnlyScreen(screen) && screen !== "Notification Center";
+}
+
 function resolveCouplePortalNavRestore(params: {
   storedScreen: Screen;
   storedChapterId: CoupleWeddingChapterId | null;
@@ -4940,9 +4945,9 @@ export default function Home() {
     }
 
     loadEventPlanningIntoWorkingState(fullEvent);
+    setAppMode("event");
     setActiveEventId(nextEventId);
     setActiveScreen("Dashboard");
-    setAppMode("event");
   };
 
   const deleteEventFromWorkspace = async (eventId: string) => {
@@ -5575,7 +5580,7 @@ export default function Home() {
 
   const selectActiveScreen = useCallback(
     (screen: Screen) => {
-      if (effectiveRole === "Couple") {
+      if (sessionIsCoupleForPersist) {
         const now = Date.now();
         const lock = coupleScreenNavLockRef.current;
         if (lock && lock.screen === screen && now - lock.at < 450) {
@@ -5591,7 +5596,7 @@ export default function Home() {
       }
       setActiveScreen(screen);
     },
-    [effectiveRole, isCoupleWeddingPlanningView],
+    [isCoupleWeddingPlanningView, sessionIsCoupleForPersist],
   );
 
   useEffect(() => {
@@ -10263,7 +10268,6 @@ export default function Home() {
       if (Array.isArray(parsed.activities)) setActivities(parsed.activities);
       if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
       if (parsed.appState) {
-        setAppMode(parsed.appState.appMode === "event" ? "event" : "events");
         setAuthStage(
           parsed.appState.authStage === "login" ||
             parsed.appState.authStage === "invite" ||
@@ -10282,6 +10286,11 @@ export default function Home() {
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
         setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
         const restoredScreen = migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard");
+        let restoredMode: AppMode = parsed.appState.appMode === "event" ? "event" : "events";
+        if (restoredMode === "events" && isLikelyEventWorkspaceScreen(restoredScreen)) {
+          restoredMode = "event";
+        }
+        setAppMode(restoredMode);
         setActiveScreen(restoredScreen);
         pendingCoupleNavRestoreRef.current = {
           screen: restoredScreen,
@@ -10721,11 +10730,16 @@ export default function Home() {
   }, [activeScreen, appMode, canManageEvents, setActiveScreen]);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (authStage !== "app") return;
     if (authSession.isCouplePortalSession && !couplePortalNavRestoreAppliedRef.current) return;
     if (appMode === "events") {
       if (!workspaceNavItems.includes(activeScreen)) {
-        window.setTimeout(() => setActiveScreen("All Events"), 0);
+        if (isLikelyEventWorkspaceScreen(activeScreen)) {
+          setAppMode("event");
+          return;
+        }
+        setActiveScreen("All Events");
       }
       return;
     }
@@ -10735,7 +10749,7 @@ export default function Home() {
         effectiveRole,
         allowedActiveEventScreens,
       });
-      window.setTimeout(() => setActiveScreen("Dashboard"), 0);
+      setActiveScreen("Dashboard");
     }
   }, [
     activeScreen,
@@ -10744,6 +10758,7 @@ export default function Home() {
     authStage,
     allowedActiveEventScreens,
     effectiveRole,
+    hasHydrated,
     setActiveScreen,
     workspaceNavItems,
   ]);
