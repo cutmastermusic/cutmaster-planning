@@ -34,40 +34,138 @@ export type CoverPhotoScaleLimits = {
   initialScale: number;
 };
 
+export type ContainFitFramePercents = {
+  widthPercent: number;
+  heightPercent: number;
+};
+
+/** Contain-fit size of the image inside the frame, expressed as % of frame width/height. */
+export function computeContainFitFramePercents(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): ContainFitFramePercents {
+  if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0) {
+    return { widthPercent: 100, heightPercent: 100 };
+  }
+
+  const containScale = Math.min(frameWidth / imageWidth, frameHeight / imageHeight);
+  return {
+    widthPercent: ((imageWidth * containScale) / frameWidth) * 100,
+    heightPercent: ((imageHeight * containScale) / frameHeight) * 100,
+  };
+}
+
+/** Multiplier to convert editor scale (contain baseline) to persisted/dashboard scale (cover baseline). */
+export function computeContainToCoverScaleMultiplier(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): number {
+  const contain = computeContainFitFramePercents(imageWidth, imageHeight, frameWidth, frameHeight);
+  return Math.max(100 / contain.widthPercent, 100 / contain.heightPercent);
+}
+
 /**
- * Cover fit is scale 1. minScale zooms out until the full image is visible (contain).
+ * Editor uses contain baseline: scale 1 = full image visible.
+ * Dashboard uses cover baseline: scale 1 = cover fit.
  */
+export function computeEditorScaleLimits(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoScaleLimits & { containFit: ContainFitFramePercents } {
+  if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0) {
+    return {
+      minScale: 1,
+      maxScale: COVER_PHOTO_MAX_SCALE,
+      initialScale: 1,
+      containFit: { widthPercent: 100, heightPercent: 100 },
+    };
+  }
+
+  const containFit = computeContainFitFramePercents(imageWidth, imageHeight, frameWidth, frameHeight);
+  const coverZoom = computeContainToCoverScaleMultiplier(imageWidth, imageHeight, frameWidth, frameHeight);
+
+  return {
+    minScale: 1,
+    maxScale: Math.min(COVER_PHOTO_MAX_SCALE, coverZoom),
+    initialScale: 1,
+    containFit,
+  };
+}
+
+/** @deprecated Dashboard-only; editor uses computeEditorScaleLimits. */
 export function computeCoverPhotoScaleLimits(
   imageWidth: number,
   imageHeight: number,
   frameWidth: number,
   frameHeight: number,
 ): CoverPhotoScaleLimits {
-  if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0) {
-    return { minScale: COVER_PHOTO_MIN_SCALE, maxScale: COVER_PHOTO_MAX_SCALE, initialScale: 1 };
-  }
-
-  const imageAspect = imageWidth / imageHeight;
-  const frameAspect = frameWidth / frameHeight;
-
-  let coverWidth = frameWidth;
-  let coverHeight = frameHeight;
-
-  if (imageAspect > frameAspect) {
-    coverHeight = frameHeight;
-    coverWidth = frameHeight * imageAspect;
-  } else {
-    coverWidth = frameWidth;
-    coverHeight = frameWidth / imageAspect;
-  }
-
-  const containScale = Math.min(frameWidth / coverWidth, frameHeight / coverHeight);
-  const minScale = Math.max(COVER_PHOTO_ABSOLUTE_MIN_SCALE, containScale);
-
+  const coverZoom = computeContainToCoverScaleMultiplier(imageWidth, imageHeight, frameWidth, frameHeight);
   return {
-    minScale,
+    minScale: 1 / coverZoom,
     maxScale: COVER_PHOTO_MAX_SCALE,
-    initialScale: COVER_PHOTO_MIN_SCALE,
+    initialScale: 1,
+  };
+}
+
+export function editorTransformToPersistedTransform(
+  transform: CoverPhotoTransform,
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoTransform {
+  const multiplier = computeContainToCoverScaleMultiplier(
+    imageWidth,
+    imageHeight,
+    frameWidth,
+    frameHeight,
+  );
+  if (multiplier <= 0) return transform;
+  return {
+    ...transform,
+    scale: clampCoverPhotoScale(transform.scale / multiplier),
+  };
+}
+
+export function persistedTransformToEditorTransform(
+  transform: CoverPhotoTransform,
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoTransform {
+  const multiplier = computeContainToCoverScaleMultiplier(
+    imageWidth,
+    imageHeight,
+    frameWidth,
+    frameHeight,
+  );
+  return {
+    ...transform,
+    scale: clampCoverPhotoScale(transform.scale * multiplier, 1, COVER_PHOTO_MAX_SCALE),
+  };
+}
+
+export function coverPhotoTransformToEditorImageStyle(
+  transform: CoverPhotoTransform,
+  containFit: ContainFitFramePercents,
+): CSSProperties {
+  const { scale, x, y } = transform;
+  return {
+    position: "absolute",
+    left: `calc(50% + ${x}%)`,
+    top: `calc(50% + ${y}%)`,
+    width: `${containFit.widthPercent * scale}%`,
+    height: `${containFit.heightPercent * scale}%`,
+    maxWidth: "none",
+    transform: "translate(-50%, -50%)",
+    transformOrigin: "center center",
   };
 }
 

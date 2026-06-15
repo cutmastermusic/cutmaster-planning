@@ -11,9 +11,12 @@ import {
 import {
   clampCoverPhotoScale,
   COUPLE_DASHBOARD_HERO_ASPECT_RATIO,
-  computeCoverPhotoScaleLimits,
-  coverPhotoTransformToImageStyle,
+  computeEditorScaleLimits,
+  coverPhotoTransformToEditorImageStyle,
   DEFAULT_COVER_PHOTO_TRANSFORM,
+  editorTransformToPersistedTransform,
+  persistedTransformToEditorTransform,
+  type ContainFitFramePercents,
   type CoverPhotoScaleLimits,
 } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
@@ -56,6 +59,10 @@ export function WelcomePhotoEditor({
     maxScale: 3,
     initialScale: 1,
   });
+  const [containFit, setContainFit] = useState<ContainFitFramePercents>({
+    widthPercent: 100,
+    heightPercent: 100,
+  });
   const [ready, setReady] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -88,16 +95,24 @@ export function WelcomePhotoEditor({
     const rect = frame.getBoundingClientRect();
     if (rect.width < 8 || rect.height < 8) return false;
 
-    const limits = computeCoverPhotoScaleLimits(
+    const limits = computeEditorScaleLimits(
       img.naturalWidth,
       img.naturalHeight,
       rect.width,
       rect.height,
     );
+    setContainFit(limits.containFit);
 
     if (!initializedRef.current) {
       if (initialTransform) {
-        applyScaleLimits(limits, initialTransform);
+        const editorTransform = persistedTransformToEditorTransform(
+          initialTransform,
+          img.naturalWidth,
+          img.naturalHeight,
+          rect.width,
+          rect.height,
+        );
+        applyScaleLimits(limits, editorTransform);
       } else {
         applyScaleLimits(limits, {
           ...DEFAULT_COVER_PHOTO_TRANSFORM,
@@ -256,7 +271,22 @@ export function WelcomePhotoEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onCancel]);
 
-  const imageStyle = coverPhotoTransformToImageStyle(transform);
+  const imageStyle = coverPhotoTransformToEditorImageStyle(transform, containFit);
+
+  const handleSave = useCallback(() => {
+    const frame = frameRef.current;
+    const img = imageRef.current;
+    if (!frame || !img || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+    const rect = frame.getBoundingClientRect();
+    const persisted = editorTransformToPersistedTransform(
+      transform,
+      img.naturalWidth,
+      img.naturalHeight,
+      rect.width,
+      rect.height,
+    );
+    void onSave(persisted);
+  }, [onSave, transform]);
 
   return (
     <div
@@ -327,7 +357,7 @@ export function WelcomePhotoEditor({
           <button
             type="button"
             className="cm-welcome-photo-editor-save"
-            onClick={() => void onSave(transform)}
+            onClick={handleSave}
             disabled={!ready || saving}
           >
             {saving ? "Saving…" : "Save Photo"}
