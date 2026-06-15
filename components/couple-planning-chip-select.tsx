@@ -76,7 +76,7 @@ export function CouplePlanningChipSelect({
                 }}
                 className={`min-h-11 rounded-full border px-3.5 py-2.5 text-left text-[13px] font-medium transition sm:min-h-10 sm:py-2 ${
                   on
-                    ? "border-stone-900 bg-[#00D4FF] text-stone-950 shadow-none"
+                    ? "border-[#2f4a3e] bg-[#2f4a3e] text-white shadow-none"
                     : disabled
                       ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
                       : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"

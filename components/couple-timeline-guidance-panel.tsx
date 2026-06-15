@@ -10,7 +10,7 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
   const hasGaps = gapLabels.length > 0;
 
   return (
-    <PremiumCard className="no-print border-[#00D4FF]/25 bg-gradient-to-br from-[#00D4FF]/[0.06] via-white to-stone-50/80">
+    <PremiumCard className="no-print border-stone-200/90 bg-gradient-to-br from-stone-50/80 via-white to-[#2f4a3e]/[0.03]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
         Before we meet
       </p>
@@ -43,7 +43,7 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
                 key={label}
                 className="flex items-start gap-2 text-[13px] leading-snug text-stone-800"
               >
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00D4FF]" aria-hidden />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2f4a3e]" aria-hidden />
                 <span>{label}</span>
               </li>
             ))}

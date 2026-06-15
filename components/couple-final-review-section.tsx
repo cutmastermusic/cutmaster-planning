@@ -10,7 +10,7 @@ import {
 } from "@/components/couple-mobile-action-button";
 import {
   PremiumCard,
-  lightUiCyanPrimaryButtonClass,
+  lightUiCouplePrimaryButtonClass,
   lightUiSecondaryButtonClass,
   premiumFormSectionCardClass,
 } from "@/components/planning-ui";
@@ -72,7 +72,7 @@ function ReadinessStatusRow({
     <button
       type="button"
       {...mobileActionHandlers}
-      className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3.5 text-left transition hover:border-[#00D4FF]/45 hover:bg-[#00D4FF]/[0.04] active:scale-[0.99] active:border-[#00D4FF]/55 active:bg-[#00D4FF]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
+      className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3.5 text-left transition hover:border-[#2f4a3e]/30 hover:bg-[#2f4a3e]/[0.03] active:scale-[0.99] active:border-[#2f4a3e]/40 active:bg-[#2f4a3e]/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
     >
       <div className="min-w-0">
         <p className="text-sm font-semibold text-stone-950">{label}</p>
@@ -157,7 +157,7 @@ function CoupleFinalReviewCompletionCelebration({
       <PremiumCard className={`${premiumFormSectionCardClass} ${coupleMobileActionContentSpacerClass}`}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
 
-        <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#00D4FF]/[0.06] px-5 py-6">
+        <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#2f4a3e]/[0.04] px-5 py-6">
           <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
             🎉 Final review complete
           </h3>
@@ -214,7 +214,7 @@ function CoupleFinalReviewCompletionCelebration({
         <CoupleMobileActionFooter>
           <CoupleMobileActionButton
             onAction={onOpenEventDocument}
-            className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCyanPrimaryButtonClass}`}
+            className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCouplePrimaryButtonClass}`}
           >
             Preview Your Event Plan
           </CoupleMobileActionButton>

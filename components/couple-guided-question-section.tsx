@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 
 import {
   PremiumCard,
-  lightUiCyanPrimaryButtonClass,
+  lightUiCouplePrimaryButtonClass,
   lightUiSecondaryButtonClass,
   premiumFormSectionCardClass,
 } from "@/components/planning-ui";
@@ -21,7 +21,7 @@ import type { PlanningQuestionDef } from "@/types/planning";
 const guidedNavButtonBaseClass =
   "relative z-[1] min-h-12 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 sm:min-h-11";
 
-const guidedNavPrimaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiCyanPrimaryButtonClass}`;
+const guidedNavPrimaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiCouplePrimaryButtonClass}`;
 const guidedNavSecondaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiSecondaryButtonClass}`;
 
 /** Reserve space so fixed mobile nav does not cover the active question. */
@@ -421,7 +421,7 @@ export function CoupleGuidedQuestionSection({
           <GuidedNavFooter>
             <GuidedNavTextButton
               onAction={goToReview}
-              className="min-h-12 touch-manipulation self-start rounded-lg px-3 py-3 text-left text-sm font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-950 hover:underline active:bg-stone-100/80 active:text-stone-950 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
+              className="min-h-12 touch-manipulation self-start rounded-lg px-3 py-3 text-left text-sm font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-950 hover:underline active:bg-stone-100/80 active:text-stone-950 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
             >
               See all answers so far
             </GuidedNavTextButton>
@@ -480,7 +480,7 @@ export function CoupleGuidedQuestionSection({
             {allAnswered && (onCompletionPrimary ?? onContinueToNextChapter) ? (
               <GuidedNavButton
                 onAction={() => (onCompletionPrimary ?? onContinueToNextChapter)?.()}
-                className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCyanPrimaryButtonClass}`}
+                className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCouplePrimaryButtonClass}`}
               >
                 {completionPrimaryLabel ?? continueToNextChapterLabel}
               </GuidedNavButton>

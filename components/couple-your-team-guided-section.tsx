@@ -128,7 +128,7 @@ export type CoupleYourTeamGuidedSectionProps = {
 };
 
 const bookedContactPromptClass =
-  "mt-4 rounded-lg border border-cyan-200/90 bg-cyan-50/90 px-3 py-2.5 text-sm font-medium leading-snug text-stone-800";
+  "mt-4 rounded-lg border border-stone-200/90 bg-stone-50/90 px-3 py-2.5 text-sm font-medium leading-snug text-stone-800";
 
 function ContactFields({
   contact,

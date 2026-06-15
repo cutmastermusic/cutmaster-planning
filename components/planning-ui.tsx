@@ -205,6 +205,10 @@ export const lightUiSecondaryButtonClass =
 export const lightUiCyanPrimaryButtonClass =
   "rounded-[var(--cm-radius-control)] bg-[var(--cm-accent)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-accent-foreground)] shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
 
+/** Blanc forest-green primary for couple-facing surfaces (editorial shell). */
+export const lightUiCouplePrimaryButtonClass =
+  "rounded-[var(--cm-radius-control)] bg-[#2f4a3e] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
+
 /** Destructive control on light surfaces. */
 export const lightUiDestructiveButtonClass =
   "rounded-[var(--cm-radius-control)] border border-rose-300/90 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-950 shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-rose-100/90 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/35 focus-visible:ring-offset-2";

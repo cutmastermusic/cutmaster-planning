@@ -6768,6 +6768,14 @@ export default function Home() {
   const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   const isCoupleEditorialShell = isCoupleView && appMode === "event";
+  /** True couple/client sessions — not Admin previewing as Couple. */
+  const isRealCoupleSession = sessionIsCoupleForPersist;
+  const showStaffWorkspaceChrome = !isRealCoupleSession;
+  const showAdminClientPreviewChrome =
+    showRolePreviewSwitcher && isCoupleEditorialShell && !isRealCoupleSession;
+  const hideCoupleEditorialAccountMenu = isRealCoupleSession && isCoupleEditorialShell;
+  const hideCoupleDashboardAppHeader =
+    isRealCoupleSession && isCoupleEditorialShell && activeScreen === "Dashboard";
   const coverPhotoHydrationReady = useMemo(() => {
     if (!activeEventId) return true;
 
@@ -14421,7 +14429,7 @@ export default function Home() {
   const showAccountMenu =
     authSession.loaded &&
     (Boolean(authSession.email) || (authStage === "app" && Boolean(currentRole)));
-  const accountMenu = showAccountMenu ? (
+  const accountMenu = showAccountMenu && !hideCoupleEditorialAccountMenu ? (
     <AccountMenu
       email={authSession.email}
       roleLabel={accountRoleLabel}
@@ -14461,7 +14469,12 @@ export default function Home() {
 
   return (
     <div className={`${cmAppShellClass}${isCoupleEditorialShell ? " cm-app-shell--couple-editorial" : ""}`}>
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pt-6 sm:px-6">
+      <div
+        className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 sm:px-6 ${
+          hideCoupleDashboardAppHeader ? "pt-3 sm:pt-4" : "pt-6"
+        }`}
+      >
+        {!hideCoupleDashboardAppHeader ? (
         <AppHeader
           screenTitle={headerScreenTitle}
           weddingDetails={headerWeddingDetails}
@@ -14475,6 +14488,7 @@ export default function Home() {
           variant={isCoupleEditorialShell ? "coupleEditorial" : "default"}
           showScreenTitle={!(isCoupleEditorialShell && activeScreen === "Dashboard")}
         />
+        ) : null}
 
         {authStage === "app" && appMode === "event" ? (
           <input
@@ -14488,7 +14502,7 @@ export default function Home() {
           />
         ) : null}
 
-        {authStage === "app" && (
+        {authStage === "app" && showStaffWorkspaceChrome && !isCoupleEditorialShell && (
           <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs shadow-none sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-stone-600">
@@ -14535,6 +14549,29 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {authStage === "app" && showAdminClientPreviewChrome ? (
+          <div className="no-print mt-3 flex flex-col gap-2 rounded-xl border border-stone-200/80 bg-white/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-[11px] font-medium text-stone-500">
+              {perspectiveBannerLabel(currentRole, rolePreview)}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {PERSPECTIVE_ROLES.map((role) => (
+                <PrimaryButton
+                  key={`perspective-preview-${role}`}
+                  type="button"
+                  onClick={() => switchPerspectiveRole(role)}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] ${rolePreview === role
+                    ? "border border-[#2f4a3e] bg-[#2f4a3e] font-semibold text-white shadow-none"
+                    : "border border-stone-300 bg-white font-medium text-stone-700 shadow-none hover:border-stone-400 hover:bg-stone-50"
+                    }`}
+                >
+                  {perspectiveRoleLabel(role)}
+                </PrimaryButton>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
@@ -16121,7 +16158,7 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && !authSession.isCouplePortalSession && (
+        {authStage === "app" && appMode === "event" && showStaffWorkspaceChrome && (
           <div className="mt-4">
             <PrimaryButton
               onClick={() => {
@@ -22399,7 +22436,7 @@ export default function Home() {
         onEditLineup={openWeddingPartyLineupEditor}
       />
 
-      {authStage === "app" && quickActions.length > 0 && (
+      {authStage === "app" && quickActions.length > 0 && !isCoupleEditorialShell && (
         <>
           <div
             onClick={() => setQuickActionsOpen(false)}

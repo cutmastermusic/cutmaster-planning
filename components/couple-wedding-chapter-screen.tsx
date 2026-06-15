@@ -15,7 +15,7 @@ import {
 import {
   PremiumCard,
   PrimaryButton,
-  lightUiCyanPrimaryButtonClass,
+  lightUiCouplePrimaryButtonClass,
   premiumFormSectionCardClass,
 } from "@/components/planning-ui";
 import type { GroupedPlanningQuestionsRow } from "@/data/planningQuestionGroups";
@@ -246,7 +246,7 @@ export function CoupleWeddingChapterScreen({
         <p className="text-sm leading-relaxed text-stone-700">
           No prompts are available for {coupleWeddingChapterNavLabel(chapterId)} yet.
         </p>
-        <PrimaryButton type="button" onClick={onContinueToNextChapter} className={`mt-4 ${lightUiCyanPrimaryButtonClass}`}>
+        <PrimaryButton type="button" onClick={onContinueToNextChapter} className={`mt-4 ${lightUiCouplePrimaryButtonClass}`}>
           {continueToNextChapterLabel}
         </PrimaryButton>
       </PremiumCard>

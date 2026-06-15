@@ -30,7 +30,7 @@ function HintRow({
       <button
         type="button"
         {...mobileActionHandlers}
-        className="group flex w-full min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3b6fd9]/40"
+        className="group flex w-full min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/35"
       >
         <p className="text-[14px] leading-snug text-stone-600 group-hover:text-stone-800">
           {hint.message}
@@ -49,7 +49,7 @@ function PreviewEventPlanLink({ onAction }: { onAction: () => void }) {
   return (
     <button
       type="button"
-      className="min-h-11 touch-manipulation text-left text-[14px] font-medium text-[#3b6fd9] underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3b6fd9]/40"
+      className="min-h-11 touch-manipulation text-left text-[14px] font-medium text-[#2f4a3e] underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/35"
       {...mobileActionHandlers}
     >
       Preview your Event Plan
