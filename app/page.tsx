@@ -151,6 +151,7 @@ import {
 import {
   stripStaffOnlyFieldsFromClientEventRecord,
 } from "@/lib/eventAccess/shapeEventForActor";
+import { userRoleHasEventCapability } from "@/lib/eventAccess/capabilities";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
@@ -171,6 +172,7 @@ import type {
   GuestRequestStatus,
   ChecklistDueDate,
   ChecklistStatus,
+  CoverPhotoTransform,
   PlanningQuestionAnswerType,
   PlanningQuestionDef,
   Screen,
@@ -334,7 +336,21 @@ import {
 } from "@/lib/runOfShowDone";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
-import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
+import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
+import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
+import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
+import { coverPhotoFieldsFromDbRow } from "@/lib/eventCoverPhoto";
+import {
+  deleteEventCoverPhotoRemote,
+  uploadEventCoverPhoto,
+} from "@/lib/eventCoverPhotoClient";
+import {
+  clearEventCoverPhotoFromLocalStorage,
+  mergeStoredEventCoverIntoSettings,
+  mergeStoredEventCoversIntoEvents,
+  persistEventCoverPhotoToLocalStorage,
+} from "@/lib/eventCoverStorage";
+import { isAuthBypassEnabled, isSupabaseConfigured } from "@/lib/auth/authConfig";
 import {
   buildCoupleFinalPlanningHints,
   type CoupleFinalPlanningQuickLink,
@@ -349,9 +365,7 @@ import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import {
   buildCoupleWeddingChapterCards,
   computeCoupleWeddingChapterCompletionPct,
-  computeCoupleWeddingStoryHeroProgressPct,
   coupleWeddingChapterDashboardCtaLabel,
-  coupleWeddingChapterCardFooterLabel,
   coupleWeddingChapterNavLabel,
   firstIncompleteCoupleWeddingChapter,
   firstIncompleteCoupleWeddingStoryChapter,
@@ -3065,6 +3079,14 @@ export default function Home() {
   const prevMainNavScrollRef = useRef<{ screen: Screen; mode: AppMode; auth: AuthStage } | null>(null);
   const prevPlanningChapterRef = useRef<CoupleWeddingChapterId | null | undefined>(undefined);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [welcomePhotoEditorOpen, setWelcomePhotoEditorOpen] = useState(false);
+  const [welcomePhotoDraft, setWelcomePhotoDraft] = useState<{
+    dataUrl: string;
+    file: File;
+    transform?: CoverPhotoTransform;
+  } | null>(null);
+  const [welcomePhotoSaving, setWelcomePhotoSaving] = useState(false);
+  const [welcomePhotoToastVisible, setWelcomePhotoToastVisible] = useState(false);
   const hasParsedInviteParams = useRef(false);
   const prevLoadedPlanningEventIdRef = useRef<string | null>(null);
   const {
@@ -3137,6 +3159,7 @@ export default function Home() {
   const [musicHubTasteDirtyRevision, setMusicHubTasteDirtyRevision] = useState(0);
   const databaseHydrationCompleteRef = useRef(false);
   const [databaseEventsLoaded, setDatabaseEventsLoaded] = useState(false);
+  const [eventPlanningReadyEventId, setEventPlanningReadyEventId] = useState<string | null>(null);
   /** Active event id whose working state was loaded from DB (or explicit switch). */
   const dbWorkingStateReadyEventIdRef = useRef<string | null>(null);
   const applyYourTeamChapterToEventTeamRef = useRef<
@@ -3355,6 +3378,7 @@ export default function Home() {
   const isActualCouple = isActualCoupleSession(currentRole);
   const sessionIsCoupleForPersist =
     isActualCouple || authSession.isCouplePortalSession;
+  const canPersistDjOps = userRoleHasEventCapability(effectiveRole, "dj-ops:write");
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -4249,6 +4273,9 @@ export default function Home() {
       eventId: string,
       scripts: DjScripts,
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!canPersistDjOps) {
+        return { ok: true };
+      }
       if (!databaseEventIdsRef.current.has(eventId)) {
         return {
           ok: false,
@@ -4263,7 +4290,7 @@ export default function Home() {
         return { ok: false, error };
       }
     },
-    [],
+    [canPersistDjOps],
   );
 
   // DJ Scripts are operational show-day content. Structural changes (add/delete)
@@ -4291,6 +4318,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const flushDjScripts = () => {
+      if (!canPersistDjOps) return;
       if (!activeEventId) return;
       if (!databaseEventIdsRef.current.has(activeEventId)) return;
       void persistDjScriptsToDatabase(activeEventId, djScripts);
@@ -4304,13 +4332,16 @@ export default function Home() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flushDjScripts);
     };
-  }, [activeEventId, djScripts, persistDjScriptsToDatabase]);
+  }, [activeEventId, canPersistDjOps, djScripts, persistDjScriptsToDatabase]);
 
   const persistDjMusicNotesToDatabase = useCallback(
     async (
       eventId: string,
       notes: DjMusicNotes,
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!canPersistDjOps) {
+        return { ok: true };
+      }
       if (!databaseEventIdsRef.current.has(eventId)) {
         return {
           ok: false,
@@ -4325,7 +4356,7 @@ export default function Home() {
         return { ok: false, error };
       }
     },
-    [],
+    [canPersistDjOps],
   );
 
   // Mirrors persistDjScriptsNow: operational music notes persist immediately on
@@ -4350,6 +4381,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const flushDjMusicNotes = () => {
+      if (!canPersistDjOps) return;
       if (!activeEventId) return;
       if (!databaseEventIdsRef.current.has(activeEventId)) return;
       void persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
@@ -4363,7 +4395,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flushDjMusicNotes);
     };
-  }, [activeEventId, djMusicNotes, persistDjMusicNotesToDatabase]);
+  }, [activeEventId, canPersistDjOps, djMusicNotes, persistDjMusicNotesToDatabase]);
 
   const persistEventMetadataToDatabase = useCallback(
     async (
@@ -4616,6 +4648,7 @@ export default function Home() {
     persistMusicHubPlanToDatabase,
     persistDjScriptsToDatabase,
     persistDjMusicNotesToDatabase,
+    canPersistDjOps,
     currentRole,
     rolePreview,
     events,
@@ -4636,7 +4669,10 @@ export default function Home() {
     setPersistPhase("pending");
   }, [setPersistPhase]);
 
-  const loadEventPlanningIntoWorkingState = (incoming: EventRecord) => {
+  const loadEventPlanningIntoWorkingState = (
+    incoming: EventRecord,
+    options?: { markCoverPhotoHydrationReady?: boolean },
+  ) => {
     const evt = shouldStripStaffFieldsForCoupleHydration(incoming.id)
       ? (stripStaffOnlyFieldsFromClientEventRecord(incoming) as EventRecord)
       : incoming;
@@ -4762,7 +4798,9 @@ export default function Home() {
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
     setEventSettings(
-      cloneJson({
+      mergeStoredEventCoverIntoSettings(
+        evt.id,
+        cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
           evt.settings?.eventLayoutProfile,
           evt.settings?.eventType ?? "",
@@ -4823,6 +4861,7 @@ export default function Home() {
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+        coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
@@ -4832,6 +4871,8 @@ export default function Home() {
           (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
         ),
       }),
+        { isDbBacked: databaseEventIdsRef.current.has(evt.id) },
+      ),
     );
 
     // Reset local editing modes when switching context.
@@ -4861,6 +4902,10 @@ export default function Home() {
           ceremony: nextCeremonyTimelineItems.length,
         },
       });
+    }
+
+    if (options?.markCoverPhotoHydrationReady !== false) {
+      setEventPlanningReadyEventId(evt.id);
     }
   };
   const loadEventPlanningIntoWorkingStateRef = useRef(loadEventPlanningIntoWorkingState);
@@ -4936,6 +4981,7 @@ export default function Home() {
     }
 
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    clearEventCoverPhotoFromLocalStorage(eventId);
   };
 
   const getEventName = useCallback(
@@ -6038,21 +6084,110 @@ export default function Home() {
   const canEditEventCover = effectiveRole !== "DJ" && effectiveRole !== "Couple";
   const canEditChecklistStatus = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canEditEventStatus = effectiveRole === "Admin" || effectiveRole === "Planner";
-  /** Session-only hero preview — not sent to server actions (Base64 exceeds action body limit). */
-  const applyEventCoverPhoto = useCallback(
-    (dataUrl: string | undefined) => {
-      setEventSettings((prev) => ({ ...prev, coverPhotoDataUrl: dataUrl }));
+  /** Apply cover photo to in-memory state (URL or transient data URL for preview). */
+  const applyEventCoverPhotoState = useCallback(
+    (
+      displayUrl: string | undefined,
+      transform?: CoverPhotoTransform,
+      storagePath?: string,
+    ) => {
+      const normalizedTransform = displayUrl
+        ? normalizeCoverPhotoTransform(transform)
+        : undefined;
+      setEventSettings((prev) => ({
+        ...prev,
+        coverPhotoDataUrl: displayUrl,
+        coverPhotoTransform: normalizedTransform,
+        coverPhotoStoragePath: storagePath,
+      }));
       if (!activeEventId) return;
       setEvents((prev) =>
         prev.map((evt) =>
           evt.id === activeEventId
-            ? { ...evt, settings: { ...evt.settings, coverPhotoDataUrl: dataUrl } }
+            ? {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  coverPhotoDataUrl: displayUrl,
+                  coverPhotoTransform: normalizedTransform,
+                  coverPhotoStoragePath: storagePath,
+                },
+              }
             : evt,
         ),
       );
     },
     [activeEventId],
   );
+
+  const commitEventCoverPhoto = useCallback(
+    async (
+      file: File,
+      previewDataUrl: string,
+      transform?: CoverPhotoTransform,
+    ): Promise<void> => {
+      if (!activeEventId) return;
+
+      const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
+      if (isDbBacked && isSupabaseConfigured()) {
+        const saved = await uploadEventCoverPhoto(activeEventId, file, transform);
+        applyEventCoverPhotoState(saved.publicUrl, saved.transform, saved.storagePath);
+        clearEventCoverPhotoFromLocalStorage(activeEventId);
+        return;
+      }
+
+      applyEventCoverPhotoState(previewDataUrl, transform, undefined);
+      persistEventCoverPhotoToLocalStorage(activeEventId, {
+        coverPhotoDataUrl: previewDataUrl,
+        coverPhotoTransform: transform,
+      });
+    },
+    [activeEventId, applyEventCoverPhotoState],
+  );
+
+  const removeEventCoverPhoto = useCallback(async () => {
+    if (!activeEventId) return;
+
+    const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
+    if (isDbBacked && isSupabaseConfigured()) {
+      await deleteEventCoverPhotoRemote(activeEventId);
+    }
+
+    clearEventCoverPhotoFromLocalStorage(activeEventId);
+    applyEventCoverPhotoState(undefined, undefined, undefined);
+  }, [activeEventId, applyEventCoverPhotoState]);
+
+  const closeWelcomePhotoEditor = useCallback(() => {
+    setWelcomePhotoEditorOpen(false);
+    setWelcomePhotoDraft(null);
+  }, []);
+
+  const handleWelcomePhotoSave = useCallback(
+    async (transform: CoverPhotoTransform) => {
+      if (!welcomePhotoDraft) return;
+      setWelcomePhotoSaving(true);
+      try {
+        await commitEventCoverPhoto(
+          welcomePhotoDraft.file,
+          welcomePhotoDraft.dataUrl,
+          transform,
+        );
+        closeWelcomePhotoEditor();
+        setWelcomePhotoToastVisible(true);
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Could not save welcome photo.");
+      } finally {
+        setWelcomePhotoSaving(false);
+      }
+    },
+    [closeWelcomePhotoEditor, commitEventCoverPhoto, welcomePhotoDraft],
+  );
+
+  useEffect(() => {
+    if (!welcomePhotoToastVisible) return;
+    const timer = window.setTimeout(() => setWelcomePhotoToastVisible(false), 3200);
+    return () => window.clearTimeout(timer);
+  }, [welcomePhotoToastVisible]);
 
   const openEventCoverSettings = useCallback(() => {
     setActiveScreen("Event Settings");
@@ -6065,12 +6200,21 @@ export default function Home() {
       if (!file) return;
       try {
         const dataUrl = await readImageFileAsDataUrl(file, 2_800_000);
-        applyEventCoverPhoto(dataUrl);
+        if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
+          setWelcomePhotoDraft({ dataUrl, file });
+          setWelcomePhotoEditorOpen(true);
+          return;
+        }
+        await commitEventCoverPhoto(file, dataUrl);
       } catch (err) {
         window.alert(err instanceof Error ? err.message : "Could not use that image.");
       }
     },
-    [applyEventCoverPhoto],
+    [
+      authSession.isCouplePortalSession,
+      commitEventCoverPhoto,
+      effectiveRole,
+    ],
   );
 
   const openEventCoverPhotoPicker = useCallback(() => {
@@ -6272,10 +6416,6 @@ export default function Home() {
     () => buildCoupleWeddingChapterCards(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
   );
-  const coupleWeddingStoryHeroProgressPct = useMemo(
-    () => computeCoupleWeddingStoryHeroProgressPct(coupleWeddingJourneyInput),
-    [coupleWeddingJourneyInput],
-  );
   const firstIncompleteCoupleStoryChapter = useMemo(
     () => firstIncompleteCoupleWeddingStoryChapter(coupleWeddingJourneyInput),
     [coupleWeddingJourneyInput],
@@ -6322,7 +6462,7 @@ export default function Home() {
     sectionReceptionTimelineEnabled &&
     !unifiedEventTimeline;
 
-  const coupleChapterGridRef = useRef<HTMLDivElement>(null);
+
   const coupleActivePlanningChapterRow = useMemo(() => {
     if (!activePlanningChapterId) return null;
     return (
@@ -6576,6 +6716,28 @@ export default function Home() {
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
+  const isCoupleEditorialShell = isCoupleView && appMode === "event";
+  const coverPhotoHydrationReady = useMemo(() => {
+    if (!activeEventId) return true;
+
+    const usesRemoteCoverPhotoSource =
+      authSession.supabaseConfigured && !authSession.bypassEnabled;
+
+    if (usesRemoteCoverPhotoSource) {
+      if (!authSession.loaded) return false;
+      if (!databaseEventsLoaded) return false;
+      return eventPlanningReadyEventId === activeEventId;
+    }
+
+    return eventPlanningReadyEventId === activeEventId;
+  }, [
+    activeEventId,
+    authSession.bypassEnabled,
+    authSession.loaded,
+    authSession.supabaseConfigured,
+    databaseEventsLoaded,
+    eventPlanningReadyEventId,
+  ]);
   const openCouplePlanningChapter = useCallback(
     (chapterId: CoupleWeddingChapterId) => {
       if (chapterId === "your_team") {
@@ -9238,10 +9400,8 @@ export default function Home() {
     : weddingDetails;
   const headerScreenTitle = isWorkspaceContext
     ? navLabel(activeScreen)
-    : appMode === "event" &&
-        effectiveRole === "Couple" &&
-        activeScreen === "Dashboard"
-      ? eventSettings.eventName || weddingDetails.couple || "Your celebration"
+    : appMode === "event" && effectiveRole === "Couple"
+      ? coupleDisplayName || "Your celebration"
       : screenTitle;
 
   const getTeamMemberName = (value: string) => {
@@ -9277,6 +9437,7 @@ export default function Home() {
     const loadDatabaseEvents = async () => {
       dbWorkingStateReadyEventIdRef.current = null;
       databaseHydrationCompleteRef.current = false;
+      setEventPlanningReadyEventId(null);
 
       try {
         const databaseEvents = await getDatabaseEvents();
@@ -9336,6 +9497,10 @@ export default function Home() {
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
             eventStatus: normalizeEventStatus(dbEvent.eventStatus),
+            ...coverPhotoFieldsFromDbRow({
+              coverPhotoStoragePath: dbEvent.coverPhotoStoragePath,
+              coverPhotoTransform: dbEvent.coverPhotoTransform,
+            }),
           };
 
           seededEvent.settings.planningQuestionAnswers = buildPlanningQuestionAnswersFromDbRow(
@@ -9515,7 +9680,10 @@ export default function Home() {
               return next;
             });
           }
-          const merged = mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalMusicHub);
+          const merged = mergeStoredEventCoversIntoEvents(
+            mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalMusicHub),
+            databaseEventIdsRef.current,
+          );
           lastMergedHydratedEventsRef.current = merged;
           return merged;
         });
@@ -9971,6 +10139,7 @@ export default function Home() {
           checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
           checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
           coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+        coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
           eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
@@ -9981,8 +10150,11 @@ export default function Home() {
           ),
         },
       }));
-      const migratedEvents = loadedEvents.map((evt) =>
-        normalizeEventRecordAfterFormalitiesMerge(evt as EventRecord),
+      const migratedEvents = mergeStoredEventCoversIntoEvents(
+        loadedEvents.map((evt) =>
+          normalizeEventRecordAfterFormalitiesMerge(evt as EventRecord),
+        ),
+        databaseEventIdsRef.current,
       );
       setEvents(migratedEvents);
       setAppMode(migratedEvents.length > 0 ? "event" : "events");
@@ -10058,7 +10230,11 @@ export default function Home() {
       const active = activeForPlanning;
 
       if (active) {
-        loadEventPlanningIntoWorkingState(active);
+        const usesRemoteCoverPhotoSource =
+          isSupabaseConfigured() && !isAuthBypassEnabled();
+        loadEventPlanningIntoWorkingState(active, {
+          markCoverPhotoHydrationReady: !usesRemoteCoverPhotoSource,
+        });
       }
 
       if (persistPhaseHideTimeoutRef.current) {
@@ -10108,6 +10284,8 @@ export default function Home() {
       const stripCoverPhotoFromSettings = (settings: EventSettings): EventSettings => {
         const next = { ...settings };
         delete next.coverPhotoDataUrl;
+        delete next.coverPhotoTransform;
+        delete next.coverPhotoStoragePath;
         return next;
       };
 
@@ -10316,7 +10494,7 @@ export default function Home() {
             ),
           ];
 
-          if (!sessionIsCoupleForPersist) {
+          if (canPersistDjOps) {
             dbPersistTasks.push(
               persistDjScriptsToDatabase(activeEventId, djScripts),
               persistDjMusicNotesToDatabase(activeEventId, djMusicNotes),
@@ -10441,6 +10619,7 @@ export default function Home() {
     eventSettings,
     appSettings,
     sessionIsCoupleForPersist,
+    canPersistDjOps,
     setPersistPhase,
     setPersistBaseline,
   ]);
@@ -10827,6 +11006,7 @@ export default function Home() {
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+        coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
@@ -14174,7 +14354,7 @@ export default function Home() {
   }
 
   return (
-    <div className={cmAppShellClass}>
+    <div className={`${cmAppShellClass}${isCoupleEditorialShell ? " cm-app-shell--couple-editorial" : ""}`}>
       <div className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pt-6 sm:px-6">
         <AppHeader
           screenTitle={headerScreenTitle}
@@ -14186,7 +14366,21 @@ export default function Home() {
             logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
           }}
           accountMenu={accountMenu}
+          variant={isCoupleEditorialShell ? "coupleEditorial" : "default"}
+          showScreenTitle={!(isCoupleEditorialShell && activeScreen === "Dashboard")}
         />
+
+        {authStage === "app" && appMode === "event" ? (
+          <input
+            ref={eventCoverPhotoInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={handleEventCoverPhotoChange}
+          />
+        ) : null}
 
         {authStage === "app" && (
           <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs shadow-none sm:flex-row sm:items-center sm:justify-between">
@@ -14278,6 +14472,7 @@ export default function Home() {
             items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
             activeScreen={shellNavActiveScreen}
             onSelect={selectActiveScreen}
+            variant={isCoupleEditorialShell ? "couple" : "default"}
           />
         )}
 
@@ -15992,491 +16187,41 @@ export default function Home() {
         {authStage === "app" && appMode === "event" && activeScreen === "Dashboard" && (
           isCoupleView ? (
             <section className={workspaceSectionDashboardClass}>
-              <PremiumCard className="overflow-hidden border-stone-200 bg-white !p-0 shadow-sm sm:shadow-[0_20px_50px_-36px_rgba(28,25,23,0.18)]">
-                <div className="relative aspect-[16/11] min-h-[200px] overflow-hidden sm:aspect-[21/9] sm:min-h-[220px]">
-                  <EventHeroCover
-                    coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
-                    onRequestCoverPhoto={canEditEventCover ? openEventCoverSettings : undefined}
-                    personalizeDisabled={!canEditEventCover}
-                  />
-                  <div className="pointer-events-none absolute inset-0 z-[1] bg-black/50" />
-                  <div className="pointer-events-none absolute inset-0 bg-transparent" aria-hidden />
-                  <div className="relative z-[3] flex h-full flex-col justify-end p-5 pb-6 sm:p-8 pointer-events-none">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-200">
-                      {primaryPartyShortLabel}
-                    </p>
-                    <h2 className="mt-2 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      {eventDisplayName}
-                    </h2>
-                    <p className="mt-2 text-sm font-medium text-zinc-100">{coupleDisplayName}</p>
-                    <div className="pointer-events-auto mt-4 flex flex-wrap items-center gap-2">
-                      {!isCoupleWeddingPlanningView ? eventStatusDashboardControl : null}
-                      <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white">
-                        {layoutProfileForActiveEvent}
-                      </span>
-                      <span className="inline-flex flex-col rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-left">
-                        <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
-                        <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
-                      </span>
-                      <span className="inline-flex max-w-full rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] text-zinc-200">
-                        {eventVenueDisplay}
-                      </span>
-                    </div>
-                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-5">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">
-                          {isCoupleWeddingPlanningView
-                            ? isCoupleWeddingJourneyComplete
-                              ? "Planning chapters complete"
-                              : "Chapters 1–4 progress"
-                            : "Planning progress"}
-                        </p>
-                        {isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
-                          <p className="mt-1 text-[11px] leading-snug text-zinc-300">
-                            All six chapters saved—you&apos;re onto the details phase
-                          </p>
-                        ) : isCoupleWeddingPlanningView ? (
-                          <p className="mt-1 text-[11px] leading-snug text-zinc-300">
-                            About You through Music Profile · six chapters total
-                          </p>
-                        ) : null}
-                        <div className="mt-2 h-2.5 max-w-md overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
-                          <div
-                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
-                            style={{
-                              width: `${
-                                isCoupleWeddingPlanningView
-                                  ? coupleWeddingStoryHeroProgressPct
-                                  : completionPercent
-                              }%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <p className="shrink-0 text-4xl font-semibold tabular-nums text-zinc-100">
-                        {isCoupleWeddingPlanningView
-                          ? coupleWeddingStoryHeroProgressPct
-                          : completionPercent}
-                        %
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4 border-t border-stone-300 bg-stone-50/60 px-5 py-6 sm:p-7">
-                  {!isCoupleWeddingPlanningView ? (
-                    <p className="text-[11px] font-medium text-stone-600">
-                      Viewing as{" "}
-                      <span className="font-semibold text-stone-900">
-                        {perspectiveBannerLabel(currentRole, rolePreview)}
-                      </span>
-                    </p>
-                  ) : null}
-                  {(eventSettings.assignedDj?.trim() || eventSettings.plannerName?.trim()) && (
-                    <p className="text-[11px] text-stone-600">
-                      <span className="font-medium text-stone-800">Your team</span>
-                      {eventSettings.assignedDj?.trim() ? (
-                        <>
-                          {" "}
-                          · DJ {getTeamMemberName(eventSettings.assignedDj)}
-                        </>
-                      ) : null}
-                      {eventSettings.plannerName?.trim() ? (
-                        <>
-                          {" "}
-                          · Planner {eventSettings.plannerName}
-                        </>
-                      ) : null}
-                    </p>
-                  )}
-                  <div className="rounded-xl border border-stone-200/90 bg-white px-3 py-3 shadow-sm sm:px-4 sm:py-3.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{eventCountdownLabel}</p>
-                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900">
-                      {daysUntilWedding === null
-                        ? "Add your event date to unlock a gentle countdown"
-                        : daysUntilWedding === 0
-                          ? "It’s event day—breathe, you’ve got this"
-                          : layoutProfileForActiveEvent === "Wedding" ||
-                            layoutProfileForActiveEvent === "Gender-Neutral Wedding"
-                            ? `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until you say “I do”`
-                            : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
-                    </p>
-                  </div>
-                  {canEditEventCover ? (
-                    <div className="flex flex-wrap gap-2">
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => setActiveScreen("Event Settings")}
-                        className="min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-11 sm:w-auto sm:px-3 sm:py-2 sm:text-[11px]"
-                      >
-                        Event details{canEditEventCover ? " & cover photo" : ""}
-                      </PrimaryButton>
-                    </div>
-                  ) : null}
-                </div>
-              </PremiumCard>
-
-              {showCoupleAboutYourDayWelcomeCard && !isCoupleWeddingPlanningView ? (
-                <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    Welcome
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
-                    Let&apos;s start with your story
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                    Tell us a little about your ceremony, reception, wedding party, and the moments
-                    that matter most. Most couples finish this in about five minutes.
-                  </p>
-                  <PrimaryButton
-                    type="button"
-                    onClick={() => setActiveScreen("Planning Questions")}
-                    className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
-                  >
-                    Start About Your Day
-                  </PrimaryButton>
-                </div>
-              ) : null}
-
-              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled && isCoupleWeddingJourneyComplete ? (
-                <CoupleFinalPlanningPrepDashboard
-                  hints={coupleFinalPlanningHints}
-                  quickLinks={coupleFinalPlanningQuickLinks}
-                  assignedDjName={
-                    eventSettings.assignedDj?.trim()
-                      ? getTeamMemberName(eventSettings.assignedDj)
-                      : null
-                  }
-                  plannerName={eventSettings.plannerName?.trim() || null}
-                  onNavigate={selectActiveScreen}
-                  onPreviewEventPlan={
-                    eventNavItems.includes("Event Prep")
-                      ? () => selectActiveScreen("Event Prep")
-                      : undefined
-                  }
-                />
-              ) : null}
-
-              {isCoupleWeddingPlanningView &&
-              sectionPlanningQuestionsEnabled &&
-              !isCoupleWeddingJourneyComplete &&
-              !coupleWeddingStoryChapterStarted ? (
-                <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    Welcome
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
-                    Let&apos;s tell your story
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                    We&apos;ll guide you through a few short chapters about your ceremony, reception,
-                    music, and the moments that matter most. Most couples finish the first chapter in
-                    about five minutes.
-                  </p>
-                  {coupleWeddingWelcomeAction ? (
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => openCouplePlanningChapter(coupleWeddingWelcomeAction.chapterId)}
-                      className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
-                    >
-                      {coupleWeddingWelcomeAction.ctaLabel}
-                    </PrimaryButton>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {!isCoupleWeddingJourneyComplete ? (
-              <div className="rounded-2xl border border-stone-200/90 bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">Next step</p>
-                {"title" in coupleNextStep && coupleNextStep.title ? (
-                  <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
-                    {coupleNextStep.title}
-                  </h3>
-                ) : null}
-                <p className="mt-2 text-sm leading-relaxed text-stone-700">{coupleNextStep.body}</p>
-                <PrimaryButton
-                  type="button"
-                  onClick={() => {
-                    if (
-                      "targetChapterId" in coupleNextStep &&
-                      coupleNextStep.targetChapterId
-                    ) {
-                      openCouplePlanningChapter(coupleNextStep.targetChapterId);
-                      return;
-                    }
-                    selectActiveScreen(coupleNextStep.targetScreen);
-                  }}
-                  className="mt-4 min-h-11 w-full rounded-xl border border-stone-800 bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-stone-950 shadow-sm transition hover:brightness-[1.02] sm:w-auto sm:min-w-[10rem]"
-                >
-                  {coupleNextStep.ctaLabel}
-                </PrimaryButton>
-                <p className="mt-3 text-[11px] tabular-nums text-stone-500">
-                  {isCoupleWeddingPlanningView
-                    ? `${coupleWeddingStoryHeroProgressPct}% of Chapters 1–4 complete`
-                    : `${completionPercent}% of your plan in place`}
-                </p>
-              </div>
-              ) : null}
-
-              {isCoupleWeddingPlanningView && sectionPlanningQuestionsEnabled ? (
-                <div ref={coupleChapterGridRef} className="space-y-4 scroll-mt-24">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      {isCoupleWeddingJourneyComplete ? "Your chapters" : "Your wedding story"}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                      {isCoupleWeddingJourneyComplete
-                        ? "Everything you shared is saved. Tap any chapter to read or update your answers."
-                        : "Six short chapters—open one at a time, at your pace."}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
-                    {coupleWeddingChapterCards.map((chapter) => {
-                      const isCurrentChapter = chapter.id === firstIncompleteCoupleChapter;
-                      const isCompleteChapter = chapter.status === "Complete";
-                      return (
-                      <button
-                        type="button"
-                        key={chapter.id}
-                        onClick={() => openCouplePlanningChapter(chapter.id)}
-                        className={`group flex min-h-[10.5rem] flex-col rounded-2xl px-5 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 ${
-                          isCurrentChapter
-                            ? "border-2 border-[#00D4FF]/70 bg-[#00D4FF]/[0.06] shadow-[0_8px_24px_-12px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/25 hover:border-[#00D4FF] hover:ring-[#00D4FF]/40 sm:shadow-[0_12px_32px_-14px_rgba(0,212,255,0.28)]"
-                            : isCompleteChapter
-                              ? "border border-stone-200/90 bg-stone-50/70 opacity-90 shadow-none ring-1 ring-stone-200/80 hover:border-stone-300 hover:opacity-100 sm:shadow-none"
-                              : "border border-stone-300 bg-white shadow-none ring-1 ring-stone-200 hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p
-                                className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                  isCompleteChapter ? "text-stone-500" : "text-stone-600"
-                                }`}
-                              >
-                                {chapter.kicker}
-                              </p>
-                              {isCurrentChapter ? (
-                                <span className="rounded-full border border-[#00D4FF]/45 bg-[#00D4FF]/15 px-2 py-0.5 text-[10px] font-semibold text-stone-900">
-                                  Recommended next step
-                                </span>
-                              ) : null}
-                            </div>
-                            <h3
-                              className={`mt-1.5 text-lg font-semibold leading-snug [overflow-wrap:anywhere] ${
-                                isCompleteChapter ? "text-stone-700" : "text-stone-950"
-                              }`}
-                            >
-                              {chapter.title}
-                            </h3>
-                            <p
-                              className={`mt-2 text-sm leading-relaxed sm:text-[13px] sm:leading-relaxed ${
-                                isCompleteChapter ? "text-stone-500" : "text-stone-700 sm:text-stone-600"
-                              }`}
-                            >
-                              {chapter.description}
-                            </p>
-                            <div
-                              className={`mt-3 space-y-1 rounded-xl border px-3 py-2.5 ${
-                                isCompleteChapter
-                                  ? "border-stone-200/70 bg-white/70"
-                                  : "border-stone-200/90 bg-stone-50/90"
-                              }`}
-                            >
-                              <p
-                                className={`text-sm font-medium ${
-                                  isCompleteChapter ? "text-stone-600" : "text-stone-900"
-                                }`}
-                              >
-                                {chapter.statLine}
-                              </p>
-                              <p className="text-xs leading-relaxed text-stone-600">{chapter.statSubline}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
-                            <span>
-                              {isCoupleWeddingJourneyComplete
-                                ? chapter.status === "Complete"
-                                  ? "Saved"
-                                  : chapter.status === "In Progress"
-                                    ? "In progress"
-                                    : "Not started"
-                                : chapter.status}
-                            </span>
-                            <span className="tabular-nums font-semibold text-stone-700">
-                              {chapter.completionPct}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
-                            <div
-                              className={`h-full rounded-full transition-[width] duration-500 ${
-                                isCompleteChapter ? "bg-stone-400" : "bg-[#00D4FF]"
-                              }`}
-                              style={{ width: `${chapter.completionPct}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
-                          <span
-                            className={`text-xs font-semibold transition ${
-                              isCompleteChapter
-                                ? "text-stone-500 group-hover:text-stone-700"
-                                : isCurrentChapter
-                                  ? "text-stone-900 group-hover:text-stone-950"
-                                  : "text-stone-700 group-hover:text-stone-900"
-                            }`}
-                          >
-                            {coupleWeddingChapterCardFooterLabel(chapter.status)} →
-                          </span>
-                        </div>
-                      </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              {coupleHomePlanningSections.length > 0 &&
-              (!isCoupleWeddingPlanningView || coupleWeddingStoryChapterStarted) ? (
-                isCoupleWeddingPlanningView && isCoupleWeddingJourneyComplete ? (
-                  <details className="group rounded-2xl border border-stone-200/90 bg-stone-50/50 px-4 py-3 sm:px-5 sm:py-4">
-                    <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500 [&::-webkit-details-marker]:hidden">
-                      <span className="flex items-center justify-between gap-2">
-                        Explore more of your plan
-                        <span
-                          className="text-[10px] font-semibold normal-case tracking-normal text-stone-400 transition-transform group-open:rotate-180"
-                          aria-hidden
-                        >
-                          ▼
-                        </span>
-                      </span>
-                      <p className="mt-2 text-sm font-normal normal-case tracking-normal text-stone-600">
-                        Event team, Event Plan, and anything else you&apos;d like to peek at.
-                      </p>
-                    </summary>
-                    <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
-                      {coupleHomePlanningSections.map((section) => (
-                        <button
-                          type="button"
-                          key={section.id}
-                          onClick={() => selectActiveScreen(section.screen)}
-                          className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
-                                {section.kicker}
-                              </p>
-                              <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
-                                {section.title}
-                              </h3>
-                              <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
-                                {section.description}
-                              </p>
-                              {section.statLine || section.statSubline ? (
-                                <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
-                                  {section.statLine ? (
-                                    <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
-                                  ) : null}
-                                  {section.statSubline ? (
-                                    <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </div>
-                            {section.pendingBadge ? (
-                              <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
-                                {section.pendingBadge}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
-                            <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
-                              {section.ctaLabel === "Review" ? "Open" : section.ctaLabel} →
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                ) : (
-                <div className="space-y-4">
-                  {isCoupleWeddingPlanningView ? (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                        Build your plan
-                      </p>
-                      <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                        Turn your story into timing, songs, and day-of contacts.
-                      </p>
-                    </div>
-                  ) : null}
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-5">
-                {coupleHomePlanningSections.map((section) => {
-                  return (
-                    <button
-                      type="button"
-                      key={section.id}
-                      onClick={() => selectActiveScreen(section.screen)}
-                      className="group flex min-h-[10.5rem] flex-col rounded-2xl border border-stone-300 bg-white px-5 py-5 text-left shadow-none ring-1 ring-stone-200 transition hover:border-[#00D4FF]/55 hover:ring-[#00D4FF]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60 sm:min-h-0 sm:py-5 sm:shadow-[0_2px_10px_-4px_rgba(28,25,23,0.1)] sm:ring-0 sm:hover:shadow-[0_10px_28px_-10px_rgba(28,25,23,0.14)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-600">
-                              {section.kicker}
-                            </p>
-                          </div>
-                          <h3 className="mt-1.5 text-lg font-semibold leading-snug text-stone-950 [overflow-wrap:anywhere]">
-                            {section.title}
-                          </h3>
-                          <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-[13px] sm:leading-relaxed sm:text-stone-600">
-                            {section.description}
-                          </p>
-                          {section.statLine || section.statSubline ? (
-                            <div className="mt-3 space-y-1 rounded-xl border border-stone-200/90 bg-stone-50/90 px-3 py-2.5">
-                              {section.statLine ? (
-                                <p className="text-sm font-medium text-stone-900">{section.statLine}</p>
-                              ) : null}
-                              {section.statSubline ? (
-                                <p className="text-xs leading-relaxed text-stone-600">{section.statSubline}</p>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                        {section.pendingBadge ? (
-                          <span className="shrink-0 rounded-full border border-[#7E52A0]/35 bg-[#7E52A0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#5a3d72]">
-                            {section.pendingBadge}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-4">
-                        <div className="mb-1 flex justify-between text-[11px] font-medium text-stone-600">
-                          <span>{section.completionStatusLabel ?? "At-a-glance"}</span>
-                          <span className="tabular-nums font-semibold text-stone-700">{section.completion}%</span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-300/40">
-                          <div
-                            className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
-                            style={{ width: `${section.completion}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-4 flex items-center justify-end border-t border-stone-200 pt-3.5">
-                        <span className="text-xs font-semibold text-stone-700 transition group-hover:text-stone-900">
-                          {section.ctaLabel} →
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-                  </div>
-                </div>
-                )
-              ) : null}
-
+              <CoupleDashboardV2
+                coupleDisplayName={coupleDisplayName}
+                eventDateDisplay={eventDateDisplay}
+                daysUntilWedding={daysUntilWedding}
+                isWeddingLayout={
+                  layoutProfileForActiveEvent === "Wedding" ||
+                  layoutProfileForActiveEvent === "Gender-Neutral Wedding"
+                }
+                coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                coverPhotoTransform={eventSettings.coverPhotoTransform}
+                coverPhotoHydrationReady={coverPhotoHydrationReady}
+                isCoupleWeddingPlanningView={isCoupleWeddingPlanningView}
+                sectionPlanningQuestionsEnabled={sectionPlanningQuestionsEnabled}
+                isCoupleWeddingJourneyComplete={isCoupleWeddingJourneyComplete}
+                coupleWeddingStoryChapterStarted={coupleWeddingStoryChapterStarted}
+                coupleNextStep={coupleNextStep}
+                showCoupleAboutYourDayWelcomeCard={showCoupleAboutYourDayWelcomeCard}
+                coupleWeddingWelcomeAction={coupleWeddingWelcomeAction}
+                firstIncompleteCoupleChapter={firstIncompleteCoupleChapter}
+                coupleWeddingChapterCards={coupleWeddingChapterCards}
+                coupleHomePlanningSections={coupleHomePlanningSections}
+                showPlanningAssistant={eventNavItems.includes("Planning Assistant")}
+                coupleFinalPlanningHints={coupleFinalPlanningHints}
+                coupleFinalPlanningQuickLinks={coupleFinalPlanningQuickLinks}
+                assignedDjName={
+                  eventSettings.assignedDj?.trim()
+                    ? getTeamMemberName(eventSettings.assignedDj)
+                    : null
+                }
+                plannerName={eventSettings.plannerName?.trim() || null}
+                showEventPlanPreview={eventNavItems.includes("Event Prep")}
+                onOpenChapter={openCouplePlanningChapter}
+                onNavigate={selectActiveScreen}
+                onRequestCoverPhoto={openEventCoverPhotoPicker}
+              />
             </section>
           ) : (
             <>
@@ -21315,15 +21060,6 @@ export default function Home() {
         {authStage === "app" && appMode === "event" && activeScreen === "Event Settings" && (
           <section className={workspaceSectionClass}>
             <EventHomeNav trail={["Event Settings"]} onBack={() => setActiveScreen("Dashboard")} />
-            <input
-              ref={eventCoverPhotoInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden
-              onChange={handleEventCoverPhotoChange}
-            />
             {isCoupleView ? (
               <PremiumCard>
                 <SectionTitle className="text-stone-950">Cover photo</SectionTitle>
@@ -21369,7 +21105,7 @@ export default function Home() {
                     disabled={!canEditEventCover}
                     onClick={() => {
                       if (!window.confirm("Remove the cover image?")) return;
-                      applyEventCoverPhoto(undefined);
+                      void removeEventCoverPhoto();
                     }}
                     className={lightUiSecondaryButtonClass}
                   >
@@ -24534,6 +24270,22 @@ export default function Home() {
         </div>
       ) : null}
 
+      {welcomePhotoEditorOpen && welcomePhotoDraft ? (
+        <WelcomePhotoEditor
+          imageSrc={welcomePhotoDraft.dataUrl}
+          initialTransform={welcomePhotoDraft.transform}
+          saving={welcomePhotoSaving}
+          onCancel={closeWelcomePhotoEditor}
+          onSave={handleWelcomePhotoSave}
+        />
+      ) : null}
+
+      {welcomePhotoToastVisible ? (
+        <div className="cm-welcome-photo-toast" role="status" aria-live="polite">
+          Welcome photo updated.
+        </div>
+      ) : null}
+
       {authStage === "app" && <PersistMobileChip persistFeedback={persistFeedback} />}
 
       {authStage === "app" && (
@@ -24541,6 +24293,7 @@ export default function Home() {
           items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
           activeScreen={shellNavActiveScreen}
           onSelect={selectActiveScreen}
+          variant={isCoupleEditorialShell ? "couple" : "default"}
         />
       )}
     </div>

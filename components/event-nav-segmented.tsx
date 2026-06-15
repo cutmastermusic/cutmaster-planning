@@ -8,6 +8,7 @@ type EventNavSegmentedProps = {
   items: Array<{ screen: Screen; label: string }>;
   activeScreen: Screen;
   onSelect: (screen: Screen) => void;
+  variant?: "default" | "couple";
 };
 
 function NavScrollChevron({ direction }: { direction: "left" | "right" }) {
@@ -34,7 +35,13 @@ function NavScrollChevron({ direction }: { direction: "left" | "right" }) {
 const NAV_SCROLL_CONTROL_CLASS =
   "absolute top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full bg-stone-900/80 text-white shadow-[0_2px_8px_rgba(28,25,23,0.22)] ring-1 ring-stone-900/25 transition-[background-color,transform] hover:bg-stone-900 active:scale-95";
 
-export function EventNavSegmented({ items, activeScreen, onSelect }: EventNavSegmentedProps) {
+export function EventNavSegmented({
+  items,
+  activeScreen,
+  onSelect,
+  variant = "default",
+}: EventNavSegmentedProps) {
+  const isCouple = variant === "couple";
   const scrollRef = useRef<HTMLUListElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -73,12 +80,24 @@ export function EventNavSegmented({ items, activeScreen, onSelect }: EventNavSeg
   };
 
   return (
-    <div className="no-print sticky top-0 z-30 -mx-5 mt-4 hidden sm:-mx-6 md:block">
+    <div
+      className={`no-print sticky top-0 z-30 -mx-5 mt-3 hidden sm:-mx-6 md:block ${isCouple ? "cm-couple-nav-segmented" : ""}`}
+    >
       <nav
         aria-label="Event navigation"
-        className="border-b border-stone-200/70 bg-[var(--cm-canvas)] px-5 pb-2.5 pt-0.5 shadow-[0_1px_0_0_rgba(28,25,23,0.04)] backdrop-blur-md supports-[backdrop-filter]:bg-[var(--cm-canvas)]/95 sm:px-6"
+        className={`border-b px-5 pb-2 pt-0 sm:px-6 ${
+          isCouple
+            ? "border-black/5 bg-[#f8f6f2]"
+            : "border-stone-200/70 bg-[var(--cm-canvas)] pb-2.5 pt-0.5 shadow-[0_1px_0_0_rgba(28,25,23,0.04)] backdrop-blur-md supports-[backdrop-filter]:bg-[var(--cm-canvas)]/95"
+        }`}
       >
-        <div className="relative rounded-xl border border-stone-200/90 bg-stone-100/70 p-1">
+        <div
+          className={`relative rounded-xl p-1 ${
+            isCouple
+              ? "cm-couple-nav-track border border-black/5 bg-white/35"
+              : "border border-stone-200/90 bg-stone-100/70"
+          }`}
+        >
           {canScrollLeft ? (
             <>
               <div
@@ -122,10 +141,14 @@ export function EventNavSegmented({ items, activeScreen, onSelect }: EventNavSeg
                   <button
                     type="button"
                     onClick={() => onSelect(item.screen)}
-                    className={`min-h-9 touch-manipulation whitespace-nowrap rounded-lg px-3 py-2 text-[12px] leading-tight transition-colors lg:min-h-10 lg:px-3.5 lg:text-[13px] ${
-                      isActive
-                        ? "bg-white font-semibold text-stone-950 shadow-sm ring-1 ring-stone-200/90"
-                        : "bg-transparent font-medium text-stone-700 hover:bg-white/70 hover:text-stone-900"
+                    className={`touch-manipulation whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] leading-tight transition-colors lg:px-3 lg:py-1.5 lg:text-[12px] ${
+                      isCouple
+                        ? isActive
+                          ? "cm-couple-nav-item--active min-h-8 font-semibold lg:min-h-8"
+                          : "cm-couple-nav-item--inactive min-h-8 font-medium lg:min-h-8"
+                        : isActive
+                          ? "min-h-9 bg-white font-semibold text-stone-950 shadow-sm ring-1 ring-stone-200/90 lg:min-h-10 lg:px-3.5 lg:text-[13px]"
+                          : "min-h-9 bg-transparent font-medium text-stone-700 hover:bg-white/70 hover:text-stone-900 lg:min-h-10 lg:px-3.5 lg:text-[13px]"
                     }`}
                   >
                     {item.label}

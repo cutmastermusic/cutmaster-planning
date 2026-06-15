@@ -23,6 +23,7 @@ import {
   applyCoupleSafeEventDataUpdate,
   type DatabaseEventMetadataUpdate,
 } from "@/lib/coupleSafety";
+import { deleteEventCoverPhotoStorageByPath } from "@/lib/actions/eventCoverPhoto";
 import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
 import {
   accessibleEventIdsFromMemberships,
@@ -475,12 +476,14 @@ export async function deleteEvent(id: string) {
 
   const eventExists = await prisma.event.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, coverPhotoStoragePath: true },
   });
 
   if (!eventExists) {
     return { deleted: false as const };
   }
+
+  await deleteEventCoverPhotoStorageByPath(eventExists.coverPhotoStoragePath);
 
   await prisma.$transaction(async (tx) => {
     const timelines = await tx.timeline.findMany({

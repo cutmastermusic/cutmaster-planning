@@ -97,6 +97,11 @@ model Event {
   /** DB-backed DJ-only operational music notes (Show Book). Not client-facing. */
   djMusicNotes            Json?
 
+  /** Supabase Storage path for couple welcome / event cover photo (public bucket). */
+  coverPhotoStoragePath   String?
+  /** Pan/zoom framing for welcome photo hero (scale, x, y, base fit percents). */
+  coverPhotoTransform     Json?
+
   ownerId String
   owner   User @relation(fields: [ownerId], references: [id])
 

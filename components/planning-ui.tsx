@@ -23,12 +23,16 @@ type AppHeaderProps = {
   persistFeedback: PersistFeedback;
   appSettings: AppSettings;
   accountMenu?: ReactNode;
+  /** Slim couple portal chrome — no logo card. */
+  variant?: "default" | "coupleEditorial";
+  showScreenTitle?: boolean;
 };
 
 type BottomNavProps = {
   items: Array<{ screen: Screen; label: string }>;
   activeScreen: Screen;
   onSelect: (screen: Screen) => void;
+  variant?: "default" | "couple";
 };
 
 export { EventNavSegmented } from "./event-nav-segmented";
@@ -632,9 +636,44 @@ export function AppHeader({
   persistFeedback,
   appSettings,
   accountMenu,
+  variant = "default",
+  showScreenTitle = true,
 }: AppHeaderProps) {
   const saveLabel = getPersistFeedbackLabel(persistFeedback, "full");
   const saveTone = getPersistFeedbackTone(persistFeedback, "light");
+  const isCoupleEditorial = variant === "coupleEditorial";
+
+  if (isCoupleEditorial) {
+    return (
+      <header className="cm-app-header--couple-editorial relative">
+        {accountMenu ? (
+          <div className="absolute right-0 top-0 z-10">{accountMenu}</div>
+        ) : null}
+        {showScreenTitle ? (
+          <div className="flex min-w-0 items-start justify-between gap-3 pr-10">
+            <p className="cm-app-header-couple-title min-w-0 truncate">{screenTitle}</p>
+            {saveLabel ? (
+              <p
+                className={`shrink-0 text-right text-[10px] font-medium leading-snug tracking-tight ${saveTone}`}
+                aria-live="polite"
+              >
+                {saveLabel}
+              </p>
+            ) : null}
+          </div>
+        ) : saveLabel ? (
+          <p
+            className={`pr-10 text-right text-[10px] font-medium leading-snug tracking-tight ${saveTone}`}
+            aria-live="polite"
+          >
+            {saveLabel}
+          </p>
+        ) : (
+          <div className="h-0" aria-hidden />
+        )}
+      </header>
+    );
+  }
 
   return (
     <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
@@ -681,21 +720,31 @@ export function AppHeader({
   );
 }
 
-export function BottomNav({ items, activeScreen, onSelect }: BottomNavProps) {
+export function BottomNav({ items, activeScreen, onSelect, variant = "default" }: BottomNavProps) {
+  const isCouple = variant === "couple";
+
   return (
     <nav
       aria-label="Event navigation"
-      className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-stone-200/90 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 backdrop-blur-sm supports-[backdrop-filter]:bg-white/90 md:hidden"
+      className={`no-print fixed inset-x-0 bottom-0 z-40 border-t pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2 backdrop-blur-sm md:hidden ${
+        isCouple
+          ? "cm-couple-bottom-nav border-stone-200/50 bg-[#f8f6f2]/95 supports-[backdrop-filter]:bg-[#f8f6f2]/92"
+          : "border-stone-200/90 bg-white/95 supports-[backdrop-filter]:bg-white/90"
+      }`}
     >
-      <ul className="flex gap-1.5 overflow-x-auto overscroll-x-contain px-3 no-scrollbar">
+      <ul className="flex gap-1 overflow-x-auto overscroll-x-contain px-2.5 no-scrollbar">
         {items.map((item) => (
           <li key={item.screen} className="shrink-0">
             <PrimaryButton
               onClick={() => onSelect(item.screen)}
-              className={`min-h-10 touch-manipulation px-3 py-2 text-[12px] leading-tight ${
-                activeScreen === item.screen
-                  ? "border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
-                  : "border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
+              className={`touch-manipulation px-2.5 py-1.5 text-[11px] leading-tight ${
+                isCouple
+                  ? activeScreen === item.screen
+                    ? "cm-couple-nav-item--active rounded-lg"
+                    : "cm-couple-nav-item--inactive rounded-lg"
+                  : activeScreen === item.screen
+                    ? "min-h-10 border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
+                    : "min-h-10 border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
               }`}
             >
               {item.label}

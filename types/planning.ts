@@ -465,6 +465,19 @@ export type TimelinePresetItem = {
   timelineCategory?: TimelineCategory;
 };
 
+/** Pan/zoom framing for the couple dashboard welcome photo hero. */
+export type CoverPhotoTransform = {
+  scale: number;
+  /** Horizontal offset as % of hero frame width. */
+  x: number;
+  /** Vertical offset as % of hero frame height. */
+  y: number;
+  /** Image width at scale 1, as % of frame width (cover-fit baseline). */
+  baseWidthPercent: number;
+  /** Image height at scale 1, as % of frame height (cover-fit baseline). */
+  baseHeightPercent: number;
+};
+
 export type EventSettings = {
   eventLayoutProfile:
     | "Wedding"
@@ -524,8 +537,12 @@ export type EventSettings = {
   checklistManualStatuses: Record<string, ChecklistStatus>;
   /** Per-task operator sign-off: task scope handled for this event (Admin/DJ only). */
   checklistHandledTasks?: Record<string, true>;
-  /** Base64 data URL of event cover/banner image (local browser storage only). */
+  /** HTTPS URL, data URL while editing, or transient local preview. */
   coverPhotoDataUrl?: string;
+  /** Supabase Storage object path when persisted to the database. */
+  coverPhotoStoragePath?: string;
+  /** Pan/zoom framing for couple dashboard welcome photo. */
+  coverPhotoTransform?: CoverPhotoTransform;
   /** Planning/execution stage; defaults to Planning when missing. */
   eventStatus?: EventStatus;
   /** Whether Cutmaster provides ceremony audio; defaults by event type when missing. */
