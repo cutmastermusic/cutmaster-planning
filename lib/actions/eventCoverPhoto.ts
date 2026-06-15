@@ -14,7 +14,7 @@ import {
 } from "@/lib/eventCoverPhoto";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { authorizeEventMutation } from "@/lib/eventAccess/authorize";
-import { createServiceRoleClient, isSupabaseServiceRoleConfigured } from "@/lib/supabase/admin";
+import { createServiceRoleClient, describeSupabaseServiceRoleConfigError, isSupabaseServiceRoleConfigured } from "@/lib/supabase/admin";
 import type { CoverPhotoTransform } from "@/types/planning";
 
 export type SavedEventCoverPhoto = {
@@ -45,7 +45,7 @@ export async function saveEventCoverPhotoFromUpload(
   await authorizeEventMutation(eventId, COVER_PHOTO_CAPABILITY);
 
   if (!isSupabaseServiceRoleConfigured()) {
-    throw new Error("Supabase Storage is not configured for cover photo uploads.");
+    throw new Error(describeSupabaseServiceRoleConfigError());
   }
 
   if (!isAllowedCoverPhotoMimeType(mimeType)) {
@@ -79,7 +79,14 @@ export async function saveEventCoverPhotoFromUpload(
 
   if (uploadError) {
     console.error("[event-cover] upload failed", uploadError);
-    throw new Error("Could not upload cover photo.");
+    const message = uploadError.message?.toLowerCase() ?? "";
+    if (message.includes("bucket") && (message.includes("not found") || message.includes("does not exist"))) {
+      throw new Error(
+        `Supabase Storage bucket "${EVENT_COVER_PHOTO_BUCKET}" was not found. ` +
+          `Create a public bucket named "${EVENT_COVER_PHOTO_BUCKET}" in Supabase → Storage.`,
+      );
+    }
+    throw new Error(`Could not upload cover photo: ${uploadError.message || "unknown storage error"}.`);
   }
 
   const normalizedTransform = transform
@@ -107,7 +114,10 @@ export async function saveEventCoverPhotoFromUpload(
 
   const publicUrl = getEventCoverPhotoPublicUrl(storagePath);
   if (!publicUrl) {
-    throw new Error("Could not resolve cover photo URL.");
+    throw new Error(
+      "Could not resolve cover photo URL: NEXT_PUBLIC_SUPABASE_URL is not set. " +
+        "Add it in Vercel → Project → Settings → Environment Variables (Production), then redeploy.",
+    );
   }
 
   return {

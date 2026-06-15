@@ -56,7 +56,7 @@ export function WelcomePhotoEditor({
   );
   const [scaleLimits, setScaleLimits] = useState<CoverPhotoScaleLimits>({
     minScale: 1,
-    maxScale: 3,
+    maxScale: 6,
     initialScale: 1,
   });
   const [containFit, setContainFit] = useState<ContainFitFramePercents>({

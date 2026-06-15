@@ -18,7 +18,10 @@ export const DEFAULT_COVER_PHOTO_TRANSFORM: CoverPhotoTransform = {
 
 export const COVER_PHOTO_ABSOLUTE_MIN_SCALE = 0.25;
 export const COVER_PHOTO_MIN_SCALE = 1;
-export const COVER_PHOTO_MAX_SCALE = 3;
+/** Max persisted/dashboard zoom (must fit tight crops saved from the editor). */
+export const COVER_PHOTO_MAX_SCALE = 6;
+/** Editor pinch/slider ceiling: at least 6× from contain-fit so users can crop close-ups. */
+export const COVER_PHOTO_EDITOR_MAX_SCALE = 6;
 
 export function clampCoverPhotoScale(
   scale: number,
@@ -92,7 +95,7 @@ export function computeEditorScaleLimits(
 
   return {
     minScale: 1,
-    maxScale: Math.min(COVER_PHOTO_MAX_SCALE, coverZoom),
+    maxScale: Math.max(COVER_PHOTO_EDITOR_MAX_SCALE, coverZoom),
     initialScale: 1,
     containFit,
   };
@@ -148,7 +151,11 @@ export function persistedTransformToEditorTransform(
   );
   return {
     ...transform,
-    scale: clampCoverPhotoScale(transform.scale * multiplier, 1, COVER_PHOTO_MAX_SCALE),
+    scale: clampCoverPhotoScale(
+      transform.scale * multiplier,
+      1,
+      COVER_PHOTO_EDITOR_MAX_SCALE,
+    ),
   };
 }
 
