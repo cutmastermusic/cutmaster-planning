@@ -43,6 +43,21 @@ export function withCoverPhotoCacheBust(publicUrl: string): string {
   return `${trimmed}${trimmed.includes("?") ? "&" : "?"}v=${token}`;
 }
 
+/** Preload a cover photo URL so the hero can swap without waiting on first paint. */
+export function preloadCoverPhotoImage(publicUrl: string | undefined): Promise<void> {
+  const url = publicUrl?.trim();
+  if (!url || typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
 export function getEventCoverPhotoPublicUrl(
   storagePath: string | null | undefined,
 ): string | undefined {

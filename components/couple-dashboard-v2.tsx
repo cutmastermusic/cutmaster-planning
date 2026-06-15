@@ -257,6 +257,7 @@ type CoupleDashboardV2Props = {
   daysUntilWedding: number | null;
   isWeddingLayout: boolean;
   coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
   coverPhotoTransform?: CoverPhotoTransform;
   /** False while event cover photo state is still hydrating from storage/DB. */
   coverPhotoHydrationReady?: boolean;
@@ -330,11 +331,13 @@ function ClockIcon() {
 
 function CoupleHeroPhoto({
   coverPhotoDataUrl,
+  coverPhotoStoragePath,
   coverPhotoTransform,
   coverPhotoHydrationReady = true,
   onRequestCoverPhoto,
 }: {
   coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
   coverPhotoTransform?: CoverPhotoTransform;
   coverPhotoHydrationReady?: boolean;
   onRequestCoverPhoto?: () => void;
@@ -353,44 +356,54 @@ function CoupleHeroPhoto({
 
   const [decodedUrl, setDecodedUrl] = useState<string | undefined>(undefined);
   const [photoVisible, setPhotoVisible] = useState(false);
-  const priorUrlRef = useRef<string | undefined>(undefined);
+  const displayedIdentityRef = useRef<string | undefined>(undefined);
   const imageMetricsRef = useRef<{ width: number; height: number } | null>(null);
-
-  const resolveDisplayTransform = useCallback(
-    (imageWidth: number, imageHeight: number) => {
-      const stage = stageRef.current;
-      if (!stage || imageWidth <= 0 || imageHeight <= 0) return;
-      const rect = stage.getBoundingClientRect();
-      if (rect.width < 8 || rect.height < 8) return;
-      setDisplayTransform(
-        resolveCoverPhotoTransformForDisplay(
-          normalizedTransform,
-          imageWidth,
-          imageHeight,
-          rect.width,
-          rect.height,
-        ),
-      );
-    },
-    [normalizedTransform],
-  );
+  const preloadTokenRef = useRef(0);
+  const normalizedTransformRef = useRef(normalizedTransform);
 
   useEffect(() => {
-    setDisplayTransform(normalizedTransform);
+    normalizedTransformRef.current = normalizedTransform;
+  }, [normalizedTransform]);
+
+  const resolveDisplayTransformForMetrics = useCallback((imageWidth: number, imageHeight: number) => {
+    const stage = stageRef.current;
+    if (!stage || imageWidth <= 0 || imageHeight <= 0) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) return;
+    setDisplayTransform(
+      resolveCoverPhotoTransformForDisplay(
+        normalizedTransformRef.current,
+        imageWidth,
+        imageHeight,
+        rect.width,
+        rect.height,
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
     if (imageMetricsRef.current) {
-      resolveDisplayTransform(imageMetricsRef.current.width, imageMetricsRef.current.height);
+      resolveDisplayTransformForMetrics(
+        imageMetricsRef.current.width,
+        imageMetricsRef.current.height,
+      );
+    } else {
+      setDisplayTransform(normalizedTransform);
     }
-  }, [normalizedTransform, resolveDisplayTransform]);
+  }, [normalizedTransform, resolveDisplayTransformForMetrics]);
+
+  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${coverPhotoDataUrl?.trim() ?? ""}`;
 
   const awaitingPhoto =
     coverPhotoHydrationReady && hasCustomEventCover(coverPhotoDataUrl);
   const showSkeleton =
-    !coverPhotoHydrationReady || (awaitingPhoto && decodedUrl !== coverPhotoDataUrl);
+    !coverPhotoHydrationReady ||
+    (awaitingPhoto && displayedIdentityRef.current !== photoIdentity);
 
   useEffect(() => {
     const nextUrl = coverPhotoDataUrl?.trim();
     if (!nextUrl) {
-      priorUrlRef.current = undefined;
+      displayedIdentityRef.current = undefined;
       imageMetricsRef.current = null;
       const frame = requestAnimationFrame(() => {
         setDecodedUrl(undefined);
@@ -399,34 +412,37 @@ function CoupleHeroPhoto({
       return () => cancelAnimationFrame(frame);
     }
 
-    if (priorUrlRef.current === nextUrl) return;
+    const nextIdentity = photoIdentity;
+    if (displayedIdentityRef.current === nextIdentity) return;
 
-    imageMetricsRef.current = null;
+    const token = ++preloadTokenRef.current;
+    const shouldAnimate = Boolean(displayedIdentityRef.current);
     let cancelled = false;
-    const shouldAnimate = Boolean(priorUrlRef.current);
+
     const img = new Image();
     img.onload = () => {
-      if (cancelled) return;
+      if (cancelled || token !== preloadTokenRef.current) return;
       imageMetricsRef.current = {
         width: img.naturalWidth,
         height: img.naturalHeight,
       };
-      resolveDisplayTransform(img.naturalWidth, img.naturalHeight);
-      priorUrlRef.current = nextUrl;
+      resolveDisplayTransformForMetrics(img.naturalWidth, img.naturalHeight);
+      displayedIdentityRef.current = nextIdentity;
+      setDecodedUrl(nextUrl);
       if (shouldAnimate) {
         setPhotoVisible(false);
-        setDecodedUrl(nextUrl);
         requestAnimationFrame(() => {
-          if (!cancelled) setPhotoVisible(true);
+          if (!cancelled && token === preloadTokenRef.current) {
+            setPhotoVisible(true);
+          }
         });
       } else {
-        setDecodedUrl(nextUrl);
         setPhotoVisible(true);
       }
     };
     img.onerror = () => {
-      if (cancelled) return;
-      priorUrlRef.current = nextUrl;
+      if (cancelled || token !== preloadTokenRef.current) return;
+      displayedIdentityRef.current = nextIdentity;
       setDecodedUrl(nextUrl);
       setPhotoVisible(true);
     };
@@ -435,7 +451,7 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [coverPhotoDataUrl, resolveDisplayTransform]);
+  }, [coverPhotoDataUrl, coverPhotoStoragePath, photoIdentity, resolveDisplayTransformForMetrics]);
 
   if (showSkeleton) {
     return (
@@ -525,6 +541,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
         <div className="cm-dashboard-v3-hero-photo-wrap">
           <CoupleHeroPhoto
             coverPhotoDataUrl={props.coverPhotoDataUrl}
+            coverPhotoStoragePath={props.coverPhotoStoragePath}
             coverPhotoTransform={props.coverPhotoTransform}
             coverPhotoHydrationReady={props.coverPhotoHydrationReady}
             onRequestCoverPhoto={props.onRequestCoverPhoto}

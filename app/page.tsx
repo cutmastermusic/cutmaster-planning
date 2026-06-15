@@ -63,6 +63,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   AppHeader,
   BottomNav,
@@ -339,7 +340,7 @@ import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
-import { coverPhotoFieldsFromDbRow, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
+import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
 import {
   deleteEventCoverPhotoRemote,
   uploadEventCoverPhoto,
@@ -6133,16 +6134,19 @@ export default function Home() {
       const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
       if (isDbBacked && isSupabaseConfigured()) {
         const saved = await uploadEventCoverPhoto(activeEventId, file, transform);
-        applyEventCoverPhotoState(
-          withCoverPhotoCacheBust(saved.publicUrl),
-          saved.transform,
-          saved.storagePath,
-        );
+        const displayUrl = withCoverPhotoCacheBust(saved.publicUrl);
+        await preloadCoverPhotoImage(displayUrl);
+        flushSync(() => {
+          applyEventCoverPhotoState(displayUrl, saved.transform, saved.storagePath);
+        });
         clearEventCoverPhotoFromLocalStorage(activeEventId);
         return;
       }
 
-      applyEventCoverPhotoState(previewDataUrl, transform, undefined);
+      await preloadCoverPhotoImage(previewDataUrl);
+      flushSync(() => {
+        applyEventCoverPhotoState(previewDataUrl, transform, undefined);
+      });
       persistEventCoverPhotoToLocalStorage(activeEventId, {
         coverPhotoDataUrl: previewDataUrl,
         coverPhotoTransform: transform,
@@ -16227,6 +16231,7 @@ export default function Home() {
                   layoutProfileForActiveEvent === "Gender-Neutral Wedding"
                 }
                 coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                coverPhotoStoragePath={eventSettings.coverPhotoStoragePath}
                 coverPhotoTransform={eventSettings.coverPhotoTransform}
                 coverPhotoHydrationReady={coverPhotoHydrationReady}
                 isCoupleWeddingPlanningView={isCoupleWeddingPlanningView}
