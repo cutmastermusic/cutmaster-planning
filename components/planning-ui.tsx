@@ -1,6 +1,10 @@
+"use client";
+
 import Image from "next/image";
+import { useCallback, type MouseEvent } from "react";
 import type { HTMLAttributes, ReactNode } from "react";
 
+import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import type { PersistFeedbackPhase } from "@/hooks/usePlanningApp";
 import { formatEventDateForDisplay } from "@/utils/planning";
 import type {
@@ -720,6 +724,56 @@ export function AppHeader({
   );
 }
 
+function BottomNavItem({
+  screen,
+  label,
+  isActive,
+  isCouple,
+  onSelect,
+}: {
+  screen: Screen;
+  label: string;
+  isActive: boolean;
+  isCouple: boolean;
+  onSelect: (screen: Screen) => void;
+}) {
+  const selectScreen = useCallback(() => onSelect(screen), [onSelect, screen]);
+  const scrollSafeHandlers = useCoupleMobileActionHandlers(selectScreen);
+
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      if (isCouple) {
+        scrollSafeHandlers.onClick(event);
+        return;
+      }
+      selectScreen();
+    },
+    [isCouple, scrollSafeHandlers, selectScreen],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      onPointerDown={isCouple ? scrollSafeHandlers.onPointerDown : undefined}
+      onPointerMove={isCouple ? scrollSafeHandlers.onPointerMove : undefined}
+      onPointerUp={isCouple ? scrollSafeHandlers.onPointerUp : undefined}
+      onPointerCancel={isCouple ? scrollSafeHandlers.onPointerCancel : undefined}
+      className={`min-h-11 touch-manipulation rounded-xl px-2.5 py-1.5 text-[11px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] ${
+        isCouple
+          ? isActive
+            ? "cm-couple-nav-item--active rounded-lg"
+            : "cm-couple-nav-item--inactive rounded-lg"
+          : isActive
+            ? "min-h-10 border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
+            : "min-h-10 border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function BottomNav({ items, activeScreen, onSelect, variant = "default" }: BottomNavProps) {
   const isCouple = variant === "couple";
 
@@ -735,20 +789,13 @@ export function BottomNav({ items, activeScreen, onSelect, variant = "default" }
       <ul className="flex gap-1 overflow-x-auto overscroll-x-contain px-2.5 no-scrollbar">
         {items.map((item) => (
           <li key={item.screen} className="shrink-0">
-            <PrimaryButton
-              onClick={() => onSelect(item.screen)}
-              className={`touch-manipulation px-2.5 py-1.5 text-[11px] leading-tight ${
-                isCouple
-                  ? activeScreen === item.screen
-                    ? "cm-couple-nav-item--active rounded-lg"
-                    : "cm-couple-nav-item--inactive rounded-lg"
-                  : activeScreen === item.screen
-                    ? "min-h-10 border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
-                    : "min-h-10 border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
-              }`}
-            >
-              {item.label}
-            </PrimaryButton>
+            <BottomNavItem
+              screen={item.screen}
+              label={item.label}
+              isActive={activeScreen === item.screen}
+              isCouple={isCouple}
+              onSelect={onSelect}
+            />
           </li>
         ))}
       </ul>

@@ -23,14 +23,13 @@ function HintRow({
   hint: CoupleFinalPlanningHint;
   onNavigate: (screen: Screen) => void;
 }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(() => onNavigate(hint.targetScreen));
+  const mobileActionHandlers = useCoupleMobileActionHandlers(() => onNavigate(hint.targetScreen));
 
   return (
     <li>
       <button
         type="button"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
+        {...mobileActionHandlers}
         className="group flex w-full min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3b6fd9]/40"
       >
         <p className="text-[14px] leading-snug text-stone-600 group-hover:text-stone-800">
@@ -45,14 +44,13 @@ function HintRow({
 }
 
 function PreviewEventPlanLink({ onAction }: { onAction: () => void }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onAction);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(onAction);
 
   return (
     <button
       type="button"
       className="min-h-11 touch-manipulation text-left text-[14px] font-medium text-[#3b6fd9] underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3b6fd9]/40"
-      onPointerDown={onPointerDown}
-      onClick={onClick}
+      {...mobileActionHandlers}
     >
       Preview your Event Plan
     </button>

@@ -66,13 +66,12 @@ function ReadinessStatusRow({
   actionLabel: string;
   onAction: () => void;
 }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onAction);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(onAction);
 
   return (
     <button
       type="button"
-      onPointerDown={onPointerDown}
-      onClick={onClick}
+      {...mobileActionHandlers}
       className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3.5 text-left transition hover:border-[#00D4FF]/45 hover:bg-[#00D4FF]/[0.04] active:scale-[0.99] active:border-[#00D4FF]/55 active:bg-[#00D4FF]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/60"
     >
       <div className="min-w-0">

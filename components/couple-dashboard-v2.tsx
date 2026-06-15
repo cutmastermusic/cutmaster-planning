@@ -290,7 +290,7 @@ type CoupleDashboardV2Props = {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TodayCardEmbed({ content }: { content: TodayContent }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(content.handleContinue);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(content.handleContinue);
 
   return (
     <div className="cm-dashboard-v3-today-embed">
@@ -308,8 +308,7 @@ function TodayCardEmbed({ content }: { content: TodayContent }) {
         ) : null}
         <button
           type="button"
-          onPointerDown={onPointerDown}
-          onClick={onClick}
+          {...mobileActionHandlers}
           className="cm-dashboard-v3-cta"
         >
           {content.ctaLabel}
@@ -344,7 +343,7 @@ function CoupleHeroPhoto({
 }) {
   const hasPhoto = hasCustomEventCover(coverPhotoDataUrl);
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(openPicker);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
   const normalizedTransform = normalizeCoverPhotoTransform(coverPhotoTransform);
   const stageRef = useRef<HTMLDivElement>(null);
   const [displayTransform, setDisplayTransform] = useState<CoverPhotoTransform | undefined>(
@@ -470,8 +469,7 @@ function CoupleHeroPhoto({
       <button
         type="button"
         className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--custom"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
+        {...mobileActionHandlers}
         aria-label="Change your cover photo"
       >
         <div ref={stageRef} className="cm-dashboard-v3-hero-photo-stage">
@@ -494,8 +492,7 @@ function CoupleHeroPhoto({
       <button
         type="button"
         className="cm-dashboard-v3-hero-add-photo"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
+        {...mobileActionHandlers}
         disabled={!onRequestCoverPhoto}
       >
         <span className="cm-dashboard-v3-hero-add-photo-label">Add a favorite photo</span>
@@ -566,7 +563,7 @@ function JourneyRow({
   isLast: boolean;
   onOpen: () => void;
 }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onOpen);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(onOpen);
   const isComplete = chapter.status === "Complete";
   const displayName = journeyDisplayName(chapter.id);
 
@@ -583,8 +580,7 @@ function JourneyRow({
     <li className={`cm-dashboard-v3-journey-item ${isLast ? "cm-dashboard-v3-journey-item--last" : ""}`}>
       <button
         type="button"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
+        {...mobileActionHandlers}
         className={`cm-dashboard-v3-journey-row ${isActive ? "cm-dashboard-v3-journey-row--active" : ""} ${isComplete ? "cm-dashboard-v3-journey-row--complete" : ""}`}
       >
         <span className="cm-dashboard-v3-journey-rail">{indicator}</span>
@@ -670,13 +666,12 @@ function ToolTile({
   pendingBadge?: string;
   onNavigate: () => void;
 }) {
-  const { onPointerDown, onClick } = useCoupleMobileActionHandlers(onNavigate);
+  const mobileActionHandlers = useCoupleMobileActionHandlers(onNavigate);
 
   return (
     <button
       type="button"
-      onPointerDown={onPointerDown}
-      onClick={onClick}
+      {...mobileActionHandlers}
       className="cm-dashboard-v3-tool-tile"
     >
       <span className="cm-dashboard-v3-tool-tile-icon">{TOOL_ICONS[id] ?? TOOL_ICONS["event-prep"]}</span>

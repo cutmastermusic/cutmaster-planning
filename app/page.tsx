@@ -337,6 +337,7 @@ import {
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
+import { CoupleScrollSafeTapSurface } from "@/components/couple-mobile-action-button";
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
@@ -2816,7 +2817,7 @@ const TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS =
 const TIMELINE_CARD_MOBILE_ACTION_BTN_DELETE_CLASS =
   "min-h-11 min-w-0 touch-manipulation rounded-lg border border-rose-200/80 bg-white px-2.5 py-2.5 text-[11px] font-semibold leading-tight text-rose-800/90 shadow-none transition hover:border-rose-300 hover:bg-rose-50/40";
 const TIMELINE_CARD_MOBILE_READ_SHELL_CLASS =
-  "touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2";
+  "touch-manipulation touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2";
 const TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS =
   "flex flex-wrap items-center justify-end gap-2.5";
 const TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS =
@@ -5570,8 +5571,18 @@ export default function Home() {
     setMusicVibeDetail(merged.musicVibeDetail);
   }, []);
 
+  const coupleScreenNavLockRef = useRef<{ screen: Screen; at: number } | null>(null);
+
   const selectActiveScreen = useCallback(
     (screen: Screen) => {
+      if (effectiveRole === "Couple") {
+        const now = Date.now();
+        const lock = coupleScreenNavLockRef.current;
+        if (lock && lock.screen === screen && now - lock.at < 450) {
+          return;
+        }
+        coupleScreenNavLockRef.current = { screen, at: now };
+      }
       if (screen === "Event Team" && isCoupleWeddingPlanningView) {
         void applyYourTeamChapterToEventTeamRef
           .current?.()
@@ -5580,7 +5591,7 @@ export default function Home() {
       }
       setActiveScreen(screen);
     },
-    [isCoupleWeddingPlanningView],
+    [effectiveRole, isCoupleWeddingPlanningView],
   );
 
   useEffect(() => {
@@ -6773,8 +6784,18 @@ export default function Home() {
     databaseEventsLoaded,
     eventPlanningReadyEventId,
   ]);
+  const coupleChapterNavLockRef = useRef<{ chapterId: CoupleWeddingChapterId; at: number } | null>(
+    null,
+  );
   const openCouplePlanningChapter = useCallback(
     (chapterId: CoupleWeddingChapterId) => {
+      const now = Date.now();
+      const lock = coupleChapterNavLockRef.current;
+      if (lock && lock.chapterId === chapterId && now - lock.at < 450) {
+        return;
+      }
+      coupleChapterNavLockRef.current = { chapterId, at: now };
+
       if (chapterId === "your_team") {
         setYourTeamContinueBlockedMessage(null);
         const answers = eventSettings.planningQuestionAnswers ?? {};
@@ -17870,20 +17891,9 @@ export default function Home() {
                           </div>
 
                           <div className="flex flex-col gap-2.5 md:hidden">
-                            <div
-                              role="button"
-                              tabIndex={canEditTimeline ? 0 : -1}
-                              onClick={() => {
-                                if (!canEditTimeline) return;
-                                openCeremonyTimelineCardExpanded(item);
-                              }}
-                              onKeyDown={(event) => {
-                                if (!canEditTimeline) return;
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  openCeremonyTimelineCardExpanded(item);
-                                }
-                              }}
+                            <CoupleScrollSafeTapSurface
+                              disabled={!canEditTimeline}
+                              onTap={() => openCeremonyTimelineCardExpanded(item)}
                               className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                 ? "cursor-pointer active:scale-[0.995]"
                                 : "cursor-default opacity-80"
@@ -17933,7 +17943,7 @@ export default function Home() {
                               ) : (
                                 <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                               )}
-                            </div>
+                            </CoupleScrollSafeTapSurface>
                             <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                               <PrimaryButton
                                 type="button"
@@ -18785,19 +18795,10 @@ export default function Home() {
                             </div>
 
                             <div className="flex flex-col gap-2.5 md:hidden">
-                              <div
-                                role="button"
-                                tabIndex={canEditTimeline ? 0 : -1}
-                                onClick={() => {
-                                  if (!canEditTimeline) return;
+                              <CoupleScrollSafeTapSurface
+                                disabled={!canEditTimeline || !timelineRow}
+                                onTap={() => {
                                   if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                                }}
-                                onKeyDown={(event) => {
-                                  if (!canEditTimeline) return;
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                                  }
                                 }}
                                 className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                   ? "cursor-pointer active:scale-[0.995]"
@@ -18883,7 +18884,7 @@ export default function Home() {
                                 ) : (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
                                 )}
-                              </div>
+                              </CoupleScrollSafeTapSurface>
                               <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                                 {isGrandEntrance ? (
                                   <>
