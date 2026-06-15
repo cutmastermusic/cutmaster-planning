@@ -94,7 +94,7 @@ body.cm-ros-scroll-lock {
   margin-top: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 2.5rem;
   min-width: 0;
   background: transparent;
   border-radius: 0;
@@ -103,7 +103,7 @@ body.cm-ros-scroll-lock {
 @media (min-width: 640px) {
   .cm-workspace-section--dashboard {
     margin-top: 0.75rem;
-    gap: 2.25rem;
+    gap: 2.75rem;
   }
 }
 
@@ -230,11 +230,11 @@ body.cm-ros-scroll-lock {
   --cm-editorial-serif: var(--font-editorial), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   display: flex;
   flex-direction: column;
-  gap: 3.25rem;
-  max-width: 56rem;
+  gap: clamp(3.75rem, 7vw, 5.25rem);
+  max-width: 65rem;
   margin-inline: auto;
   width: 100%;
-  padding-bottom: 1.5rem;
+  padding-bottom: 2.5rem;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -264,15 +264,33 @@ body.cm-ros-scroll-lock {
 /* Hero zone — photo bleeds into page, Today tucked in */
 .cm-dashboard-v3-hero-zone {
   position: relative;
+  width: 100%;
   padding-bottom: 0;
 }
 
 .cm-dashboard-v3-hero-zone-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  width: 100%;
+  grid-template-columns: minmax(0, 1.07fr) minmax(0, 0.93fr);
   gap: 0.75rem;
   align-items: stretch;
   min-height: clamp(360px, 42vw, 440px);
+}
+
+@media (min-width: 768px) {
+  .cm-dashboard-v3-hero-zone-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    column-gap: 0.5rem;
+  }
+
+  .cm-dashboard-v3-hero-copy {
+    width: 100%;
+  }
+
+  .cm-dashboard-v3-hero-photo-wrap {
+    justify-self: stretch;
+    width: 100%;
+  }
 }
 
 @media (max-width: 767px) {
@@ -281,6 +299,12 @@ body.cm-ros-scroll-lock {
     gap: 1.5rem;
     min-height: 0;
   }
+
+  .cm-dashboard-v3-today-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
 }
 
 .cm-dashboard-v3-hero-copy {
@@ -288,7 +312,7 @@ body.cm-ros-scroll-lock {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  padding-top: 0.5rem;
+  padding-top: 2rem;
   padding-bottom: 0.5rem;
 }
 
@@ -302,7 +326,7 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-dashboard-v3-hero-meta {
-  margin-top: 1rem;
+  margin-top: 1.2rem;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -311,7 +335,7 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-dashboard-v3-hero-tagline {
-  margin-top: 1.1rem;
+  margin-top: 1.35rem;
   max-width: 24rem;
   font-family: var(--cm-editorial-serif);
   font-size: 1.25rem;
@@ -321,16 +345,18 @@ body.cm-ros-scroll-lock {
 
 .cm-dashboard-v3-hero-photo-wrap {
   position: relative;
+  align-self: end;
   width: 100%;
   aspect-ratio: 46 / 55;
-  min-height: clamp(220px, 36vw, 400px);
+  min-height: clamp(255px, 36vw, 435px);
   overflow: hidden;
 }
 
 @media (max-width: 767px) {
   .cm-dashboard-v3-hero-photo-wrap {
+    align-self: stretch;
     aspect-ratio: 46 / 55;
-    min-height: 220px;
+    min-height: 255px;
     margin-inline: 0;
   }
 }
@@ -392,7 +418,7 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-blanc-hero-photo-treatment {
-  filter: saturate(0.88) brightness(1.05) contrast(0.93);
+  filter: grayscale(0.85) sepia(0.18) saturate(0.72) contrast(0.92) brightness(1.08);
 }
 
 .cm-dashboard-v3-hero-photo--custom .cm-dashboard-v3-hero-photo-stage::after {
@@ -403,9 +429,9 @@ body.cm-ros-scroll-lock {
   pointer-events: none;
   background: linear-gradient(
     118deg,
-    rgba(252, 248, 240, 0.34) 0%,
-    rgba(252, 248, 240, 0.1) 34%,
-    transparent 58%
+    rgba(252, 246, 236, 0.2) 0%,
+    rgba(248, 240, 228, 0.07) 26%,
+    transparent 50%
   );
 }
 
@@ -426,6 +452,7 @@ body.cm-ros-scroll-lock {
 .cm-dashboard-v3-hero-photo-img--positioned {
   pointer-events: none;
   user-select: none;
+  object-fit: cover;
 }
 
 .cm-dashboard-v3-hero-zone--has-photo .cm-dashboard-v3-hero-photo-wrap::before {
@@ -437,10 +464,10 @@ body.cm-ros-scroll-lock {
   background: linear-gradient(
     to right,
     var(--cm-editorial-canvas) 0%,
-    rgba(248, 246, 242, 0.97) 14%,
-    rgba(248, 246, 242, 0.72) 28%,
-    rgba(248, 246, 242, 0.2) 48%,
-    transparent 72%
+    rgba(252, 246, 236, 0.82) 11%,
+    rgba(248, 242, 232, 0.56) 23%,
+    rgba(248, 242, 232, 0.14) 40%,
+    transparent 62%
   );
 }
 
@@ -453,9 +480,9 @@ body.cm-ros-scroll-lock {
     background: linear-gradient(
       to top,
       var(--cm-editorial-canvas) 0%,
-      rgba(248, 246, 242, 0.88) 22%,
-      rgba(248, 246, 242, 0.35) 48%,
-      transparent 72%
+      rgba(252, 246, 236, 0.74) 19%,
+      rgba(248, 242, 232, 0.26) 42%,
+      transparent 65%
     );
   }
 }
@@ -507,7 +534,7 @@ body.cm-ros-scroll-lock {
 .cm-dashboard-v3-today-desktop {
   display: none;
   margin-top: auto;
-  padding-top: 1.25rem;
+  padding-top: 0.5rem;
 }
 
 .cm-dashboard-v3-today-mobile {
@@ -517,8 +544,8 @@ body.cm-ros-scroll-lock {
 @media (min-width: 768px) {
   .cm-dashboard-v3-today-desktop {
     display: block;
-    max-width: 21rem;
-    transform: translateY(0.35rem);
+    max-width: 24.25rem;
+    transform: translateY(-2rem);
   }
 
   .cm-dashboard-v3-today-mobile {
@@ -528,38 +555,47 @@ body.cm-ros-scroll-lock {
 
 .cm-dashboard-v3-today-embed {
   background: var(--cm-editorial-card);
-  border-radius: 1rem;
-  padding: 1.65rem 1.55rem 1.75rem;
-  box-shadow: 0 12px 32px rgba(28, 25, 23, 0.08);
+  border-radius: 1.125rem;
+  padding: 2.1rem 2.05rem 2.15rem;
+  box-shadow: 0 12px 36px rgba(28, 25, 23, 0.065);
 }
 
 .cm-dashboard-v3-eyebrow {
   font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #b0aaa2;
+  color: #b8b2aa;
 }
 
 .cm-dashboard-v3-today-title {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
   font-family: var(--cm-editorial-serif);
   font-size: clamp(1.5rem, 2.8vw, 1.9375rem);
   font-weight: 500;
   line-height: 1.22;
-  letter-spacing: -0.015em;
-  color: #2c2825;
+  letter-spacing: -0.01em;
+  color: #3d3935;
 }
 
 .cm-dashboard-v3-today-body {
-  margin-top: 0.65rem;
-  font-size: 0.875rem;
-  line-height: 1.65;
+  margin-top: 0.85rem;
+  font-size: 0.9375rem;
+  line-height: 1.68;
   color: #6f6a63;
 }
 
+.cm-dashboard-v3-today-footer {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
 .cm-dashboard-v3-today-time {
-  margin-top: 1rem;
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -568,6 +604,7 @@ body.cm-ros-scroll-lock {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #9a948c;
+  flex-shrink: 0;
 }
 
 .cm-dashboard-v3-today-time svg {
@@ -576,18 +613,18 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-dashboard-v3-cta {
-  margin-top: 1.35rem;
+  margin-top: 0;
   display: inline-flex;
-  min-height: 2.5rem;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   border-radius: 999px;
   background: var(--cm-editorial-accent);
-  padding: 0.55rem 1.15rem;
+  padding: 0.45rem 1rem;
   font-size: 0.8125rem;
   font-weight: 500;
   color: #fff;
   transition: background-color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .cm-dashboard-v3-cta:hover {
@@ -599,11 +636,12 @@ body.cm-ros-scroll-lock {
   outline-offset: 2px;
 }
 
-/* Journey — timeline, no borders */
+/* Journey — timeline, quiet rhythm */
 .cm-dashboard-v3-journey-list {
-  margin-top: 1.25rem;
+  margin-top: 1.75rem;
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
 }
 
 .cm-dashboard-v3-journey-item {
@@ -618,7 +656,7 @@ body.cm-ros-scroll-lock {
   bottom: -0.65rem;
   width: 1px;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .cm-dashboard-v3-journey-row {
@@ -627,17 +665,17 @@ body.cm-ros-scroll-lock {
   align-items: center;
   gap: 0.85rem;
   border-radius: 0.75rem;
-  padding: 0.7rem 0.5rem;
+  padding: 0.85rem 0.5rem;
   text-align: left;
   transition: background-color 0.2s ease;
 }
 
 .cm-dashboard-v3-journey-row:hover {
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(0, 0, 0, 0.015);
 }
 
 .cm-dashboard-v3-journey-row--active {
-  background: rgba(47, 74, 62, 0.06);
+  background: rgba(47, 74, 62, 0.04);
 }
 
 .cm-dashboard-v3-journey-row--complete {
@@ -658,7 +696,7 @@ body.cm-ros-scroll-lock {
   height: 0.875rem;
   width: 0.875rem;
   border-radius: 999px;
-  border: 1px solid #c9c4bc;
+  border: 1px solid #d6d3d1;
   background: var(--cm-editorial-canvas);
 }
 
@@ -696,15 +734,15 @@ body.cm-ros-scroll-lock {
 
 .cm-dashboard-v3-journey-label {
   font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #3d3935;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #57534e;
 }
 
 .cm-dashboard-v3-journey-sub {
   font-size: 0.8125rem;
-  line-height: 1.45;
-  color: #8a847c;
+  line-height: 1.5;
+  color: #a8a29e;
 }
 
 .cm-dashboard-v3-journey-row--complete .cm-dashboard-v3-journey-label,
@@ -726,15 +764,15 @@ body.cm-ros-scroll-lock {
   flex-shrink: 0;
   font-size: 1.125rem;
   line-height: 1;
-  color: #d6d3d1;
+  color: #e7e5e4;
 }
 
 /* Wedding tools — quiet grid */
 .cm-dashboard-v3-tools-grid {
-  margin-top: 0.85rem;
+  margin-top: 1.25rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0.85rem;
 }
 
 @media (min-width: 640px) {
@@ -749,25 +787,25 @@ body.cm-ros-scroll-lock {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 5.5rem;
+  min-height: 5.25rem;
   border-radius: 0.875rem;
-  background: rgba(0, 0, 0, 0.025);
-  padding: 0.85rem 0.5rem;
+  background: rgba(0, 0, 0, 0.012);
+  padding: 0.9rem 0.5rem;
   text-align: center;
-  color: #6f6a63;
+  color: #78716c;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .cm-dashboard-v3-tool-tile:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #44403c;
+  background: rgba(0, 0, 0, 0.028);
+  color: #57534e;
 }
 
 .cm-dashboard-v3-tool-tile-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9a948c;
+  color: #b0aaa2;
 }
 
 .cm-dashboard-v3-tool-tile-icon svg {
@@ -777,8 +815,8 @@ body.cm-ros-scroll-lock {
 
 .cm-dashboard-v3-tool-tile-label {
   font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1.3;
+  font-weight: 400;
+  line-height: 1.35;
 }
 
 .cm-dashboard-v3-tool-tile-badge {
@@ -788,38 +826,41 @@ body.cm-ros-scroll-lock {
 
 /* Encouragement + powered by */
 .cm-dashboard-v3-encouragement {
-  margin-top: 0.5rem;
-  border-radius: 1rem;
-  background: rgba(0, 0, 0, 0.025);
-  padding: 1.75rem 1.5rem;
+  margin-top: 0.75rem;
+  border-radius: 0;
+  background: transparent;
+  padding: 2.75rem 1.5rem 2rem;
   text-align: center;
 }
 
 .cm-dashboard-v3-encouragement-icon {
   display: block;
-  font-size: 0.75rem;
-  color: #b0aaa2;
+  font-size: 0.6875rem;
+  color: #c4bdb4;
 }
 
 .cm-dashboard-v3-encouragement-serif {
-  margin-top: 0.45rem;
+  margin-top: 0.55rem;
   font-family: var(--cm-editorial-serif);
-  font-size: 1.25rem;
-  color: #44403c;
+  font-size: 1.3125rem;
+  line-height: 1.35;
+  color: #57534e;
 }
 
 .cm-dashboard-v3-encouragement-sans {
-  margin-top: 0.25rem;
+  margin-top: 0.45rem;
   font-size: 0.875rem;
-  color: #8a847c;
+  line-height: 1.55;
+  color: #a8a29e;
 }
 
 .cm-dashboard-v3-powered-by {
+  margin-top: 0.75rem;
   text-align: center;
   font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: #c4bdb4;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: #d6d3d1;
 }
 
 /* Welcome photo editor */
@@ -871,6 +912,20 @@ body.cm-ros-scroll-lock {
   cursor: grab;
 }
 
+.cm-welcome-photo-editor-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    rgba(252, 246, 236, 0.22) 0%,
+    rgba(248, 240, 228, 0.08) 30%,
+    transparent 56%
+  );
+}
+
 .cm-welcome-photo-editor-frame:active {
   cursor: grabbing;
 }
@@ -878,6 +933,7 @@ body.cm-ros-scroll-lock {
 .cm-welcome-photo-editor-image {
   pointer-events: none;
   user-select: none;
+  object-fit: cover;
 }
 
 .cm-welcome-photo-editor-loading {

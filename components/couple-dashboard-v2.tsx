@@ -297,21 +297,23 @@ function TodayCardEmbed({ content }: { content: TodayContent }) {
       {content.description ? (
         <p className="cm-dashboard-v3-today-body">{content.description}</p>
       ) : null}
-      {content.timeEstimate ? (
-        <p className="cm-dashboard-v3-today-time">
-          <ClockIcon />
-          <span>{content.timeEstimate}</span>
-        </p>
-      ) : null}
-      <button
-        type="button"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
-        className="cm-dashboard-v3-cta"
-      >
-        {content.ctaLabel}
-        <span aria-hidden>→</span>
-      </button>
+      <div className="cm-dashboard-v3-today-footer">
+        {content.timeEstimate ? (
+          <p className="cm-dashboard-v3-today-time">
+            <ClockIcon />
+            <span>{content.timeEstimate}</span>
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onPointerDown={onPointerDown}
+          onClick={onClick}
+          className="cm-dashboard-v3-cta"
+        >
+          {content.ctaLabel}
+          <span aria-hidden>→</span>
+        </button>
+      </div>
     </div>
   );
 }

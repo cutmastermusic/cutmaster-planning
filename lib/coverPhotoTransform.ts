@@ -23,6 +23,10 @@ export function clampCoverPhotoScale(scale: number): number {
   return Math.min(COVER_PHOTO_MAX_SCALE, Math.max(COVER_PHOTO_MIN_SCALE, scale));
 }
 
+/**
+ * Legacy cover-fit metadata kept for persisted transforms.
+ * Rendering no longer uses independent width/height percentages (they caused distortion).
+ */
 export function computeCoverFitPercents(
   imageWidth: number,
   imageHeight: number,
@@ -85,16 +89,27 @@ export function normalizeCoverPhotoTransform(
   return { scale, x, y, baseWidthPercent, baseHeightPercent };
 }
 
+/**
+ * Positions the image inside a fixed frame without distorting aspect ratio.
+ *
+ * Cover fit: min-width/min-height 100% with auto dimensions preserves natural aspect.
+ * Zoom: uniform scale() only (never independent width/height).
+ * Pan: x/y are % of frame width/height, applied via left/top on the frame container.
+ */
 export function coverPhotoTransformToImageStyle(
   transform: CoverPhotoTransform,
 ): CSSProperties {
+  const { scale, x, y } = transform;
   return {
     position: "absolute",
-    left: "50%",
-    top: "50%",
-    width: `${transform.baseWidthPercent * transform.scale}%`,
-    height: `${transform.baseHeightPercent * transform.scale}%`,
+    left: `calc(50% + ${x}%)`,
+    top: `calc(50% + ${y}%)`,
+    minWidth: "100%",
+    minHeight: "100%",
+    width: "auto",
+    height: "auto",
     maxWidth: "none",
-    transform: `translate(calc(-50% + ${transform.x}%), calc(-50% + ${transform.y}%))`,
+    transform: `translate(-50%, -50%) scale(${scale})`,
+    transformOrigin: "center center",
   };
 }
