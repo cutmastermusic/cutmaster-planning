@@ -384,14 +384,14 @@ export function CoupleGuidedQuestionSection({
       className={premiumFormSectionCardClass}
       aria-labelledby={`${sectionId}-title`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">{eyebrow}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">{eyebrow}</p>
       <h3
         id={`${sectionId}-title`}
         className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl"
       >
         {title}
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-stone-700">{intro}</p>
+      <p className="mt-2 text-sm leading-relaxed text-stone-800">{intro}</p>
 
       <div className="mt-4 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium tabular-nums text-stone-800">

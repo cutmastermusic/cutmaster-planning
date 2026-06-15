@@ -243,7 +243,7 @@ export function CoupleWeddingChapterScreen({
   if (steps.length === 0) {
     return (
       <PremiumCard className={premiumFormSectionCardClass}>
-        <p className="text-sm leading-relaxed text-stone-700">
+        <p className="text-sm leading-relaxed text-stone-800">
           No prompts are available for {coupleWeddingChapterNavLabel(chapterId)} yet.
         </p>
         <PrimaryButton type="button" onClick={onContinueToNextChapter} className={`mt-4 ${lightUiCouplePrimaryButtonClass}`}>

@@ -111,7 +111,7 @@ function operationalRowAction(
 function GlanceFact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">{label}</p>
       <p className="mt-1 text-sm font-medium leading-snug text-stone-950">{value}</p>
     </div>
   );
@@ -130,7 +130,7 @@ function ChapterSummaryBlock({
       <dl className="mt-3 space-y-2.5">
         {lines.map((line) => (
           <div key={`${title}-${line.label}`}>
-            <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-500">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-600">
               {line.label}
             </dt>
             <dd className="mt-0.5 text-sm leading-relaxed text-stone-800">{line.value}</dd>
@@ -155,7 +155,7 @@ function CoupleFinalReviewCompletionCelebration({
   return (
     <>
       <PremiumCard className={`${premiumFormSectionCardClass} ${coupleMobileActionContentSpacerClass}`}>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">Final Review</p>
 
         <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#2f4a3e]/[0.04] px-5 py-6">
           <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
@@ -172,7 +172,7 @@ function CoupleFinalReviewCompletionCelebration({
 
         {hasGlanceFacts || summary.chapters.length > 0 ? (
           <div className="mt-6 space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
               Your wedding at a glance
             </p>
 
@@ -202,10 +202,10 @@ function CoupleFinalReviewCompletionCelebration({
 
         <div className="mt-6 rounded-xl border border-stone-200/90 bg-stone-50/60 px-4 py-4">
           <p className="text-sm font-semibold text-stone-950">What happens next?</p>
-          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+          <p className="mt-2 text-sm leading-relaxed text-stone-800">
             Your planning foundation is complete.
           </p>
-          <p className="mt-2 text-sm leading-relaxed text-stone-700">
+          <p className="mt-2 text-sm leading-relaxed text-stone-800">
             You can continue refining songs, timelines, and details anytime, and your DJ team now has
             the information needed to begin preparing for your wedding day.
           </p>
@@ -260,21 +260,21 @@ export function CoupleFinalReviewSection({
 
   return (
     <PremiumCard className={`${premiumFormSectionCardClass} ${finalReviewIncompleteSpacerClass}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Final Review</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">Final Review</p>
       <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
         Ready for a final pass?
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+      <p className="mt-2 text-sm leading-relaxed text-stone-800">
         Review each part of your wedding plan. If something needs attention, tap it and we&apos;ll take you
         there.
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+      <p className="mt-2 text-sm leading-relaxed text-stone-800">
         Finish any chapters below still marked incomplete.
       </p>
 
       <div className="mt-6 space-y-6">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
             Your wedding story
           </p>
           <div className="mt-3 space-y-2">
@@ -298,7 +298,7 @@ export function CoupleFinalReviewSection({
         </div>
 
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
             Optional Next Steps
           </p>
           <div className="mt-3 space-y-2">

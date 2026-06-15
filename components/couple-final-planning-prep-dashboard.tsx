@@ -32,7 +32,7 @@ function HintRow({
         {...mobileActionHandlers}
         className="group flex w-full min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/35"
       >
-        <p className="text-[14px] leading-snug text-stone-600 group-hover:text-stone-800">
+        <p className="text-[14px] font-medium leading-snug text-stone-700 group-hover:text-stone-900">
           {hint.message}
         </p>
         <span className="shrink-0 text-[13px] text-stone-400 transition group-hover:text-stone-600">
@@ -71,12 +71,12 @@ export function CoupleFinalPlanningPrepDashboard({
   return (
     <div className="space-y-5">
       <div className="cm-dashboard-v3-card px-6 py-7 sm:px-8 sm:py-8">
-        <p className="text-[15px] leading-relaxed text-stone-600">
+        <p className="text-[15px] leading-relaxed text-stone-700">
           We&apos;ve got the vision. Your final planning meeting is a relaxed working session—we&apos;ll
           walk through your timeline, music, and anything else on your mind.
         </p>
         {teamParts.length > 0 ? (
-          <p className="mt-4 text-[13px] text-stone-400">
+          <p className="mt-4 text-[13px] text-stone-500">
             Your team: {teamParts.join(" · ")}
           </p>
         ) : null}

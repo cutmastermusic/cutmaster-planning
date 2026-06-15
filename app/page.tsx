@@ -16710,7 +16710,7 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Music Hub" && (sectionMustPlayEnabled || sectionDoNotPlayEnabled || sectionPlaylistsEnabled) && (
           <section
-            className={`${workspaceSectionClass} overflow-x-hidden`}
+            className={`${workspaceSectionClass} overflow-x-hidden${isCoupleView ? " cm-couple-workspace" : ""}`}
           >
             <EventHomeNav
               trail={["Music Hub"]}
@@ -17647,7 +17647,7 @@ export default function Home() {
           appMode === "event" &&
           (showCeremonyOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
           <section
-            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pb-0" : ""}`}
+            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pb-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
           >
             {showUnifiedTimelineWorkspace ? (
               <>
@@ -18353,7 +18353,7 @@ export default function Home() {
           appMode === "event" &&
           (showReceptionOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
             <section
-              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-0" : ""}`}
+              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
             >
               {showCouplePostJourneyTimelineGuidance && !showUnifiedTimelineWorkspace ? (
                 <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
@@ -19443,7 +19443,7 @@ export default function Home() {
         )}
 
         {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
-          <section className={workspaceSectionClass}>
+          <section className={`${workspaceSectionClass}${isCoupleView ? " cm-couple-workspace" : ""}`}>
             <EventHomeNav
               trail={["Guest Requests"]}
               onBack={() => setActiveScreen("Dashboard")}
@@ -19998,7 +19998,7 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Event Team" && (
           <section
-            className={`${workspaceSectionClass} overflow-x-hidden`}
+            className={`${workspaceSectionClass} overflow-x-hidden${isCoupleView ? " cm-couple-workspace" : ""}`}
           >
             <EventHomeNav
               trail={["People & Vendors"]}
@@ -21838,7 +21838,7 @@ export default function Home() {
           appMode === "event" &&
           activeScreen === "Planning Assistant" &&
           sectionPlanningQuestionsEnabled && (
-            <section className={workspaceSectionLooseClass}>
+            <section className={`${workspaceSectionLooseClass}${isCoupleView ? " cm-couple-workspace" : ""}`}>
               <EventHomeNav
                 trail={["Planning Assistant"]}
                 onBack={() => setActiveScreen("Dashboard")}
@@ -22089,7 +22089,7 @@ export default function Home() {
           activeScreen === "Planning Questions" &&
           sectionPlanningQuestionsEnabled &&
           (isCoupleWeddingPlanningView && activePlanningChapterId ? (
-            <section className={workspaceSectionLooseClass}>
+            <section className={`${workspaceSectionLooseClass}${isCoupleView ? " cm-couple-workspace" : ""}`}>
               <EventHomeNav
                 trail={[
                   "Dashboard",

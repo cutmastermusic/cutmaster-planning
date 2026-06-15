@@ -11,13 +11,13 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
 
   return (
     <PremiumCard className="no-print border-stone-200/90 bg-gradient-to-br from-stone-50/80 via-white to-[#2f4a3e]/[0.03]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600">
         Before we meet
       </p>
       <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950">
         Your timeline, at your pace
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-stone-700">
+      <p className="mt-2 text-sm leading-relaxed text-stone-800">
         Use this timeline to add or adjust times, songs, and notes for your wedding day. We&apos;ll walk
         through it together at your final planning meeting—it&apos;s okay if a few details are still
         TBD.
@@ -31,7 +31,7 @@ export function CoupleTimelineGuidancePanel({ gapLabels }: CoupleTimelineGuidanc
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-2.5 text-sm font-medium text-stone-900 [&::-webkit-details-marker]:hidden">
             <span>A few timeline ideas ({gapLabels.length})</span>
             <span
-              className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 transition-transform group-open:rotate-180"
+              className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600 transition-transform group-open:rotate-180"
               aria-hidden
             >
               ▼
