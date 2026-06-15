@@ -14469,17 +14469,17 @@ export default function Home() {
 
   return (
     <div className={`${cmAppShellClass}${isCoupleEditorialShell ? " cm-app-shell--couple-editorial" : ""}`}>
-      {isCoupleEditorialShell && showAccountMenu ? (
-        <CouplePortalAccountMenu
-          coupleDisplayName={coupleDisplayName}
-          onSignOut={handleSignOut}
-        />
-      ) : null}
       <div
         className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 sm:px-6 ${
           hideCoupleDashboardAppHeader ? "pt-3 sm:pt-4" : "pt-6"
         }`}
       >
+        {isCoupleEditorialShell && showAccountMenu ? (
+          <CouplePortalAccountMenu
+            coupleDisplayName={coupleDisplayName}
+            onSignOut={handleSignOut}
+          />
+        ) : null}
         {!hideCoupleDashboardAppHeader ? (
         <AppHeader
           screenTitle={headerScreenTitle}

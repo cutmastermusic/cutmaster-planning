@@ -157,31 +157,33 @@ export function CouplePortalAccountMenu({
 
   return (
     <>
-      <div ref={rootRef} className="cm-couple-portal-account-anchor">
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={open ? menuId : undefined}
-          aria-label="Account menu"
-          onClick={() => setOpen((prev) => !prev)}
-          className="cm-couple-portal-account-trigger"
-        >
-          <CutmasterHeadphoneIcon className="cm-couple-portal-account-icon" />
-        </button>
+      <div className="cm-couple-portal-account-row">
+        <div ref={rootRef} className="cm-couple-portal-account-anchor">
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-controls={open ? menuId : undefined}
+            aria-label="Account menu"
+            onClick={() => setOpen((prev) => !prev)}
+            className="cm-couple-portal-account-trigger"
+          >
+            <CutmasterHeadphoneIcon className="cm-couple-portal-account-icon" />
+          </button>
 
-        {open && !useMobileSheet ? (
-          <AccountMenuPanel
-            menuId={menuId}
-            coupleDisplayName={displayName}
-            signingOut={signingOut}
-            onSignOut={() => {
-              void handleSignOut();
-            }}
-            variant="dropdown"
-          />
-        ) : null}
+          {open && !useMobileSheet ? (
+            <AccountMenuPanel
+              menuId={menuId}
+              coupleDisplayName={displayName}
+              signingOut={signingOut}
+              onSignOut={() => {
+                void handleSignOut();
+              }}
+              variant="dropdown"
+            />
+          ) : null}
+        </div>
       </div>
       {mobileSheet}
     </>
