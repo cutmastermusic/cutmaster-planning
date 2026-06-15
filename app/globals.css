@@ -221,11 +221,12 @@ body.cm-ros-scroll-lock {
   align-items: center;
   min-height: 2.75rem;
   margin-bottom: 0.25rem;
+  position: relative;
+  z-index: 2;
 }
 
 .cm-couple-portal-account-anchor {
   position: relative;
-  z-index: 1;
 }
 
 .cm-couple-portal-account-trigger {
@@ -267,10 +268,8 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-couple-account-menu-panel--dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.5rem);
-  z-index: 50;
+  position: fixed;
+  z-index: 70;
   width: 15.5rem;
   overflow: hidden;
   border-radius: 0.875rem;

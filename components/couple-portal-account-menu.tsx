@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import { CutmasterHeadphoneIcon } from "@/components/icons/cutmaster-headphone-icon";
 
@@ -8,6 +16,9 @@ type CouplePortalAccountMenuProps = {
   coupleDisplayName: string;
   onSignOut: () => void | Promise<void>;
 };
+
+const DROPDOWN_WIDTH_PX = 248;
+const DROPDOWN_GAP_PX = 8;
 
 function useMobileSheetLayout() {
   const [useSheet, setUseSheet] = useState(
@@ -32,12 +43,14 @@ function AccountMenuPanel({
   signingOut,
   onSignOut,
   variant,
+  style,
 }: {
   menuId: string;
   coupleDisplayName: string;
   signingOut: boolean;
   onSignOut: () => void;
   variant: "dropdown" | "sheet";
+  style?: CSSProperties;
 }) {
   const panelClass =
     variant === "sheet"
@@ -45,7 +58,13 @@ function AccountMenuPanel({
       : "cm-couple-account-menu-panel cm-couple-account-menu-panel--dropdown";
 
   return (
-    <div id={menuId} role="menu" aria-label="Account" className={panelClass}>
+    <div
+      id={menuId}
+      role="menu"
+      aria-label="Account"
+      className={panelClass}
+      style={style}
+    >
       <div className="cm-couple-account-menu-header">
         <p className="cm-couple-account-menu-names">{coupleDisplayName}</p>
         <p className="cm-couple-account-menu-subtitle">Wedding Planning Portal</p>
@@ -70,6 +89,7 @@ export function CouplePortalAccountMenu({
 }: CouplePortalAccountMenuProps) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -77,10 +97,54 @@ export function CouplePortalAccountMenu({
 
   const closeMenu = useCallback(() => {
     setOpen(false);
+    setDropdownStyle(null);
     requestAnimationFrame(() => {
       triggerRef.current?.focus();
     });
   }, []);
+
+  const updateDropdownPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportPadding = 12;
+    const maxLeft = Math.max(
+      viewportPadding,
+      window.innerWidth - DROPDOWN_WIDTH_PX - viewportPadding,
+    );
+    const left = Math.min(Math.max(rect.right - DROPDOWN_WIDTH_PX, viewportPadding), maxLeft);
+
+    setDropdownStyle({
+      position: "fixed",
+      top: rect.bottom + DROPDOWN_GAP_PX,
+      left,
+      width: DROPDOWN_WIDTH_PX,
+      zIndex: 70,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || useMobileSheet) {
+      setDropdownStyle(null);
+      return;
+    }
+    updateDropdownPosition();
+  }, [open, updateDropdownPosition, useMobileSheet]);
+
+  useEffect(() => {
+    if (!open || useMobileSheet) return;
+
+    const reposition = () => {
+      updateDropdownPosition();
+    };
+
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [open, updateDropdownPosition, useMobileSheet]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,10 +152,8 @@ export function CouplePortalAccountMenu({
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (rootRef.current?.contains(target)) return;
-      if (useMobileSheet) {
-        const sheet = document.getElementById(menuId);
-        if (sheet?.contains(target)) return;
-      }
+      const menu = document.getElementById(menuId);
+      if (menu?.contains(target)) return;
       closeMenu();
     };
 
@@ -155,6 +217,23 @@ export function CouplePortalAccountMenu({
         )
       : null;
 
+  const desktopDropdown =
+    open && !useMobileSheet && dropdownStyle && typeof document !== "undefined"
+      ? createPortal(
+          <AccountMenuPanel
+            menuId={menuId}
+            coupleDisplayName={displayName}
+            signingOut={signingOut}
+            onSignOut={() => {
+              void handleSignOut();
+            }}
+            variant="dropdown"
+            style={dropdownStyle}
+          />,
+          document.body,
+        )
+      : null;
+
   return (
     <>
       <div className="cm-couple-portal-account-row">
@@ -171,20 +250,9 @@ export function CouplePortalAccountMenu({
           >
             <CutmasterHeadphoneIcon className="cm-couple-portal-account-icon" />
           </button>
-
-          {open && !useMobileSheet ? (
-            <AccountMenuPanel
-              menuId={menuId}
-              coupleDisplayName={displayName}
-              signingOut={signingOut}
-              onSignOut={() => {
-                void handleSignOut();
-              }}
-              variant="dropdown"
-            />
-          ) : null}
         </div>
       </div>
+      {desktopDropdown}
       {mobileSheet}
     </>
   );
