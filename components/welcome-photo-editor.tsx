@@ -11,9 +11,10 @@ import {
 import {
   clampCoverPhotoScale,
   COUPLE_DASHBOARD_HERO_ASPECT_RATIO,
-  computeInitialCoverPhotoTransform,
+  computeCoverPhotoScaleLimits,
   coverPhotoTransformToImageStyle,
   DEFAULT_COVER_PHOTO_TRANSFORM,
+  type CoverPhotoScaleLimits,
 } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
 
@@ -45,9 +46,16 @@ export function WelcomePhotoEditor({
   onSave,
 }: WelcomePhotoEditorProps) {
   const frameRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const initializedRef = useRef(false);
   const [transform, setTransform] = useState<CoverPhotoTransform>(
     initialTransform ?? DEFAULT_COVER_PHOTO_TRANSFORM,
   );
+  const [scaleLimits, setScaleLimits] = useState<CoverPhotoScaleLimits>({
+    minScale: 1,
+    maxScale: 3,
+    initialScale: 1,
+  });
   const [ready, setReady] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -58,6 +66,53 @@ export function WelcomePhotoEditor({
   } | null>(null);
   const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
 
+  const applyScaleLimits = useCallback(
+    (limits: CoverPhotoScaleLimits, preferred?: CoverPhotoTransform) => {
+      setScaleLimits(limits);
+      setTransform((prev) => {
+        const source = preferred ?? prev;
+        return {
+          ...source,
+          scale: clampCoverPhotoScale(source.scale, limits.minScale, limits.maxScale),
+        };
+      });
+    },
+    [],
+  );
+
+  const syncLayout = useCallback(() => {
+    const frame = frameRef.current;
+    const img = imageRef.current;
+    if (!frame || !img || img.naturalWidth <= 0 || img.naturalHeight <= 0) return false;
+
+    const rect = frame.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) return false;
+
+    const limits = computeCoverPhotoScaleLimits(
+      img.naturalWidth,
+      img.naturalHeight,
+      rect.width,
+      rect.height,
+    );
+
+    if (!initializedRef.current) {
+      if (initialTransform) {
+        applyScaleLimits(limits, initialTransform);
+      } else {
+        applyScaleLimits(limits, {
+          ...DEFAULT_COVER_PHOTO_TRANSFORM,
+          scale: limits.initialScale,
+        });
+      }
+      initializedRef.current = true;
+    } else {
+      applyScaleLimits(limits);
+    }
+
+    setReady(true);
+    return true;
+  }, [applyScaleLimits, initialTransform]);
+
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
@@ -67,48 +122,59 @@ export function WelcomePhotoEditor({
       const delta = event.deltaY > 0 ? -0.06 : 0.06;
       setTransform((prev) => ({
         ...prev,
-        scale: clampCoverPhotoScale(prev.scale + delta),
+        scale: clampCoverPhotoScale(
+          prev.scale + delta,
+          scaleLimits.minScale,
+          scaleLimits.maxScale,
+        ),
       }));
     };
 
     frame.addEventListener("wheel", onWheel, { passive: false });
     return () => frame.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [scaleLimits.maxScale, scaleLimits.minScale]);
 
   useEffect(() => {
     let cancelled = false;
+    initializedRef.current = false;
+    setReady(false);
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
-      const frame = frameRef.current;
-      if (!frame) return;
-      const rect = frame.getBoundingClientRect();
-      if (initialTransform) {
-        setTransform(initialTransform);
-      } else {
-        setTransform(
-          computeInitialCoverPhotoTransform(
-            img.naturalWidth,
-            img.naturalHeight,
-            rect.width,
-            rect.height,
-          ),
-        );
-      }
-      setReady(true);
+      imageRef.current = img;
+      requestAnimationFrame(() => {
+        if (!cancelled) syncLayout();
+      });
     };
     img.src = imageSrc;
     return () => {
       cancelled = true;
+      imageRef.current = null;
     };
-  }, [imageSrc, initialTransform]);
+  }, [imageSrc, syncLayout]);
 
-  const updateScale = useCallback((nextScale: number) => {
-    setTransform((prev) => ({
-      ...prev,
-      scale: clampCoverPhotoScale(nextScale),
-    }));
-  }, []);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const observer = new ResizeObserver(() => {
+      if (imageRef.current) {
+        syncLayout();
+      }
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [syncLayout]);
+
+  const updateScale = useCallback(
+    (nextScale: number) => {
+      setTransform((prev) => ({
+        ...prev,
+        scale: clampCoverPhotoScale(nextScale, scaleLimits.minScale, scaleLimits.maxScale),
+      }));
+    },
+    [scaleLimits.maxScale, scaleLimits.minScale],
+  );
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -166,14 +232,17 @@ export function WelcomePhotoEditor({
     [transform.scale],
   );
 
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 2 || !pinchRef.current) return;
-    event.preventDefault();
-    const distance = getTouchDistance(event.touches);
-    if (!distance) return;
-    const ratio = distance / pinchRef.current.distance;
-    updateScale(pinchRef.current.scale * ratio);
-  }, [updateScale]);
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (event.touches.length !== 2 || !pinchRef.current) return;
+      event.preventDefault();
+      const distance = getTouchDistance(event.touches);
+      if (!distance) return;
+      const ratio = distance / pinchRef.current.distance;
+      updateScale(pinchRef.current.scale * ratio);
+    },
+    [updateScale],
+  );
 
   const handleTouchEnd = useCallback(() => {
     pinchRef.current = null;
@@ -242,8 +311,8 @@ export function WelcomePhotoEditor({
           Zoom
           <input
             type="range"
-            min={1}
-            max={3}
+            min={scaleLimits.minScale}
+            max={scaleLimits.maxScale}
             step={0.01}
             value={transform.scale}
             onChange={(event) => updateScale(Number(event.target.value))}

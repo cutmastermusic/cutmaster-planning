@@ -16,11 +16,59 @@ export const DEFAULT_COVER_PHOTO_TRANSFORM: CoverPhotoTransform = {
   baseHeightPercent: 100,
 };
 
+export const COVER_PHOTO_ABSOLUTE_MIN_SCALE = 0.25;
 export const COVER_PHOTO_MIN_SCALE = 1;
 export const COVER_PHOTO_MAX_SCALE = 3;
 
-export function clampCoverPhotoScale(scale: number): number {
-  return Math.min(COVER_PHOTO_MAX_SCALE, Math.max(COVER_PHOTO_MIN_SCALE, scale));
+export function clampCoverPhotoScale(
+  scale: number,
+  minScale: number = COVER_PHOTO_ABSOLUTE_MIN_SCALE,
+  maxScale: number = COVER_PHOTO_MAX_SCALE,
+): number {
+  return Math.min(maxScale, Math.max(minScale, scale));
+}
+
+export type CoverPhotoScaleLimits = {
+  minScale: number;
+  maxScale: number;
+  initialScale: number;
+};
+
+/**
+ * Cover fit is scale 1. minScale zooms out until the full image is visible (contain).
+ */
+export function computeCoverPhotoScaleLimits(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoScaleLimits {
+  if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0) {
+    return { minScale: COVER_PHOTO_MIN_SCALE, maxScale: COVER_PHOTO_MAX_SCALE, initialScale: 1 };
+  }
+
+  const imageAspect = imageWidth / imageHeight;
+  const frameAspect = frameWidth / frameHeight;
+
+  let coverWidth = frameWidth;
+  let coverHeight = frameHeight;
+
+  if (imageAspect > frameAspect) {
+    coverHeight = frameHeight;
+    coverWidth = frameHeight * imageAspect;
+  } else {
+    coverWidth = frameWidth;
+    coverHeight = frameWidth / imageAspect;
+  }
+
+  const containScale = Math.min(frameWidth / coverWidth, frameHeight / coverHeight);
+  const minScale = Math.max(COVER_PHOTO_ABSOLUTE_MIN_SCALE, containScale);
+
+  return {
+    minScale,
+    maxScale: COVER_PHOTO_MAX_SCALE,
+    initialScale: COVER_PHOTO_MIN_SCALE,
+  };
 }
 
 /**
@@ -74,6 +122,8 @@ export function normalizeCoverPhotoTransform(
   if (!value) return undefined;
   const scale = clampCoverPhotoScale(
     typeof value.scale === "number" && Number.isFinite(value.scale) ? value.scale : 1,
+    COVER_PHOTO_ABSOLUTE_MIN_SCALE,
+    COVER_PHOTO_MAX_SCALE,
   );
   const x = typeof value.x === "number" && Number.isFinite(value.x) ? value.x : 0;
   const y = typeof value.y === "number" && Number.isFinite(value.y) ? value.y : 0;

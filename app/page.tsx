@@ -224,7 +224,6 @@ import {
   insertReceptionTimelineItemChronologically,
   migrateFormalitiesIntoTimelineItems,
   normalizeEventRecordAfterFormalitiesMerge,
-  readImageFileAsDataUrl,
   mainTimelineItemFromPreset,
   ceremonyTimelineItemFromPreset,
   mapCeremonyTimelineItemsForDatabase,
@@ -338,6 +337,7 @@ import { EventHeroCover } from "@/components/event-hero-cover";
 import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-screen";
 import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
+import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow } from "@/lib/eventCoverPhoto";
 import {
@@ -6199,13 +6199,13 @@ export default function Home() {
       e.target.value = "";
       if (!file) return;
       try {
-        const dataUrl = await readImageFileAsDataUrl(file, 2_800_000);
+        const prepared = await prepareWelcomePhotoUploadFile(file);
         if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
-          setWelcomePhotoDraft({ dataUrl, file });
+          setWelcomePhotoDraft({ dataUrl: prepared.dataUrl, file: prepared.file });
           setWelcomePhotoEditorOpen(true);
           return;
         }
-        await commitEventCoverPhoto(file, dataUrl);
+        await commitEventCoverPhoto(prepared.file, prepared.dataUrl);
       } catch (err) {
         window.alert(err instanceof Error ? err.message : "Could not use that image.");
       }

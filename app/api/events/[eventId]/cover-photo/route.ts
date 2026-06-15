@@ -13,10 +13,14 @@ import { EventAccessError } from "@/lib/eventAccess/errors";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
 
+function jsonError(message: string, status: number): NextResponse {
+  return NextResponse.json({ error: message }, { status });
+}
+
 function accessErrorResponse(error: EventAccessError): NextResponse {
   const status =
     error.code === "UNAUTHENTICATED" ? 401 : error.code === "FORBIDDEN" ? 403 : 400;
-  return new NextResponse(error.message, { status });
+  return jsonError(error.message, status);
 }
 
 function parseTransformField(raw: FormDataEntryValue | null): CoverPhotoTransform | undefined {
@@ -39,11 +43,11 @@ export async function POST(
     const formData = await request.formData();
     const fileValue = formData.get("file");
     if (!(fileValue instanceof File)) {
-      return new NextResponse("Cover photo file is required.", { status: 400 });
+      return jsonError("Cover photo file is required.", 400);
     }
 
     if (fileValue.size <= 0 || fileValue.size > MAX_COVER_PHOTO_BYTES) {
-      return new NextResponse("Cover photo must be under 3 MB.", { status: 400 });
+      return jsonError("Cover photo must be under 3 MB.", 400);
     }
 
     const transform = parseTransformField(formData.get("transform"));
@@ -58,7 +62,7 @@ export async function POST(
     }
     console.error("[event-cover] POST failed", error);
     const message = error instanceof Error ? error.message : "Could not save cover photo.";
-    return new NextResponse(message, { status: 500 });
+    return jsonError(message, 500);
   }
 }
 
@@ -76,6 +80,6 @@ export async function DELETE(
     }
     console.error("[event-cover] DELETE failed", error);
     const message = error instanceof Error ? error.message : "Could not remove cover photo.";
-    return new NextResponse(message, { status: 500 });
+    return jsonError(message, 500);
   }
 }

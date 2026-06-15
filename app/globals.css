@@ -933,7 +933,6 @@ body.cm-ros-scroll-lock {
 .cm-welcome-photo-editor-image {
   pointer-events: none;
   user-select: none;
-  object-fit: cover;
 }
 
 .cm-welcome-photo-editor-loading {
