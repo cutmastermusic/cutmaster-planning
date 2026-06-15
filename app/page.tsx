@@ -8596,6 +8596,35 @@ export default function Home() {
     return "Timeline";
   }, [sectionReceptionTimelineEnabled]);
 
+  const coupleCeremonyGapTargetScreen = useMemo((): Screen => {
+    if (unifiedEventTimeline) return "Timeline";
+    return "Ceremony";
+  }, [unifiedEventTimeline]);
+
+  const navigateCoupleFinalPlanningHint = useCallback(
+    (screen: Screen) => {
+      let resolved = screen;
+      if (screen === "Ceremony" && unifiedEventTimeline) {
+        resolved = "Timeline";
+      } else if (screen === "Dashboard" && sectionPlanningQuestionsEnabled) {
+        resolved = "Planning Questions";
+      } else if (
+        screen === "Reception Timeline" &&
+        coupleTimelineEntryScreen &&
+        coupleTimelineEntryScreen !== "Reception Timeline"
+      ) {
+        resolved = coupleTimelineEntryScreen;
+      }
+      selectActiveScreen(resolved);
+    },
+    [
+      coupleTimelineEntryScreen,
+      sectionPlanningQuestionsEnabled,
+      selectActiveScreen,
+      unifiedEventTimeline,
+    ],
+  );
+
   const coupleGuidedNextScreen = useMemo((): Screen => {
     const answers = eventSettings.planningQuestionAnswers ?? {};
     const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
@@ -9333,6 +9362,9 @@ export default function Home() {
     if (sectionPlanningQuestionsEnabled) {
       extras.push("Planning Questions");
     }
+    if (sectionCeremonyEnabled) {
+      extras.push("Ceremony");
+    }
     return [...eventNavItems, ...extras];
   }, [
     appMode,
@@ -9342,6 +9374,7 @@ export default function Home() {
     sectionReceptionTimelineEnabled,
     sectionGuestRequestsEnabled,
     sectionPlanningQuestionsEnabled,
+    sectionCeremonyEnabled,
   ]);
 
   const switchPerspectiveRole = useCallback(
@@ -12667,7 +12700,8 @@ export default function Home() {
   const couplePlanningGapsForDashboard = useMemo(
     () =>
       buildCouplePlanningGaps({
-        timelineScreen: primaryTimelineScreenForHome,
+        timelineScreen: coupleTimelineEntryScreen ?? primaryTimelineScreenForHome,
+        ceremonyTargetScreen: coupleCeremonyGapTargetScreen,
         sectionCeremonyEnabled,
         sectionReceptionTimelineEnabled,
         sectionMustPlayEnabled,
@@ -12687,14 +12721,15 @@ export default function Home() {
         vendors,
         planningQuestions: planningQuestionsForEvent,
         planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
-        planningQuestionsTargetScreen: isCoupleWeddingPlanningView ? "Dashboard" : "Planning Questions",
+        planningQuestionsTargetScreen: "Planning Questions",
       }),
     [
       ceremonyStartTime,
       ceremonyTimelineItems.length,
+      coupleCeremonyGapTargetScreen,
+      coupleTimelineEntryScreen,
       eventSettings.planningQuestionAnswers,
       hasKeyCeremonySongs,
-      isCoupleWeddingPlanningView,
       mergedTimelineItems,
       musicGenreEraSelections.length,
       musicPlaylistLinks.length,
@@ -16255,7 +16290,7 @@ export default function Home() {
                 plannerName={eventSettings.plannerName?.trim() || null}
                 showEventPlanPreview={eventNavItems.includes("Event Prep")}
                 onOpenChapter={openCouplePlanningChapter}
-                onNavigate={selectActiveScreen}
+                onNavigate={navigateCoupleFinalPlanningHint}
                 onRequestCoverPhoto={openEventCoverPhotoPicker}
               />
             </section>

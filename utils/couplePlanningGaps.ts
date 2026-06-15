@@ -33,6 +33,8 @@ export type CouplePlanningGap = {
 export type CouplePlanningGapsInput = {
   /** Reception / main timeline editor target for the couple. */
   timelineScreen: Screen;
+  /** Ceremony editor target (Timeline when ceremony + reception are unified). */
+  ceremonyTargetScreen: Screen;
   sectionCeremonyEnabled: boolean;
   sectionReceptionTimelineEnabled: boolean;
   sectionMustPlayEnabled: boolean;
@@ -114,7 +116,7 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
         id: "gap-ceremony-start",
         area: "ceremony",
         message: "Add your ceremony start time when the venue confirms it.",
-        targetScreen: "Ceremony",
+        targetScreen: input.ceremonyTargetScreen,
         priority: 10,
       });
     }
@@ -123,7 +125,7 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
         id: "gap-ceremony-flow",
         area: "ceremony",
         message: "Add a few ceremony moments (processional through recessional) when you’re ready.",
-        targetScreen: "Ceremony",
+        targetScreen: input.ceremonyTargetScreen,
         priority: 12,
       });
     } else if (!input.hasKeyCeremonySongs) {
@@ -131,7 +133,7 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
         id: "gap-ceremony-songs",
         area: "ceremony",
         message: "Finish ceremony music cues (processional, partner entrance, recessional).",
-        targetScreen: "Ceremony",
+        targetScreen: input.ceremonyTargetScreen,
         priority: 15,
       });
     }
