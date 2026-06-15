@@ -9,14 +9,13 @@ import {
 } from "react";
 
 import {
+  buildCoverPhotoTransformFromContainFit,
   clampCoverPhotoScale,
   COUPLE_DASHBOARD_HERO_ASPECT_RATIO,
   computeEditorScaleLimits,
-  coverPhotoTransformToEditorImageStyle,
+  coverPhotoTransformToImageStyle,
   DEFAULT_COVER_PHOTO_TRANSFORM,
-  editorTransformToPersistedTransform,
-  persistedTransformToEditorTransform,
-  type ContainFitFramePercents,
+  migrateLegacyCoverTransform,
   type CoverPhotoScaleLimits,
 } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
@@ -51,17 +50,11 @@ export function WelcomePhotoEditor({
   const frameRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const initializedRef = useRef(false);
-  const [transform, setTransform] = useState<CoverPhotoTransform>(
-    initialTransform ?? DEFAULT_COVER_PHOTO_TRANSFORM,
-  );
+  const [transform, setTransform] = useState<CoverPhotoTransform>(DEFAULT_COVER_PHOTO_TRANSFORM);
   const [scaleLimits, setScaleLimits] = useState<CoverPhotoScaleLimits>({
     minScale: 1,
     maxScale: 6,
     initialScale: 1,
-  });
-  const [containFit, setContainFit] = useState<ContainFitFramePercents>({
-    widthPercent: 100,
-    heightPercent: 100,
   });
   const [ready, setReady] = useState(false);
   const dragRef = useRef<{
@@ -74,12 +67,17 @@ export function WelcomePhotoEditor({
   const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
 
   const applyScaleLimits = useCallback(
-    (limits: CoverPhotoScaleLimits, preferred?: CoverPhotoTransform) => {
+    (
+      limits: CoverPhotoScaleLimits & { containFit: { widthPercent: number; heightPercent: number } },
+      preferred?: CoverPhotoTransform,
+    ) => {
       setScaleLimits(limits);
       setTransform((prev) => {
         const source = preferred ?? prev;
         return {
           ...source,
+          baseWidthPercent: limits.containFit.widthPercent,
+          baseHeightPercent: limits.containFit.heightPercent,
           scale: clampCoverPhotoScale(source.scale, limits.minScale, limits.maxScale),
         };
       });
@@ -101,27 +99,36 @@ export function WelcomePhotoEditor({
       rect.width,
       rect.height,
     );
-    setContainFit(limits.containFit);
 
     if (!initializedRef.current) {
       if (initialTransform) {
-        const editorTransform = persistedTransformToEditorTransform(
+        const editorTransform = migrateLegacyCoverTransform(
           initialTransform,
           img.naturalWidth,
           img.naturalHeight,
           rect.width,
           rect.height,
         );
-        applyScaleLimits(limits, editorTransform);
-      } else {
         applyScaleLimits(limits, {
-          ...DEFAULT_COVER_PHOTO_TRANSFORM,
-          scale: limits.initialScale,
+          ...editorTransform,
+          baseWidthPercent: limits.containFit.widthPercent,
+          baseHeightPercent: limits.containFit.heightPercent,
         });
+      } else {
+        applyScaleLimits(
+          limits,
+          buildCoverPhotoTransformFromContainFit(limits.initialScale, 0, 0, limits.containFit),
+        );
       }
       initializedRef.current = true;
     } else {
-      applyScaleLimits(limits);
+      setScaleLimits(limits);
+      setTransform((prev) => ({
+        ...prev,
+        baseWidthPercent: limits.containFit.widthPercent,
+        baseHeightPercent: limits.containFit.heightPercent,
+        scale: clampCoverPhotoScale(prev.scale, limits.minScale, limits.maxScale),
+      }));
     }
 
     setReady(true);
@@ -153,6 +160,7 @@ export function WelcomePhotoEditor({
     let cancelled = false;
     initializedRef.current = false;
     setReady(false);
+    setTransform(DEFAULT_COVER_PHOTO_TRANSFORM);
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
@@ -271,19 +279,24 @@ export function WelcomePhotoEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onCancel]);
 
-  const imageStyle = coverPhotoTransformToEditorImageStyle(transform, containFit);
+  const imageStyle = coverPhotoTransformToImageStyle(transform);
 
   const handleSave = useCallback(() => {
     const frame = frameRef.current;
     const img = imageRef.current;
     if (!frame || !img || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
     const rect = frame.getBoundingClientRect();
-    const persisted = editorTransformToPersistedTransform(
-      transform,
+    const limits = computeEditorScaleLimits(
       img.naturalWidth,
       img.naturalHeight,
       rect.width,
       rect.height,
+    );
+    const persisted = buildCoverPhotoTransformFromContainFit(
+      transform.scale,
+      transform.x,
+      transform.y,
+      limits.containFit,
     );
     void onSave(persisted);
   }, [onSave, transform]);

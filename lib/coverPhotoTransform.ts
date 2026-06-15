@@ -18,9 +18,8 @@ export const DEFAULT_COVER_PHOTO_TRANSFORM: CoverPhotoTransform = {
 
 export const COVER_PHOTO_ABSOLUTE_MIN_SCALE = 0.25;
 export const COVER_PHOTO_MIN_SCALE = 1;
-/** Max persisted/dashboard zoom (must fit tight crops saved from the editor). */
+/** Max zoom for contain-baseline framing (editor + persisted). */
 export const COVER_PHOTO_MAX_SCALE = 6;
-/** Editor pinch/slider ceiling: at least 6× from contain-fit so users can crop close-ups. */
 export const COVER_PHOTO_EDITOR_MAX_SCALE = 6;
 
 export function clampCoverPhotoScale(
@@ -60,7 +59,7 @@ export function computeContainFitFramePercents(
   };
 }
 
-/** Multiplier to convert editor scale (contain baseline) to persisted/dashboard scale (cover baseline). */
+/** Scale multiplier from contain-fit (full image) to cover-fit inside the same frame. */
 export function computeContainToCoverScaleMultiplier(
   imageWidth: number,
   imageHeight: number,
@@ -72,8 +71,8 @@ export function computeContainToCoverScaleMultiplier(
 }
 
 /**
- * Editor uses contain baseline: scale 1 = full image visible.
- * Dashboard uses cover baseline: scale 1 = cover fit.
+ * Canonical transform uses contain-fit baseline:
+ * scale 1 = full image visible, scale > 1 = zoom in, uniform sizing via base*scale %.
  */
 export function computeEditorScaleLimits(
   imageWidth: number,
@@ -101,7 +100,76 @@ export function computeEditorScaleLimits(
   };
 }
 
-/** @deprecated Dashboard-only; editor uses computeEditorScaleLimits. */
+/** True when baseWidth/baseHeight store contain-fit metadata from the unified model. */
+export function isContainBaselineTransform(transform: CoverPhotoTransform): boolean {
+  const width = transform.baseWidthPercent;
+  const height = transform.baseHeightPercent;
+  if (Math.abs(width - 100) < 0.01 && Math.abs(height - 100) < 0.01) {
+    return false;
+  }
+  if (width > 100.5 || height > 100.5) {
+    return false;
+  }
+  return Math.abs(Math.max(width, height) - 100) < 0.5;
+}
+
+/**
+ * Converts legacy cover-baseline transforms (scale relative to cover-fit sizing)
+ * into the canonical contain-baseline model used by editor and dashboard.
+ */
+export function migrateLegacyCoverTransform(
+  transform: CoverPhotoTransform,
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoTransform {
+  if (isContainBaselineTransform(transform)) {
+    return {
+      ...transform,
+      scale: clampCoverPhotoScale(transform.scale, COVER_PHOTO_MIN_SCALE, COVER_PHOTO_EDITOR_MAX_SCALE),
+    };
+  }
+
+  const containFit = computeContainFitFramePercents(imageWidth, imageHeight, frameWidth, frameHeight);
+  const coverZoom = computeContainToCoverScaleMultiplier(imageWidth, imageHeight, frameWidth, frameHeight);
+
+  return {
+    scale: clampCoverPhotoScale(transform.scale * coverZoom, COVER_PHOTO_MIN_SCALE, COVER_PHOTO_EDITOR_MAX_SCALE),
+    x: transform.x,
+    y: transform.y,
+    baseWidthPercent: containFit.widthPercent,
+    baseHeightPercent: containFit.heightPercent,
+  };
+}
+
+export function resolveCoverPhotoTransformForDisplay(
+  transform: CoverPhotoTransform | null | undefined,
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CoverPhotoTransform {
+  const normalized = normalizeCoverPhotoTransform(transform) ?? DEFAULT_COVER_PHOTO_TRANSFORM;
+  return migrateLegacyCoverTransform(normalized, imageWidth, imageHeight, frameWidth, frameHeight);
+}
+
+export function buildCoverPhotoTransformFromContainFit(
+  scale: number,
+  x: number,
+  y: number,
+  containFit: ContainFitFramePercents,
+): CoverPhotoTransform {
+  return {
+    scale: clampCoverPhotoScale(scale, COVER_PHOTO_MIN_SCALE, COVER_PHOTO_EDITOR_MAX_SCALE),
+    x,
+    y,
+    baseWidthPercent: containFit.widthPercent,
+    baseHeightPercent: containFit.heightPercent,
+  };
+}
+
+/** @deprecated Dashboard-only legacy helper. */
 export function computeCoverPhotoScaleLimits(
   imageWidth: number,
   imageHeight: number,
@@ -116,69 +184,44 @@ export function computeCoverPhotoScaleLimits(
   };
 }
 
-export function editorTransformToPersistedTransform(
+/**
+ * Canonical renderer for editor preview and dashboard hero.
+ * Frame fixed; image aspect preserved via uniform baseWidth/baseHeight × scale.
+ */
+export function coverPhotoTransformToImageStyle(
   transform: CoverPhotoTransform,
-  imageWidth: number,
-  imageHeight: number,
-  frameWidth: number,
-  frameHeight: number,
-): CoverPhotoTransform {
-  const multiplier = computeContainToCoverScaleMultiplier(
-    imageWidth,
-    imageHeight,
-    frameWidth,
-    frameHeight,
-  );
-  if (multiplier <= 0) return transform;
-  return {
-    ...transform,
-    scale: clampCoverPhotoScale(transform.scale / multiplier),
-  };
-}
-
-export function persistedTransformToEditorTransform(
-  transform: CoverPhotoTransform,
-  imageWidth: number,
-  imageHeight: number,
-  frameWidth: number,
-  frameHeight: number,
-): CoverPhotoTransform {
-  const multiplier = computeContainToCoverScaleMultiplier(
-    imageWidth,
-    imageHeight,
-    frameWidth,
-    frameHeight,
-  );
-  return {
-    ...transform,
-    scale: clampCoverPhotoScale(
-      transform.scale * multiplier,
-      1,
-      COVER_PHOTO_EDITOR_MAX_SCALE,
-    ),
-  };
-}
-
-export function coverPhotoTransformToEditorImageStyle(
-  transform: CoverPhotoTransform,
-  containFit: ContainFitFramePercents,
 ): CSSProperties {
-  const { scale, x, y } = transform;
+  const { scale, x, y, baseWidthPercent, baseHeightPercent } = transform;
   return {
     position: "absolute",
     left: `calc(50% + ${x}%)`,
     top: `calc(50% + ${y}%)`,
-    width: `${containFit.widthPercent * scale}%`,
-    height: `${containFit.heightPercent * scale}%`,
+    width: `${baseWidthPercent * scale}%`,
+    height: `${baseHeightPercent * scale}%`,
     maxWidth: "none",
     transform: "translate(-50%, -50%)",
     transformOrigin: "center center",
   };
 }
 
+/** @deprecated Use coverPhotoTransformToImageStyle — same canonical model. */
+export function coverPhotoTransformToEditorImageStyle(
+  transform: CoverPhotoTransform,
+  containFit?: ContainFitFramePercents,
+): CSSProperties {
+  const fit = containFit ?? {
+    widthPercent: transform.baseWidthPercent,
+    heightPercent: transform.baseHeightPercent,
+  };
+  return coverPhotoTransformToImageStyle({
+    ...transform,
+    baseWidthPercent: fit.widthPercent,
+    baseHeightPercent: fit.heightPercent,
+  });
+}
+
 /**
- * Legacy cover-fit metadata kept for persisted transforms.
- * Rendering no longer uses independent width/height percentages (they caused distortion).
+ * Legacy cover-fit metadata kept for backward compatibility reads only.
  */
 export function computeCoverFitPercents(
   imageWidth: number,
@@ -212,13 +255,8 @@ export function computeInitialCoverPhotoTransform(
   frameWidth: number,
   frameHeight: number,
 ): CoverPhotoTransform {
-  const fit = computeCoverFitPercents(imageWidth, imageHeight, frameWidth, frameHeight);
-  return {
-    scale: 1,
-    x: 0,
-    y: 0,
-    ...fit,
-  };
+  const containFit = computeContainFitFramePercents(imageWidth, imageHeight, frameWidth, frameHeight);
+  return buildCoverPhotoTransformFromContainFit(1, 0, 0, containFit);
 }
 
 export function normalizeCoverPhotoTransform(
@@ -244,27 +282,18 @@ export function normalizeCoverPhotoTransform(
   return { scale, x, y, baseWidthPercent, baseHeightPercent };
 }
 
-/**
- * Positions the image inside a fixed frame without distorting aspect ratio.
- *
- * Cover fit: min-width/min-height 100% with auto dimensions preserves natural aspect.
- * Zoom: uniform scale() only (never independent width/height).
- * Pan: x/y are % of frame width/height, applied via left/top on the frame container.
- */
-export function coverPhotoTransformToImageStyle(
-  transform: CoverPhotoTransform,
-): CSSProperties {
-  const { scale, x, y } = transform;
-  return {
-    position: "absolute",
-    left: `calc(50% + ${x}%)`,
-    top: `calc(50% + ${y}%)`,
-    minWidth: "100%",
-    minHeight: "100%",
-    width: "auto",
-    height: "auto",
-    maxWidth: "none",
-    transform: `translate(-50%, -50%) scale(${scale})`,
-    transformOrigin: "center center",
-  };
+/** Verifies two transforms render the same crop in the canonical model. */
+export function coverPhotoTransformsRenderEquivalently(
+  left: CoverPhotoTransform,
+  right: CoverPhotoTransform,
+  tolerance = 0.01,
+): boolean {
+  const fields: (keyof CoverPhotoTransform)[] = [
+    "scale",
+    "x",
+    "y",
+    "baseWidthPercent",
+    "baseHeightPercent",
+  ];
+  return fields.every((field) => Math.abs(left[field] - right[field]) <= tolerance);
 }

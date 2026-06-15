@@ -1,13 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { hasCustomEventCover } from "@/lib/eventCover";
 import {
   coverPhotoTransformToImageStyle,
   normalizeCoverPhotoTransform,
+  resolveCoverPhotoTransformForDisplay,
 } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
 import type {
@@ -342,13 +343,44 @@ function CoupleHeroPhoto({
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const { onPointerDown, onClick } = useCoupleMobileActionHandlers(openPicker);
   const normalizedTransform = normalizeCoverPhotoTransform(coverPhotoTransform);
-  const imageStyle = normalizedTransform
-    ? coverPhotoTransformToImageStyle(normalizedTransform)
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [displayTransform, setDisplayTransform] = useState<CoverPhotoTransform | undefined>(
+    normalizedTransform,
+  );
+  const imageStyle = displayTransform
+    ? coverPhotoTransformToImageStyle(displayTransform)
     : undefined;
 
   const [decodedUrl, setDecodedUrl] = useState<string | undefined>(undefined);
   const [photoVisible, setPhotoVisible] = useState(false);
   const priorUrlRef = useRef<string | undefined>(undefined);
+  const imageMetricsRef = useRef<{ width: number; height: number } | null>(null);
+
+  const resolveDisplayTransform = useCallback(
+    (imageWidth: number, imageHeight: number) => {
+      const stage = stageRef.current;
+      if (!stage || imageWidth <= 0 || imageHeight <= 0) return;
+      const rect = stage.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return;
+      setDisplayTransform(
+        resolveCoverPhotoTransformForDisplay(
+          normalizedTransform,
+          imageWidth,
+          imageHeight,
+          rect.width,
+          rect.height,
+        ),
+      );
+    },
+    [normalizedTransform],
+  );
+
+  useEffect(() => {
+    setDisplayTransform(normalizedTransform);
+    if (imageMetricsRef.current) {
+      resolveDisplayTransform(imageMetricsRef.current.width, imageMetricsRef.current.height);
+    }
+  }, [normalizedTransform, resolveDisplayTransform]);
 
   const awaitingPhoto =
     coverPhotoHydrationReady && hasCustomEventCover(coverPhotoDataUrl);
@@ -361,6 +393,7 @@ function CoupleHeroPhoto({
     const nextUrl = coverPhotoDataUrl?.trim();
     if (!nextUrl) {
       priorUrlRef.current = undefined;
+      imageMetricsRef.current = null;
       const frame = requestAnimationFrame(() => {
         setDecodedUrl(undefined);
         setPhotoVisible(false);
@@ -370,11 +403,17 @@ function CoupleHeroPhoto({
 
     if (priorUrlRef.current === nextUrl) return;
 
+    imageMetricsRef.current = null;
     let cancelled = false;
     const shouldAnimate = Boolean(priorUrlRef.current);
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
+      imageMetricsRef.current = {
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      };
+      resolveDisplayTransform(img.naturalWidth, img.naturalHeight);
       priorUrlRef.current = nextUrl;
       if (shouldAnimate) {
         setPhotoVisible(false);
@@ -398,7 +437,7 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [coverPhotoHydrationReady, coverPhotoDataUrl]);
+  }, [coverPhotoHydrationReady, coverPhotoDataUrl, resolveDisplayTransform]);
 
   if (showSkeleton) {
     return (
@@ -421,7 +460,7 @@ function CoupleHeroPhoto({
         onClick={onClick}
         aria-label="Change your cover photo"
       >
-        <div className="cm-dashboard-v3-hero-photo-stage">
+        <div ref={stageRef} className="cm-dashboard-v3-hero-photo-stage">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={decodedUrl}

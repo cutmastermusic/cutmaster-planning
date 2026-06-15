@@ -339,7 +339,7 @@ import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
-import { coverPhotoFieldsFromDbRow } from "@/lib/eventCoverPhoto";
+import { coverPhotoFieldsFromDbRow, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
 import {
   deleteEventCoverPhotoRemote,
   uploadEventCoverPhoto,
@@ -6131,7 +6131,11 @@ export default function Home() {
       const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
       if (isDbBacked && isSupabaseConfigured()) {
         const saved = await uploadEventCoverPhoto(activeEventId, file, transform);
-        applyEventCoverPhotoState(saved.publicUrl, saved.transform, saved.storagePath);
+        applyEventCoverPhotoState(
+          withCoverPhotoCacheBust(saved.publicUrl),
+          saved.transform,
+          saved.storagePath,
+        );
         clearEventCoverPhotoFromLocalStorage(activeEventId);
         return;
       }
@@ -6201,7 +6205,11 @@ export default function Home() {
       try {
         const prepared = await prepareWelcomePhotoUploadFile(file);
         if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
-          setWelcomePhotoDraft({ dataUrl: prepared.dataUrl, file: prepared.file });
+          setWelcomePhotoDraft({
+            dataUrl: prepared.dataUrl,
+            file: prepared.file,
+            transform: undefined,
+          });
           setWelcomePhotoEditorOpen(true);
           return;
         }
@@ -24272,6 +24280,7 @@ export default function Home() {
 
       {welcomePhotoEditorOpen && welcomePhotoDraft ? (
         <WelcomePhotoEditor
+          key={welcomePhotoDraft.dataUrl}
           imageSrc={welcomePhotoDraft.dataUrl}
           initialTransform={welcomePhotoDraft.transform}
           saving={welcomePhotoSaving}

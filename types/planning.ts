@@ -472,9 +472,9 @@ export type CoverPhotoTransform = {
   x: number;
   /** Vertical offset as % of hero frame height. */
   y: number;
-  /** Image width at scale 1, as % of frame width (cover-fit baseline). */
+  /** Image width at scale 1, as % of frame width (contain-fit baseline). */
   baseWidthPercent: number;
-  /** Image height at scale 1, as % of frame height (cover-fit baseline). */
+  /** Image height at scale 1, as % of frame height (contain-fit baseline). */
   baseHeightPercent: number;
 };
 

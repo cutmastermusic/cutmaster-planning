@@ -29,11 +29,18 @@ export function coverPhotoExtensionForMimeType(mimeType: string): string {
 
 export function buildEventCoverPhotoStoragePath(eventId: string, mimeType: string): string {
   const extension = coverPhotoExtensionForMimeType(mimeType);
-  return `${eventId}/welcome.${extension}`;
+  return `${eventId}/welcome-${Date.now()}.${extension}`;
 }
 
 export function isPersistedCoverPhotoUrl(value?: string): boolean {
   return Boolean(value?.trim().startsWith("http://") || value?.trim().startsWith("https://"));
+}
+
+export function withCoverPhotoCacheBust(publicUrl: string): string {
+  const trimmed = publicUrl.trim();
+  if (!trimmed) return trimmed;
+  const token = Date.now();
+  return `${trimmed}${trimmed.includes("?") ? "&" : "?"}v=${token}`;
 }
 
 export function getEventCoverPhotoPublicUrl(
