@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
-import { hasCustomEventCover } from "@/lib/eventCover";
+import {
+  resolveCoupleWelcomePhotoDisplay,
+} from "@/lib/eventCover";
 import {
   coverPhotoTransformToImageStyle,
   normalizeCoverPhotoTransform,
@@ -15,9 +17,10 @@ import type {
   CoupleFinalPlanningHint,
   CoupleFinalPlanningQuickLink,
 } from "@/lib/coupleFinalPlanningPrep";
-import type {
-  CoupleWeddingChapterCardModel,
-  CoupleWeddingChapterId,
+import {
+  resolveCoupleHeroTagline,
+  type CoupleWeddingChapterCardModel,
+  type CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
 import type { CoupleGuidedQuestionResumeMode } from "@/lib/coupleGuidedQuestionResume";
 import type { Screen } from "@/types/planning";
@@ -269,6 +272,8 @@ type CoupleDashboardV2Props = {
   coverPhotoTransform?: CoverPhotoTransform;
   /** False while event cover photo state is still hydrating from storage/DB. */
   coverPhotoHydrationReady?: boolean;
+  /** Admin global default welcome photo (data URL) when the event has no upload. */
+  defaultWelcomePhotoDataUrl?: string;
 
   isCoupleWeddingPlanningView: boolean;
   sectionPlanningQuestionsEnabled: boolean;
@@ -339,20 +344,43 @@ function ClockIcon() {
   );
 }
 
+function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory" }) {
+  return (
+    <div
+      className={`cm-dashboard-v3-hero-photo-overlay ${
+        variant === "ivory" ? "cm-dashboard-v3-hero-photo-overlay--ivory" : ""
+      }`}
+    >
+      <h3 className="cm-dashboard-v3-hero-photo-overlay-headline">Make it yours</h3>
+      <p className="cm-dashboard-v3-hero-photo-overlay-body">
+        Add a favorite photo to personalize your planning experience.
+      </p>
+      <span className="cm-dashboard-v3-hero-empty-cta">Choose Photo</span>
+    </div>
+  );
+}
+
 function CoupleHeroPhoto({
   coverPhotoDataUrl,
   coverPhotoStoragePath,
   coverPhotoTransform,
   coverPhotoHydrationReady = true,
+  defaultWelcomePhotoDataUrl,
   onRequestCoverPhoto,
 }: {
   coverPhotoDataUrl?: string;
   coverPhotoStoragePath?: string;
   coverPhotoTransform?: CoverPhotoTransform;
   coverPhotoHydrationReady?: boolean;
+  defaultWelcomePhotoDataUrl?: string;
   onRequestCoverPhoto?: () => void;
 }) {
-  const hasPhoto = hasCustomEventCover(coverPhotoDataUrl);
+  const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
+    coverPhotoDataUrl,
+    coverPhotoStoragePath,
+    defaultWelcomePhotoDataUrl,
+  });
+  const { displayUrl, isEventSpecific, showPersonalizeOverlay } = welcomePhoto;
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
   const normalizedTransform = normalizeCoverPhotoTransform(coverPhotoTransform);
@@ -402,16 +430,15 @@ function CoupleHeroPhoto({
     }
   }, [normalizedTransform, resolveDisplayTransformForMetrics]);
 
-  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${coverPhotoDataUrl?.trim() ?? ""}`;
+  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`;
 
-  const awaitingPhoto =
-    coverPhotoHydrationReady && hasCustomEventCover(coverPhotoDataUrl);
+  const awaitingEventPhoto = coverPhotoHydrationReady && isEventSpecific && Boolean(displayUrl);
   const showSkeleton =
     !coverPhotoHydrationReady ||
-    (awaitingPhoto && displayedIdentityRef.current !== photoIdentity);
+    (awaitingEventPhoto && displayedIdentityRef.current !== photoIdentity);
 
   useEffect(() => {
-    const nextUrl = coverPhotoDataUrl?.trim();
+    const nextUrl = displayUrl?.trim();
     if (!nextUrl) {
       displayedIdentityRef.current = undefined;
       imageMetricsRef.current = null;
@@ -461,21 +488,21 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [coverPhotoDataUrl, coverPhotoStoragePath, photoIdentity, resolveDisplayTransformForMetrics]);
+  }, [displayUrl, coverPhotoStoragePath, photoIdentity, resolveDisplayTransformForMetrics]);
 
   if (showSkeleton) {
     return (
       <div
         className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--loading"
         aria-busy="true"
-        aria-label={hasPhoto ? "Loading welcome photo" : "Checking welcome photo"}
+        aria-label={isEventSpecific ? "Loading welcome photo" : "Checking welcome photo"}
       >
         <div className="cm-dashboard-v3-hero-photo-skeleton" />
       </div>
     );
   }
 
-  if (hasPhoto && decodedUrl) {
+  if (isEventSpecific && displayUrl && decodedUrl) {
     return (
       <button
         type="button"
@@ -498,19 +525,48 @@ function CoupleHeroPhoto({
     );
   }
 
-  return (
-    <div className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--empty">
+  if (showPersonalizeOverlay && displayUrl) {
+    const photoSrc = decodedUrl ?? displayUrl;
+    const photoReady = decodedUrl ? photoVisible : true;
+
+    return (
       <button
         type="button"
-        className="cm-dashboard-v3-hero-add-photo"
+        className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--default"
         {...mobileActionHandlers}
         disabled={!onRequestCoverPhoto}
+        aria-label="Choose your welcome photo"
       >
-        <span className="cm-dashboard-v3-hero-add-photo-label">Add a favorite photo</span>
-        <span className="cm-dashboard-v3-hero-add-photo-hint">A moment you love—engagement, venue, or the two of you.</span>
+        <div className="cm-dashboard-v3-hero-photo-stage">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoSrc}
+            alt=""
+            className={`cm-dashboard-v3-hero-photo-img cm-blanc-hero-photo-treatment ${
+              photoReady ? "cm-dashboard-v3-hero-photo-img--visible" : ""
+            }`}
+          />
+        </div>
+        <WelcomePhotoPersonalizeOverlay variant="photo" />
       </button>
-    </div>
-  );
+    );
+  }
+
+  if (showPersonalizeOverlay) {
+    return (
+      <button
+        type="button"
+        className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--placeholder"
+        {...mobileActionHandlers}
+        disabled={!onRequestCoverPhoto}
+        aria-label="Choose your welcome photo"
+      >
+        <WelcomePhotoPersonalizeOverlay variant="ivory" />
+      </button>
+    );
+  }
+
+  return null;
 }
 
 function HeroWithToday(props: CoupleDashboardV2Props) {
@@ -521,11 +577,23 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
     props.isWeddingLayout,
   );
   const greetingName = props.coupleDisplayName || "Your celebration";
-  const hasPhoto =
-    props.coverPhotoHydrationReady && hasCustomEventCover(props.coverPhotoDataUrl);
+  const heroTagline = resolveCoupleHeroTagline({
+    isCoupleWeddingPlanningView: props.isCoupleWeddingPlanningView,
+    sectionPlanningQuestionsEnabled: props.sectionPlanningQuestionsEnabled,
+    coupleWeddingStoryChapterStarted: props.coupleWeddingStoryChapterStarted,
+    isCoupleWeddingJourneyComplete: props.isCoupleWeddingJourneyComplete,
+    coupleWeddingChapterCards: props.coupleWeddingChapterCards,
+  });
+  const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
+    coverPhotoDataUrl: props.coverPhotoDataUrl,
+    coverPhotoStoragePath: props.coverPhotoStoragePath,
+    defaultWelcomePhotoDataUrl: props.defaultWelcomePhotoDataUrl,
+  });
+  const hasDisplayPhoto =
+    props.coverPhotoHydrationReady && Boolean(welcomePhoto.displayUrl);
   const heroPhotoZoneClass = !props.coverPhotoHydrationReady
     ? "cm-dashboard-v3-hero-zone--loading-photo"
-    : hasPhoto
+    : hasDisplayPhoto
       ? "cm-dashboard-v3-hero-zone--has-photo"
       : "cm-dashboard-v3-hero-zone--empty-photo";
 
@@ -539,9 +607,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
             {getTimeOfDayGreeting()}, {greetingName}
           </h1>
           {meta ? <p className="cm-dashboard-v3-hero-meta">{meta}</p> : null}
-          <p className="cm-dashboard-v3-hero-tagline">
-            Everything is coming together beautifully.
-          </p>
+          <p className="cm-dashboard-v3-hero-tagline">{heroTagline}</p>
           <div className="cm-dashboard-v3-today-desktop">
             <TodayCardEmbed content={today} />
           </div>
@@ -552,6 +618,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
             coverPhotoStoragePath={props.coverPhotoStoragePath}
             coverPhotoTransform={props.coverPhotoTransform}
             coverPhotoHydrationReady={props.coverPhotoHydrationReady}
+            defaultWelcomePhotoDataUrl={props.defaultWelcomePhotoDataUrl}
             onRequestCoverPhoto={props.onRequestCoverPhoto}
           />
         </div>

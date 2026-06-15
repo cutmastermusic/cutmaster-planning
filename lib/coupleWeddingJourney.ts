@@ -268,6 +268,52 @@ export function hasAnyCoupleWeddingStoryChapterStarted(
     .some((card) => card.status !== "Not Started");
 }
 
+/** Story-chapter average for couple dashboard hero copy (excludes Your Team / Final Review). */
+export function computeCoupleWeddingStoryHeroProgressPctFromCards(
+  cards: CoupleWeddingChapterCardModel[],
+): number {
+  const storyCards = cards.filter((card) =>
+    COUPLE_WEDDING_STORY_CHAPTER_IDS.includes(card.id),
+  );
+  if (storyCards.length === 0) return 0;
+  return Math.round(
+    storyCards.reduce((acc, card) => acc + card.completionPct, 0) / storyCards.length,
+  );
+}
+
+export function resolveCoupleHeroTagline(input: {
+  isCoupleWeddingPlanningView: boolean;
+  sectionPlanningQuestionsEnabled: boolean;
+  coupleWeddingStoryChapterStarted: boolean;
+  isCoupleWeddingJourneyComplete: boolean;
+  coupleWeddingChapterCards: CoupleWeddingChapterCardModel[];
+}): string {
+  const brandNewCopy = "Welcome — let's start shaping your celebration.";
+
+  if (!input.isCoupleWeddingPlanningView || !input.sectionPlanningQuestionsEnabled) {
+    return brandNewCopy;
+  }
+
+  if (input.isCoupleWeddingJourneyComplete) {
+    return "You're almost ready for an unforgettable celebration.";
+  }
+
+  const progressPct = computeCoupleWeddingStoryHeroProgressPctFromCards(
+    input.coupleWeddingChapterCards,
+  );
+
+  if (!input.coupleWeddingStoryChapterStarted || progressPct < 8) {
+    return brandNewCopy;
+  }
+  if (progressPct < 35) {
+    return "You're off to a great start. Let's keep the momentum going.";
+  }
+  if (progressPct < 72) {
+    return "Everything is coming together beautifully.";
+  }
+  return "You're almost ready for an unforgettable celebration.";
+}
+
 export function coupleWeddingChapterDashboardCtaLabel(
   chapterId: CoupleWeddingChapterId,
   status: CoupleWeddingChapterStatus,

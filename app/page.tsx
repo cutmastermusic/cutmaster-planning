@@ -1574,6 +1574,7 @@ const GLOBAL_SETTINGS_SECTIONS = [
   "Timeline Presets",
   "Event Document",
   "Team Management",
+  "Default Welcome Photo",
   "Branding / App",
 ] as const;
 
@@ -3095,6 +3096,7 @@ export default function Home() {
   const prevMainNavScrollRef = useRef<{ screen: Screen; mode: AppMode; auth: AuthStage } | null>(null);
   const prevPlanningChapterRef = useRef<CoupleWeddingChapterId | null | undefined>(undefined);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
+  const defaultWelcomePhotoInputRef = useRef<HTMLInputElement>(null);
   const [welcomePhotoEditorOpen, setWelcomePhotoEditorOpen] = useState(false);
   const [welcomePhotoPreparing, setWelcomePhotoPreparing] = useState(false);
   const [welcomePhotoSessionKey, setWelcomePhotoSessionKey] = useState(0);
@@ -6287,6 +6289,36 @@ export default function Home() {
   const openEventCoverPhotoPicker = useCallback(() => {
     eventCoverPhotoInputRef.current?.click();
   }, []);
+
+  const openDefaultWelcomePhotoPicker = useCallback(() => {
+    defaultWelcomePhotoInputRef.current?.click();
+  }, []);
+
+  const handleDefaultWelcomePhotoChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !canManageEvents) return;
+      try {
+        const prepared = await prepareWelcomePhotoUploadFile(file);
+        setAppSettings((prev) => ({
+          ...prev,
+          defaultWelcomePhotoDataUrl: prepared.dataUrl,
+        }));
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Could not upload default welcome photo.");
+      }
+    },
+    [canManageEvents],
+  );
+
+  const clearDefaultWelcomePhoto = useCallback(() => {
+    if (!canManageEvents) return;
+    setAppSettings((prev) => ({
+      ...prev,
+      defaultWelcomePhotoDataUrl: "",
+    }));
+  }, [canManageEvents]);
 
   const applyEventStatus = useCallback(
     async (status: EventStatus) => {
@@ -15801,6 +15833,60 @@ export default function Home() {
                     </div>
                   )}
 
+                  {activeGlobalSettingsSection === "Default Welcome Photo" && (
+                    <div className="mt-4 space-y-3">
+                      <SectionTitle className="text-stone-950">Default Welcome Photo</SectionTitle>
+                      <p className="text-xs leading-relaxed text-stone-600">
+                        This image appears on new Couple Portal dashboards until the couple uploads their own welcome photo.
+                      </p>
+                      <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                        <div className="relative aspect-[46/55] max-h-[320px] w-full overflow-hidden bg-[#f3efe8]">
+                          {appSettings.defaultWelcomePhotoDataUrl?.trim() ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={appSettings.defaultWelcomePhotoDataUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center px-6 text-center">
+                              <p className="text-xs leading-relaxed text-stone-500">
+                                No default welcome photo yet. Upload an image couples will see until they personalize their dashboard.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <PrimaryButton
+                          type="button"
+                          onClick={openDefaultWelcomePhotoPicker}
+                          disabled={!canManageEvents}
+                          className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                        >
+                          Upload Image
+                        </PrimaryButton>
+                        {appSettings.defaultWelcomePhotoDataUrl?.trim() ? (
+                          <PrimaryButton
+                            type="button"
+                            onClick={clearDefaultWelcomePhoto}
+                            disabled={!canManageEvents}
+                            className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:opacity-50"
+                          >
+                            Remove Image
+                          </PrimaryButton>
+                        ) : null}
+                        <input
+                          ref={defaultWelcomePhotoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleDefaultWelcomePhotoChange}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {activeGlobalSettingsSection === "Branding / App" && (
                     <div className="mt-4 space-y-3">
                       <SectionTitle className="text-stone-950">Branding / App Settings</SectionTitle>
@@ -16506,6 +16592,7 @@ export default function Home() {
                 coverPhotoStoragePath={eventSettings.coverPhotoStoragePath}
                 coverPhotoTransform={eventSettings.coverPhotoTransform}
                 coverPhotoHydrationReady={coverPhotoHydrationReady}
+                defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
                 isCoupleWeddingPlanningView={isCoupleWeddingPlanningView}
                 sectionPlanningQuestionsEnabled={sectionPlanningQuestionsEnabled}
                 isCoupleWeddingJourneyComplete={isCoupleWeddingJourneyComplete}
