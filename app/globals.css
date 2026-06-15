@@ -182,6 +182,184 @@ body.cm-ros-scroll-lock {
   background: rgba(255, 255, 255, 0.5) !important;
 }
 
+/* Couple Portal — premium account menu */
+@keyframes cm-couple-account-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes cm-couple-account-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cm-couple-portal-account-anchor {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  right: calc(env(safe-area-inset-right, 0px) + 1.25rem);
+  z-index: 45;
+}
+
+@media (min-width: 1400px) {
+  .cm-couple-portal-account-anchor {
+    right: calc((100vw - 87.5rem) / 2 + 1.25rem);
+  }
+}
+
+.cm-couple-portal-account-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(168, 162, 158, 0.45);
+  background: #fcfbf8;
+  color: #2f4a3e;
+  box-shadow: 0 1px 3px rgba(28, 25, 23, 0.06);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.cm-couple-portal-account-trigger:hover {
+  background: #ffffff;
+  border-color: rgba(120, 113, 108, 0.4);
+  box-shadow: 0 2px 6px rgba(28, 25, 23, 0.08);
+}
+
+.cm-couple-portal-account-trigger:focus-visible {
+  outline: 2px solid rgba(47, 74, 62, 0.35);
+  outline-offset: 2px;
+}
+
+.cm-couple-portal-account-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.cm-couple-account-menu-panel {
+  animation: cm-couple-account-menu-in 180ms ease-out both;
+}
+
+.cm-couple-account-menu-panel--dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  width: 15.5rem;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(168, 162, 158, 0.35);
+  background: #fcfbf8;
+  box-shadow: 0 8px 28px -8px rgba(28, 25, 23, 0.14);
+}
+
+.cm-couple-account-menu-panel--sheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 61;
+  border-radius: 1.125rem 1.125rem 0 0;
+  border: 1px solid rgba(168, 162, 158, 0.3);
+  border-bottom: none;
+  background: #fcfbf8;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  box-shadow: 0 -8px 32px -12px rgba(28, 25, 23, 0.16);
+  animation: cm-couple-account-sheet-in 200ms ease-out both;
+}
+
+.cm-couple-account-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: none;
+  background: rgba(28, 25, 23, 0.18);
+  animation: cm-couple-account-menu-in 180ms ease-out both;
+}
+
+.cm-couple-account-menu-header {
+  padding: 1rem 1.125rem 0.875rem;
+}
+
+.cm-couple-account-menu-names {
+  font-family: var(--font-editorial), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: #292524;
+}
+
+.cm-couple-account-menu-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a8a29e;
+}
+
+.cm-couple-account-menu-divider {
+  margin-inline: 1.125rem;
+  height: 1px;
+  background: rgba(168, 162, 158, 0.35);
+}
+
+.cm-couple-account-menu-sign-out {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 0.875rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #44403c;
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.cm-couple-account-menu-sign-out:hover:not(:disabled) {
+  background: rgba(47, 74, 62, 0.05);
+  color: #2f4a3e;
+}
+
+.cm-couple-account-menu-sign-out:focus-visible {
+  outline: 2px solid rgba(47, 74, 62, 0.35);
+  outline-offset: -2px;
+}
+
+.cm-couple-account-menu-sign-out:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-couple-account-menu-panel,
+  .cm-couple-account-menu-backdrop {
+    animation: none;
+  }
+
+  .cm-couple-portal-account-trigger {
+    transition: none;
+  }
+}
+
 /* Couple editorial app header — no logo card */
 .cm-app-header--couple-editorial {
   border: none !important;

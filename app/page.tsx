@@ -141,6 +141,7 @@ import {
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
 import { AccountMenu } from "@/components/auth/account-menu";
+import { CouplePortalAccountMenu } from "@/components/couple-portal-account-menu";
 import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
 import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
 import { NoEventAccessState } from "@/components/auth/no-event-access-state";
@@ -6773,7 +6774,6 @@ export default function Home() {
   const showStaffWorkspaceChrome = !isRealCoupleSession;
   const showAdminClientPreviewChrome =
     showRolePreviewSwitcher && isCoupleEditorialShell && !isRealCoupleSession;
-  const hideCoupleEditorialAccountMenu = isRealCoupleSession && isCoupleEditorialShell;
   const hideCoupleDashboardAppHeader =
     isRealCoupleSession && isCoupleEditorialShell && activeScreen === "Dashboard";
   const coverPhotoHydrationReady = useMemo(() => {
@@ -14429,7 +14429,7 @@ export default function Home() {
   const showAccountMenu =
     authSession.loaded &&
     (Boolean(authSession.email) || (authStage === "app" && Boolean(currentRole)));
-  const accountMenu = showAccountMenu && !hideCoupleEditorialAccountMenu ? (
+  const accountMenu = showAccountMenu && !isCoupleEditorialShell ? (
     <AccountMenu
       email={authSession.email}
       roleLabel={accountRoleLabel}
@@ -14469,6 +14469,12 @@ export default function Home() {
 
   return (
     <div className={`${cmAppShellClass}${isCoupleEditorialShell ? " cm-app-shell--couple-editorial" : ""}`}>
+      {isCoupleEditorialShell && showAccountMenu ? (
+        <CouplePortalAccountMenu
+          coupleDisplayName={coupleDisplayName}
+          onSignOut={handleSignOut}
+        />
+      ) : null}
       <div
         className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 sm:px-6 ${
           hideCoupleDashboardAppHeader ? "pt-3 sm:pt-4" : "pt-6"
