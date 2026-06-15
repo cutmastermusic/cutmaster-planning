@@ -418,24 +418,6 @@ body.cm-ros-scroll-lock {
   --cm-editorial-card: #ffffff;
   --cm-editorial-muted: #7a746c;
   --cm-editorial-serif: var(--font-editorial), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --cm-hero-editorial-mask-h: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(0, 0, 0, 0.18) 96px,
-    rgba(0, 0, 0, 0.52) 140px,
-    rgba(0, 0, 0, 0.84) 178px,
-    #000 220px,
-    #000 100%
-  );
-  --cm-hero-editorial-mask-v: linear-gradient(
-    to bottom,
-    transparent 0,
-    rgba(0, 0, 0, 0.38) 12px,
-    #000 30px,
-    #000 calc(100% - 34px),
-    rgba(0, 0, 0, 0.34) calc(100% - 14px),
-    transparent 100%
-  );
   display: flex;
   flex-direction: column;
   gap: clamp(3.75rem, 7vw, 5.25rem);
@@ -563,12 +545,54 @@ body.cm-ros-scroll-lock {
   box-shadow: none;
 }
 
-.cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap {
-  -webkit-mask-image: var(--cm-hero-editorial-mask-h), var(--cm-hero-editorial-mask-v);
-  -webkit-mask-composite: source-in;
-  mask-image: var(--cm-hero-editorial-mask-h), var(--cm-hero-editorial-mask-v);
-  mask-composite: intersect;
-  mask-mode: alpha;
+.cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    var(--cm-editorial-canvas) 0,
+    #f8f6f2 28px,
+    rgba(248, 246, 242, 0.96) 56px,
+    rgba(248, 246, 242, 0.9) 84px,
+    rgba(248, 246, 242, 0.81) 112px,
+    rgba(248, 246, 242, 0.7) 140px,
+    rgba(248, 246, 242, 0.57) 168px,
+    rgba(248, 246, 242, 0.43) 196px,
+    rgba(248, 246, 242, 0.29) 224px,
+    rgba(248, 246, 242, 0.17) 252px,
+    rgba(248, 246, 242, 0.08) 280px,
+    rgba(248, 246, 242, 0.02) 308px,
+    transparent 340px
+  );
+}
+
+.cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to bottom,
+      var(--cm-editorial-canvas) 0,
+      rgba(248, 246, 242, 0.52) 18px,
+      rgba(248, 246, 242, 0.24) 40px,
+      rgba(248, 246, 242, 0.08) 64px,
+      transparent 96px
+    ),
+    linear-gradient(
+      to top,
+      var(--cm-editorial-canvas) 0,
+      rgba(248, 246, 242, 0.48) 22px,
+      rgba(248, 246, 242, 0.22) 48px,
+      rgba(248, 246, 242, 0.08) 76px,
+      transparent 112px
+    );
+  background-repeat: no-repeat;
 }
 
 @media (max-width: 767px) {
@@ -579,23 +603,34 @@ body.cm-ros-scroll-lock {
     margin-inline: 0;
   }
 
-  .cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap {
-    --cm-hero-editorial-mask-h: linear-gradient(
+  .cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap::before {
+    background: linear-gradient(
       to right,
-      transparent 0,
-      rgba(0, 0, 0, 0.42) 40px,
-      #000 72px,
-      #000 100%
+      var(--cm-editorial-canvas) 0,
+      rgba(248, 246, 242, 0.72) 24px,
+      rgba(248, 246, 242, 0.28) 52px,
+      transparent 88px
     );
-    --cm-hero-editorial-mask-v: linear-gradient(
-      to bottom,
-      transparent 0,
-      rgba(0, 0, 0, 0.46) 18px,
-      #000 44px,
-      #000 calc(100% - 40px),
-      rgba(0, 0, 0, 0.4) calc(100% - 16px),
-      transparent 100%
-    );
+  }
+
+  .cm-dashboard-v3-hero-zone:not(.cm-dashboard-v3-hero-zone--loading-photo) .cm-dashboard-v3-hero-photo-wrap::after {
+    background-image:
+      linear-gradient(
+        to bottom,
+        var(--cm-editorial-canvas) 0,
+        rgba(248, 246, 242, 0.62) 24px,
+        rgba(248, 246, 242, 0.28) 52px,
+        rgba(248, 246, 242, 0.1) 84px,
+        transparent 120px
+      ),
+      linear-gradient(
+        to top,
+        var(--cm-editorial-canvas) 0,
+        rgba(248, 246, 242, 0.44) 28px,
+        rgba(248, 246, 242, 0.18) 60px,
+        rgba(248, 246, 242, 0.06) 92px,
+        transparent 128px
+      );
   }
 }
 
@@ -640,9 +675,9 @@ body.cm-ros-scroll-lock {
   }
 }
 
-.cm-dashboard-v3-hero-zone--loading-photo .cm-dashboard-v3-hero-photo-wrap {
-  -webkit-mask-image: none;
-  mask-image: none;
+.cm-dashboard-v3-hero-zone--loading-photo .cm-dashboard-v3-hero-photo-wrap::before,
+.cm-dashboard-v3-hero-zone--loading-photo .cm-dashboard-v3-hero-photo-wrap::after {
+  content: none;
 }
 
 .cm-dashboard-v3-hero-photo-img {
