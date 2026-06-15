@@ -21,19 +21,18 @@ import {
 import type { CoverPhotoTransform } from "@/types/planning";
 
 type WelcomePhotoEditorProps = {
-  imageSrc: string;
+  imageSrc?: string;
+  preparing?: boolean;
   initialTransform?: CoverPhotoTransform;
   saving?: boolean;
   onCancel: () => void;
   onSave: (transform: CoverPhotoTransform) => void | Promise<void>;
 };
 
-function getTouchDistance(
-  touches: { length: number; item(index: number): { clientX: number; clientY: number } | null },
-): number | null {
+function getTouchDistance(touches: TouchList): number | null {
   if (touches.length < 2) return null;
-  const first = touches.item(0);
-  const second = touches.item(1);
+  const first = touches[0];
+  const second = touches[1];
   if (!first || !second) return null;
   const dx = first.clientX - second.clientX;
   const dy = first.clientY - second.clientY;
@@ -42,6 +41,7 @@ function getTouchDistance(
 
 export function WelcomePhotoEditor({
   imageSrc,
+  preparing = false,
   initialTransform,
   saving = false,
   onCancel,
@@ -50,6 +50,12 @@ export function WelcomePhotoEditor({
   const frameRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const initializedRef = useRef(false);
+  const transformRef = useRef<CoverPhotoTransform>(DEFAULT_COVER_PHOTO_TRANSFORM);
+  const scaleLimitsRef = useRef<CoverPhotoScaleLimits>({
+    minScale: 1,
+    maxScale: 6,
+    initialScale: 1,
+  });
   const [transform, setTransform] = useState<CoverPhotoTransform>(DEFAULT_COVER_PHOTO_TRANSFORM);
   const [scaleLimits, setScaleLimits] = useState<CoverPhotoScaleLimits>({
     minScale: 1,
@@ -57,6 +63,7 @@ export function WelcomePhotoEditor({
     initialScale: 1,
   });
   const [ready, setReady] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -64,7 +71,22 @@ export function WelcomePhotoEditor({
     originX: number;
     originY: number;
   } | null>(null);
-  const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
+
+  useEffect(() => {
+    transformRef.current = transform;
+  }, [transform]);
+
+  useEffect(() => {
+    scaleLimitsRef.current = scaleLimits;
+  }, [scaleLimits]);
+
+  const applyPanDelta = useCallback((deltaX: number, deltaY: number, originX: number, originY: number) => {
+    setTransform((prev) => ({
+      ...prev,
+      x: originX + deltaX,
+      y: originY + deltaY,
+    }));
+  }, []);
 
   const applyScaleLimits = useCallback(
     (
@@ -72,14 +94,17 @@ export function WelcomePhotoEditor({
       preferred?: CoverPhotoTransform,
     ) => {
       setScaleLimits(limits);
+      scaleLimitsRef.current = limits;
       setTransform((prev) => {
         const source = preferred ?? prev;
-        return {
+        const next = {
           ...source,
           baseWidthPercent: limits.containFit.widthPercent,
           baseHeightPercent: limits.containFit.heightPercent,
           scale: clampCoverPhotoScale(source.scale, limits.minScale, limits.maxScale),
         };
+        transformRef.current = next;
+        return next;
       });
     },
     [],
@@ -123,12 +148,17 @@ export function WelcomePhotoEditor({
       initializedRef.current = true;
     } else {
       setScaleLimits(limits);
-      setTransform((prev) => ({
-        ...prev,
-        baseWidthPercent: limits.containFit.widthPercent,
-        baseHeightPercent: limits.containFit.heightPercent,
-        scale: clampCoverPhotoScale(prev.scale, limits.minScale, limits.maxScale),
-      }));
+      scaleLimitsRef.current = limits;
+      setTransform((prev) => {
+        const next = {
+          ...prev,
+          baseWidthPercent: limits.containFit.widthPercent,
+          baseHeightPercent: limits.containFit.heightPercent,
+          scale: clampCoverPhotoScale(prev.scale, limits.minScale, limits.maxScale),
+        };
+        transformRef.current = next;
+        return next;
+      });
     }
 
     setReady(true);
@@ -142,25 +172,35 @@ export function WelcomePhotoEditor({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const delta = event.deltaY > 0 ? -0.06 : 0.06;
-      setTransform((prev) => ({
-        ...prev,
-        scale: clampCoverPhotoScale(
-          prev.scale + delta,
-          scaleLimits.minScale,
-          scaleLimits.maxScale,
-        ),
-      }));
+      const limits = scaleLimitsRef.current;
+      setTransform((prev) => {
+        const next = {
+          ...prev,
+          scale: clampCoverPhotoScale(prev.scale + delta, limits.minScale, limits.maxScale),
+        };
+        transformRef.current = next;
+        return next;
+      });
     };
 
     frame.addEventListener("wheel", onWheel, { passive: false });
     return () => frame.removeEventListener("wheel", onWheel);
-  }, [scaleLimits.maxScale, scaleLimits.minScale]);
+  }, []);
 
   useEffect(() => {
+    if (!imageSrc) {
+      initializedRef.current = false;
+      setReady(false);
+      imageRef.current = null;
+      return;
+    }
+
     let cancelled = false;
     initializedRef.current = false;
     setReady(false);
     setTransform(DEFAULT_COVER_PHOTO_TRANSFORM);
+    transformRef.current = DEFAULT_COVER_PHOTO_TRANSFORM;
+
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
@@ -169,7 +209,11 @@ export function WelcomePhotoEditor({
         if (!cancelled) syncLayout();
       });
     };
+    img.onerror = () => {
+      if (!cancelled) setReady(false);
+    };
     img.src = imageSrc;
+
     return () => {
       cancelled = true;
       imageRef.current = null;
@@ -189,31 +233,112 @@ export function WelcomePhotoEditor({
     return () => observer.disconnect();
   }, [syncLayout]);
 
-  const updateScale = useCallback(
-    (nextScale: number) => {
-      setTransform((prev) => ({
+  const updateScale = useCallback((nextScale: number) => {
+    const limits = scaleLimitsRef.current;
+    setTransform((prev) => {
+      const next = {
         ...prev,
-        scale: clampCoverPhotoScale(nextScale, scaleLimits.minScale, scaleLimits.maxScale),
-      }));
-    },
-    [scaleLimits.maxScale, scaleLimits.minScale],
-  );
+        scale: clampCoverPhotoScale(nextScale, limits.minScale, limits.maxScale),
+      };
+      transformRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !ready) return;
+
+    let panTouchId: number | null = null;
+    let panStart = { x: 0, y: 0, originX: 0, originY: 0 };
+    let pinchStart: { distance: number; scale: number } | null = null;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 1) {
+        const touch = event.touches[0];
+        if (!touch) return;
+        panTouchId = touch.identifier;
+        panStart = {
+          x: touch.clientX,
+          y: touch.clientY,
+          originX: transformRef.current.x,
+          originY: transformRef.current.y,
+        };
+        pinchStart = null;
+        setDragging(true);
+      } else if (event.touches.length === 2) {
+        panTouchId = null;
+        setDragging(false);
+        const distance = getTouchDistance(event.touches);
+        if (distance) {
+          pinchStart = { distance, scale: transformRef.current.scale };
+        }
+      }
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const rect = frame.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      if (event.touches.length === 2 && pinchStart) {
+        event.preventDefault();
+        const distance = getTouchDistance(event.touches);
+        if (!distance) return;
+        const ratio = distance / pinchStart.distance;
+        updateScale(pinchStart.scale * ratio);
+        return;
+      }
+
+      if (event.touches.length === 1 && panTouchId !== null) {
+        const touch = Array.from(event.touches).find((item) => item.identifier === panTouchId);
+        if (!touch) return;
+        event.preventDefault();
+        const deltaX = ((touch.clientX - panStart.x) / rect.width) * 100;
+        const deltaY = ((touch.clientY - panStart.y) / rect.height) * 100;
+        applyPanDelta(deltaX, deltaY, panStart.originX, panStart.originY);
+      }
+    };
+
+    const endTouch = (event: TouchEvent) => {
+      if (
+        panTouchId !== null &&
+        !Array.from(event.touches).some((item) => item.identifier === panTouchId)
+      ) {
+        panTouchId = null;
+        setDragging(false);
+      }
+      if (event.touches.length < 2) {
+        pinchStart = null;
+      }
+    };
+
+    frame.addEventListener("touchstart", onTouchStart, { passive: true });
+    frame.addEventListener("touchmove", onTouchMove, { passive: false });
+    frame.addEventListener("touchend", endTouch, { passive: true });
+    frame.addEventListener("touchcancel", endTouch, { passive: true });
+
+    return () => {
+      frame.removeEventListener("touchstart", onTouchStart);
+      frame.removeEventListener("touchmove", onTouchMove);
+      frame.removeEventListener("touchend", endTouch);
+      frame.removeEventListener("touchcancel", endTouch);
+    };
+  }, [applyPanDelta, ready, updateScale]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (event.pointerType === "touch" && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-        return;
-      }
+      if (event.pointerType === "touch") return;
       event.currentTarget.setPointerCapture(event.pointerId);
+      setDragging(true);
       dragRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        originX: transform.x,
-        originY: transform.y,
+        originX: transformRef.current.x,
+        originY: transformRef.current.y,
       };
     },
-    [transform.x, transform.y],
+    [],
   );
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -226,49 +351,17 @@ export function WelcomePhotoEditor({
 
     const deltaX = ((event.clientX - drag.startX) / rect.width) * 100;
     const deltaY = ((event.clientY - drag.startY) / rect.height) * 100;
-
-    setTransform((prev) => ({
-      ...prev,
-      x: drag.originX + deltaX,
-      y: drag.originY + deltaY,
-    }));
-  }, []);
+    applyPanDelta(deltaX, deltaY, drag.originX, drag.originY);
+  }, [applyPanDelta]);
 
   const handlePointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragRef.current?.pointerId === event.pointerId) {
       dragRef.current = null;
+      setDragging(false);
     }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-  }, []);
-
-  const handleTouchStart = useCallback(
-    (event: React.TouchEvent<HTMLDivElement>) => {
-      if (event.touches.length === 2) {
-        const distance = getTouchDistance(event.touches);
-        if (distance) {
-          pinchRef.current = { distance, scale: transform.scale };
-        }
-      }
-    },
-    [transform.scale],
-  );
-
-  const handleTouchMove = useCallback(
-    (event: React.TouchEvent<HTMLDivElement>) => {
-      if (event.touches.length !== 2 || !pinchRef.current) return;
-      event.preventDefault();
-      const distance = getTouchDistance(event.touches);
-      if (!distance) return;
-      const ratio = distance / pinchRef.current.distance;
-      updateScale(pinchRef.current.scale * ratio);
-    },
-    [updateScale],
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    pinchRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -280,11 +373,14 @@ export function WelcomePhotoEditor({
   }, [onCancel]);
 
   const imageStyle = coverPhotoTransformToImageStyle(transform);
+  const showPreparing = preparing && !imageSrc;
+  const showImageLoading = Boolean(imageSrc) && !ready;
+  const editorInteractive = ready && !preparing;
 
   const handleSave = useCallback(() => {
     const frame = frameRef.current;
     const img = imageRef.current;
-    if (!frame || !img || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+    if (!frame || !img || img.naturalWidth <= 0 || img.naturalHeight <= 0 || preparing) return;
     const rect = frame.getBoundingClientRect();
     const limits = computeEditorScaleLimits(
       img.naturalWidth,
@@ -293,13 +389,13 @@ export function WelcomePhotoEditor({
       rect.height,
     );
     const persisted = buildCoverPhotoTransformFromContainFit(
-      transform.scale,
-      transform.x,
-      transform.y,
+      transformRef.current.scale,
+      transformRef.current.x,
+      transformRef.current.y,
       limits.containFit,
     );
     void onSave(persisted);
-  }, [onSave, transform]);
+  }, [onSave, preparing]);
 
   return (
     <div
@@ -319,24 +415,24 @@ export function WelcomePhotoEditor({
             Choose Your Welcome Photo
           </h2>
           <p className="cm-welcome-photo-editor-subtitle">
-            This photo greets you every time you open your planning dashboard.
+            {showPreparing
+              ? "Preparing your photo…"
+              : preparing
+                ? "Finishing upload preparation…"
+                : "This photo greets you every time you open your planning dashboard."}
           </p>
         </header>
 
         <div
           ref={frameRef}
-          className="cm-welcome-photo-editor-frame"
+          className={`cm-welcome-photo-editor-frame${dragging ? " cm-welcome-photo-editor-frame--dragging" : ""}`}
           style={{ aspectRatio: COUPLE_DASHBOARD_HERO_ASPECT_RATIO }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
         >
-          {ready ? (
+          {ready && imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc}
@@ -346,11 +442,15 @@ export function WelcomePhotoEditor({
               draggable={false}
             />
           ) : (
-            <div className="cm-welcome-photo-editor-loading" aria-hidden />
+            <div className="cm-welcome-photo-editor-loading" aria-hidden>
+              <span className="cm-welcome-photo-editor-loading-label">
+                {showPreparing ? "Preparing your photo…" : showImageLoading ? "Loading preview…" : "Preparing your photo…"}
+              </span>
+            </div>
           )}
         </div>
 
-        <label className="cm-welcome-photo-editor-zoom-label">
+        <label className={`cm-welcome-photo-editor-zoom-label${editorInteractive ? "" : " cm-welcome-photo-editor-zoom-label--disabled"}`}>
           Zoom
           <input
             type="range"
@@ -360,6 +460,7 @@ export function WelcomePhotoEditor({
             value={transform.scale}
             onChange={(event) => updateScale(Number(event.target.value))}
             className="cm-welcome-photo-editor-zoom"
+            disabled={!editorInteractive}
           />
         </label>
 
@@ -371,7 +472,7 @@ export function WelcomePhotoEditor({
             type="button"
             className="cm-welcome-photo-editor-save"
             onClick={handleSave}
-            disabled={!ready || saving}
+            disabled={!editorInteractive || saving}
           >
             {saving ? "Saving…" : "Save Photo"}
           </button>

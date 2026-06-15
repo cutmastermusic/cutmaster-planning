@@ -926,19 +926,35 @@ body.cm-ros-scroll-lock {
   );
 }
 
-.cm-welcome-photo-editor-frame:active {
+.cm-welcome-photo-editor-frame:active,
+.cm-welcome-photo-editor-frame--dragging {
   cursor: grabbing;
-}
-
-.cm-welcome-photo-editor-image {
-  pointer-events: none;
-  user-select: none;
 }
 
 .cm-welcome-photo-editor-loading {
   position: absolute;
   inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(145deg, #f1ece4 0%, #ebe4da 100%);
+}
+
+.cm-welcome-photo-editor-loading-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #78716c;
+}
+
+.cm-welcome-photo-editor-zoom-label--disabled {
+  opacity: 0.55;
+}
+
+.cm-welcome-photo-editor-image {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .cm-welcome-photo-editor-zoom-label {

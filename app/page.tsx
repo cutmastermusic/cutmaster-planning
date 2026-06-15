@@ -3080,9 +3080,11 @@ export default function Home() {
   const prevPlanningChapterRef = useRef<CoupleWeddingChapterId | null | undefined>(undefined);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const [welcomePhotoEditorOpen, setWelcomePhotoEditorOpen] = useState(false);
+  const [welcomePhotoPreparing, setWelcomePhotoPreparing] = useState(false);
+  const [welcomePhotoSessionKey, setWelcomePhotoSessionKey] = useState(0);
   const [welcomePhotoDraft, setWelcomePhotoDraft] = useState<{
-    dataUrl: string;
-    file: File;
+    dataUrl?: string;
+    file?: File;
     transform?: CoverPhotoTransform;
   } | null>(null);
   const [welcomePhotoSaving, setWelcomePhotoSaving] = useState(false);
@@ -6163,12 +6165,13 @@ export default function Home() {
 
   const closeWelcomePhotoEditor = useCallback(() => {
     setWelcomePhotoEditorOpen(false);
+    setWelcomePhotoPreparing(false);
     setWelcomePhotoDraft(null);
   }, []);
 
   const handleWelcomePhotoSave = useCallback(
     async (transform: CoverPhotoTransform) => {
-      if (!welcomePhotoDraft) return;
+      if (!welcomePhotoDraft?.file || !welcomePhotoDraft.dataUrl) return;
       setWelcomePhotoSaving(true);
       try {
         await commitEventCoverPhoto(
@@ -6202,17 +6205,36 @@ export default function Home() {
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file) return;
-      try {
-        const prepared = await prepareWelcomePhotoUploadFile(file);
-        if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
-          setWelcomePhotoDraft({
-            dataUrl: prepared.dataUrl,
+      if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
+        setWelcomePhotoSessionKey((prev) => prev + 1);
+        setWelcomePhotoEditorOpen(true);
+        setWelcomePhotoPreparing(true);
+        setWelcomePhotoDraft(null);
+        try {
+          const prepared = await prepareWelcomePhotoUploadFile(file, undefined, {
+            onPreviewReady: (previewDataUrl) => {
+              setWelcomePhotoDraft((prev) => ({
+                dataUrl: previewDataUrl,
+                file: prev?.file,
+                transform: undefined,
+              }));
+            },
+          });
+          setWelcomePhotoDraft((prev) => ({
+            dataUrl: prev?.dataUrl ?? prepared.dataUrl,
             file: prepared.file,
             transform: undefined,
-          });
-          setWelcomePhotoEditorOpen(true);
-          return;
+          }));
+        } catch (err) {
+          closeWelcomePhotoEditor();
+          window.alert(err instanceof Error ? err.message : "Could not use that image.");
+        } finally {
+          setWelcomePhotoPreparing(false);
         }
+        return;
+      }
+      try {
+        const prepared = await prepareWelcomePhotoUploadFile(file);
         await commitEventCoverPhoto(prepared.file, prepared.dataUrl);
       } catch (err) {
         window.alert(err instanceof Error ? err.message : "Could not use that image.");
@@ -6220,6 +6242,7 @@ export default function Home() {
     },
     [
       authSession.isCouplePortalSession,
+      closeWelcomePhotoEditor,
       commitEventCoverPhoto,
       effectiveRole,
     ],
@@ -24278,11 +24301,12 @@ export default function Home() {
         </div>
       ) : null}
 
-      {welcomePhotoEditorOpen && welcomePhotoDraft ? (
+      {welcomePhotoEditorOpen ? (
         <WelcomePhotoEditor
-          key={welcomePhotoDraft.dataUrl}
-          imageSrc={welcomePhotoDraft.dataUrl}
-          initialTransform={welcomePhotoDraft.transform}
+          key={`welcome-photo-${welcomePhotoSessionKey}`}
+          imageSrc={welcomePhotoDraft?.dataUrl}
+          preparing={welcomePhotoPreparing}
+          initialTransform={welcomePhotoDraft?.transform}
           saving={welcomePhotoSaving}
           onCancel={closeWelcomePhotoEditor}
           onSave={handleWelcomePhotoSave}

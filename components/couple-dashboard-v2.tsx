@@ -388,8 +388,6 @@ function CoupleHeroPhoto({
     !coverPhotoHydrationReady || (awaitingPhoto && decodedUrl !== coverPhotoDataUrl);
 
   useEffect(() => {
-    if (!coverPhotoHydrationReady) return;
-
     const nextUrl = coverPhotoDataUrl?.trim();
     if (!nextUrl) {
       priorUrlRef.current = undefined;
@@ -437,7 +435,7 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [coverPhotoHydrationReady, coverPhotoDataUrl, resolveDisplayTransform]);
+  }, [coverPhotoDataUrl, resolveDisplayTransform]);
 
   if (showSkeleton) {
     return (

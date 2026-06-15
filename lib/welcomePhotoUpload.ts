@@ -1,7 +1,10 @@
 import { MAX_COVER_PHOTO_BYTES } from "@/lib/eventCoverPhoto";
 
 const MAX_IMAGE_EDGE_PX = 2400;
+/** Smaller edge for fast editor preview while upload file is still compressing. */
+const PREVIEW_MAX_IMAGE_EDGE_PX = 1280;
 const INITIAL_JPEG_QUALITY = 0.88;
+const PREVIEW_JPEG_QUALITY = 0.82;
 const MIN_JPEG_QUALITY = 0.52;
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
@@ -120,6 +123,11 @@ export type PreparedWelcomePhoto = {
   dataUrl: string;
 };
 
+export type PrepareWelcomePhotoOptions = {
+  /** Fires with a smaller preview data URL before upload compression finishes. */
+  onPreviewReady?: (dataUrl: string) => void;
+};
+
 /**
  * Resize and compress camera photos client-side before preview + upload.
  * Preserves aspect ratio; outputs JPEG suitable for Supabase upload limits.
@@ -127,12 +135,31 @@ export type PreparedWelcomePhoto = {
 export async function prepareWelcomePhotoUploadFile(
   file: File,
   maxBytes: number = MAX_COVER_PHOTO_BYTES,
+  options?: PrepareWelcomePhotoOptions,
 ): Promise<PreparedWelcomePhoto> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Please choose an image file.");
   }
 
   const img = await loadImageElement(file);
+
+  if (options?.onPreviewReady) {
+    const previewDims = scaledDimensions(
+      img.naturalWidth,
+      img.naturalHeight,
+      PREVIEW_MAX_IMAGE_EDGE_PX,
+    );
+    const previewCanvas = document.createElement("canvas");
+    previewCanvas.width = previewDims.width;
+    previewCanvas.height = previewDims.height;
+    const previewCtx = previewCanvas.getContext("2d");
+    if (previewCtx) {
+      previewCtx.drawImage(img, 0, 0, previewDims.width, previewDims.height);
+      const previewBlob = await canvasToBlob(previewCanvas, "image/jpeg", PREVIEW_JPEG_QUALITY);
+      options.onPreviewReady(await blobToDataUrl(previewBlob));
+    }
+  }
+
   const firstPass = scaledDimensions(img.naturalWidth, img.naturalHeight, MAX_IMAGE_EDGE_PX);
   const blob = await encodeJpegUnderLimit(img, firstPass.width, firstPass.height, maxBytes);
   const baseName = file.name.replace(/\.[^.]+$/, "") || "welcome-photo";
