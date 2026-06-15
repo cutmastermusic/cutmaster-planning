@@ -14,8 +14,20 @@ import {
   PremiumCard,
   lightUiCouplePrimaryButtonClass,
   lightUiSecondaryButtonClass,
-  premiumFormSectionCardClass,
 } from "@/components/planning-ui";
+import {
+  couplePlanningEyebrowClass,
+  couplePlanningIntroClass,
+  couplePlanningSectionCardClass,
+  couplePlanningTitleClass,
+} from "@/components/couple-planning-ui";
+import {
+  firstUnansweredGuidedStepIndex,
+  resolveCoupleGuidedQuestionPosition,
+  areCoupleGuidedQuestionResumesEqual,
+  type CoupleGuidedQuestionResume,
+  type CoupleGuidedQuestionResumeMode,
+} from "@/lib/coupleGuidedQuestionResume";
 import type { PlanningQuestionDef } from "@/types/planning";
 
 const guidedNavButtonBaseClass =
@@ -33,10 +45,10 @@ const guidedStepContentSpacerClass =
  * Desktop: in-flow footer inside the card.
  */
 const guidedNavFooterMobileClass =
-  "pointer-events-auto fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[55] touch-manipulation border-t border-stone-200/90 bg-white/98 px-5 py-3 shadow-[0_-4px_24px_-8px_rgba(28,25,23,0.15)] backdrop-blur-sm supports-[backdrop-filter]:bg-white/95";
+  "pointer-events-auto fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[55] touch-manipulation border-t border-stone-200/60 bg-[#f8f6f2]/98 px-5 py-3.5 shadow-[0_-4px_24px_-8px_rgba(28,25,23,0.12)] backdrop-blur-sm supports-[backdrop-filter]:bg-[#f8f6f2]/95";
 
 const guidedNavFooterDesktopClass =
-  "pointer-events-auto flex touch-manipulation flex-col gap-2 border-t border-stone-200/90 pt-4";
+  "pointer-events-auto flex touch-manipulation flex-col gap-2.5 border-t border-stone-200/60 pt-6";
 
 const guidedNavFooterInnerClass = "pointer-events-auto mx-auto flex w-full max-w-[1400px] flex-col gap-2";
 
@@ -144,8 +156,38 @@ function firstUnansweredStepIndex(
   steps: CoupleGuidedQuestionStep[],
   answers: Record<string, string | undefined>,
 ): number {
-  return steps.findIndex((step) => !step.isAnswered(answers));
+  return firstUnansweredGuidedStepIndex(steps, answers);
 }
+
+export type CoupleGuidedResumeProps = {
+  /** Saved step for refresh / journey resume. */
+  guidedResume?: CoupleGuidedQuestionResume | null;
+  /** Restore saved step on mount, or open at first incomplete (Home Continue). */
+  guidedResumeMode?: CoupleGuidedQuestionResumeMode;
+  onGuidedResumeChange?: (resume: CoupleGuidedQuestionResume) => void;
+};
+
+export type CoupleGuidedQuestionSectionProps = {
+  sectionId: string;
+  eyebrow: string;
+  title: string;
+  intro: string;
+  steps: CoupleGuidedQuestionStep[];
+  answers: Record<string, string | undefined>;
+  completionMessage?: string;
+  completionTitle?: string;
+  completionBody?: string;
+  completionPrimaryLabel?: string;
+  onCompletionPrimary?: () => void;
+  completionSecondaryLabel?: string;
+  onCompletionSecondary?: () => void;
+  onContinueToNextChapter?: () => void | Promise<void>;
+  continueToNextChapterLabel?: string;
+  /** Shown on review when required steps are still incomplete. */
+  reviewIncompleteHint?: string | null;
+  /** Shown when chapter continue was blocked after review (e.g. stale or unsaved answers). */
+  continueBlockedMessage?: string | null;
+} & CoupleGuidedResumeProps;
 
 function countAnsweredSteps(
   steps: CoupleGuidedQuestionStep[],
@@ -171,28 +213,6 @@ export type CoupleGuidedQuestionStep = {
   missingLabel?: string;
   renderGuided: () => ReactNode;
   renderReview: () => ReactNode;
-};
-
-export type CoupleGuidedQuestionSectionProps = {
-  sectionId: string;
-  eyebrow: string;
-  title: string;
-  intro: string;
-  steps: CoupleGuidedQuestionStep[];
-  answers: Record<string, string | undefined>;
-  completionMessage?: string;
-  completionTitle?: string;
-  completionBody?: string;
-  completionPrimaryLabel?: string;
-  onCompletionPrimary?: () => void;
-  completionSecondaryLabel?: string;
-  onCompletionSecondary?: () => void;
-  onContinueToNextChapter?: () => void | Promise<void>;
-  continueToNextChapterLabel?: string;
-  /** Shown on review when required steps are still incomplete. */
-  reviewIncompleteHint?: string | null;
-  /** Shown when chapter continue was blocked after review (e.g. stale or unsaved answers). */
-  continueBlockedMessage?: string | null;
 };
 
 export function questionGuidedStep(
@@ -274,6 +294,9 @@ export function CoupleGuidedQuestionSection({
   continueToNextChapterLabel = "Continue to next chapter",
   reviewIncompleteHint = null,
   continueBlockedMessage = null,
+  guidedResume = null,
+  guidedResumeMode = "restore",
+  onGuidedResumeChange,
 }: CoupleGuidedQuestionSectionProps) {
   const flowStepCount = steps.length;
   const requiredStepCount = countProgressSteps(steps);
@@ -282,25 +305,62 @@ export function CoupleGuidedQuestionSection({
     requiredStepCount === 0 ? 100 : Math.round((answered / requiredStepCount) * 100);
   const allAnswered = steps.length > 0 && steps.every((step) => step.isAnswered(answers));
 
-  const [phase, setPhase] = useState<Phase>(() => {
-    if (flowStepCount === 0) return "review";
-    return firstUnansweredStepIndex(steps, answers) === -1 ? "review" : "guided";
-  });
-  const [stepIndex, setStepIndex] = useState(() => {
-    if (flowStepCount === 0) return 0;
-    const idx = firstUnansweredStepIndex(steps, answers);
-    return idx === -1 ? 0 : idx;
-  });
+  const initialGuidedPosition = useMemo(
+    () =>
+      resolveCoupleGuidedQuestionPosition(steps, answers, {
+        mode: guidedResumeMode,
+        resume: guidedResume,
+      }),
+    [answers, guidedResume, guidedResumeMode, steps],
+  );
+
+  const [phase, setPhase] = useState<Phase>(initialGuidedPosition.phase);
+  const [stepIndex, setStepIndex] = useState(initialGuidedPosition.stepIndex);
 
   const stepContentRef = useRef<HTMLDivElement>(null);
   /** Blocks ghost taps on review footer right after entering review from guided nav. */
   const reviewTransitionGuardRef = useRef(false);
   const reviewTransitionTimerRef = useRef<number | null>(null);
+  const lastPersistedResumeRef = useRef<CoupleGuidedQuestionResume | null>(
+    guidedResume?.stepId
+      ? { stepId: guidedResume.stepId, phase: guidedResume.phase }
+      : null,
+  );
 
   const currentStep = steps[stepIndex];
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= steps.length - 1;
   const activeStepId = currentStep?.id;
+
+  const persistGuidedResume = useCallback(
+    (nextStepId: string | undefined, nextPhase: Phase) => {
+      if (!onGuidedResumeChange || !nextStepId) return;
+      const nextResume: CoupleGuidedQuestionResume = {
+        stepId: nextStepId,
+        phase: nextPhase,
+      };
+      if (areCoupleGuidedQuestionResumesEqual(lastPersistedResumeRef.current, nextResume)) {
+        return;
+      }
+      lastPersistedResumeRef.current = nextResume;
+      onGuidedResumeChange(nextResume);
+    },
+    [onGuidedResumeChange],
+  );
+
+  useEffect(() => {
+    if (activeStepId) return;
+    const fallback = resolveCoupleGuidedQuestionPosition(steps, answers, {
+      mode: "first-incomplete",
+    });
+    setStepIndex(fallback.stepIndex);
+    setPhase(fallback.phase);
+  }, [activeStepId, answers, steps]);
+
+  useEffect(() => {
+    if (!activeStepId) return;
+    persistGuidedResume(activeStepId, phase);
+  }, [activeStepId, phase, persistGuidedResume]);
 
   const enterReview = useCallback(() => {
     reviewTransitionGuardRef.current = true;
@@ -312,7 +372,8 @@ export function CoupleGuidedQuestionSection({
       reviewTransitionTimerRef.current = null;
     }, 450);
     setPhase("review");
-  }, []);
+    persistGuidedResume(activeStepId, "review");
+  }, [activeStepId, persistGuidedResume]);
 
   useEffect(() => {
     return () => {
@@ -329,13 +390,19 @@ export function CoupleGuidedQuestionSection({
   const goToGuided = useCallback(() => {
     if (reviewTransitionGuardRef.current) return;
     const idx = firstUnansweredStepIndex(steps, answers);
-    setStepIndex(idx === -1 ? Math.max(0, steps.length - 1) : idx);
+    const nextIndex = idx === -1 ? Math.max(0, steps.length - 1) : idx;
+    setStepIndex(nextIndex);
     setPhase("guided");
-  }, [steps, answers]);
+    persistGuidedResume(steps[nextIndex]?.id, "guided");
+  }, [answers, persistGuidedResume, steps]);
 
   const goPrevious = useCallback(() => {
-    setStepIndex((prev) => Math.max(0, prev - 1));
-  }, []);
+    setStepIndex((prev) => {
+      const nextIndex = Math.max(0, prev - 1);
+      persistGuidedResume(steps[nextIndex]?.id, "guided");
+      return nextIndex;
+    });
+  }, [persistGuidedResume, steps]);
 
   const goNext = useCallback(() => {
     let shouldEnterReview = false;
@@ -344,12 +411,14 @@ export function CoupleGuidedQuestionSection({
         shouldEnterReview = true;
         return prev;
       }
-      return prev + 1;
+      const nextIndex = prev + 1;
+      persistGuidedResume(steps[nextIndex]?.id, "guided");
+      return nextIndex;
     });
     if (shouldEnterReview) {
       enterReview();
     }
-  }, [steps.length, enterReview]);
+  }, [enterReview, persistGuidedResume, steps]);
 
   useEffect(() => {
     if (phase !== "guided" || !activeStepId) return;
@@ -381,30 +450,27 @@ export function CoupleGuidedQuestionSection({
   return (
     <PremiumCard
       id={sectionId}
-      className={premiumFormSectionCardClass}
+      className={couplePlanningSectionCardClass}
       aria-labelledby={`${sectionId}-title`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">{eyebrow}</p>
-      <h3
-        id={`${sectionId}-title`}
-        className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl"
-      >
+      <p className={couplePlanningEyebrowClass}>{eyebrow}</p>
+      <h3 id={`${sectionId}-title`} className={couplePlanningTitleClass}>
         {title}
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-stone-800">{intro}</p>
+      <p className={couplePlanningIntroClass}>{intro}</p>
 
-      <div className="mt-4 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium tabular-nums text-stone-800">
+      <div className="mt-6 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-stone-800">
           <span>
             {phase === "guided"
               ? `Step ${stepIndex + 1} of ${flowStepCount}`
-              : `${answered} of ${requiredStepCount} required answered`}
+              : `${answered} of ${requiredStepCount} answered`}
           </span>
-          <span className="text-xs font-normal text-stone-600">{progressPct}% complete</span>
+          <span className="text-xs font-normal text-stone-600">{progressPct}%</span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-stone-200/80">
           <div
-            className="h-full rounded-full bg-[var(--cm-accent)] transition-[width] duration-300 ease-out"
+            className="h-full rounded-full bg-[#2f4a3e] transition-[width] duration-300 ease-out"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -414,14 +480,14 @@ export function CoupleGuidedQuestionSection({
         <>
           <div
             ref={stepContentRef}
-            className={`mt-6 ${guidedStepContentSpacerClass}`}
+            className={`mt-8 ${guidedStepContentSpacerClass}`}
           >
             {currentStep.renderGuided()}
           </div>
           <GuidedNavFooter>
             <GuidedNavTextButton
               onAction={goToReview}
-              className="min-h-12 touch-manipulation self-start rounded-lg px-3 py-3 text-left text-sm font-semibold text-stone-700 underline-offset-2 transition hover:text-stone-950 hover:underline active:bg-stone-100/80 active:text-stone-950 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
+              className="min-h-12 touch-manipulation self-start rounded-lg px-1 py-2 text-left text-sm font-medium text-stone-600 underline-offset-2 transition hover:text-stone-900 hover:underline active:text-stone-900 active:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
             >
               See all answers so far
             </GuidedNavTextButton>
@@ -440,40 +506,42 @@ export function CoupleGuidedQuestionSection({
           </GuidedNavFooter>
         </>
       ) : phase === "review" ? (
-        <div className="mt-6 space-y-5">
+        <div className="mt-8 space-y-6">
           {!allAnswered && reviewIncompleteHint ? (
             <div
-              className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-4"
+              className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-5 py-4"
               role="status"
             >
               <p className="text-sm font-semibold text-amber-950">A few details are still needed</p>
-              <p className="mt-2 text-sm leading-relaxed text-amber-950">{reviewIncompleteHint}</p>
+              <p className="mt-2 text-sm leading-relaxed text-amber-950/90">{reviewIncompleteHint}</p>
             </div>
           ) : null}
           {continueBlockedMessage ? (
             <div
-              className="rounded-xl border border-rose-200/90 bg-rose-50/90 px-4 py-4"
+              className="rounded-2xl border border-rose-200/80 bg-rose-50/80 px-5 py-4"
               role="alert"
             >
               <p className="text-sm font-semibold text-rose-950">A few answers are still needed</p>
-              <p className="mt-2 text-sm leading-relaxed text-rose-950">{continueBlockedMessage}</p>
+              <p className="mt-2 text-sm leading-relaxed text-rose-950/90">{continueBlockedMessage}</p>
             </div>
           ) : null}
           {allAnswered ? (
             completionTitle && completionBody ? (
-              <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-4">
+              <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/70 px-5 py-5">
                 <h4 className="text-base font-semibold text-emerald-950">{completionTitle}</h4>
-                <p className="mt-2 text-sm leading-relaxed text-emerald-950">{completionBody}</p>
+                <p className="mt-2 text-sm leading-relaxed text-emerald-950/90">{completionBody}</p>
               </div>
             ) : (
-              <p className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-4 py-3 text-sm leading-relaxed text-emerald-950">
+              <p className="rounded-2xl border border-emerald-200/70 bg-emerald-50/70 px-5 py-4 text-sm leading-relaxed text-emerald-950/90">
                 {completionMessage}
               </p>
             )
           ) : null}
-          <div className={`flex flex-col gap-5 ${guidedStepContentSpacerClass} md:pb-0`}>
+          <div className={`divide-y divide-stone-200/60 ${guidedStepContentSpacerClass} md:pb-0`}>
             {steps.map((step) => (
-              <div key={step.id}>{step.renderReview()}</div>
+              <div key={step.id} className="py-6 first:pt-0 last:pb-0">
+                {step.renderReview()}
+              </div>
             ))}
           </div>
           <GuidedNavFooter>

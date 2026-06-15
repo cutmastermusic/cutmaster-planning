@@ -6,6 +6,7 @@ import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-sele
 import {
   CoupleGuidedQuestionSection,
   type CoupleGuidedQuestionStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
 import { TextArea, lightUiFormLabelClass } from "@/components/planning-ui";
 import {
@@ -35,7 +36,7 @@ export type CoupleMusicProfileGuidedSectionProps = {
   onOpenMusicHub: () => void;
   onContinueToNextChapter: () => void;
   continueToNextChapterLabel: string;
-};
+} & CoupleGuidedResumeProps;
 
 export function CoupleMusicProfileGuidedSection({
   answers,
@@ -43,6 +44,9 @@ export function CoupleMusicProfileGuidedSection({
   onOpenMusicHub,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleMusicProfileGuidedSectionProps) {
   const resolvedAnswers = useMemo(() => resolveMusicProfileAnswersForDisplay(answers), [answers]);
 
@@ -302,6 +306,9 @@ export function CoupleMusicProfileGuidedSection({
       continueToNextChapterLabel={continueToNextChapterLabel}
       completionSecondaryLabel="Open Music Hub"
       onCompletionSecondary={onOpenMusicHub}
+      guidedResume={guidedResume}
+      guidedResumeMode={guidedResumeMode}
+      onGuidedResumeChange={onGuidedResumeChange}
     />
   );
 }

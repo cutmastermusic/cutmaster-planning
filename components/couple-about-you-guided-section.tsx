@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
 import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
 import type { PlanningQuestionDef } from "@/types/planning";
@@ -20,7 +21,7 @@ export type CoupleAboutYouGuidedSectionProps = {
   }) => ReactNode;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
-};
+} & CoupleGuidedResumeProps;
 
 export function CoupleAboutYouGuidedSection({
   questions,
@@ -29,6 +30,9 @@ export function CoupleAboutYouGuidedSection({
   renderEditor,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleAboutYouGuidedSectionProps) {
   const steps = useMemo(
     () => questions.map((question) => questionGuidedStep(question, renderEditor, onAnswerChange, answers)),
@@ -50,6 +54,9 @@ export function CoupleAboutYouGuidedSection({
       reviewIncompleteHint={reviewIncompleteHint}
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
+      guidedResume={guidedResume}
+      guidedResumeMode={guidedResumeMode}
+      onGuidedResumeChange={onGuidedResumeChange}
     />
   );
 }

@@ -7,9 +7,10 @@ import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
   type CoupleGuidedQuestionStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
 import { CoupleMobileActionButton } from "@/components/couple-mobile-action-button";
-import { PremiumCard, lightUiCouplePrimaryButtonClass } from "@/components/planning-ui";
+import { lightUiCouplePrimaryButtonClass } from "@/components/planning-ui";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import {
   RECEPTION_MOMENTS_GATE_OPTIONS,
@@ -26,10 +27,13 @@ import {
 } from "@/lib/coupleReceptionMomentsPlanning";
 import { parseSpeechesToasts, SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { parseWeddingPartyLineup, WEDDING_PARTY_LINEUP_HELPER_COPY } from "@/lib/weddingPartyLineup";
+import {
+  couplePlanningEmptyAnswerClass,
+  couplePlanningPromptCardClass,
+  couplePlanningQuestionLabelClass,
+  couplePlanningQuestionShellClass,
+} from "@/components/couple-planning-ui";
 import type { PlanningQuestionDef } from "@/types/planning";
-
-const planningQuestionFieldShellClass =
-  "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
 
 export type CoupleReceptionMomentsGuidedSectionProps = {
   questions: PlanningQuestionDef[];
@@ -48,18 +52,18 @@ export type CoupleReceptionMomentsGuidedSectionProps = {
   onOpenSpeechesToastsEditor: () => void;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
-};
+} & CoupleGuidedResumeProps;
 
 function renderGateReview(
   label: string,
   gate: ReturnType<typeof resolveWeddingPartyGateAnswer>,
 ): ReactNode {
   return (
-    <div className={planningQuestionFieldShellClass}>
-      <p className="text-sm font-semibold text-stone-950">{label}</p>
-      <p className="mt-2 text-sm leading-relaxed text-stone-900">
+    <div className={couplePlanningQuestionShellClass}>
+      <p className={couplePlanningQuestionLabelClass}>{label}</p>
+      <p className="mt-3 text-sm leading-relaxed text-stone-900">
         {gate ? receptionMomentsGateLabelFromValue(gate) : (
-          <span className="text-stone-500">Not answered</span>
+          <span className={couplePlanningEmptyAnswerClass}>Not answered</span>
         )}
       </p>
       {gate === "not_sure" ? (
@@ -84,6 +88,9 @@ export function CoupleReceptionMomentsGuidedSection({
   onOpenSpeechesToastsEditor,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleReceptionMomentsGuidedSectionProps) {
   const weddingPartyGate = resolveWeddingPartyGateAnswer(answers);
   const toastsGate = resolveToastsGateAnswer(answers);
@@ -129,9 +136,9 @@ export function CoupleReceptionMomentsGuidedSection({
           ? "Edit Wedding Party Entrance"
           : "Add Wedding Party Entrance";
         const renderLineupStep = () => (
-          <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-            <p className="text-base font-semibold text-stone-950">Your Wedding Party Entrance</p>
-            <p className="mt-3 text-xs leading-relaxed text-stone-600">
+          <div className={couplePlanningPromptCardClass}>
+            <p className={couplePlanningQuestionLabelClass}>Your Wedding Party Entrance</p>
+            <p className="mt-3 text-sm leading-relaxed text-stone-600">
               {WEDDING_PARTY_LINEUP_HELPER_COPY}
             </p>
             <p className="mt-4 text-sm font-medium text-stone-900">{weddingPartyLineupSummary}</p>
@@ -141,7 +148,7 @@ export function CoupleReceptionMomentsGuidedSection({
             >
               {lineupCtaLabel}
             </CoupleMobileActionButton>
-          </PremiumCard>
+          </div>
         );
 
         built.push({
@@ -188,9 +195,9 @@ export function CoupleReceptionMomentsGuidedSection({
           parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length > 0;
         const toastsCtaLabel = hasToasts ? "Edit Toasts & Speeches" : "Plan Your Toasts";
         const renderToastsStep = () => (
-          <PremiumCard className="border-stone-200/90 bg-stone-50/50 shadow-none">
-            <p className="text-base font-semibold text-stone-950">Speeches / Toasts</p>
-            <p className="mt-3 text-xs leading-relaxed text-stone-600">
+          <div className={couplePlanningPromptCardClass}>
+            <p className={couplePlanningQuestionLabelClass}>Speeches / Toasts</p>
+            <p className="mt-3 text-sm leading-relaxed text-stone-600">
               Add each speaker with their role and name in toast order.
             </p>
             <p className="mt-4 text-sm font-medium leading-relaxed text-stone-900">
@@ -202,7 +209,7 @@ export function CoupleReceptionMomentsGuidedSection({
             >
               {toastsCtaLabel}
             </CoupleMobileActionButton>
-          </PremiumCard>
+          </div>
         );
 
         built.push({
@@ -262,6 +269,9 @@ export function CoupleReceptionMomentsGuidedSection({
       completionMessage="Thanks — these details help us shape a reception that feels like you."
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
+      guidedResume={guidedResume}
+      guidedResumeMode={guidedResumeMode}
+      onGuidedResumeChange={onGuidedResumeChange}
     />
   );
 }

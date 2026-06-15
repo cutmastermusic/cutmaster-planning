@@ -377,6 +377,11 @@ import {
   COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER,
   type CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
+import type {
+  CoupleGuidedQuestionResume,
+  CoupleGuidedQuestionResumeMode,
+  CouplePlanningChapterGuidedResumeState,
+} from "@/lib/coupleGuidedQuestionResume";
 import {
   mergeMusicProfileIntoMusicHub,
   musicProfileHasBridgeableAnswers,
@@ -464,9 +469,12 @@ import {
   groupPlanningQuestionsBySection,
 } from "@/data/planningQuestionGroups";
 
-/** Nested field block inside Planning Questions section groups — generous padding, clear vertical rhythm. */
-const planningQuestionFieldShellClass =
-  "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
+import {
+  couplePlanningQuestionHelperClass,
+  couplePlanningQuestionLabelClass,
+  couplePlanningQuestionShellClass,
+  couplePlanningSelectClass,
+} from "@/components/couple-planning-ui";
 
 /** Diagnostic isolation: false disables Music Profile → Music Hub auto-sync on entry. */
 const MUSIC_PROFILE_MUSIC_HUB_AUTO_SYNC_ENABLED = false;
@@ -480,26 +488,27 @@ function PlanningQuestionAnswerEditor({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const labelSuffix = q.required ? " *" : "";
+  const labelSuffix = q.required ? "" : "";
+  const questionLabel = `${q.label}${labelSuffix}`;
   const helpBlock =
     (q.helpText ?? "").trim() ? (
-      <p className="text-xs leading-relaxed text-stone-600">{q.helpText}</p>
+      <p className={couplePlanningQuestionHelperClass}>{q.helpText}</p>
     ) : null;
 
   if (q.answerType === "long_text") {
     return (
-      <div className={planningQuestionFieldShellClass}>
+      <div className={couplePlanningQuestionShellClass}>
         <div className="flex flex-col gap-4">
           <TextArea
             id={`planning-q-${q.id}`}
-            label={`${q.label}${labelSuffix}`}
+            label={questionLabel}
             value={value}
             onChange={onChange}
-            rows={3}
-            placeholder={q.placeholder ?? "Add notes…"}
-            labelClassName={`block ${lightUiFormLabelClass}`}
+            rows={4}
+            placeholder={q.placeholder ?? "Share your thoughts…"}
+            labelClassName={`block ${couplePlanningQuestionLabelClass}`}
           />
-          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+          {helpBlock}
         </div>
       </div>
     );
@@ -507,16 +516,15 @@ function PlanningQuestionAnswerEditor({
 
   if (q.answerType === "yes_no") {
     return (
-      <div className={planningQuestionFieldShellClass}>
-        <div className="flex flex-col gap-3.5">
-          <label className={`block ${lightUiFormLabelClass}`}>
-            {q.label}
-            {labelSuffix}
+      <div className={couplePlanningQuestionShellClass}>
+        <div className="flex flex-col gap-3">
+          <label className={couplePlanningQuestionLabelClass}>
+            {questionLabel}
           </label>
           <select
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className={`${lightUiSelectClass} !mt-0`}
+            className={couplePlanningSelectClass}
           >
             <option value="" className="bg-white text-stone-900">
               Select…
@@ -528,7 +536,7 @@ function PlanningQuestionAnswerEditor({
               No
             </option>
           </select>
-          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+          {helpBlock}
         </div>
       </div>
     );
@@ -536,16 +544,15 @@ function PlanningQuestionAnswerEditor({
 
   if (q.answerType === "multiple_choice") {
     return (
-      <div className={planningQuestionFieldShellClass}>
-        <div className="flex flex-col gap-3.5">
-          <label className={`block ${lightUiFormLabelClass}`}>
-            {q.label}
-            {labelSuffix}
+      <div className={couplePlanningQuestionShellClass}>
+        <div className="flex flex-col gap-3">
+          <label className={couplePlanningQuestionLabelClass}>
+            {questionLabel}
           </label>
           <select
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className={`${lightUiSelectClass} !mt-0`}
+            className={couplePlanningSelectClass}
           >
             <option value="" className="bg-white text-stone-900">
               Select…
@@ -556,24 +563,24 @@ function PlanningQuestionAnswerEditor({
               </option>
             ))}
           </select>
-          {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+          {helpBlock}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={planningQuestionFieldShellClass}>
+    <div className={couplePlanningQuestionShellClass}>
       <div className="flex flex-col gap-4">
         <TextInput
           id={`planning-q-${q.id}`}
-          label={`${q.label}${labelSuffix}`}
+          label={questionLabel}
           value={value}
           onChange={onChange}
-          placeholder={q.placeholder ?? "Add answer…"}
-          labelClassName={`block ${lightUiFormLabelClass}`}
+          placeholder={q.placeholder ?? "Your answer…"}
+          labelClassName={`block ${couplePlanningQuestionLabelClass}`}
         />
-        {helpBlock ? <div className="border-t border-stone-200/80 pt-3">{helpBlock}</div> : null}
+        {helpBlock}
       </div>
     </div>
   );
@@ -591,6 +598,7 @@ type LocalAppStateBackup = {
   rolePreview: UserRole;
   guestRequestView: "admin" | "guest";
   activePlanningChapterId?: CoupleWeddingChapterId | null;
+  planningChapterGuidedResume?: CouplePlanningChapterGuidedResumeState;
   inviteAccessPreview: {
     eventId: string;
     role: UserRole;
@@ -3205,6 +3213,10 @@ export default function Home() {
   const [activePlanningChapterId, setActivePlanningChapterId] = useState<CoupleWeddingChapterId | null>(
     null,
   );
+  const [planningChapterGuidedResume, setPlanningChapterGuidedResume] =
+    useState<CouplePlanningChapterGuidedResumeState>({});
+  const [guidedChapterResumeMode, setGuidedChapterResumeMode] =
+    useState<CoupleGuidedQuestionResumeMode>("restore");
   const [yourTeamContinueBlockedMessage, setYourTeamContinueBlockedMessage] = useState<string | null>(
     null,
   );
@@ -3490,6 +3502,8 @@ export default function Home() {
     setRolePreview("Admin");
     setInviteAccessPreview(null);
     setActivePlanningChapterId(null);
+    setPlanningChapterGuidedResume({});
+    setGuidedChapterResumeMode("restore");
     setAppMode("events");
     setActiveScreen("All Events");
     setAuthStage("login");
@@ -3509,6 +3523,7 @@ export default function Home() {
               rolePreview: "Admin",
               inviteAccessPreview: null,
               activePlanningChapterId: null,
+              planningChapterGuidedResume: {},
               activeScreen: "All Events",
               appMode: "events",
             };
@@ -6521,6 +6536,10 @@ export default function Home() {
       planningQuestionsGroupedBySection.find((row) => row.group.id === activePlanningChapterId) ?? null
     );
   }, [activePlanningChapterId, planningQuestionsGroupedBySection]);
+  const activePlanningChapterGuidedResume = useMemo(() => {
+    if (!activePlanningChapterId) return null;
+    return planningChapterGuidedResume[activePlanningChapterId] ?? null;
+  }, [activePlanningChapterId, planningChapterGuidedResume]);
   const coupleActiveChapterContinueLabel = useMemo(() => {
     if (!activePlanningChapterId) return "Continue to next chapter";
     const nextChapter = nextCoupleWeddingChapterAfter(activePlanningChapterId);
@@ -6801,13 +6820,17 @@ export default function Home() {
     null,
   );
   const openCouplePlanningChapter = useCallback(
-    (chapterId: CoupleWeddingChapterId) => {
+    (
+      chapterId: CoupleWeddingChapterId,
+      options?: { resumeMode?: CoupleGuidedQuestionResumeMode },
+    ) => {
       const now = Date.now();
       const lock = coupleChapterNavLockRef.current;
       if (lock && lock.chapterId === chapterId && now - lock.at < 450) {
         return;
       }
       coupleChapterNavLockRef.current = { chapterId, at: now };
+      setGuidedChapterResumeMode(options?.resumeMode ?? "restore");
 
       if (chapterId === "your_team") {
         setYourTeamContinueBlockedMessage(null);
@@ -6852,6 +6875,7 @@ export default function Home() {
     (chapterId: CoupleWeddingChapterId) => {
       const nextChapter = nextCoupleWeddingChapterAfter(chapterId);
       if (nextChapter) {
+        setGuidedChapterResumeMode("first-incomplete");
         setActivePlanningChapterId(nextChapter);
         setActiveScreen("Planning Questions");
         return;
@@ -6860,6 +6884,31 @@ export default function Home() {
       setActiveScreen("Dashboard");
     },
     [setActiveScreen],
+  );
+  const handlePlanningGuidedResumeChange = useCallback(
+    (chapterId: CoupleWeddingChapterId, resume: CoupleGuidedQuestionResume) => {
+      setPlanningChapterGuidedResume((prev) => {
+        const existing = prev[chapterId];
+        if (
+          existing?.stepId === resume.stepId &&
+          existing?.phase === resume.phase
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [chapterId]: resume,
+        };
+      });
+    },
+    [],
+  );
+  const handleActivePlanningGuidedResumeChange = useCallback(
+    (resume: CoupleGuidedQuestionResume) => {
+      if (!activePlanningChapterId) return;
+      handlePlanningGuidedResumeChange(activePlanningChapterId, resume);
+    },
+    [activePlanningChapterId, handlePlanningGuidedResumeChange],
   );
   const handleCoupleYourTeamChapterContinue = useCallback(
     async (chapterAnswers?: Record<string, string | undefined>) => {
@@ -6955,6 +7004,7 @@ export default function Home() {
             "[couple-nav] Planning Questions opened without chapter — selecting",
             fallbackChapter,
           );
+          setGuidedChapterResumeMode("first-incomplete");
           setActivePlanningChapterId(fallbackChapter);
           return;
         }
@@ -9765,15 +9815,36 @@ export default function Home() {
         });
 
         setEvents((prev) => {
-          const withPlaylists = mergeHydratedEventsPreservingPlaylists(prev, hydratedEvents);
+          const prevWithWorkingPlanning =
+            activeEventId &&
+            hasNonEmptyPlanningQuestionAnswers(eventSettingsRef.current.planningQuestionAnswers)
+              ? prev.map((evt) =>
+                  evt.id === activeEventId
+                    ? {
+                        ...evt,
+                        settings: {
+                          ...evt.settings,
+                          planningQuestionAnswers: {
+                            ...(evt.settings?.planningQuestionAnswers ?? {}),
+                            ...(eventSettingsRef.current.planningQuestionAnswers ?? {}),
+                          },
+                        },
+                      }
+                    : evt,
+                )
+              : prev;
+          const withPlaylists = mergeHydratedEventsPreservingPlaylists(
+            prevWithWorkingPlanning,
+            hydratedEvents,
+          );
           const withLocalPlanning = mergeHydratedEventsPreservingLocalPlanningData(
-            prev,
+            prevWithWorkingPlanning,
             withPlaylists,
             dbEmptyPlanningByEventId,
             dbEmptyCeremonyByEventId,
           );
           const { events: withLocalMusicHub, anyMerged: musicHubLocalTasteMerged } =
-            mergeHydratedEventsPreservingLocalMusicHubTaste(prev, withLocalPlanning);
+            mergeHydratedEventsPreservingLocalMusicHubTaste(prevWithWorkingPlanning, withLocalPlanning);
           if (musicHubLocalTasteMerged) {
             musicHubTasteDirtyRef.current = true;
             setMusicHubTasteDirtyRevision((revision) => {
@@ -9783,7 +9854,7 @@ export default function Home() {
             });
           }
           const merged = mergeStoredEventCoversIntoEvents(
-            mergeHydratedEventsPreservingGrandEntranceDetail(prev, withLocalMusicHub),
+            mergeHydratedEventsPreservingGrandEntranceDetail(prevWithWorkingPlanning, withLocalMusicHub),
             databaseEventIdsRef.current,
           );
           lastMergedHydratedEventsRef.current = merged;
@@ -9911,6 +9982,7 @@ export default function Home() {
                 appMode: "events",
                 activeScreen: "All Events",
                 activePlanningChapterId: null,
+              planningChapterGuidedResume: {},
               };
             }
             window.localStorage.setItem(storageKey, JSON.stringify(parsed));
@@ -10293,6 +10365,8 @@ export default function Home() {
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
         setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
+        setPlanningChapterGuidedResume(parsed.appState.planningChapterGuidedResume ?? {});
+        setGuidedChapterResumeMode("restore");
         const restoredScreen = migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard");
         let restoredMode: AppMode = parsed.appState.appMode === "event" ? "event" : "events";
         if (restoredMode === "events" && isLikelyEventWorkspaceScreen(restoredScreen)) {
@@ -10480,6 +10554,7 @@ export default function Home() {
           guestRequestView,
           inviteAccessPreview,
           activePlanningChapterId,
+          planningChapterGuidedResume,
         },
       };
 
@@ -10685,6 +10760,7 @@ export default function Home() {
     guestRequestView,
     inviteAccessPreview,
     activePlanningChapterId,
+    planningChapterGuidedResume,
     timelineItems,
     receptionTimelineInlineEditDraft,
     ceremonyTimelineItems,
@@ -13809,17 +13885,99 @@ export default function Home() {
     persistPlanningQuestionAnswersToDatabase,
   ]);
 
-  const updatePlanningQuestionAnswer = useCallback((questionId: string, next: string) => {
-    if (questionId === GRAND_ENTRANCE_PLANNING_LINEUP_KEY) return;
-    if (questionId === SPEECHES_TOASTS_PLANNING_KEY) return;
-    setEventSettings((prev) => ({
-      ...prev,
-      planningQuestionAnswers: {
-        ...(prev.planningQuestionAnswers ?? {}),
+  const flushPlanningQuestionAnswersToLocalStorage = useCallback(
+    (answersOverride?: Record<string, string | undefined>) => {
+      if (!hasHydrated) return;
+      if (typeof window === "undefined") return;
+      const eventId = activeEventId;
+      if (!eventId) return;
+      const answers = answersOverride ?? eventSettingsRef.current.planningQuestionAnswers ?? {};
+      try {
+        const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as {
+          events?: EventRecord[];
+        };
+        if (!Array.isArray(parsed.events)) return;
+        let touched = false;
+        const nextEvents = parsed.events.map((evt) => {
+          if (evt.id !== eventId) return evt;
+          touched = true;
+          return {
+            ...evt,
+            settings: {
+              ...evt.settings,
+              planningQuestionAnswers: {
+                ...(evt.settings?.planningQuestionAnswers ?? {}),
+                ...answers,
+              },
+            },
+          };
+        });
+        if (!touched) return;
+        window.localStorage.setItem(
+          EVENTS_STORAGE_KEY,
+          JSON.stringify({ ...parsed, events: nextEvents }),
+        );
+      } catch {
+        /* ignore quota / corrupt storage */
+      }
+    },
+    [activeEventId, hasHydrated],
+  );
+
+  const updatePlanningQuestionAnswer = useCallback(
+    (questionId: string, next: string) => {
+      if (questionId === GRAND_ENTRANCE_PLANNING_LINEUP_KEY) return;
+      if (questionId === SPEECHES_TOASTS_PLANNING_KEY) return;
+      const nextAnswers = {
+        ...(eventSettingsRef.current.planningQuestionAnswers ?? {}),
         [questionId]: next,
-      },
-    }));
-  }, []);
+      };
+      setEventSettings((prev) => ({
+        ...prev,
+        planningQuestionAnswers: {
+          ...(prev.planningQuestionAnswers ?? {}),
+          [questionId]: next,
+        },
+      }));
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  planningQuestionAnswers: {
+                    ...(evt.settings?.planningQuestionAnswers ?? {}),
+                    [questionId]: next,
+                  },
+                },
+              }
+            : evt,
+        ),
+      );
+      flushPlanningQuestionAnswersToLocalStorage(nextAnswers);
+    },
+    [activeEventId, flushPlanningQuestionAnswersToLocalStorage],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flush = () => {
+      flushPlanningQuestionAnswersToLocalStorage();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [flushPlanningQuestionAnswersToLocalStorage]);
 
   const applyChecklistTaskFocus = useCallback(
     (focus: ChecklistTaskFocus) => {
@@ -21869,9 +22027,9 @@ export default function Home() {
                     {completionPercent}%
                   </p>
                 </div>
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-200">
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-200/80">
                   <div
-                    className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
+                    className={`h-full rounded-full transition-[width] duration-700 ease-out ${isCoupleView ? "bg-[#2f4a3e]" : "bg-[#00D4FF]"}`}
                     style={{ width: `${completionPercent}%` }}
                   />
                 </div>
@@ -22098,10 +22256,14 @@ export default function Home() {
                 onBack={closeCouplePlanningChapter}
               />
               <CoupleWeddingChapterScreen
+                key={`${activePlanningChapterId}-${guidedChapterResumeMode}`}
                 chapterId={activePlanningChapterId}
                 chapterRow={coupleActivePlanningChapterRow}
                 answers={eventSettings.planningQuestionAnswers ?? {}}
                 onAnswerChange={updatePlanningQuestionAnswer}
+                guidedResume={activePlanningChapterGuidedResume}
+                guidedResumeMode={guidedChapterResumeMode}
+                onGuidedResumeChange={handleActivePlanningGuidedResumeChange}
                 renderQuestionEditor={({ question, value, onChange }) => (
                   <PlanningQuestionAnswerEditor q={question} value={value} onChange={onChange} />
                 )}

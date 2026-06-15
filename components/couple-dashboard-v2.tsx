@@ -19,7 +19,12 @@ import type {
   CoupleWeddingChapterCardModel,
   CoupleWeddingChapterId,
 } from "@/lib/coupleWeddingJourney";
+import type { CoupleGuidedQuestionResumeMode } from "@/lib/coupleGuidedQuestionResume";
 import type { Screen } from "@/types/planning";
+
+export type OpenCouplePlanningChapterOptions = {
+  resumeMode?: CoupleGuidedQuestionResumeMode;
+};
 
 // ─── Display helpers ─────────────────────────────────────────────────────────
 
@@ -145,8 +150,11 @@ function resolveTodayContent(
     !coupleWeddingStoryChapterStarted;
 
   const handleContinue = () => {
+    const homeContinueOptions: OpenCouplePlanningChapterOptions = {
+      resumeMode: "first-incomplete",
+    };
     if (showPreJourneyWelcome && coupleWeddingWelcomeAction) {
-      onOpenChapter(coupleWeddingWelcomeAction.chapterId);
+      onOpenChapter(coupleWeddingWelcomeAction.chapterId, homeContinueOptions);
       return;
     }
     if (
@@ -155,11 +163,11 @@ function resolveTodayContent(
       !isCoupleWeddingJourneyComplete &&
       firstIncompleteCoupleChapter
     ) {
-      onOpenChapter(firstIncompleteCoupleChapter);
+      onOpenChapter(firstIncompleteCoupleChapter, homeContinueOptions);
       return;
     }
     if (coupleNextStep.targetChapterId) {
-      onOpenChapter(coupleNextStep.targetChapterId);
+      onOpenChapter(coupleNextStep.targetChapterId, homeContinueOptions);
       return;
     }
     onNavigate(coupleNextStep.targetScreen);
@@ -282,7 +290,10 @@ type CoupleDashboardV2Props = {
   plannerName: string | null;
   showEventPlanPreview: boolean;
 
-  onOpenChapter: (chapterId: CoupleWeddingChapterId) => void;
+  onOpenChapter: (
+    chapterId: CoupleWeddingChapterId,
+    options?: OpenCouplePlanningChapterOptions,
+  ) => void;
   onNavigate: (screen: Screen) => void;
   onRequestCoverPhoto?: () => void;
 };
@@ -605,7 +616,10 @@ function YourJourney({
 }: {
   chapters: CoupleWeddingChapterCardModel[];
   firstIncompleteCoupleChapter: CoupleWeddingChapterId | null;
-  onOpenChapter: (id: CoupleWeddingChapterId) => void;
+  onOpenChapter: (
+    id: CoupleWeddingChapterId,
+    options?: OpenCouplePlanningChapterOptions,
+  ) => void;
 }) {
   return (
     <section className="cm-dashboard-v3-journey cm-dashboard-v3-animate-rise cm-dashboard-v3-animate-rise--delay-1">

@@ -6,8 +6,14 @@ import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-sele
 import {
   CoupleGuidedQuestionSection,
   type CoupleGuidedQuestionStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
-import { TextArea, TextInput, lightUiFormLabelClass } from "@/components/planning-ui";
+import { TextArea, TextInput } from "@/components/planning-ui";
+import {
+  couplePlanningEmptyAnswerClass,
+  couplePlanningQuestionLabelClass,
+  couplePlanningQuestionShellClass,
+} from "@/components/couple-planning-ui";
 import {
   YOUR_TEAM_OFFICIANT_DISPOSITION_OPTIONS,
   YOUR_TEAM_OTHER_PARTNER_CHIP_LABELS,
@@ -45,9 +51,6 @@ const YOUR_TEAM_STEP_QUESTIONS = {
   coordinationNotes:
     "Anything else about your vendors or day-of coordination we should know?",
 } as const;
-
-const planningQuestionFieldShellClass =
-  "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
 
 const OTHER_PARTNER_CHIP_OPTIONS = YOUR_TEAM_OTHER_PARTNER_ROLES.map(
   (role) => YOUR_TEAM_OTHER_PARTNER_CHIP_LABELS[role],
@@ -125,10 +128,10 @@ export type CoupleYourTeamGuidedSectionProps = {
   onContinueToNextChapter: (answers: Record<string, string | undefined>) => void | Promise<void>;
   continueToNextChapterLabel: string;
   continueBlockedMessage?: string | null;
-};
+} & CoupleGuidedResumeProps;
 
 const bookedContactPromptClass =
-  "mt-4 rounded-lg border border-stone-200/90 bg-stone-50/90 px-3 py-2.5 text-sm font-medium leading-snug text-stone-800";
+  "rounded-xl border border-stone-200/60 bg-[#f8f6f2]/80 px-4 py-3 text-sm font-medium leading-snug text-stone-800";
 
 function ContactFields({
   contact,
@@ -199,7 +202,7 @@ function RoleSlotStep({
   useRevealOnBooked(parsed?.status, contactSectionRef);
 
   return (
-    <div className={planningQuestionFieldShellClass}>
+    <div className={couplePlanningQuestionShellClass}>
       <CouplePlanningChipSelect
         label={label}
         mode="single"
@@ -305,7 +308,7 @@ function OtherPartnersStep({
   };
 
   return (
-    <div className={planningQuestionFieldShellClass}>
+    <div className={couplePlanningQuestionShellClass}>
       <CouplePlanningChipSelect
         label={YOUR_TEAM_STEP_QUESTIONS.otherVendors}
         mode="single"
@@ -387,6 +390,9 @@ export function CoupleYourTeamGuidedSection({
   onContinueToNextChapter,
   continueToNextChapterLabel,
   continueBlockedMessage = null,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleYourTeamGuidedSectionProps) {
   const answersRef = useRef(answers);
   answersRef.current = answers;
@@ -405,8 +411,8 @@ export function CoupleYourTeamGuidedSection({
   }, [answers]);
   const steps = useMemo((): CoupleGuidedQuestionStep[] => {
     const renderRoleReview = (questionId: string, label: string) => (
-      <div className={planningQuestionFieldShellClass}>
-        <p className={lightUiFormLabelClass}>{label}</p>
+      <div className={couplePlanningQuestionShellClass}>
+        <p className={couplePlanningQuestionLabelClass}>{label}</p>
         <p className="mt-2 text-sm leading-relaxed text-stone-900">
           {formatYourTeamRoleSlotForDisplay(answers[questionId])}
         </p>
@@ -490,8 +496,8 @@ export function CoupleYourTeamGuidedSection({
           isYourTeamOtherPartnersAnswered(nextAnswers[YOUR_TEAM_QUESTION_IDS.otherPartners]),
         renderGuided: () => <OtherPartnersStep answers={answers} onAnswerChange={onAnswerChange} />,
         renderReview: () => (
-          <div className={planningQuestionFieldShellClass}>
-            <p className={lightUiFormLabelClass}>{YOUR_TEAM_STEP_QUESTIONS.otherVendors}</p>
+          <div className={couplePlanningQuestionShellClass}>
+            <p className={couplePlanningQuestionLabelClass}>{YOUR_TEAM_STEP_QUESTIONS.otherVendors}</p>
             <p className="mt-2 text-sm leading-relaxed text-stone-900">
               {formatYourTeamOtherPartnersForDisplay(answers[YOUR_TEAM_QUESTION_IDS.otherPartners])}
             </p>
@@ -503,7 +509,7 @@ export function CoupleYourTeamGuidedSection({
         optional: true,
         isAnswered: () => true,
         renderGuided: () => (
-          <div className={planningQuestionFieldShellClass}>
+          <div className={couplePlanningQuestionShellClass}>
             <TextArea
               id="your-team-coordination-notes"
               label={YOUR_TEAM_STEP_QUESTIONS.coordinationNotes}
@@ -511,16 +517,16 @@ export function CoupleYourTeamGuidedSection({
               onChange={(next) => onAnswerChange(YOUR_TEAM_QUESTION_IDS.coordinationNotes, next)}
               rows={4}
               placeholder="Parking, load-in, special requests, or vendors you're still waiting to confirm…"
-              labelClassName={`block ${lightUiFormLabelClass}`}
+              labelClassName={`block ${couplePlanningQuestionLabelClass}`}
             />
           </div>
         ),
         renderReview: () => (
-          <div className={planningQuestionFieldShellClass}>
-            <p className={lightUiFormLabelClass}>{YOUR_TEAM_STEP_QUESTIONS.coordinationNotes}</p>
+          <div className={couplePlanningQuestionShellClass}>
+            <p className={couplePlanningQuestionLabelClass}>{YOUR_TEAM_STEP_QUESTIONS.coordinationNotes}</p>
             <p className="mt-2 text-sm leading-relaxed text-stone-900">
               {(answers[YOUR_TEAM_QUESTION_IDS.coordinationNotes] ?? "").trim() || (
-                <span className="text-stone-500">Nothing added—totally fine</span>
+                <span className={couplePlanningEmptyAnswerClass}>Nothing added—totally fine</span>
               )}
             </p>
           </div>
@@ -545,6 +551,9 @@ export function CoupleYourTeamGuidedSection({
       continueToNextChapterLabel={continueToNextChapterLabel}
       completionSecondaryLabel="Manage vendor contacts"
       onCompletionSecondary={() => onOpenEventTeam(answersRef.current)}
+      guidedResume={guidedResume}
+      guidedResumeMode={guidedResumeMode}
+      onGuidedResumeChange={onGuidedResumeChange}
     />
   );
 }

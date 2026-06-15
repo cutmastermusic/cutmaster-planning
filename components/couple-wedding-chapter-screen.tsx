@@ -11,12 +11,15 @@ import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guide
 import {
   CoupleGuidedQuestionSection,
   questionGuidedStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
+import {
+  couplePlanningSectionCardClass,
+} from "@/components/couple-planning-ui";
 import {
   PremiumCard,
   PrimaryButton,
   lightUiCouplePrimaryButtonClass,
-  premiumFormSectionCardClass,
 } from "@/components/planning-ui";
 import type { GroupedPlanningQuestionsRow } from "@/data/planningQuestionGroups";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
@@ -104,7 +107,7 @@ export type CoupleWeddingChapterScreenProps = {
   finalReviewOperationalInput: CoupleOperationalReadinessInput;
   finalReviewSummaryInput: CoupleFinalReviewSummaryInput;
   finalReviewChapterComplete: boolean;
-};
+} & CoupleGuidedResumeProps;
 
 function visibleQuestionsForRow(row: GroupedPlanningQuestionsRow | null): PlanningQuestionDef[] {
   if (!row) return [];
@@ -140,7 +143,15 @@ export function CoupleWeddingChapterScreen({
   finalReviewOperationalInput,
   finalReviewSummaryInput,
   finalReviewChapterComplete,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleWeddingChapterScreenProps) {
+  const guidedResumeProps = {
+    guidedResume,
+    guidedResumeMode,
+    onGuidedResumeChange,
+  };
   if (chapterId === "your_team") {
     return (
       <CoupleYourTeamGuidedSection
@@ -150,6 +161,7 @@ export function CoupleWeddingChapterScreen({
         onContinueToNextChapter={onContinueToNextChapter}
         continueToNextChapterLabel={continueToNextChapterLabel}
         continueBlockedMessage={yourTeamContinueBlockedMessage}
+        {...guidedResumeProps}
       />
     );
   }
@@ -189,6 +201,7 @@ export function CoupleWeddingChapterScreen({
         onAnswerChange={onAnswerChange}
         renderEditor={renderQuestionEditor}
         {...chapterContinueProps}
+        {...guidedResumeProps}
       />
     );
   }
@@ -199,6 +212,7 @@ export function CoupleWeddingChapterScreen({
         answers={answers}
         onAnswerChange={onAnswerChange}
         {...chapterContinueProps}
+        {...guidedResumeProps}
       />
     );
   }
@@ -211,6 +225,7 @@ export function CoupleWeddingChapterScreen({
         onOpenMusicHub={onOpenMusicHub}
         onContinueToNextChapter={onContinueToNextChapter}
         continueToNextChapterLabel={continueToNextChapterLabel}
+        {...guidedResumeProps}
       />
     );
   }
@@ -229,6 +244,7 @@ export function CoupleWeddingChapterScreen({
         onOpenWeddingPartyLineupEditor={onOpenWeddingPartyLineupEditor}
         onOpenSpeechesToastsEditor={onOpenSpeechesToastsEditor}
         {...chapterContinueProps}
+        {...guidedResumeProps}
       />
     );
   }
@@ -242,11 +258,11 @@ export function CoupleWeddingChapterScreen({
 
   if (steps.length === 0) {
     return (
-      <PremiumCard className={premiumFormSectionCardClass}>
-        <p className="text-sm leading-relaxed text-stone-800">
+      <PremiumCard className={couplePlanningSectionCardClass}>
+        <p className="text-[15px] leading-relaxed text-stone-700">
           No prompts are available for {coupleWeddingChapterNavLabel(chapterId)} yet.
         </p>
-        <PrimaryButton type="button" onClick={onContinueToNextChapter} className={`mt-4 ${lightUiCouplePrimaryButtonClass}`}>
+        <PrimaryButton type="button" onClick={onContinueToNextChapter} className={`mt-6 ${lightUiCouplePrimaryButtonClass}`}>
           {continueToNextChapterLabel}
         </PrimaryButton>
       </PremiumCard>
@@ -257,7 +273,7 @@ export function CoupleWeddingChapterScreen({
 
   return (
     <CoupleGuidedQuestionSection
-      key={chapterCopy.sectionId}
+      key={`${chapterCopy.sectionId}-${guidedResumeMode ?? "restore"}`}
       sectionId={chapterCopy.sectionId}
       eyebrow={chapterCopy.eyebrow}
       title={chapterCopy.title}
@@ -267,6 +283,7 @@ export function CoupleWeddingChapterScreen({
       answers={answers}
       reviewIncompleteHint={reviewIncompleteHint}
       {...chapterContinueProps}
+      {...guidedResumeProps}
     />
   );
 }

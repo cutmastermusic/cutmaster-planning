@@ -6,8 +6,15 @@ import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-sele
 import {
   CoupleGuidedQuestionSection,
   type CoupleGuidedQuestionStep,
+  type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
-import { TextArea, TextInput, lightUiFormLabelClass } from "@/components/planning-ui";
+import {
+  couplePlanningEmptyAnswerClass,
+  couplePlanningQuestionHelperClass,
+  couplePlanningQuestionLabelClass,
+  couplePlanningQuestionShellClass,
+} from "@/components/couple-planning-ui";
+import { TextArea, TextInput } from "@/components/planning-ui";
 import {
   CEREMONY_CHAPTER_QUESTION_IDS,
   CEREMONY_CUTMASTER_SERVICES_OPTIONS,
@@ -22,21 +29,23 @@ import {
   normalizeCeremonyLocationAnswer,
 } from "@/lib/coupleCeremonyPlanning";
 
-const planningQuestionFieldShellClass =
-  "rounded-xl border border-stone-200/95 bg-stone-50/90 px-5 py-5 shadow-none sm:px-6 sm:py-6";
+const planningQuestionFieldShellClass = couplePlanningQuestionShellClass;
 
 export type CoupleCeremonyGuidedSectionProps = {
   answers: Record<string, string | undefined>;
   onAnswerChange: (questionId: string, next: string) => void;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
-};
+} & CoupleGuidedResumeProps;
 
 export function CoupleCeremonyGuidedSection({
   answers,
   onAnswerChange,
   onContinueToNextChapter,
   continueToNextChapterLabel,
+  guidedResume,
+  guidedResumeMode,
+  onGuidedResumeChange,
 }: CoupleCeremonyGuidedSectionProps) {
   const servicesValue = normalizeCeremonyCutmasterServicesAnswer(
     answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
@@ -48,9 +57,9 @@ export function CoupleCeremonyGuidedSection({
 
     const renderSingleReview = (label: string, raw: string | undefined) => (
       <div className={planningQuestionFieldShellClass}>
-        <p className={lightUiFormLabelClass}>{label}</p>
-        <p className="mt-2 text-sm leading-relaxed text-stone-900">
-          {(raw ?? "").trim() || <span className="text-stone-500">Not answered</span>}
+        <p className={couplePlanningQuestionLabelClass}>{label}</p>
+        <p className="mt-3 text-sm leading-relaxed text-stone-900">
+          {(raw ?? "").trim() || <span className={couplePlanningEmptyAnswerClass}>Not answered</span>}
         </p>
       </div>
     );
@@ -111,9 +120,9 @@ export function CoupleCeremonyGuidedSection({
             value={answers[CEREMONY_CHAPTER_QUESTION_IDS.startTime] ?? ""}
             onChange={(next) => setSingle(CEREMONY_CHAPTER_QUESTION_IDS.startTime, next)}
             placeholder="e.g. 4:00 PM, 4pm, or TBD"
-            labelClassName={`block ${lightUiFormLabelClass}`}
+            labelClassName={`block ${couplePlanningQuestionLabelClass}`}
           />
-          <p className="mt-3 text-xs leading-relaxed text-stone-600">
+          <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
             An approximate time is fine—enter TBD if you have not locked it in yet.
           </p>
         </div>
@@ -167,7 +176,7 @@ export function CoupleCeremonyGuidedSection({
                 }
                 rows={3}
                 placeholder="Venue name, address, or any notes that help us plan…"
-                labelClassName={`block ${lightUiFormLabelClass}`}
+                labelClassName={`block ${couplePlanningQuestionLabelClass}`}
               />
             </div>
           ) : null}
@@ -181,7 +190,7 @@ export function CoupleCeremonyGuidedSection({
           )}
           {locationValue === "different" ? (
             <div className={planningQuestionFieldShellClass}>
-              <p className={lightUiFormLabelClass}>Ceremony location details</p>
+              <p className={couplePlanningQuestionLabelClass}>Ceremony location details</p>
               <p className="mt-2 text-sm leading-relaxed text-stone-900">
                 {(answers[CEREMONY_CHAPTER_QUESTION_IDS.locationDetails] ?? "").trim() || (
                   <span className="text-stone-500">Not answered</span>
@@ -213,6 +222,9 @@ export function CoupleCeremonyGuidedSection({
       completionMessage="Thanks — this helps us know what to plan for your ceremony."
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
+      guidedResume={guidedResume}
+      guidedResumeMode={guidedResumeMode}
+      onGuidedResumeChange={onGuidedResumeChange}
     />
   );
 }

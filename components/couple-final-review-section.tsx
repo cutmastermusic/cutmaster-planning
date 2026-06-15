@@ -9,10 +9,15 @@ import {
   useCoupleMobileActionHandlers,
 } from "@/components/couple-mobile-action-button";
 import {
+  couplePlanningEyebrowClass,
+  couplePlanningIntroClass,
+  couplePlanningSectionCardClass,
+  couplePlanningTitleClass,
+} from "@/components/couple-planning-ui";
+import {
   PremiumCard,
   lightUiCouplePrimaryButtonClass,
   lightUiSecondaryButtonClass,
-  premiumFormSectionCardClass,
 } from "@/components/planning-ui";
 import {
   buildCoupleFinalReviewWeddingSummary,
@@ -72,7 +77,7 @@ function ReadinessStatusRow({
     <button
       type="button"
       {...mobileActionHandlers}
-      className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-3 rounded-xl border border-stone-200/90 bg-stone-50/70 px-4 py-3.5 text-left transition hover:border-[#2f4a3e]/30 hover:bg-[#2f4a3e]/[0.03] active:scale-[0.99] active:border-[#2f4a3e]/40 active:bg-[#2f4a3e]/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
+      className="group flex w-full min-h-12 touch-manipulation items-start justify-between gap-4 rounded-2xl border border-stone-200/60 bg-white/70 px-5 py-4 text-left transition hover:border-[#2f4a3e]/25 hover:bg-[#2f4a3e]/[0.03] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f4a3e]/40"
     >
       <div className="min-w-0">
         <p className="text-sm font-semibold text-stone-950">{label}</p>
@@ -125,7 +130,7 @@ function ChapterSummaryBlock({
   lines: CoupleFinalReviewWeddingSummary["chapters"][number]["lines"];
 }) {
   return (
-    <div className="rounded-xl border border-stone-200/90 bg-white/80 px-4 py-4">
+    <div className="rounded-2xl border border-stone-200/50 bg-white/70 px-5 py-5">
       <p className="text-sm font-semibold text-stone-950">{title}</p>
       <dl className="mt-3 space-y-2.5">
         {lines.map((line) => (
@@ -154,11 +159,11 @@ function CoupleFinalReviewCompletionCelebration({
 
   return (
     <>
-      <PremiumCard className={`${premiumFormSectionCardClass} ${coupleMobileActionContentSpacerClass}`}>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">Final Review</p>
+      <PremiumCard className={`${couplePlanningSectionCardClass} ${coupleMobileActionContentSpacerClass}`}>
+        <p className={couplePlanningEyebrowClass}>Final Review</p>
 
-        <div className="mt-4 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 via-white to-[#2f4a3e]/[0.04] px-5 py-6">
-          <h3 className="text-xl font-semibold leading-snug text-emerald-950 sm:text-2xl">
+        <div className="mt-5 rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/90 via-white to-[#2f4a3e]/[0.04] px-6 py-7">
+          <h3 className="font-[family-name:var(--font-editorial),Iowan_Old_Style,Palatino_Linotype,Georgia,serif] text-xl font-medium leading-snug text-emerald-950 sm:text-2xl">
             🎉 Final review complete
           </h3>
           <p className="mt-3 text-sm leading-relaxed text-stone-800">
@@ -259,25 +264,23 @@ export function CoupleFinalReviewSection({
   }
 
   return (
-    <PremiumCard className={`${premiumFormSectionCardClass} ${finalReviewIncompleteSpacerClass}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">Final Review</p>
-      <h3 className="mt-2 text-lg font-semibold leading-snug text-stone-950 sm:text-xl">
-        Ready for a final pass?
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-stone-800">
+    <PremiumCard className={`${couplePlanningSectionCardClass} ${finalReviewIncompleteSpacerClass}`}>
+      <p className={couplePlanningEyebrowClass}>Final Review</p>
+      <h3 className={couplePlanningTitleClass}>Ready for a final pass?</h3>
+      <p className={couplePlanningIntroClass}>
         Review each part of your wedding plan. If something needs attention, tap it and we&apos;ll take you
         there.
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-stone-800">
+      <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-stone-700">
         Finish any chapters below still marked incomplete.
       </p>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-8 space-y-8">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+          <p className={couplePlanningEyebrowClass}>
             Your wedding story
           </p>
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 space-y-2.5">
             {storyChapterRows.map((row) => (
               <ReadinessStatusRow
                 key={row.id}
@@ -298,10 +301,10 @@ export function CoupleFinalReviewSection({
         </div>
 
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+          <p className={couplePlanningEyebrowClass}>
             Optional Next Steps
           </p>
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 space-y-2.5">
             {operationalRows.map((row) => (
               <ReadinessStatusRow
                 key={row.id}
