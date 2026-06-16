@@ -6,6 +6,7 @@ import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
+import { summarizeDataUrl, traceWelcomePhoto } from "@/lib/welcomePhotoTrace";
 import {
   resolveCoupleWelcomePhotoDisplay,
 } from "@/lib/eventCover";
@@ -438,6 +439,53 @@ function CoupleHeroPhoto({
       cancelled = true;
     };
   }, [activeTransform, displayUrl, isEventSpecific, photoIdentity]);
+
+  const renderBranch = showSkeleton
+    ? "skeleton"
+    : isEventSpecific && displayUrl && decodedUrl
+      ? "event-specific"
+      : !isEventSpecific && displayUrl
+        ? "global-default"
+        : !displayUrl
+          ? "placeholder"
+          : "null-blank";
+
+  useEffect(() => {
+    traceWelcomePhoto("step2-couple-hero-photo", {
+      renderBranch,
+      coverPhotoDataUrl: summarizeDataUrl(coverPhotoDataUrl),
+      coverPhotoStoragePath: coverPhotoStoragePath?.trim() || null,
+      defaultWelcomePhotoDataUrl: summarizeDataUrl(defaultWelcomePhotoDataUrl),
+      defaultWelcomePhotoTransform: defaultWelcomePhotoTransform ?? null,
+      resolveCoupleWelcomePhotoDisplay: {
+        displayUrl: summarizeDataUrl(displayUrl),
+        isEventSpecific,
+      },
+      coverPhotoHydrationReady,
+      showSkeleton,
+      decodedUrl: summarizeDataUrl(decodedUrl),
+      photoVisible,
+      photoIdentity,
+      displayedIdentityRef: displayedIdentityRef.current ?? null,
+      photoSrc:
+        !isEventSpecific && displayUrl ? summarizeDataUrl(decodedUrl ?? displayUrl) : null,
+      photoReady:
+        !isEventSpecific && displayUrl ? (decodedUrl ? photoVisible : true) : null,
+    });
+  }, [
+    coverPhotoDataUrl,
+    coverPhotoHydrationReady,
+    coverPhotoStoragePath,
+    decodedUrl,
+    defaultWelcomePhotoDataUrl,
+    defaultWelcomePhotoTransform,
+    displayUrl,
+    isEventSpecific,
+    photoIdentity,
+    photoVisible,
+    renderBranch,
+    showSkeleton,
+  ]);
 
   if (showSkeleton) {
     return (

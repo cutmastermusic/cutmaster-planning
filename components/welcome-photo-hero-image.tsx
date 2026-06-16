@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   coverPhotoTransformToImageStyle,
+  coverPhotoTransformsRenderEquivalently,
   normalizeCoverPhotoTransform,
   resolveCoverPhotoTransformForDisplay,
 } from "@/lib/coverPhotoTransform";
@@ -25,7 +26,16 @@ export function WelcomePhotoHeroImage({
   visible = true,
 }: WelcomePhotoHeroImageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const normalizedTransform = normalizeCoverPhotoTransform(transform);
+  const normalizedTransform = useMemo(
+    () => normalizeCoverPhotoTransform(transform),
+    [
+      transform?.scale,
+      transform?.x,
+      transform?.y,
+      transform?.baseWidthPercent,
+      transform?.baseHeightPercent,
+    ],
+  );
   const normalizedTransformRef = useRef(normalizedTransform);
   const imageMetricsRef = useRef<{ width: number; height: number } | null>(null);
   const [displayTransform, setDisplayTransform] = useState(normalizedTransform);
@@ -34,12 +44,23 @@ export function WelcomePhotoHeroImage({
     normalizedTransformRef.current = normalizedTransform;
   }, [normalizedTransform]);
 
+  const applyDisplayTransform = useCallback((next: CoverPhotoTransform | undefined) => {
+    setDisplayTransform((prev) => {
+      if (prev === next) return prev;
+      if (prev && next && coverPhotoTransformsRenderEquivalently(prev, next)) {
+        return prev;
+      }
+      if (!prev && !next) return prev;
+      return next;
+    });
+  }, []);
+
   const resolveDisplayTransformForMetrics = useCallback((imageWidth: number, imageHeight: number) => {
     const stage = stageRef.current;
     if (!stage || imageWidth <= 0 || imageHeight <= 0) return;
     const rect = stage.getBoundingClientRect();
     if (rect.width < 8 || rect.height < 8) return;
-    setDisplayTransform(
+    applyDisplayTransform(
       resolveCoverPhotoTransformForDisplay(
         normalizedTransformRef.current,
         imageWidth,
@@ -48,7 +69,7 @@ export function WelcomePhotoHeroImage({
         rect.height,
       ),
     );
-  }, []);
+  }, [applyDisplayTransform]);
 
   useEffect(() => {
     if (imageMetricsRef.current) {
@@ -57,9 +78,9 @@ export function WelcomePhotoHeroImage({
         imageMetricsRef.current.height,
       );
     } else {
-      setDisplayTransform(normalizedTransform);
+      applyDisplayTransform(normalizedTransform);
     }
-  }, [normalizedTransform, resolveDisplayTransformForMetrics]);
+  }, [applyDisplayTransform, normalizedTransform, resolveDisplayTransformForMetrics]);
 
   const imageStyle = displayTransform
     ? coverPhotoTransformToImageStyle(displayTransform)
