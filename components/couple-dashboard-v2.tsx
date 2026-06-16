@@ -351,11 +351,13 @@ function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory
         variant === "ivory" ? "cm-dashboard-v3-hero-photo-overlay--ivory" : ""
       }`}
     >
-      <h3 className="cm-dashboard-v3-hero-photo-overlay-headline">Make it yours</h3>
-      <p className="cm-dashboard-v3-hero-photo-overlay-body">
-        Add a favorite photo to personalize your planning experience.
-      </p>
-      <span className="cm-dashboard-v3-hero-empty-cta">Choose Photo</span>
+      <div className="cm-dashboard-v3-hero-photo-overlay-content">
+        <h3 className="cm-dashboard-v3-hero-photo-overlay-headline">Make it yours</h3>
+        <p className="cm-dashboard-v3-hero-photo-overlay-body">
+          Add a favorite photo to personalize your planning experience.
+        </p>
+        <span className="cm-dashboard-v3-hero-empty-cta">Choose Photo</span>
+      </div>
     </div>
   );
 }
