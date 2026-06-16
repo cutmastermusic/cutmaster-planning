@@ -681,12 +681,21 @@ body.cm-ros-scroll-lock {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0 1.25rem 2rem;
+  justify-content: center;
+  padding: 2.75rem 1.25rem 3.25rem;
   text-align: center;
   pointer-events: none;
   background: none;
-  color: #fff;
+  color: #faf8f4;
+}
+
+.cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory) {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 14, 12, 0.03) 0%,
+    rgba(16, 14, 12, 0.08) 48%,
+    rgba(16, 14, 12, 0.13) 100%
+  );
 }
 
 .cm-dashboard-v3-hero-photo-overlay-content {
@@ -696,20 +705,12 @@ body.cm-ros-scroll-lock {
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
-  padding: 1.35rem 1rem 0.25rem;
-  background: linear-gradient(
-    to top,
-    rgba(20, 18, 16, 0.34) 0%,
-    rgba(20, 18, 16, 0.14) 42%,
-    transparent 100%
-  );
+  padding: 0;
+  background: none;
 }
 
 .cm-dashboard-v3-hero-photo-overlay--ivory {
   color: #3d3935;
-}
-
-.cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-content {
   background: none;
 }
 
@@ -719,6 +720,13 @@ body.cm-ros-scroll-lock {
   font-size: 1.2rem;
   font-weight: 500;
   line-height: 1.3;
+  color: #faf8f4;
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-headline {
+  color: #3d3935;
+  text-shadow: none;
 }
 
 .cm-dashboard-v3-hero-photo-overlay-body {
@@ -726,12 +734,18 @@ body.cm-ros-scroll-lock {
   max-width: 14.5rem;
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.26);
 }
 
 .cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-body {
   color: #8a847c;
   text-shadow: none;
+}
+
+.cm-dashboard-v3-hero-photo-overlay .cm-dashboard-v3-hero-empty-cta {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.16);
 }
 
 .cm-dashboard-v3-hero-empty-content {
