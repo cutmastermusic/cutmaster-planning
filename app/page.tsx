@@ -6207,13 +6207,16 @@ export default function Home() {
     ): Promise<void> => {
       if (!activeEventId) return;
 
-      const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
-      if (isDbBacked && isSupabaseConfigured()) {
+      const usesRemoteCoverPhotoSource =
+        isSupabaseConfigured() && !isAuthBypassEnabled();
+
+      if (usesRemoteCoverPhotoSource) {
         const saved = await uploadEventCoverPhoto(activeEventId, file, transform);
         const displayUrl = withCoverPhotoCacheBust(saved.publicUrl);
         await preloadCoverPhotoImage(displayUrl);
         flushSync(() => {
           applyEventCoverPhotoState(displayUrl, saved.transform, saved.storagePath);
+          setEventPlanningReadyEventId(activeEventId);
         });
         clearEventCoverPhotoFromLocalStorage(activeEventId);
         return;
@@ -10660,6 +10663,7 @@ export default function Home() {
         delete next.coverPhotoDataUrl;
         delete next.coverPhotoTransform;
         delete next.coverPhotoStoragePath;
+        delete next.hasPersonalizedWelcomePhoto;
         return next;
       };
 
@@ -16850,7 +16854,6 @@ export default function Home() {
                 onOpenChapter={openCouplePlanningChapter}
                 onNavigate={navigateCoupleFinalPlanningHint}
                 onRequestCoverPhoto={openEventCoverPhotoPicker}
-                hasPersonalizedWelcomePhoto={hasPersonalizedWelcomePhotoFlag(eventSettings)}
               />
             </section>
           ) : (

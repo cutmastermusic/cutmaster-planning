@@ -270,7 +270,6 @@ type CoupleDashboardV2Props = {
   /** Admin global default welcome photo (data URL) when the event has no upload. */
   defaultWelcomePhotoDataUrl?: string;
   defaultWelcomePhotoTransform?: CoverPhotoTransform;
-  hasPersonalizedWelcomePhoto?: boolean;
 
   isCoupleWeddingPlanningView: boolean;
   sectionPlanningQuestionsEnabled: boolean;
@@ -348,7 +347,6 @@ function CoupleHeroPhoto({
   coverPhotoHydrationReady = true,
   defaultWelcomePhotoDataUrl,
   defaultWelcomePhotoTransform,
-  hasPersonalizedWelcomePhoto = false,
   onRequestCoverPhoto,
 }: {
   coverPhotoDataUrl?: string;
@@ -357,7 +355,6 @@ function CoupleHeroPhoto({
   coverPhotoHydrationReady?: boolean;
   defaultWelcomePhotoDataUrl?: string;
   defaultWelcomePhotoTransform?: CoverPhotoTransform;
-  hasPersonalizedWelcomePhoto?: boolean;
   onRequestCoverPhoto?: () => void;
 }) {
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
@@ -366,7 +363,7 @@ function CoupleHeroPhoto({
     defaultWelcomePhotoDataUrl,
   });
   const { displayUrl, isEventSpecific } = welcomePhoto;
-  const showOnboardingPill = !hasPersonalizedWelcomePhoto;
+  const showOnboardingPill = !(isEventSpecific && Boolean(displayUrl));
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
 
@@ -496,7 +493,6 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
             coverPhotoHydrationReady={props.coverPhotoHydrationReady}
             defaultWelcomePhotoDataUrl={props.defaultWelcomePhotoDataUrl}
             defaultWelcomePhotoTransform={props.defaultWelcomePhotoTransform}
-            hasPersonalizedWelcomePhoto={props.hasPersonalizedWelcomePhoto}
             onRequestCoverPhoto={props.onRequestCoverPhoto}
           />
         </div>
