@@ -4719,7 +4719,10 @@ export default function Home() {
 
   const loadEventPlanningIntoWorkingState = (
     incoming: EventRecord,
-    options?: { markCoverPhotoHydrationReady?: boolean },
+    options?: {
+      markCoverPhotoHydrationReady?: boolean;
+      deferCoverPhotoFields?: boolean;
+    },
   ) => {
     const evt = shouldStripStaffFieldsForCoupleHydration(incoming.id)
       ? (stripStaffOnlyFieldsFromClientEventRecord(incoming) as EventRecord)
@@ -4845,11 +4848,8 @@ export default function Home() {
     setMcAnnouncements(evt.mcAnnouncements);
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
-    setEventSettings(
-      backfillWelcomePhotoPersonalizationFlag(
-        mergeStoredEventCoverIntoSettings(
-          evt.id,
-          cloneJson({
+    const deferCoverPhotoFields = options?.deferCoverPhotoFields === true;
+    const nextSettingsDraft = cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
           evt.settings?.eventLayoutProfile,
           evt.settings?.eventType ?? "",
@@ -4909,9 +4909,13 @@ export default function Home() {
         ),
         checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
         checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
-        coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
-        coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
-        coverPhotoStoragePath: evt.settings?.coverPhotoStoragePath,
+        ...(deferCoverPhotoFields
+          ? {}
+          : {
+              coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+              coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
+              coverPhotoStoragePath: evt.settings?.coverPhotoStoragePath,
+            }),
         hasPersonalizedWelcomePhoto: evt.settings?.hasPersonalizedWelcomePhoto,
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
@@ -4921,10 +4925,22 @@ export default function Home() {
           evt.settings?.ceremonyCoverageStatus,
           (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
         ),
-      }),
-        { isDbBacked: databaseEventIdsRef.current.has(evt.id) },
-      ),
-      ),
+      });
+    const mergedSettings = deferCoverPhotoFields
+      ? nextSettingsDraft
+      : mergeStoredEventCoverIntoSettings(evt.id, nextSettingsDraft, {
+          isDbBacked: databaseEventIdsRef.current.has(evt.id),
+        });
+    const normalizedSettings = backfillWelcomePhotoPersonalizationFlag(mergedSettings);
+    setEventSettings((prev) =>
+      deferCoverPhotoFields
+        ? {
+            ...normalizedSettings,
+            coverPhotoDataUrl: prev.coverPhotoDataUrl,
+            coverPhotoTransform: prev.coverPhotoTransform,
+            coverPhotoStoragePath: prev.coverPhotoStoragePath,
+          }
+        : normalizedSettings,
     );
 
     // Reset local editing modes when switching context.
@@ -10542,9 +10558,12 @@ export default function Home() {
       if (active) {
         const usesRemoteCoverPhotoSource =
           isSupabaseConfigured() && !isAuthBypassEnabled();
-        if (!usesRemoteCoverPhotoSource) {
-          loadEventPlanningIntoWorkingState(active);
-        }
+        loadEventPlanningIntoWorkingState(
+          active,
+          usesRemoteCoverPhotoSource
+            ? { markCoverPhotoHydrationReady: false, deferCoverPhotoFields: true }
+            : undefined,
+        );
       }
 
       if (persistPhaseHideTimeoutRef.current) {
