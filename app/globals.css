@@ -682,10 +682,13 @@ body.cm-ros-scroll-lock {
   z-index: 2;
   left: 32px;
   bottom: 32px;
-  max-width: 11.5rem;
-  padding: 0.8rem 0.95rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 38px;
+  padding: 0.6875rem 1.0625rem;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 20px;
+  border-radius: 9999px;
   background: rgba(250, 248, 244, 0.18);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -698,31 +701,23 @@ body.cm-ros-scroll-lock {
     border-color 180ms ease;
 }
 
-.cm-couple-onboarding-glass-pill__icon-wrap {
-  margin-bottom: 0.45rem;
-}
-
-.cm-couple-onboarding-glass-pill__icon {
-  width: 0.875rem;
-  height: 0.875rem;
-  color: var(--cm-editorial-accent);
-}
-
-.cm-couple-onboarding-glass-pill__headline {
-  margin: 0 0 0.55rem;
-  font-family: var(--cm-editorial-serif);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  line-height: 1.32;
-  color: #3d3935;
-}
-
-.cm-couple-onboarding-glass-pill__body {
-  margin: 0;
+.cm-couple-onboarding-glass-pill__label {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.875rem;
-  line-height: 1.45;
-  color: rgba(250, 248, 244, 0.88);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--cm-editorial-accent);
+  white-space: nowrap;
+}
+
+.cm-couple-onboarding-glass-pill__arrow {
+  display: inline-block;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--cm-editorial-accent);
+  transition: transform 180ms ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -735,6 +730,11 @@ body.cm-ros-scroll-lock {
   .cm-dashboard-v3-hero-photo--placeholder:hover .cm-couple-onboarding-glass-pill {
     background: rgba(250, 248, 244, 0.24);
     border-color: rgba(255, 255, 255, 0.52);
+  }
+
+  .cm-dashboard-v3-hero-photo--default:hover .cm-couple-onboarding-glass-pill__arrow,
+  .cm-dashboard-v3-hero-photo--placeholder:hover .cm-couple-onboarding-glass-pill__arrow {
+    transform: translateX(2px);
   }
 }
 

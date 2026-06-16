@@ -1,17 +1,11 @@
-import type { ReactNode } from "react";
-
 export type CoupleOnboardingGlassPillProps = {
-  headline: string;
-  body: string;
-  icon?: ReactNode;
+  label: string;
   className?: string;
 };
 
-/** Reusable warm ivory glass onboarding pill for the Couple Portal. */
+/** Reusable warm ivory glass micro-CTA pill for the Couple Portal. */
 export function CoupleOnboardingGlassPill({
-  headline,
-  body,
-  icon,
+  label,
   className,
 }: CoupleOnboardingGlassPillProps) {
   return (
@@ -19,18 +13,14 @@ export function CoupleOnboardingGlassPill({
       className={`cm-couple-onboarding-glass-pill${className ? ` ${className}` : ""}`}
       aria-hidden
     >
-      {icon ? <div className="cm-couple-onboarding-glass-pill__icon-wrap">{icon}</div> : null}
-      <h3 className="cm-couple-onboarding-glass-pill__headline">{headline}</h3>
-      <p className="cm-couple-onboarding-glass-pill__body">{body}</p>
+      <span className="cm-couple-onboarding-glass-pill__label">{label}</span>
+      <span className="cm-couple-onboarding-glass-pill__arrow" aria-hidden>
+        →
+      </span>
     </div>
   );
 }
 
 export function WelcomePhotoOnboardingPill() {
-  return (
-    <CoupleOnboardingGlassPill
-      headline="Make it yours"
-      body="Upload your favorite photo."
-    />
-  );
+  return <CoupleOnboardingGlassPill label="Upload your photo" />;
 }
