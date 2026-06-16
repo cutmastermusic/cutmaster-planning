@@ -7,26 +7,6 @@ export type CoupleOnboardingGlassPillProps = {
   className?: string;
 };
 
-function WelcomePhotoCameraIcon() {
-  return (
-    <svg
-      className="cm-couple-onboarding-glass-pill__icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 8h3l1.5-2h7L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"
-      />
-      <circle cx="12" cy="13" r="3.25" />
-    </svg>
-  );
-}
-
 /** Reusable warm ivory glass onboarding pill for the Couple Portal. */
 export function CoupleOnboardingGlassPill({
   headline,
@@ -50,8 +30,7 @@ export function WelcomePhotoOnboardingPill() {
   return (
     <CoupleOnboardingGlassPill
       headline="Make it yours"
-      body="Add your favorite photo."
-      icon={<WelcomePhotoCameraIcon />}
+      body="Upload your favorite photo."
     />
   );
 }
