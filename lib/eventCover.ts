@@ -20,7 +20,6 @@ export function hasEventSpecificWelcomePhoto(settings: {
 export type CoupleWelcomePhotoDisplay = {
   displayUrl?: string;
   isEventSpecific: boolean;
-  showPersonalizeOverlay: boolean;
 };
 
 /** Resolve couple dashboard hero photo: event upload, then global default, then ivory placeholder. */
@@ -34,7 +33,6 @@ export function resolveCoupleWelcomePhotoDisplay(input: {
     return {
       displayUrl: input.coverPhotoDataUrl?.trim(),
       isEventSpecific: true,
-      showPersonalizeOverlay: false,
     };
   }
 
@@ -43,13 +41,35 @@ export function resolveCoupleWelcomePhotoDisplay(input: {
     return {
       displayUrl: defaultUrl,
       isEventSpecific: false,
-      showPersonalizeOverlay: true,
     };
   }
 
   return {
     displayUrl: undefined,
     isEventSpecific: false,
-    showPersonalizeOverlay: true,
   };
+}
+
+export function hasPersonalizedWelcomePhotoFlag(settings: {
+  hasPersonalizedWelcomePhoto?: boolean;
+  coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
+}): boolean {
+  if (settings.hasPersonalizedWelcomePhoto === true) return true;
+  return false;
+}
+
+/** One-time backfill for events that already have a couple upload before the flag existed. */
+export function backfillWelcomePhotoPersonalizationFlag<
+  T extends {
+    hasPersonalizedWelcomePhoto?: boolean;
+    coverPhotoDataUrl?: string;
+    coverPhotoStoragePath?: string;
+  },
+>(settings: T): T {
+  if (settings.hasPersonalizedWelcomePhoto === true) return settings;
+  if (hasEventSpecificWelcomePhoto(settings)) {
+    return { ...settings, hasPersonalizedWelcomePhoto: true };
+  }
+  return settings;
 }

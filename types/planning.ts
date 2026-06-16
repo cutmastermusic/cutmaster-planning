@@ -547,6 +547,8 @@ export type EventSettings = {
   coverPhotoStoragePath?: string;
   /** Pan/zoom framing for couple dashboard welcome photo. */
   coverPhotoTransform?: CoverPhotoTransform;
+  /** True after the couple uploads their first custom welcome photo; onboarding never reappears. */
+  hasPersonalizedWelcomePhoto?: boolean;
   /** Planning/execution stage; defaults to Planning when missing. */
   eventStatus?: EventStatus;
   /** Whether Cutmaster provides ceremony audio; defaults by event type when missing. */

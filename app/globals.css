@@ -677,119 +677,52 @@ body.cm-ros-scroll-lock {
     filter 180ms ease;
 }
 
-.cm-dashboard-v3-hero-photo-overlay {
+.cm-couple-onboarding-glass-pill {
   position: absolute;
-  inset: 0;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 1.85rem 1.85rem 2.1rem;
-  text-align: left;
+  left: 1.85rem;
+  bottom: 2.1rem;
+  max-width: 13.75rem;
+  padding: 1rem 1.15rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 20px;
+  background: rgba(250, 248, 244, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 10px 32px rgba(44, 40, 37, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
   pointer-events: none;
-  background: none;
-  color: #faf8f4;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
-.cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory)::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: min(100%, 280px);
-  height: min(72%, 280px);
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 250px 240px at 0% 100%,
-    rgba(0, 0, 0, 0.16) 0%,
-    rgba(0, 0, 0, 0.09) 34%,
-    rgba(0, 0, 0, 0.03) 58%,
-    transparent 76%
-  );
-  transition: background 180ms ease;
+.cm-couple-onboarding-glass-pill__icon-wrap {
+  margin-bottom: 0.55rem;
 }
 
-.cm-dashboard-v3-hero-photo-overlay-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: 100%;
-  max-width: 13.5rem;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  padding: 0;
-  background: none;
+.cm-couple-onboarding-glass-pill__icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--cm-editorial-accent);
 }
 
-.cm-dashboard-v3-hero-photo-overlay--ivory {
-  color: #3d3935;
-  background: none;
-}
-
-.cm-dashboard-v3-hero-photo-overlay-headline {
-  margin: 0 0 0.65rem;
+.cm-couple-onboarding-glass-pill__headline {
+  margin: 0 0 0.45rem;
   font-family: var(--cm-editorial-serif);
-  font-size: clamp(1.625rem, 4.2vw, 2rem);
+  font-size: 1.125rem;
   font-weight: 500;
-  line-height: 1.36;
-  color: #faf8f4;
-}
-
-.cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-headline {
+  line-height: 1.34;
   color: #3d3935;
 }
 
-.cm-dashboard-v3-hero-photo-overlay-body {
-  margin: 0 0 0.7rem;
-  max-width: 12.5rem;
+.cm-couple-onboarding-glass-pill__body {
+  margin: 0;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: rgba(250, 248, 244, 0.88);
-}
-
-.cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-body {
-  color: #8a847c;
-}
-
-.cm-dashboard-v3-hero-photo-overlay-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-  margin: 0.15rem 0 0;
-  max-width: 12.75rem;
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.6875rem;
-  line-height: 1.45;
-  color: rgba(250, 248, 244, 0.75);
-}
-
-.cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-hint {
-  color: rgba(92, 87, 79, 0.88);
-}
-
-.cm-dashboard-v3-hero-photo-overlay-hint-pointer {
-  display: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .cm-dashboard-v3-hero-photo-overlay-hint-touch {
-    display: none;
-  }
-
-  .cm-dashboard-v3-hero-photo-overlay-hint-pointer {
-    display: inline;
-  }
-}
-
-.cm-dashboard-v3-hero-photo-overlay-hint-icon {
-  width: 0.9rem;
-  height: 0.9rem;
-  margin-top: 0.1rem;
-  flex-shrink: 0;
-  color: var(--cm-editorial-accent);
+  color: rgba(61, 57, 53, 0.88);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -798,19 +731,10 @@ body.cm-ros-scroll-lock {
     filter: grayscale(0.85) sepia(0.18) saturate(0.72) contrast(0.92) brightness(1.1);
   }
 
-  .cm-dashboard-v3-hero-photo--default:hover
-    .cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory)::before {
-    background: radial-gradient(
-      ellipse 250px 240px at 0% 100%,
-      rgba(0, 0, 0, 0.18) 0%,
-      rgba(0, 0, 0, 0.11) 34%,
-      rgba(0, 0, 0, 0.04) 58%,
-      transparent 76%
-    );
-  }
-
-  .cm-dashboard-v3-hero-photo--placeholder:hover .cm-dashboard-v3-hero-photo-overlay--ivory {
-    background: none;
+  .cm-dashboard-v3-hero-photo--default:hover .cm-couple-onboarding-glass-pill,
+  .cm-dashboard-v3-hero-photo--placeholder:hover .cm-couple-onboarding-glass-pill {
+    background: rgba(250, 248, 244, 0.24);
+    border-color: rgba(255, 255, 255, 0.52);
   }
 }
 

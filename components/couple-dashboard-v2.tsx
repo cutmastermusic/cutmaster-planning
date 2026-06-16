@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
+import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
 import {
   resolveCoupleWelcomePhotoDisplay,
 } from "@/lib/eventCover";
@@ -274,6 +275,7 @@ type CoupleDashboardV2Props = {
   /** Admin global default welcome photo (data URL) when the event has no upload. */
   defaultWelcomePhotoDataUrl?: string;
   defaultWelcomePhotoTransform?: CoverPhotoTransform;
+  hasPersonalizedWelcomePhoto?: boolean;
 
   isCoupleWeddingPlanningView: boolean;
   sectionPlanningQuestionsEnabled: boolean;
@@ -344,46 +346,6 @@ function ClockIcon() {
   );
 }
 
-function WelcomePhotoCameraIcon() {
-  return (
-    <svg
-      className="cm-dashboard-v3-hero-photo-overlay-hint-icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 8h3l1.5-2h7L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"
-      />
-      <circle cx="12" cy="13" r="3.25" />
-    </svg>
-  );
-}
-
-function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory" }) {
-  return (
-    <div
-      className={`cm-dashboard-v3-hero-photo-overlay ${
-        variant === "ivory" ? "cm-dashboard-v3-hero-photo-overlay--ivory" : ""
-      }`}
-    >
-      <div className="cm-dashboard-v3-hero-photo-overlay-content">
-        <h3 className="cm-dashboard-v3-hero-photo-overlay-headline">Make it yours</h3>
-        <p className="cm-dashboard-v3-hero-photo-overlay-body">Add your favorite photo.</p>
-        <p className="cm-dashboard-v3-hero-photo-overlay-hint">
-          <WelcomePhotoCameraIcon />
-          <span className="cm-dashboard-v3-hero-photo-overlay-hint-touch">Tap anywhere to personalize.</span>
-          <span className="cm-dashboard-v3-hero-photo-overlay-hint-pointer">Click anywhere to personalize.</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function CoupleHeroPhoto({
   coverPhotoDataUrl,
   coverPhotoStoragePath,
@@ -391,6 +353,7 @@ function CoupleHeroPhoto({
   coverPhotoHydrationReady = true,
   defaultWelcomePhotoDataUrl,
   defaultWelcomePhotoTransform,
+  hasPersonalizedWelcomePhoto = false,
   onRequestCoverPhoto,
 }: {
   coverPhotoDataUrl?: string;
@@ -399,6 +362,7 @@ function CoupleHeroPhoto({
   coverPhotoHydrationReady?: boolean;
   defaultWelcomePhotoDataUrl?: string;
   defaultWelcomePhotoTransform?: CoverPhotoTransform;
+  hasPersonalizedWelcomePhoto?: boolean;
   onRequestCoverPhoto?: () => void;
 }) {
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
@@ -406,7 +370,8 @@ function CoupleHeroPhoto({
     coverPhotoStoragePath,
     defaultWelcomePhotoDataUrl,
   });
-  const { displayUrl, isEventSpecific, showPersonalizeOverlay } = welcomePhoto;
+  const { displayUrl, isEventSpecific } = welcomePhoto;
+  const showOnboardingPill = !hasPersonalizedWelcomePhoto;
   const activeTransform = normalizeCoverPhotoTransform(
     isEventSpecific ? coverPhotoTransform : defaultWelcomePhotoTransform,
   );
@@ -503,7 +468,7 @@ function CoupleHeroPhoto({
     );
   }
 
-  if (showPersonalizeOverlay && displayUrl) {
+  if (!isEventSpecific && displayUrl) {
     const photoSrc = decodedUrl ?? displayUrl;
     const photoReady = decodedUrl ? photoVisible : true;
 
@@ -521,12 +486,12 @@ function CoupleHeroPhoto({
           imageClassName="cm-dashboard-v3-hero-photo-img--personalize"
           visible={photoReady}
         />
-        <WelcomePhotoPersonalizeOverlay variant="photo" />
+        {showOnboardingPill ? <WelcomePhotoOnboardingPill /> : null}
       </button>
     );
   }
 
-  if (showPersonalizeOverlay) {
+  if (!displayUrl) {
     return (
       <button
         type="button"
@@ -535,7 +500,7 @@ function CoupleHeroPhoto({
         disabled={!onRequestCoverPhoto}
         aria-label="Personalize your welcome photo"
       >
-        <WelcomePhotoPersonalizeOverlay variant="ivory" />
+        {showOnboardingPill ? <WelcomePhotoOnboardingPill /> : null}
       </button>
     );
   }
@@ -594,6 +559,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
             coverPhotoHydrationReady={props.coverPhotoHydrationReady}
             defaultWelcomePhotoDataUrl={props.defaultWelcomePhotoDataUrl}
             defaultWelcomePhotoTransform={props.defaultWelcomePhotoTransform}
+            hasPersonalizedWelcomePhoto={props.hasPersonalizedWelcomePhoto}
             onRequestCoverPhoto={props.onRequestCoverPhoto}
           />
         </div>

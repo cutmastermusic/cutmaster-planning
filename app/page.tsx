@@ -349,6 +349,10 @@ import {
   uploadEventCoverPhoto,
 } from "@/lib/eventCoverPhotoClient";
 import {
+  backfillWelcomePhotoPersonalizationFlag,
+  hasPersonalizedWelcomePhotoFlag,
+} from "@/lib/eventCover";
+import {
   clearEventCoverPhotoFromLocalStorage,
   mergeStoredEventCoverIntoSettings,
   mergeStoredEventCoversIntoEvents,
@@ -4827,9 +4831,10 @@ export default function Home() {
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
     setEventSettings(
-      mergeStoredEventCoverIntoSettings(
-        evt.id,
-        cloneJson({
+      backfillWelcomePhotoPersonalizationFlag(
+        mergeStoredEventCoverIntoSettings(
+          evt.id,
+          cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
           evt.settings?.eventLayoutProfile,
           evt.settings?.eventType ?? "",
@@ -4891,6 +4896,8 @@ export default function Home() {
         checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
+        coverPhotoStoragePath: evt.settings?.coverPhotoStoragePath,
+        hasPersonalizedWelcomePhoto: evt.settings?.hasPersonalizedWelcomePhoto,
         eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
@@ -4901,6 +4908,7 @@ export default function Home() {
         ),
       }),
         { isDbBacked: databaseEventIdsRef.current.has(evt.id) },
+      ),
       ),
     );
 
@@ -6209,6 +6217,21 @@ export default function Home() {
     setWelcomePhotoDraft(null);
   }, []);
 
+  const markWelcomePhotoPersonalized = useCallback(() => {
+    if (!activeEventId) return;
+    setEventSettings((prev) => ({ ...prev, hasPersonalizedWelcomePhoto: true }));
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              settings: { ...evt.settings, hasPersonalizedWelcomePhoto: true },
+            }
+          : evt,
+      ),
+    );
+  }, [activeEventId]);
+
   const handleWelcomePhotoSave = useCallback(
     async (transform: CoverPhotoTransform) => {
       if (!welcomePhotoDraft?.dataUrl) return;
@@ -6238,6 +6261,7 @@ export default function Home() {
           welcomePhotoDraft.dataUrl,
           transform,
         );
+        markWelcomePhotoPersonalized();
         closeWelcomePhotoEditor();
         setWelcomePhotoToastVisible(true);
       } catch (err) {
@@ -6246,7 +6270,12 @@ export default function Home() {
         setWelcomePhotoSaving(false);
       }
     },
-    [closeWelcomePhotoEditor, commitEventCoverPhoto, welcomePhotoDraft],
+    [
+      closeWelcomePhotoEditor,
+      commitEventCoverPhoto,
+      markWelcomePhotoPersonalized,
+      welcomePhotoDraft,
+    ],
   );
 
   useEffect(() => {
@@ -9916,7 +9945,10 @@ export default function Home() {
           const merged = mergeStoredEventCoversIntoEvents(
             mergeHydratedEventsPreservingGrandEntranceDetail(prevWithWorkingPlanning, withLocalMusicHub),
             databaseEventIdsRef.current,
-          );
+          ).map((evt) => ({
+            ...evt,
+            settings: backfillWelcomePhotoPersonalizationFlag(evt.settings),
+          }));
           lastMergedHydratedEventsRef.current = merged;
           return merged;
         });
@@ -10389,7 +10421,10 @@ export default function Home() {
           normalizeEventRecordAfterFormalitiesMerge(evt as EventRecord),
         ),
         databaseEventIdsRef.current,
-      );
+      ).map((evt) => ({
+        ...evt,
+        settings: backfillWelcomePhotoPersonalizationFlag(evt.settings),
+      }));
       setEvents(migratedEvents);
       setAppMode(migratedEvents.length > 0 ? "event" : "events");
       if (Array.isArray(parsed.templates)) {
@@ -16643,6 +16678,7 @@ export default function Home() {
                 onOpenChapter={openCouplePlanningChapter}
                 onNavigate={navigateCoupleFinalPlanningHint}
                 onRequestCoverPhoto={openEventCoverPhotoPicker}
+                hasPersonalizedWelcomePhoto={hasPersonalizedWelcomePhotoFlag(eventSettings)}
               />
             </section>
           ) : (
