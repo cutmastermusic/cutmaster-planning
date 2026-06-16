@@ -1,4 +1,4 @@
-import { isPersistedCoverPhotoUrl } from "@/lib/eventCoverPhoto";
+import { getEventCoverPhotoPublicUrl, isPersistedCoverPhotoUrl } from "@/lib/eventCoverPhoto";
 
 /** Neutral default hero when no custom cover is uploaded (served from /public). */
 export const DEFAULT_EVENT_HERO_SRC = "/images/default-event-hero.svg";
@@ -22,16 +22,28 @@ export type CoupleWelcomePhotoDisplay = {
   isEventSpecific: boolean;
 };
 
+function resolveEventSpecificCoverDisplayUrl(input: {
+  coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
+}): string | undefined {
+  const fromDataUrl = input.coverPhotoDataUrl?.trim();
+  if (fromDataUrl) return fromDataUrl;
+  return getEventCoverPhotoPublicUrl(input.coverPhotoStoragePath);
+}
+
 /** Resolve couple dashboard hero photo: event upload, then global default, then ivory placeholder. */
 export function resolveCoupleWelcomePhotoDisplay(input: {
   coverPhotoDataUrl?: string;
   coverPhotoStoragePath?: string;
   defaultWelcomePhotoDataUrl?: string;
 }): CoupleWelcomePhotoDisplay {
-  const isEventSpecific = hasEventSpecificWelcomePhoto(input);
-  if (isEventSpecific) {
+  const eventDisplayUrl = hasEventSpecificWelcomePhoto(input)
+    ? resolveEventSpecificCoverDisplayUrl(input)
+    : undefined;
+
+  if (eventDisplayUrl) {
     return {
-      displayUrl: input.coverPhotoDataUrl?.trim(),
+      displayUrl: eventDisplayUrl,
       isEventSpecific: true,
     };
   }
