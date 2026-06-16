@@ -6,13 +6,7 @@ import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
-import { summarizeDataUrl, traceWelcomePhoto } from "@/lib/welcomePhotoTrace";
-import {
-  resolveCoupleWelcomePhotoDisplay,
-} from "@/lib/eventCover";
-import {
-  normalizeCoverPhotoTransform,
-} from "@/lib/coverPhotoTransform";
+import { resolveCoupleWelcomePhotoDisplay } from "@/lib/eventCover";
 import type { CoverPhotoTransform } from "@/types/planning";
 import type {
   CoupleFinalPlanningHint,
@@ -373,27 +367,29 @@ function CoupleHeroPhoto({
   });
   const { displayUrl, isEventSpecific } = welcomePhoto;
   const showOnboardingPill = !hasPersonalizedWelcomePhoto;
-  const activeTransform = normalizeCoverPhotoTransform(
-    isEventSpecific ? coverPhotoTransform : defaultWelcomePhotoTransform,
-  );
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
 
   const [decodedUrl, setDecodedUrl] = useState<string | undefined>(undefined);
   const [photoVisible, setPhotoVisible] = useState(false);
+  const [globalDefaultLoadFailed, setGlobalDefaultLoadFailed] = useState(false);
   const displayedIdentityRef = useRef<string | undefined>(undefined);
   const preloadTokenRef = useRef(0);
 
-  const photoIdentity = isEventSpecific
-    ? `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`
-    : `default|${displayUrl?.trim() ?? ""}|${JSON.stringify(activeTransform)}`;
+  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`;
 
-  const awaitingEventPhoto = coverPhotoHydrationReady && isEventSpecific && Boolean(displayUrl);
   const showSkeleton =
-    !coverPhotoHydrationReady ||
-    (awaitingEventPhoto && displayedIdentityRef.current !== photoIdentity);
+    isEventSpecific &&
+    (!coverPhotoHydrationReady ||
+      (Boolean(displayUrl) && displayedIdentityRef.current !== photoIdentity));
 
   useEffect(() => {
+    setGlobalDefaultLoadFailed(false);
+  }, [displayUrl, isEventSpecific]);
+
+  useEffect(() => {
+    if (!isEventSpecific) return;
+
     const nextUrl = displayUrl?.trim();
     if (!nextUrl) {
       displayedIdentityRef.current = undefined;
@@ -438,54 +434,7 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [activeTransform, displayUrl, isEventSpecific, photoIdentity]);
-
-  const renderBranch = showSkeleton
-    ? "skeleton"
-    : isEventSpecific && displayUrl && decodedUrl
-      ? "event-specific"
-      : !isEventSpecific && displayUrl
-        ? "global-default"
-        : !displayUrl
-          ? "placeholder"
-          : "null-blank";
-
-  useEffect(() => {
-    traceWelcomePhoto("step2-couple-hero-photo", {
-      renderBranch,
-      coverPhotoDataUrl: summarizeDataUrl(coverPhotoDataUrl),
-      coverPhotoStoragePath: coverPhotoStoragePath?.trim() || null,
-      defaultWelcomePhotoDataUrl: summarizeDataUrl(defaultWelcomePhotoDataUrl),
-      defaultWelcomePhotoTransform: defaultWelcomePhotoTransform ?? null,
-      resolveCoupleWelcomePhotoDisplay: {
-        displayUrl: summarizeDataUrl(displayUrl),
-        isEventSpecific,
-      },
-      coverPhotoHydrationReady,
-      showSkeleton,
-      decodedUrl: summarizeDataUrl(decodedUrl),
-      photoVisible,
-      photoIdentity,
-      displayedIdentityRef: displayedIdentityRef.current ?? null,
-      photoSrc:
-        !isEventSpecific && displayUrl ? summarizeDataUrl(decodedUrl ?? displayUrl) : null,
-      photoReady:
-        !isEventSpecific && displayUrl ? (decodedUrl ? photoVisible : true) : null,
-    });
-  }, [
-    coverPhotoDataUrl,
-    coverPhotoHydrationReady,
-    coverPhotoStoragePath,
-    decodedUrl,
-    defaultWelcomePhotoDataUrl,
-    defaultWelcomePhotoTransform,
-    displayUrl,
-    isEventSpecific,
-    photoIdentity,
-    photoVisible,
-    renderBranch,
-    showSkeleton,
-  ]);
+  }, [displayUrl, isEventSpecific, photoIdentity]);
 
   if (showSkeleton) {
     return (
@@ -516,10 +465,7 @@ function CoupleHeroPhoto({
     );
   }
 
-  if (!isEventSpecific && displayUrl) {
-    const photoSrc = decodedUrl ?? displayUrl;
-    const photoReady = decodedUrl ? photoVisible : true;
-
+  if (!isEventSpecific && displayUrl && !globalDefaultLoadFailed) {
     return (
       <button
         type="button"
@@ -529,17 +475,18 @@ function CoupleHeroPhoto({
         aria-label="Personalize your welcome photo"
       >
         <WelcomePhotoHeroImage
-          src={photoSrc}
+          src={displayUrl}
           transform={defaultWelcomePhotoTransform}
           imageClassName="cm-dashboard-v3-hero-photo-img--personalize"
-          visible={photoReady}
+          visible
+          onError={() => setGlobalDefaultLoadFailed(true)}
         />
         {showOnboardingPill ? <WelcomePhotoOnboardingPill /> : null}
       </button>
     );
   }
 
-  if (!displayUrl) {
+  if (!displayUrl || globalDefaultLoadFailed) {
     return (
       <button
         type="button"

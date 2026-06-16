@@ -15,6 +15,7 @@ type WelcomePhotoHeroImageProps = {
   stageClassName?: string;
   imageClassName?: string;
   visible?: boolean;
+  onError?: () => void;
 };
 
 /** Renders a welcome/cover photo inside the couple dashboard hero frame with pan/zoom transform. */
@@ -24,6 +25,7 @@ export function WelcomePhotoHeroImage({
   stageClassName = "cm-dashboard-v3-hero-photo-stage",
   imageClassName = "",
   visible = true,
+  onError,
 }: WelcomePhotoHeroImageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const normalizedTransform = useMemo(
@@ -105,6 +107,7 @@ export function WelcomePhotoHeroImage({
           };
           resolveDisplayTransformForMetrics(img.naturalWidth, img.naturalHeight);
         }}
+        onError={onError}
       />
     </div>
   );

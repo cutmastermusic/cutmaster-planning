@@ -342,11 +342,6 @@ import { CoupleScrollSafeTapSurface } from "@/components/couple-mobile-action-bu
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
-import {
-  readGlobalSettingsFromLocalStorage,
-  summarizeDataUrl,
-  traceWelcomePhoto,
-} from "@/lib/welcomePhotoTrace";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
 import {
@@ -6265,36 +6260,9 @@ export default function Home() {
                 console.error("Failed to persist global default welcome photo.", error);
               }
             }
-            traceWelcomePhoto("step1-after-save-setAppSettings", {
-              defaultWelcomePhotoDataUrl: summarizeDataUrl(next.defaultWelcomePhotoDataUrl),
-              defaultWelcomePhotoTransform: next.defaultWelcomePhotoTransform ?? null,
-              localStorage: readGlobalSettingsFromLocalStorage()
-                ? {
-                    defaultWelcomePhotoDataUrl: summarizeDataUrl(
-                      readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoDataUrl,
-                    ),
-                    defaultWelcomePhotoTransform:
-                      readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoTransform ?? null,
-                  }
-                : null,
-            });
             return next;
           });
           closeWelcomePhotoEditor();
-          queueMicrotask(() => {
-            traceWelcomePhoto("step1-after-save-microtask", {
-              note: "post-closeWelcomePhotoEditor — read appSettings via localStorage only",
-              localStorage: readGlobalSettingsFromLocalStorage()
-                ? {
-                    defaultWelcomePhotoDataUrl: summarizeDataUrl(
-                      readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoDataUrl,
-                    ),
-                    defaultWelcomePhotoTransform:
-                      readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoTransform ?? null,
-                  }
-                : null,
-            });
-          });
         } catch (err) {
           window.alert(err instanceof Error ? err.message : "Could not save default welcome photo.");
         } finally {
@@ -6945,40 +6913,6 @@ export default function Home() {
     authSession.supabaseConfigured,
     databaseEventsLoaded,
     eventPlanningReadyEventId,
-  ]);
-
-  useEffect(() => {
-    traceWelcomePhoto("step2-page-props-to-dashboard", {
-      isCoupleView,
-      appMode,
-      activeScreen,
-      coverPhotoHydrationReady,
-      appSettingsDefaultWelcomePhotoDataUrl: summarizeDataUrl(
-        appSettings.defaultWelcomePhotoDataUrl,
-      ),
-      appSettingsDefaultWelcomePhotoTransform:
-        appSettings.defaultWelcomePhotoTransform ?? null,
-      eventSettingsCoverPhotoDataUrl: summarizeDataUrl(eventSettings.coverPhotoDataUrl),
-      eventSettingsCoverPhotoStoragePath: eventSettings.coverPhotoStoragePath?.trim() || null,
-      localStorage: readGlobalSettingsFromLocalStorage()
-        ? {
-            defaultWelcomePhotoDataUrl: summarizeDataUrl(
-              readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoDataUrl,
-            ),
-            defaultWelcomePhotoTransform:
-              readGlobalSettingsFromLocalStorage()?.defaultWelcomePhotoTransform ?? null,
-          }
-        : null,
-    });
-  }, [
-    activeScreen,
-    appMode,
-    appSettings.defaultWelcomePhotoDataUrl,
-    appSettings.defaultWelcomePhotoTransform,
-    coverPhotoHydrationReady,
-    eventSettings.coverPhotoDataUrl,
-    eventSettings.coverPhotoStoragePath,
-    isCoupleView,
   ]);
 
   const coupleChapterNavLockRef = useRef<{ chapterId: CoupleWeddingChapterId; at: number } | null>(
