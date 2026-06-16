@@ -425,6 +425,8 @@ export type AppSettings = {
   coupleWelcomeMessage: string;
   /** Admin default welcome photo (data URL) for new Couple Portal dashboards. */
   defaultWelcomePhotoDataUrl?: string;
+  /** Pan/zoom framing for the global default welcome photo. */
+  defaultWelcomePhotoTransform?: CoverPhotoTransform;
   globalTemplateDefaults: string;
   planningQuestionSets: Partial<Record<EventSettings["eventLayoutProfile"], PlanningQuestionDef[]>>;
   timelinePresetSets: Partial<Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]>>;

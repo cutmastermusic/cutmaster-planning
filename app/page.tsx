@@ -340,6 +340,7 @@ import { CoupleWeddingChapterScreen } from "@/components/couple-wedding-chapter-
 import { CoupleDashboardV2 } from "@/components/couple-dashboard-v2";
 import { CoupleScrollSafeTapSurface } from "@/components/couple-mobile-action-button";
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
+import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
@@ -3101,6 +3102,7 @@ export default function Home() {
   const [welcomePhotoPreparing, setWelcomePhotoPreparing] = useState(false);
   const [welcomePhotoSessionKey, setWelcomePhotoSessionKey] = useState(0);
   const [welcomePhotoDraft, setWelcomePhotoDraft] = useState<{
+    target: "event" | "global-default";
     dataUrl?: string;
     file?: File;
     transform?: CoverPhotoTransform;
@@ -6209,7 +6211,26 @@ export default function Home() {
 
   const handleWelcomePhotoSave = useCallback(
     async (transform: CoverPhotoTransform) => {
-      if (!welcomePhotoDraft?.file || !welcomePhotoDraft.dataUrl) return;
+      if (!welcomePhotoDraft?.dataUrl) return;
+
+      if (welcomePhotoDraft.target === "global-default") {
+        setWelcomePhotoSaving(true);
+        try {
+          setAppSettings((prev) => ({
+            ...prev,
+            defaultWelcomePhotoDataUrl: welcomePhotoDraft.dataUrl,
+            defaultWelcomePhotoTransform: normalizeCoverPhotoTransform(transform),
+          }));
+          closeWelcomePhotoEditor();
+        } catch (err) {
+          window.alert(err instanceof Error ? err.message : "Could not save default welcome photo.");
+        } finally {
+          setWelcomePhotoSaving(false);
+        }
+        return;
+      }
+
+      if (!welcomePhotoDraft.file) return;
       setWelcomePhotoSaving(true);
       try {
         await commitEventCoverPhoto(
@@ -6238,37 +6259,49 @@ export default function Home() {
     setActiveScreen("Event Settings");
   }, []);
 
+  const openWelcomePhotoEditorFromFile = useCallback(
+    async (
+      file: File,
+      target: "event" | "global-default",
+      options?: { initialTransform?: CoverPhotoTransform },
+    ) => {
+      setWelcomePhotoSessionKey((prev) => prev + 1);
+      setWelcomePhotoEditorOpen(true);
+      setWelcomePhotoPreparing(true);
+      setWelcomePhotoDraft({ target, transform: options?.initialTransform });
+      try {
+        const prepared = await prepareWelcomePhotoUploadFile(file, undefined, {
+          onPreviewReady: (previewDataUrl) => {
+            setWelcomePhotoDraft((prev) =>
+              prev
+                ? { ...prev, dataUrl: previewDataUrl }
+                : { target, dataUrl: previewDataUrl, transform: options?.initialTransform },
+            );
+          },
+        });
+        setWelcomePhotoDraft((prev) => ({
+          target,
+          dataUrl: prev?.dataUrl ?? prepared.dataUrl,
+          file: prepared.file,
+          transform: prev?.transform ?? options?.initialTransform,
+        }));
+      } catch (err) {
+        closeWelcomePhotoEditor();
+        window.alert(err instanceof Error ? err.message : "Could not use that image.");
+      } finally {
+        setWelcomePhotoPreparing(false);
+      }
+    },
+    [closeWelcomePhotoEditor],
+  );
+
   const handleEventCoverPhotoChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file) return;
       if (effectiveRole === "Couple" || authSession.isCouplePortalSession) {
-        setWelcomePhotoSessionKey((prev) => prev + 1);
-        setWelcomePhotoEditorOpen(true);
-        setWelcomePhotoPreparing(true);
-        setWelcomePhotoDraft(null);
-        try {
-          const prepared = await prepareWelcomePhotoUploadFile(file, undefined, {
-            onPreviewReady: (previewDataUrl) => {
-              setWelcomePhotoDraft((prev) => ({
-                dataUrl: previewDataUrl,
-                file: prev?.file,
-                transform: undefined,
-              }));
-            },
-          });
-          setWelcomePhotoDraft((prev) => ({
-            dataUrl: prev?.dataUrl ?? prepared.dataUrl,
-            file: prepared.file,
-            transform: undefined,
-          }));
-        } catch (err) {
-          closeWelcomePhotoEditor();
-          window.alert(err instanceof Error ? err.message : "Could not use that image.");
-        } finally {
-          setWelcomePhotoPreparing(false);
-        }
+        await openWelcomePhotoEditorFromFile(file, "event");
         return;
       }
       try {
@@ -6280,9 +6313,9 @@ export default function Home() {
     },
     [
       authSession.isCouplePortalSession,
-      closeWelcomePhotoEditor,
       commitEventCoverPhoto,
       effectiveRole,
+      openWelcomePhotoEditorFromFile,
     ],
   );
 
@@ -6299,17 +6332,11 @@ export default function Home() {
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file || !canManageEvents) return;
-      try {
-        const prepared = await prepareWelcomePhotoUploadFile(file);
-        setAppSettings((prev) => ({
-          ...prev,
-          defaultWelcomePhotoDataUrl: prepared.dataUrl,
-        }));
-      } catch (err) {
-        window.alert(err instanceof Error ? err.message : "Could not upload default welcome photo.");
-      }
+      await openWelcomePhotoEditorFromFile(file, "global-default", {
+        initialTransform: appSettings.defaultWelcomePhotoTransform,
+      });
     },
-    [canManageEvents],
+    [appSettings.defaultWelcomePhotoTransform, canManageEvents, openWelcomePhotoEditorFromFile],
   );
 
   const clearDefaultWelcomePhoto = useCallback(() => {
@@ -6317,6 +6344,7 @@ export default function Home() {
     setAppSettings((prev) => ({
       ...prev,
       defaultWelcomePhotoDataUrl: "",
+      defaultWelcomePhotoTransform: undefined,
     }));
   }, [canManageEvents]);
 
@@ -15842,11 +15870,9 @@ export default function Home() {
                       <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
                         <div className="relative aspect-[46/55] max-h-[320px] w-full overflow-hidden bg-[#f3efe8]">
                           {appSettings.defaultWelcomePhotoDataUrl?.trim() ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <WelcomePhotoHeroImage
                               src={appSettings.defaultWelcomePhotoDataUrl}
-                              alt=""
-                              className="h-full w-full object-cover"
+                              transform={appSettings.defaultWelcomePhotoTransform}
                             />
                           ) : (
                             <div className="flex h-full items-center justify-center px-6 text-center">
@@ -16593,6 +16619,7 @@ export default function Home() {
                 coverPhotoTransform={eventSettings.coverPhotoTransform}
                 coverPhotoHydrationReady={coverPhotoHydrationReady}
                 defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                defaultWelcomePhotoTransform={appSettings.defaultWelcomePhotoTransform}
                 isCoupleWeddingPlanningView={isCoupleWeddingPlanningView}
                 sectionPlanningQuestionsEnabled={sectionPlanningQuestionsEnabled}
                 isCoupleWeddingJourneyComplete={isCoupleWeddingJourneyComplete}
@@ -24656,6 +24683,19 @@ export default function Home() {
           preparing={welcomePhotoPreparing}
           initialTransform={welcomePhotoDraft?.transform}
           saving={welcomePhotoSaving}
+          title={
+            welcomePhotoDraft?.target === "global-default"
+              ? "Default Welcome Photo"
+              : undefined
+          }
+          subtitle={
+            welcomePhotoDraft?.target === "global-default"
+              ? "This image appears on new Couple Portal dashboards until the couple uploads their own welcome photo."
+              : undefined
+          }
+          saveLabel={
+            welcomePhotoDraft?.target === "global-default" ? "Save Default Photo" : undefined
+          }
           onCancel={closeWelcomePhotoEditor}
           onSave={handleWelcomePhotoSave}
         />

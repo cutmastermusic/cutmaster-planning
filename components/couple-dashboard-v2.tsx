@@ -1,16 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
+import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import {
   resolveCoupleWelcomePhotoDisplay,
 } from "@/lib/eventCover";
 import {
-  coverPhotoTransformToImageStyle,
   normalizeCoverPhotoTransform,
-  resolveCoverPhotoTransformForDisplay,
 } from "@/lib/coverPhotoTransform";
 import type { CoverPhotoTransform } from "@/types/planning";
 import type {
@@ -274,6 +273,7 @@ type CoupleDashboardV2Props = {
   coverPhotoHydrationReady?: boolean;
   /** Admin global default welcome photo (data URL) when the event has no upload. */
   defaultWelcomePhotoDataUrl?: string;
+  defaultWelcomePhotoTransform?: CoverPhotoTransform;
 
   isCoupleWeddingPlanningView: boolean;
   sectionPlanningQuestionsEnabled: boolean;
@@ -389,6 +389,7 @@ function CoupleHeroPhoto({
   coverPhotoTransform,
   coverPhotoHydrationReady = true,
   defaultWelcomePhotoDataUrl,
+  defaultWelcomePhotoTransform,
   onRequestCoverPhoto,
 }: {
   coverPhotoDataUrl?: string;
@@ -396,6 +397,7 @@ function CoupleHeroPhoto({
   coverPhotoTransform?: CoverPhotoTransform;
   coverPhotoHydrationReady?: boolean;
   defaultWelcomePhotoDataUrl?: string;
+  defaultWelcomePhotoTransform?: CoverPhotoTransform;
   onRequestCoverPhoto?: () => void;
 }) {
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
@@ -404,56 +406,20 @@ function CoupleHeroPhoto({
     defaultWelcomePhotoDataUrl,
   });
   const { displayUrl, isEventSpecific, showPersonalizeOverlay } = welcomePhoto;
+  const activeTransform = normalizeCoverPhotoTransform(
+    isEventSpecific ? coverPhotoTransform : defaultWelcomePhotoTransform,
+  );
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
-  const normalizedTransform = normalizeCoverPhotoTransform(coverPhotoTransform);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [displayTransform, setDisplayTransform] = useState<CoverPhotoTransform | undefined>(
-    normalizedTransform,
-  );
-  const imageStyle = displayTransform
-    ? coverPhotoTransformToImageStyle(displayTransform)
-    : undefined;
 
   const [decodedUrl, setDecodedUrl] = useState<string | undefined>(undefined);
   const [photoVisible, setPhotoVisible] = useState(false);
   const displayedIdentityRef = useRef<string | undefined>(undefined);
-  const imageMetricsRef = useRef<{ width: number; height: number } | null>(null);
   const preloadTokenRef = useRef(0);
-  const normalizedTransformRef = useRef(normalizedTransform);
 
-  useEffect(() => {
-    normalizedTransformRef.current = normalizedTransform;
-  }, [normalizedTransform]);
-
-  const resolveDisplayTransformForMetrics = useCallback((imageWidth: number, imageHeight: number) => {
-    const stage = stageRef.current;
-    if (!stage || imageWidth <= 0 || imageHeight <= 0) return;
-    const rect = stage.getBoundingClientRect();
-    if (rect.width < 8 || rect.height < 8) return;
-    setDisplayTransform(
-      resolveCoverPhotoTransformForDisplay(
-        normalizedTransformRef.current,
-        imageWidth,
-        imageHeight,
-        rect.width,
-        rect.height,
-      ),
-    );
-  }, []);
-
-  useEffect(() => {
-    if (imageMetricsRef.current) {
-      resolveDisplayTransformForMetrics(
-        imageMetricsRef.current.width,
-        imageMetricsRef.current.height,
-      );
-    } else {
-      setDisplayTransform(normalizedTransform);
-    }
-  }, [normalizedTransform, resolveDisplayTransformForMetrics]);
-
-  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`;
+  const photoIdentity = isEventSpecific
+    ? `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`
+    : `default|${displayUrl?.trim() ?? ""}|${JSON.stringify(activeTransform)}`;
 
   const awaitingEventPhoto = coverPhotoHydrationReady && isEventSpecific && Boolean(displayUrl);
   const showSkeleton =
@@ -464,7 +430,6 @@ function CoupleHeroPhoto({
     const nextUrl = displayUrl?.trim();
     if (!nextUrl) {
       displayedIdentityRef.current = undefined;
-      imageMetricsRef.current = null;
       const frame = requestAnimationFrame(() => {
         setDecodedUrl(undefined);
         setPhotoVisible(false);
@@ -482,11 +447,6 @@ function CoupleHeroPhoto({
     const img = new Image();
     img.onload = () => {
       if (cancelled || token !== preloadTokenRef.current) return;
-      imageMetricsRef.current = {
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-      };
-      resolveDisplayTransformForMetrics(img.naturalWidth, img.naturalHeight);
       displayedIdentityRef.current = nextIdentity;
       setDecodedUrl(nextUrl);
       if (shouldAnimate) {
@@ -511,7 +471,7 @@ function CoupleHeroPhoto({
     return () => {
       cancelled = true;
     };
-  }, [displayUrl, coverPhotoStoragePath, photoIdentity, resolveDisplayTransformForMetrics]);
+  }, [activeTransform, displayUrl, isEventSpecific, photoIdentity]);
 
   if (showSkeleton) {
     return (
@@ -533,17 +493,11 @@ function CoupleHeroPhoto({
         {...mobileActionHandlers}
         aria-label="Change your cover photo"
       >
-        <div ref={stageRef} className="cm-dashboard-v3-hero-photo-stage">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={decodedUrl}
-            alt=""
-            className={`cm-dashboard-v3-hero-photo-img cm-blanc-hero-photo-treatment ${
-              normalizedTransform ? "cm-dashboard-v3-hero-photo-img--positioned" : ""
-            } ${photoVisible ? "cm-dashboard-v3-hero-photo-img--visible" : ""}`}
-            style={imageStyle}
-          />
-        </div>
+        <WelcomePhotoHeroImage
+          src={decodedUrl}
+          transform={coverPhotoTransform}
+          visible={photoVisible}
+        />
       </button>
     );
   }
@@ -560,16 +514,12 @@ function CoupleHeroPhoto({
         disabled={!onRequestCoverPhoto}
         aria-label="Personalize your welcome photo"
       >
-        <div className="cm-dashboard-v3-hero-photo-stage">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoSrc}
-            alt=""
-            className={`cm-dashboard-v3-hero-photo-img cm-blanc-hero-photo-treatment cm-dashboard-v3-hero-photo-img--personalize ${
-              photoReady ? "cm-dashboard-v3-hero-photo-img--visible" : ""
-            }`}
-          />
-        </div>
+        <WelcomePhotoHeroImage
+          src={photoSrc}
+          transform={defaultWelcomePhotoTransform}
+          imageClassName="cm-dashboard-v3-hero-photo-img--personalize"
+          visible={photoReady}
+        />
         <WelcomePhotoPersonalizeOverlay variant="photo" />
       </button>
     );
@@ -642,6 +592,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
             coverPhotoTransform={props.coverPhotoTransform}
             coverPhotoHydrationReady={props.coverPhotoHydrationReady}
             defaultWelcomePhotoDataUrl={props.defaultWelcomePhotoDataUrl}
+            defaultWelcomePhotoTransform={props.defaultWelcomePhotoTransform}
             onRequestCoverPhoto={props.onRequestCoverPhoto}
           />
         </div>

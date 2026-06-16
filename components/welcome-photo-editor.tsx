@@ -25,6 +25,9 @@ type WelcomePhotoEditorProps = {
   preparing?: boolean;
   initialTransform?: CoverPhotoTransform;
   saving?: boolean;
+  title?: string;
+  subtitle?: string;
+  saveLabel?: string;
   onCancel: () => void;
   onSave: (transform: CoverPhotoTransform) => void | Promise<void>;
 };
@@ -44,6 +47,9 @@ export function WelcomePhotoEditor({
   preparing = false,
   initialTransform,
   saving = false,
+  title = "Choose Your Welcome Photo",
+  subtitle = "This photo greets you every time you open your planning dashboard.",
+  saveLabel = "Save Photo",
   onCancel,
   onSave,
 }: WelcomePhotoEditorProps) {
@@ -412,14 +418,14 @@ export function WelcomePhotoEditor({
       >
         <header className="cm-welcome-photo-editor-header">
           <h2 id="welcome-photo-editor-title" className="cm-welcome-photo-editor-title">
-            Choose Your Welcome Photo
+            {title}
           </h2>
           <p className="cm-welcome-photo-editor-subtitle">
             {showPreparing
               ? "Preparing your photo…"
               : preparing
                 ? "Finishing upload preparation…"
-                : "This photo greets you every time you open your planning dashboard."}
+                : subtitle}
           </p>
         </header>
 
@@ -474,7 +480,7 @@ export function WelcomePhotoEditor({
             onClick={handleSave}
             disabled={!editorInteractive || saving}
           >
-            {saving ? "Saving…" : "Save Photo"}
+            {saving ? "Saving…" : saveLabel}
           </button>
         </div>
       </div>
