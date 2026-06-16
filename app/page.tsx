@@ -19087,6 +19087,8 @@ export default function Home() {
                       title: item.title,
                       momentType: item.momentType,
                     });
+                    const hideCoupleToastDuplicateCta =
+                      coupleWorkspaceId === "speech_toasts";
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
@@ -19150,7 +19152,7 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
-                                {isToast ? (
+                                {isToast && !hideCoupleToastDuplicateCta ? (
                                   <SpeechesToastsPreview
                                     toastsRaw={speechesToastsRaw}
                                     onEdit={openSpeechesToastsEditor}
@@ -19205,7 +19207,7 @@ export default function Home() {
                                       ) : null}
                                     </>
                                   ) : null}
-                                  {isToast ? (
+                                  {isToast && !hideCoupleToastDuplicateCta ? (
                                     <button
                                       type="button"
                                       onClick={openSpeechesToastsEditor}
@@ -19222,7 +19224,7 @@ export default function Home() {
                                     disabled={!canEditTimeline}
                                     className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
                                   >
-                                    Edit
+                                    {hideCoupleToastDuplicateCta ? "Open workspace" : "Edit"}
                                   </PrimaryButton>
                                   <PrimaryButton
                                     type="button"
@@ -19331,7 +19333,7 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
-                                {isToast ? (
+                                {isToast && !hideCoupleToastDuplicateCta ? (
                                   <SpeechesToastsPreview
                                     toastsRaw={speechesToastsRaw}
                                     onEdit={openSpeechesToastsEditor}
@@ -19377,7 +19379,7 @@ export default function Home() {
                                     ) : null}
                                   </>
                                 ) : null}
-                                {isToast ? (
+                                {isToast && !hideCoupleToastDuplicateCta ? (
                                   <button
                                     type="button"
                                     onClick={openSpeechesToastsEditor}
