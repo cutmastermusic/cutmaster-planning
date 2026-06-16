@@ -3111,6 +3111,8 @@ export default function Home() {
     file?: File;
     transform?: CoverPhotoTransform;
   } | null>(null);
+  const welcomePhotoDraftRef = useRef(welcomePhotoDraft);
+  welcomePhotoDraftRef.current = welcomePhotoDraft;
   const [welcomePhotoSaving, setWelcomePhotoSaving] = useState(false);
   const [welcomePhotoToastVisible, setWelcomePhotoToastVisible] = useState(false);
   const hasParsedInviteParams = useRef(false);
@@ -6234,16 +6236,32 @@ export default function Home() {
 
   const handleWelcomePhotoSave = useCallback(
     async (transform: CoverPhotoTransform) => {
-      if (!welcomePhotoDraft?.dataUrl) return;
+      const draft = welcomePhotoDraftRef.current;
+      const dataUrl = draft?.dataUrl?.trim();
+      if (!draft || !dataUrl) return;
 
-      if (welcomePhotoDraft.target === "global-default") {
+      if (draft.target === "global-default") {
         setWelcomePhotoSaving(true);
         try {
-          setAppSettings((prev) => ({
-            ...prev,
-            defaultWelcomePhotoDataUrl: welcomePhotoDraft.dataUrl,
-            defaultWelcomePhotoTransform: normalizeCoverPhotoTransform(transform),
-          }));
+          const normalizedTransform = normalizeCoverPhotoTransform(transform);
+          setAppSettings((prev) => {
+            const next: AppSettings = {
+              ...prev,
+              defaultWelcomePhotoDataUrl: dataUrl,
+              defaultWelcomePhotoTransform: normalizedTransform,
+            };
+            if (typeof window !== "undefined") {
+              try {
+                window.localStorage.setItem(
+                  "cutmaster_planning_global_settings_v1",
+                  JSON.stringify(next),
+                );
+              } catch (error) {
+                console.error("Failed to persist global default welcome photo.", error);
+              }
+            }
+            return next;
+          });
           closeWelcomePhotoEditor();
         } catch (err) {
           window.alert(err instanceof Error ? err.message : "Could not save default welcome photo.");
@@ -6253,14 +6271,10 @@ export default function Home() {
         return;
       }
 
-      if (!welcomePhotoDraft.file) return;
+      if (!draft.file) return;
       setWelcomePhotoSaving(true);
       try {
-        await commitEventCoverPhoto(
-          welcomePhotoDraft.file,
-          welcomePhotoDraft.dataUrl,
-          transform,
-        );
+        await commitEventCoverPhoto(draft.file, dataUrl, transform);
         markWelcomePhotoPersonalized();
         closeWelcomePhotoEditor();
         setWelcomePhotoToastVisible(true);
@@ -6270,12 +6284,7 @@ export default function Home() {
         setWelcomePhotoSaving(false);
       }
     },
-    [
-      closeWelcomePhotoEditor,
-      commitEventCoverPhoto,
-      markWelcomePhotoPersonalized,
-      welcomePhotoDraft,
-    ],
+    [closeWelcomePhotoEditor, commitEventCoverPhoto, markWelcomePhotoPersonalized],
   );
 
   useEffect(() => {
@@ -6310,7 +6319,7 @@ export default function Home() {
         });
         setWelcomePhotoDraft((prev) => ({
           target,
-          dataUrl: prev?.dataUrl ?? prepared.dataUrl,
+          dataUrl: prepared.dataUrl,
           file: prepared.file,
           transform: prev?.transform ?? options?.initialTransform,
         }));
