@@ -365,6 +365,13 @@ import {
 } from "@/lib/coupleFinalPlanningPrep";
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
 import { CoupleTimelineMomentContext } from "@/components/couple-timeline-moment-context";
+import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-moment-workspace/couple-timeline-moment-workspace";
+import {
+  buildCeremonyMomentWorkspaceRef,
+  buildMusicHubMomentWorkspaceRef,
+  coupleTimelineMomentUsesWorkspace,
+  resolveCoupleTimelineMomentWorkspaceId,
+} from "@/lib/timelineMomentWorkspace";
 import {
   buildCoupleTimelineReviewGapLabels,
   receptionTimelineRowMissingSong,
@@ -412,6 +419,11 @@ import {
   formatYourTeamChapterMissingSummary,
   resolveYourTeamChapterAnswersForCompletion,
 } from "@/lib/coupleYourTeamPlanning";
+import {
+  CEREMONY_CHAPTER_QUESTION_IDS,
+  ceremonyLocationLabelFromValue,
+  normalizeCeremonyLocationAnswer,
+} from "@/lib/coupleCeremonyPlanning";
 import {
   mergeYourTeamIntoEventTeam,
   yourTeamChapterHasMergeableBookings,
@@ -12510,6 +12522,54 @@ export default function Home() {
     [timelineItems],
   );
 
+  const coupleMomentMusicHubRef = useMemo(
+    () =>
+      buildMusicHubMomentWorkspaceRef(
+        buildMusicHubPlanSnapshot({
+          musicGenreEraSelections,
+          musicTasteProfile,
+          musicVibeDetail,
+          musicPlaylistLinks,
+        }),
+      ),
+    [musicGenreEraSelections, musicTasteProfile, musicVibeDetail, musicPlaylistLinks],
+  );
+
+  const coupleMomentCeremonyRef = useMemo(
+    () =>
+      buildCeremonyMomentWorkspaceRef({
+        ceremonyStartTime,
+        ceremonyGuestArrivalTime,
+        officiantName,
+        ceremonyNotes,
+        weddingPartyProcessional,
+        recessionalSong,
+        ceremonyLocationAnswer: ceremonyLocationLabelFromValue(
+          normalizeCeremonyLocationAnswer(
+            eventSettings.planningQuestionAnswers?.[CEREMONY_CHAPTER_QUESTION_IDS.location],
+          ),
+        ),
+        ceremonyTimelineItems,
+      }),
+    [
+      ceremonyStartTime,
+      ceremonyGuestArrivalTime,
+      officiantName,
+      ceremonyNotes,
+      weddingPartyProcessional,
+      recessionalSong,
+      eventSettings.planningQuestionAnswers,
+      ceremonyTimelineItems,
+    ],
+  );
+
+  const scrollToCeremonyTimelineSection = useCallback(() => {
+    document.getElementById("timeline-section-ceremony")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
   /** Reception/main timeline: consecutive rows with the same category form one collapsible phase in Run Of Show. */
   const runOfShowReceptionPhaseGroups = useMemo(() => {
     type Phase = { id: string; category: TimelineCategory; items: DisplayTimelineItem[] };
@@ -13962,7 +14022,7 @@ export default function Home() {
     setSpeechesToastsSavedDraft([]);
   }, []);
 
-  const doneSpeechesToasts = useCallback(async (nextEntries: SpeechesToastEntry[]) => {
+  const persistSpeechesToastsEntries = useCallback(async (nextEntries: SpeechesToastEntry[]) => {
     const serialized = serializeSpeechesToasts(nextEntries);
     setEventSettings((prev) => ({
       ...prev,
@@ -13987,7 +14047,6 @@ export default function Home() {
           : evt,
       ),
     );
-    closeSpeechesToastsEditor();
     if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
       try {
         await persistPlanningQuestionAnswersToDatabase(activeEventId, {
@@ -14001,9 +14060,13 @@ export default function Home() {
   }, [
     eventSettings.planningQuestionAnswers,
     activeEventId,
-    closeSpeechesToastsEditor,
     persistPlanningQuestionAnswersToDatabase,
   ]);
+
+  const doneSpeechesToasts = useCallback(async (nextEntries: SpeechesToastEntry[]) => {
+    await persistSpeechesToastsEntries(nextEntries);
+    closeSpeechesToastsEditor();
+  }, [persistSpeechesToastsEntries, closeSpeechesToastsEditor]);
 
   const flushPlanningQuestionAnswersToLocalStorage = useCallback(
     (answersOverride?: Record<string, string | undefined>) => {
@@ -19013,6 +19076,17 @@ export default function Home() {
                     const timelineDragActive = draggingTimelineId !== null;
                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                     const isToast = isToastTimelineItem(item.title);
+                    const coupleWorkspaceId =
+                      isCoupleView && item.momentType
+                        ? resolveCoupleTimelineMomentWorkspaceId({
+                            title: item.title,
+                            momentType: item.momentType,
+                          })
+                        : null;
+                    const coupleUsesWorkspace = coupleTimelineMomentUsesWorkspace({
+                      title: item.title,
+                      momentType: item.momentType,
+                    });
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
@@ -19276,7 +19350,7 @@ export default function Home() {
                                 ) : null}
                                 {canEditTimeline ? (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">
-                                    Tap card to edit
+                                    {coupleUsesWorkspace ? "Tap to open workspace" : "Tap card to edit"}
                                   </p>
                                 ) : (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
@@ -19320,7 +19394,7 @@ export default function Home() {
                                   disabled={!canEditTimeline}
                                   className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                                 >
-                                  Expand
+                                  {coupleUsesWorkspace ? "Open workspace" : "Expand"}
                                 </PrimaryButton>
                                 {canEditTimeline ? (
                                   <>
@@ -19362,7 +19436,40 @@ export default function Home() {
                             </div>
                           </>
                         )}
-                        {rowExpanded && (
+                        {rowExpanded && isCoupleView && coupleWorkspaceId ? (
+                          <CoupleTimelineMomentWorkspace
+                            workspaceId={coupleWorkspaceId}
+                            title={recvTitle}
+                            time={recvTime}
+                            notes={recvNotes}
+                            songTitle={recvSong}
+                            artist={recvArtist}
+                            momentType={item.momentType ?? "custom"}
+                            canEdit={canEditTimeline}
+                            toastsRaw={speechesToastsRaw}
+                            musicHubRef={coupleMomentMusicHubRef}
+                            ceremonyRef={coupleMomentCeremonyRef}
+                            onTimeChange={(value) =>
+                              patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)
+                            }
+                            onNotesChange={(value) =>
+                              patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)
+                            }
+                            onSongTitleChange={(value) =>
+                              patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)
+                            }
+                            onArtistChange={(value) =>
+                              patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)
+                            }
+                            onSpeechesToastsChange={(entries) => {
+                              void persistSpeechesToastsEntries(entries);
+                            }}
+                            onOpenMusicHub={() => selectActiveScreen("Music Hub")}
+                            onOpenCeremonyPlanning={() => openCouplePlanningChapter("ceremony")}
+                            onOpenCeremonyTimeline={scrollToCeremonyTimelineSection}
+                            onDone={() => closeReceptionTimelineCardExpanded()}
+                          />
+                        ) : rowExpanded ? (
                           <div className="md:mx-auto md:w-full md:max-w-[44rem]">
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
                               <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
@@ -19566,7 +19673,7 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
-                        )}
+                        ) : null}
                         <div className={TIMELINE_CARD_FOOTER_CLASS}>
                           <button
                             type="button"
