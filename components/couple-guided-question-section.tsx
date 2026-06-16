@@ -52,8 +52,8 @@ const guidedNavFooterDesktopClass =
 
 const guidedNavFooterInnerClass = "pointer-events-auto mx-auto flex w-full max-w-[1400px] flex-col gap-2";
 
-/** Blur focused field, then run the nav action. */
-function useReliableNavAction(action: () => void, disabled = false) {
+/** Blur focused field, then run the nav action (sync or async). */
+function useReliableNavAction(action: () => void | Promise<void>, disabled = false) {
   return useCallback(() => {
     if (disabled) return;
 
@@ -67,7 +67,7 @@ function useReliableNavAction(action: () => void, disabled = false) {
     ) {
       active.blur();
     }
-    action();
+    void Promise.resolve(action());
   }, [action, disabled]);
 }
 
@@ -109,7 +109,7 @@ function GuidedNavButton({
   clickOnly = false,
 }: {
   children: ReactNode;
-  onAction: () => void;
+  onAction: () => void | Promise<void>;
   disabled?: boolean;
   className?: string;
   clickOnly?: boolean;
@@ -135,7 +135,7 @@ function GuidedNavTextButton({
   className,
 }: {
   children: ReactNode;
-  onAction: () => void;
+  onAction: () => void | Promise<void>;
   className?: string;
 }) {
   const { onPointerDown, onClick } = useGuidedNavHandlers(onAction);

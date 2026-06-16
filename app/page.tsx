@@ -6921,14 +6921,24 @@ export default function Home() {
   const openCouplePlanningChapter = useCallback(
     (
       chapterId: CoupleWeddingChapterId,
-      options?: { resumeMode?: CoupleGuidedQuestionResumeMode },
+      options?: {
+        resumeMode?: CoupleGuidedQuestionResumeMode;
+        /** Skip duplicate-tap guard for programmatic chapter advances (e.g. Continue to next chapter). */
+        bypassNavLock?: boolean;
+      },
     ) => {
       const now = Date.now();
       const lock = coupleChapterNavLockRef.current;
-      if (lock && lock.chapterId === chapterId && now - lock.at < 450) {
+      if (
+        !options?.bypassNavLock &&
+        lock &&
+        lock.chapterId === chapterId &&
+        now - lock.at < 450
+      ) {
         return;
       }
       coupleChapterNavLockRef.current = { chapterId, at: now };
+      setYourTeamContinueBlockedMessage(null);
       setGuidedChapterResumeMode(options?.resumeMode ?? "restore");
 
       if (chapterId === "your_team") {
@@ -6974,15 +6984,16 @@ export default function Home() {
     (chapterId: CoupleWeddingChapterId) => {
       const nextChapter = nextCoupleWeddingChapterAfter(chapterId);
       if (nextChapter) {
-        setGuidedChapterResumeMode("first-incomplete");
-        setActivePlanningChapterId(nextChapter);
-        setActiveScreen("Planning Questions");
+        openCouplePlanningChapter(nextChapter, {
+          resumeMode: "first-incomplete",
+          bypassNavLock: true,
+        });
         return;
       }
       setActivePlanningChapterId(null);
       setActiveScreen("Dashboard");
     },
-    [setActiveScreen],
+    [openCouplePlanningChapter, setActiveScreen],
   );
   const handlePlanningGuidedResumeChange = useCallback(
     (chapterId: CoupleWeddingChapterId, resume: CoupleGuidedQuestionResume) => {
@@ -7010,7 +7021,7 @@ export default function Home() {
     [activePlanningChapterId, handlePlanningGuidedResumeChange],
   );
   const handleCoupleYourTeamChapterContinue = useCallback(
-    async (chapterAnswers?: Record<string, string | undefined>) => {
+    (chapterAnswers?: Record<string, string | undefined>) => {
       const resolved = resolveYourTeamChapterAnswersForCompletion({
         answers: eventSettingsRef.current.planningQuestionAnswers ?? {},
         chapterAnswers,
@@ -7044,23 +7055,24 @@ export default function Home() {
         } as Record<string, string>,
       }));
 
+      continueToNextCoupleChapter("your_team");
+
       if (activeEventId && databaseEventIdsRef.current.has(activeEventId)) {
-        const persistResult = await persistPlanningQuestionAnswersToDatabase(
-          activeEventId,
-          resolved,
+        void persistPlanningQuestionAnswersToDatabase(activeEventId, resolved).then(
+          (persistResult) => {
+            if (!persistResult.ok) {
+              console.error(
+                "[your-team] failed to persist planning answers after continue",
+                persistResult.error,
+              );
+            }
+          },
         );
-        if (!persistResult.ok) {
-          console.error(
-            "[your-team] failed to persist planning answers before continue",
-            persistResult.error,
-          );
-        }
       }
 
-      await applyYourTeamChapterToEventTeamRef.current?.({
+      void applyYourTeamChapterToEventTeamRef.current?.({
         planningQuestionAnswers: resolved,
       });
-      continueToNextCoupleChapter("your_team");
     },
     [
       activeEventId,
