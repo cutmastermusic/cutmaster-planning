@@ -344,6 +344,26 @@ function ClockIcon() {
   );
 }
 
+function WelcomePhotoCameraIcon() {
+  return (
+    <svg
+      className="cm-dashboard-v3-hero-photo-overlay-hint-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 8h3l1.5-2h7L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"
+      />
+      <circle cx="12" cy="13" r="3.25" />
+    </svg>
+  );
+}
+
 function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory" }) {
   return (
     <div
@@ -353,10 +373,11 @@ function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory
     >
       <div className="cm-dashboard-v3-hero-photo-overlay-content">
         <h3 className="cm-dashboard-v3-hero-photo-overlay-headline">Make it yours</h3>
-        <p className="cm-dashboard-v3-hero-photo-overlay-body">
-          Add a favorite photo to personalize your planning experience.
+        <p className="cm-dashboard-v3-hero-photo-overlay-body">Add your favorite photo.</p>
+        <p className="cm-dashboard-v3-hero-photo-overlay-hint">
+          <WelcomePhotoCameraIcon />
+          <span>Tap anywhere on this photo to personalize it.</span>
         </p>
-        <span className="cm-dashboard-v3-hero-empty-cta">Choose Photo</span>
       </div>
     </div>
   );
@@ -537,14 +558,14 @@ function CoupleHeroPhoto({
         className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--default"
         {...mobileActionHandlers}
         disabled={!onRequestCoverPhoto}
-        aria-label="Choose your welcome photo"
+        aria-label="Personalize your welcome photo"
       >
         <div className="cm-dashboard-v3-hero-photo-stage">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoSrc}
             alt=""
-            className={`cm-dashboard-v3-hero-photo-img cm-blanc-hero-photo-treatment ${
+            className={`cm-dashboard-v3-hero-photo-img cm-blanc-hero-photo-treatment cm-dashboard-v3-hero-photo-img--personalize ${
               photoReady ? "cm-dashboard-v3-hero-photo-img--visible" : ""
             }`}
           />
@@ -561,7 +582,7 @@ function CoupleHeroPhoto({
         className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--placeholder"
         {...mobileActionHandlers}
         disabled={!onRequestCoverPhoto}
-        aria-label="Choose your welcome photo"
+        aria-label="Personalize your welcome photo"
       >
         <WelcomePhotoPersonalizeOverlay variant="ivory" />
       </button>
