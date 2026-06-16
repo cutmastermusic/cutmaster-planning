@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
@@ -370,71 +370,13 @@ function CoupleHeroPhoto({
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
 
-  const [decodedUrl, setDecodedUrl] = useState<string | undefined>(undefined);
-  const [photoVisible, setPhotoVisible] = useState(false);
   const [globalDefaultLoadFailed, setGlobalDefaultLoadFailed] = useState(false);
-  const displayedIdentityRef = useRef<string | undefined>(undefined);
-  const preloadTokenRef = useRef(0);
 
-  const photoIdentity = `${coverPhotoStoragePath?.trim() ?? ""}|${displayUrl?.trim() ?? ""}`;
-
-  const showSkeleton =
-    isEventSpecific &&
-    (!coverPhotoHydrationReady ||
-      (Boolean(displayUrl) && displayedIdentityRef.current !== photoIdentity));
+  const showSkeleton = isEventSpecific && !coverPhotoHydrationReady;
 
   useEffect(() => {
     setGlobalDefaultLoadFailed(false);
   }, [displayUrl, isEventSpecific]);
-
-  useEffect(() => {
-    if (!isEventSpecific) return;
-
-    const nextUrl = displayUrl?.trim();
-    if (!nextUrl) {
-      displayedIdentityRef.current = undefined;
-      const frame = requestAnimationFrame(() => {
-        setDecodedUrl(undefined);
-        setPhotoVisible(false);
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-
-    const nextIdentity = photoIdentity;
-    if (displayedIdentityRef.current === nextIdentity) return;
-
-    const token = ++preloadTokenRef.current;
-    const shouldAnimate = Boolean(displayedIdentityRef.current);
-    let cancelled = false;
-
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled || token !== preloadTokenRef.current) return;
-      displayedIdentityRef.current = nextIdentity;
-      setDecodedUrl(nextUrl);
-      if (shouldAnimate) {
-        setPhotoVisible(false);
-        requestAnimationFrame(() => {
-          if (!cancelled && token === preloadTokenRef.current) {
-            setPhotoVisible(true);
-          }
-        });
-      } else {
-        setPhotoVisible(true);
-      }
-    };
-    img.onerror = () => {
-      if (cancelled || token !== preloadTokenRef.current) return;
-      displayedIdentityRef.current = nextIdentity;
-      setDecodedUrl(nextUrl);
-      setPhotoVisible(true);
-    };
-    img.src = nextUrl;
-
-    return () => {
-      cancelled = true;
-    };
-  }, [displayUrl, isEventSpecific, photoIdentity]);
 
   if (showSkeleton) {
     return (
@@ -448,7 +390,7 @@ function CoupleHeroPhoto({
     );
   }
 
-  if (isEventSpecific && displayUrl && decodedUrl) {
+  if (isEventSpecific && displayUrl) {
     return (
       <button
         type="button"
@@ -457,9 +399,9 @@ function CoupleHeroPhoto({
         aria-label="Change your cover photo"
       >
         <WelcomePhotoHeroImage
-          src={decodedUrl}
+          src={displayUrl}
           transform={coverPhotoTransform}
-          visible={photoVisible}
+          visible
         />
       </button>
     );
