@@ -3629,8 +3629,7 @@ export default function Home() {
     authSession.supabaseConfigured &&
     !authSession.bypassEnabled &&
     authSession.readScope !== "bypass" &&
-    databaseEventsLoaded &&
-    databaseEventIdsRef.current.has(activeEventId);
+    databaseEventsLoaded;
 
   const [allEventsSearch, setAllEventsSearch] = useState("");
   const [allEventsProfileFilter, setAllEventsProfileFilter] = useState<EventLayoutProfile | "all">("all");
