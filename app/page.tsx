@@ -10542,9 +10542,9 @@ export default function Home() {
       if (active) {
         const usesRemoteCoverPhotoSource =
           isSupabaseConfigured() && !isAuthBypassEnabled();
-        loadEventPlanningIntoWorkingState(active, {
-          markCoverPhotoHydrationReady: !usesRemoteCoverPhotoSource,
-        });
+        if (!usesRemoteCoverPhotoSource) {
+          loadEventPlanningIntoWorkingState(active);
+        }
       }
 
       if (persistPhaseHideTimeoutRef.current) {
