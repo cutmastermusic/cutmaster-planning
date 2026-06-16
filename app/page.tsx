@@ -10203,7 +10203,9 @@ export default function Home() {
       return;
     }
 
-    window.setTimeout(() => {
+    if (!databaseEventsLoaded) return;
+
+    const timerId = window.setTimeout(() => {
       setCurrentRole("Couple");
       setRolePreview("Couple");
 
@@ -10255,12 +10257,31 @@ export default function Home() {
         const evt = events.find((item) => item.id === eventId);
         applyCouplePortalNavRestore(eventId, evt);
 
+        const hydratedEvt =
+          lastMergedHydratedEventsRef.current?.find((item) => item.id === eventId) ?? evt;
+        const eventForLoad =
+          evt && hydratedEvt
+            ? {
+                ...evt,
+                settings: {
+                  ...evt.settings,
+                  coverPhotoStoragePath:
+                    hydratedEvt.settings?.coverPhotoStoragePath ??
+                    evt.settings?.coverPhotoStoragePath,
+                  coverPhotoDataUrl:
+                    hydratedEvt.settings?.coverPhotoDataUrl ?? evt.settings?.coverPhotoDataUrl,
+                  coverPhotoTransform:
+                    hydratedEvt.settings?.coverPhotoTransform ?? evt.settings?.coverPhotoTransform,
+                },
+              }
+            : evt;
+
         if (
-          evt &&
+          eventForLoad &&
           databaseEventIdsRef.current.has(eventId) &&
           couplePortalBootstrapRef.current.planningLoadedForEventId !== eventId
         ) {
-          loadEventPlanningIntoWorkingStateRef.current(evt);
+          loadEventPlanningIntoWorkingStateRef.current(eventForLoad);
           couplePortalBootstrapRef.current.planningLoadedForEventId = eventId;
         }
         return;
@@ -10279,6 +10300,10 @@ export default function Home() {
         }
       }
     }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
   }, [
     authSession.loaded,
     authSession.isCouplePortalSession,
@@ -10286,6 +10311,7 @@ export default function Home() {
     appSettings.defaultEventType,
     couplePortalEventIds,
     couplePortalPickerResolved,
+    databaseEventsLoaded,
     events,
     setAuthStage,
     setActiveScreen,
