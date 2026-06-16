@@ -95,7 +95,6 @@ export type CoupleWeddingChapterScreenProps = {
   yourTeamContinueBlockedMessage?: string | null;
   onOpenMusicHub: () => void;
   onOpenEventTeam: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
-  onOpenEventPrep: () => void;
   onOpenTimeline: () => void;
   onOpenPlanningChapter: (chapterId: CoupleWeddingChapterId) => void;
   onReturnToDashboard: () => void;
@@ -135,7 +134,6 @@ export function CoupleWeddingChapterScreen({
   yourTeamContinueBlockedMessage = null,
   onOpenMusicHub,
   onOpenEventTeam,
-  onOpenEventPrep,
   onOpenTimeline,
   onOpenPlanningChapter,
   onReturnToDashboard,
@@ -177,7 +175,7 @@ export function CoupleWeddingChapterScreen({
         onOpenTimeline={onOpenTimeline}
         onOpenMusicHub={onOpenMusicHub}
         onOpenEventTeam={onOpenEventTeam}
-        onOpenEventDocument={onOpenEventPrep}
+        onViewTimeline={onOpenTimeline}
         onReturnToDashboard={onReturnToDashboard}
       />
     );

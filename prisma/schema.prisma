@@ -210,6 +210,9 @@ model TimelineItem {
   /** How the Shared Team Cue (notes) renders in Run Of Show: plain | bullets | numbered. */
   teamCueFormat String? @default("plain")
 
+  /** Optional moment type for couple timeline display (ceremony, dance, speech, etc.). */
+  momentType String?
+
   order Int
 
   timelineId String

@@ -45,7 +45,7 @@ export type CoupleFinalReviewSectionProps = {
   onOpenTimeline: () => void;
   onOpenMusicHub: () => void;
   onOpenEventTeam: () => void;
-  onOpenEventDocument: () => void;
+  onViewTimeline: () => void;
   onReturnToDashboard: () => void;
 };
 
@@ -148,11 +148,11 @@ function ChapterSummaryBlock({
 
 function CoupleFinalReviewCompletionCelebration({
   summary,
-  onOpenEventDocument,
+  onViewTimeline,
   onReturnToDashboard,
 }: {
   summary: CoupleFinalReviewWeddingSummary;
-  onOpenEventDocument: () => void;
+  onViewTimeline: () => void;
   onReturnToDashboard: () => void;
 }) {
   const hasGlanceFacts = Boolean(summary.coupleNames || summary.weddingDate || summary.venue);
@@ -214,14 +214,18 @@ function CoupleFinalReviewCompletionCelebration({
             You can continue refining songs, timelines, and details anytime, and your DJ team now has
             the information needed to begin preparing for your wedding day.
           </p>
+          <p className="mt-2 text-sm leading-relaxed text-stone-800">
+            Your Timeline is the home for day-of sequence and flow — open it next to see how your moments
+            come together.
+          </p>
         </div>
 
         <CoupleMobileActionFooter>
           <CoupleMobileActionButton
-            onAction={onOpenEventDocument}
+            onAction={onViewTimeline}
             className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCouplePrimaryButtonClass}`}
           >
-            Preview Your Event Plan
+            View My Timeline
           </CoupleMobileActionButton>
           <CoupleMobileActionButton
             onAction={onReturnToDashboard}
@@ -244,7 +248,7 @@ export function CoupleFinalReviewSection({
   onOpenTimeline,
   onOpenMusicHub,
   onOpenEventTeam,
-  onOpenEventDocument,
+  onViewTimeline,
   onReturnToDashboard,
 }: CoupleFinalReviewSectionProps) {
   const operationalRows = buildCoupleOperationalReadinessRows(operationalReadinessInput);
@@ -257,7 +261,7 @@ export function CoupleFinalReviewSection({
     return (
       <CoupleFinalReviewCompletionCelebration
         summary={weddingSummary}
-        onOpenEventDocument={onOpenEventDocument}
+        onViewTimeline={onViewTimeline}
         onReturnToDashboard={onReturnToDashboard}
       />
     );
@@ -315,12 +319,6 @@ export function CoupleFinalReviewSection({
                 onAction={operationalRowAction(row, onOpenTimeline, onOpenMusicHub, onOpenEventTeam)}
               />
             ))}
-            <ReadinessStatusRow
-              label="Event Plan"
-              detail="Preview what your team will see."
-              actionLabel="Open"
-              onAction={onOpenEventDocument}
-            />
           </div>
         </div>
       </div>

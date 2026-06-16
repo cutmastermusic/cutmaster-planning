@@ -73,6 +73,19 @@ export type SongRequest = {
   addedToDoNotPlay: boolean;
 };
 
+export type TimelineMomentType =
+  | "ceremony"
+  | "playlist"
+  | "introduction"
+  | "speech"
+  | "meal"
+  | "dance"
+  | "tradition"
+  | "photo"
+  | "open_dance"
+  | "exit"
+  | "custom";
+
 export type TimelineItem = {
   id: string;
   time: string;
@@ -80,6 +93,8 @@ export type TimelineItem = {
   category: TimelineCategory;
   notes: string;
   needsDjMcAttention: boolean;
+  /** Optional persisted moment type; inferred from title when absent. */
+  momentType?: TimelineMomentType;
   /** Song cue for reception/main timeline rows (optional for legacy persisted events). */
   songTitle?: string;
   artist?: string;
@@ -113,6 +128,7 @@ export type DisplayTimelineItem = {
   category: TimelineCategory;
   notes: string;
   needsDjMcAttention: boolean;
+  momentType?: TimelineMomentType;
   songTitle?: string;
   artist?: string;
   fadeOutEarly?: boolean;

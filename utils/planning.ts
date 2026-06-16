@@ -18,6 +18,7 @@ import {
   planningChecklistCompletionPercent,
   planningChecklistInputFromEventRecord,
 } from "@/lib/planningChecklist";
+import { normalizeTimelineMomentType } from "@/lib/timelineMomentType";
 import { normalizeVendorsArray } from "@/utils/vendors";
 
 export function songEntryFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
@@ -203,6 +204,7 @@ export type DbTimelineItemRow = {
   fadeOutTimestamp: string | null;
   runOfShowDone: boolean;
   teamCueFormat: string | null;
+  momentType?: string | null;
   order: number;
 };
 
@@ -219,6 +221,7 @@ export function mapMainTimelineItemsForDatabase(items: TimelineItem[]) {
     fadeOutTimestamp: item.fadeOutTimestamp?.trim() || null,
     runOfShowDone: item.runOfShowDone ?? false,
     teamCueFormat: normalizeTeamCueFormat(item.teamCueFormat),
+    momentType: item.momentType ?? null,
     order: index,
   }));
 }
@@ -262,6 +265,8 @@ export function mapDatabaseRowsToMainTimelineItems(rows: DbTimelineItemRow[]): T
       if (row.fadeOutTimestamp?.trim()) item.fadeOutTimestamp = row.fadeOutTimestamp.trim();
       const teamCueFormat = normalizeTeamCueFormat(row.teamCueFormat);
       if (teamCueFormat !== "plain") item.teamCueFormat = teamCueFormat;
+      const momentType = normalizeTimelineMomentType(row.momentType);
+      if (momentType) item.momentType = momentType;
       return item;
     });
 }

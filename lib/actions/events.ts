@@ -520,6 +520,7 @@ export async function replaceMainTimelineItems(
     fadeOutTimestamp?: string | null;
     runOfShowDone?: boolean;
     teamCueFormat?: string | null;
+    momentType?: string | null;
     order: number;
   }>,
 ) {
@@ -562,6 +563,7 @@ export async function replaceMainTimelineItems(
         fadeOutTimestamp: item.fadeOutTimestamp,
         runOfShowDone: item.runOfShowDone ?? false,
         teamCueFormat: item.teamCueFormat ?? "plain",
+        momentType: item.momentType ?? null,
         order: item.order,
       })),
     });
@@ -582,6 +584,7 @@ export async function replaceCeremonyTimelineItems(
     fadeOutTimestamp?: string | null;
     runOfShowDone?: boolean;
     teamCueFormat?: string | null;
+    momentType?: string | null;
     order: number;
   }>,
 ) {
@@ -624,6 +627,7 @@ export async function replaceCeremonyTimelineItems(
         fadeOutTimestamp: item.fadeOutTimestamp,
         runOfShowDone: item.runOfShowDone ?? false,
         teamCueFormat: item.teamCueFormat ?? "plain",
+        momentType: item.momentType ?? null,
         order: item.order,
       })),
     });

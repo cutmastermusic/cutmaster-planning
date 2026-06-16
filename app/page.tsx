@@ -364,10 +364,12 @@ import {
   type CoupleFinalPlanningQuickLink,
 } from "@/lib/coupleFinalPlanningPrep";
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
+import { CoupleTimelineMomentContext } from "@/components/couple-timeline-moment-context";
 import {
   buildCoupleTimelineReviewGapLabels,
   receptionTimelineRowMissingSong,
 } from "@/lib/coupleTimelineGuidance";
+import { resolveTimelineMomentType } from "@/lib/timelineMomentType";
 import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
 import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import {
@@ -12498,6 +12500,7 @@ export default function Home() {
         category: item.category,
         notes: item.notes,
         needsDjMcAttention: item.needsDjMcAttention,
+        momentType: resolveTimelineMomentType(item),
         songTitle: item.songTitle?.trim() || "",
         artist: item.artist?.trim() || "",
         fadeOutEarly: item.fadeOutEarly,
@@ -19051,6 +19054,9 @@ export default function Home() {
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                               <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
                                 <TimelineMomentHeadline timeLabel={item.time ?? ""} title={item.title} />
+                                {isCoupleView && item.momentType ? (
+                                  <CoupleTimelineMomentContext momentType={item.momentType} />
+                                ) : null}
                                 <TimelineSongCueLine
                                   kind={cueKind}
                                   preview={songPreview}
@@ -19200,6 +19206,9 @@ export default function Home() {
                                       title={item.title}
                                       titleClassName="text-[1.05rem]"
                                     />
+                                    {isCoupleView && item.momentType ? (
+                                      <CoupleTimelineMomentContext momentType={item.momentType} />
+                                    ) : null}
                                   </div>
                                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                                     {!isCoupleView ? (
@@ -22464,10 +22473,6 @@ export default function Home() {
                   });
                   setActivePlanningChapterId(null);
                   selectActiveScreen("Event Team");
-                }}
-                onOpenEventPrep={() => {
-                  closeCouplePlanningChapter();
-                  setActiveScreen("Event Prep");
                 }}
                 onOpenTimeline={() => {
                   closeCouplePlanningChapter();
