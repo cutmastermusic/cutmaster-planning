@@ -690,25 +690,35 @@ body.cm-ros-scroll-lock {
   pointer-events: none;
   background: none;
   color: #faf8f4;
+}
+
+.cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(100%, 280px);
+  height: min(72%, 280px);
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 250px 240px at 0% 100%,
+    rgba(0, 0, 0, 0.16) 0%,
+    rgba(0, 0, 0, 0.09) 34%,
+    rgba(0, 0, 0, 0.03) 58%,
+    transparent 76%
+  );
   transition: background 180ms ease;
 }
 
-.cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory) {
-  background: linear-gradient(
-    180deg,
-    rgba(16, 14, 12, 0.02) 0%,
-    rgba(16, 14, 12, 0.06) 55%,
-    rgba(16, 14, 12, 0.11) 100%
-  );
-}
-
 .cm-dashboard-v3-hero-photo-overlay-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   width: 100%;
   max-width: 13.5rem;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.35rem;
+  gap: 0;
   padding: 0;
   background: none;
 }
@@ -719,49 +729,59 @@ body.cm-ros-scroll-lock {
 }
 
 .cm-dashboard-v3-hero-photo-overlay-headline {
-  margin: 0;
+  margin: 0 0 0.65rem;
   font-family: var(--cm-editorial-serif);
-  font-size: 1.2rem;
+  font-size: clamp(1.625rem, 4.2vw, 2rem);
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.36;
   color: #faf8f4;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.22);
 }
 
 .cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-headline {
   color: #3d3935;
-  text-shadow: none;
 }
 
 .cm-dashboard-v3-hero-photo-overlay-body {
-  margin: 0;
+  margin: 0 0 0.7rem;
   max-width: 12.5rem;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.8125rem;
-  line-height: 1.45;
-  color: rgba(250, 248, 244, 0.86);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+  line-height: 1.5;
+  color: rgba(250, 248, 244, 0.88);
 }
 
 .cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-body {
   color: #8a847c;
-  text-shadow: none;
 }
 
 .cm-dashboard-v3-hero-photo-overlay-hint {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
-  margin: 0.3rem 0 0;
+  margin: 0.15rem 0 0;
   max-width: 12.75rem;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.6875rem;
   line-height: 1.45;
-  color: rgba(250, 248, 244, 0.8);
+  color: rgba(250, 248, 244, 0.75);
 }
 
 .cm-dashboard-v3-hero-photo-overlay--ivory .cm-dashboard-v3-hero-photo-overlay-hint {
   color: rgba(92, 87, 79, 0.88);
+}
+
+.cm-dashboard-v3-hero-photo-overlay-hint-pointer {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cm-dashboard-v3-hero-photo-overlay-hint-touch {
+    display: none;
+  }
+
+  .cm-dashboard-v3-hero-photo-overlay-hint-pointer {
+    display: inline;
+  }
 }
 
 .cm-dashboard-v3-hero-photo-overlay-hint-icon {
@@ -778,17 +798,19 @@ body.cm-ros-scroll-lock {
     filter: grayscale(0.85) sepia(0.18) saturate(0.72) contrast(0.92) brightness(1.1);
   }
 
-  .cm-dashboard-v3-hero-photo--default:hover .cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory) {
-    background: linear-gradient(
-      180deg,
-      rgba(16, 14, 12, 0.03) 0%,
-      rgba(16, 14, 12, 0.08) 55%,
-      rgba(16, 14, 12, 0.15) 100%
+  .cm-dashboard-v3-hero-photo--default:hover
+    .cm-dashboard-v3-hero-photo-overlay:not(.cm-dashboard-v3-hero-photo-overlay--ivory)::before {
+    background: radial-gradient(
+      ellipse 250px 240px at 0% 100%,
+      rgba(0, 0, 0, 0.18) 0%,
+      rgba(0, 0, 0, 0.11) 34%,
+      rgba(0, 0, 0, 0.04) 58%,
+      transparent 76%
     );
   }
 
   .cm-dashboard-v3-hero-photo--placeholder:hover .cm-dashboard-v3-hero-photo-overlay--ivory {
-    background: rgba(44, 40, 37, 0.03);
+    background: none;
   }
 }
 

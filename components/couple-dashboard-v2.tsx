@@ -376,7 +376,8 @@ function WelcomePhotoPersonalizeOverlay({ variant }: { variant: "photo" | "ivory
         <p className="cm-dashboard-v3-hero-photo-overlay-body">Add your favorite photo.</p>
         <p className="cm-dashboard-v3-hero-photo-overlay-hint">
           <WelcomePhotoCameraIcon />
-          <span>Tap anywhere on this photo to personalize it.</span>
+          <span className="cm-dashboard-v3-hero-photo-overlay-hint-touch">Tap anywhere to personalize.</span>
+          <span className="cm-dashboard-v3-hero-photo-overlay-hint-pointer">Click anywhere to personalize.</span>
         </p>
       </div>
     </div>
