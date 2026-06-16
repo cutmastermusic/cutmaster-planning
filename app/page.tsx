@@ -364,12 +364,12 @@ import {
   type CoupleFinalPlanningQuickLink,
 } from "@/lib/coupleFinalPlanningPrep";
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
-import { CoupleTimelineMomentContext } from "@/components/couple-timeline-moment-context";
+import { CoupleTimelineMomentCardSummary } from "@/components/couple-timeline-moment-card-summary";
 import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-moment-workspace/couple-timeline-moment-workspace";
+import { buildCoupleTimelineMomentSummaryLines } from "@/lib/coupleTimelineMomentSummary";
 import {
   buildCeremonyMomentWorkspaceRef,
   buildMusicHubMomentWorkspaceRef,
-  coupleTimelineMomentUsesWorkspace,
   resolveCoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
 import {
@@ -12563,6 +12563,27 @@ export default function Home() {
     ],
   );
 
+  const coupleTimelineSummaryContext = useMemo(
+    () => ({
+      speechesToastsRaw,
+      weddingPartyLineupRaw,
+      officiantName,
+      ceremonyNotes,
+      unityCeremonyNotes: unityCeremonySong.notes ?? "",
+      musicPlaylistLinks,
+      mustPlayCount: mustPlaySongs.length,
+    }),
+    [
+      speechesToastsRaw,
+      weddingPartyLineupRaw,
+      officiantName,
+      ceremonyNotes,
+      unityCeremonySong.notes,
+      musicPlaylistLinks,
+      mustPlaySongs.length,
+    ],
+  );
+
   const scrollToCeremonyTimelineSection = useCallback(() => {
     document.getElementById("timeline-section-ceremony")?.scrollIntoView({
       behavior: "smooth",
@@ -19083,12 +19104,9 @@ export default function Home() {
                             momentType: item.momentType,
                           })
                         : null;
-                    const coupleUsesWorkspace = coupleTimelineMomentUsesWorkspace({
-                      title: item.title,
-                      momentType: item.momentType,
-                    });
-                    const hideCoupleToastDuplicateCta =
-                      coupleWorkspaceId === "speech_toasts";
+                    const coupleSummaryLines = isCoupleView
+                      ? buildCoupleTimelineMomentSummaryLines(item, coupleTimelineSummaryContext)
+                      : [];
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
@@ -19125,14 +19143,42 @@ export default function Home() {
                         data-timeline-id={item.id}
                       >
                         {isDropTarget ? <TimelineDropTargetMarker /> : null}
-                        {!rowExpanded && (
+                        {!rowExpanded && isCoupleView ? (
+                          <div className="mx-auto flex w-full max-w-[44rem] items-start justify-between gap-3 sm:gap-4 lg:max-w-[56rem] xl:max-w-[60rem]">
+                            <CoupleScrollSafeTapSurface
+                              disabled={!canEditTimeline || !timelineRow}
+                              onTap={() => {
+                                if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                              }}
+                              className={`min-w-0 flex-1 ${canEditTimeline
+                                ? "cursor-pointer active:scale-[0.995]"
+                                : "cursor-default opacity-80"
+                                }`}
+                            >
+                              <TimelineMomentHeadline
+                                timeLabel={item.time ?? ""}
+                                title={item.title}
+                                titleClassName="text-[1.05rem] md:text-inherit"
+                              />
+                              <CoupleTimelineMomentCardSummary lines={coupleSummaryLines} />
+                            </CoupleScrollSafeTapSurface>
+                            {canEditTimeline ? (
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                  if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                }}
+                                className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} shrink-0`}
+                              >
+                                Edit
+                              </PrimaryButton>
+                            ) : null}
+                          </div>
+                        ) : !rowExpanded ? (
                           <>
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                               <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
                                 <TimelineMomentHeadline timeLabel={item.time ?? ""} title={item.title} />
-                                {isCoupleView && item.momentType ? (
-                                  <CoupleTimelineMomentContext momentType={item.momentType} />
-                                ) : null}
                                 <TimelineSongCueLine
                                   kind={cueKind}
                                   preview={songPreview}
@@ -19152,7 +19198,7 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
-                                {isToast && !hideCoupleToastDuplicateCta ? (
+                                {isToast ? (
                                   <SpeechesToastsPreview
                                     toastsRaw={speechesToastsRaw}
                                     onEdit={openSpeechesToastsEditor}
@@ -19207,7 +19253,7 @@ export default function Home() {
                                       ) : null}
                                     </>
                                   ) : null}
-                                  {isToast && !hideCoupleToastDuplicateCta ? (
+                                  {isToast ? (
                                     <button
                                       type="button"
                                       onClick={openSpeechesToastsEditor}
@@ -19224,7 +19270,7 @@ export default function Home() {
                                     disabled={!canEditTimeline}
                                     className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
                                   >
-                                    {hideCoupleToastDuplicateCta ? "Open workspace" : "Edit"}
+                                    Edit
                                   </PrimaryButton>
                                   <PrimaryButton
                                     type="button"
@@ -19282,9 +19328,6 @@ export default function Home() {
                                       title={item.title}
                                       titleClassName="text-[1.05rem]"
                                     />
-                                    {isCoupleView && item.momentType ? (
-                                      <CoupleTimelineMomentContext momentType={item.momentType} />
-                                    ) : null}
                                   </div>
                                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                                     {!isCoupleView ? (
@@ -19333,7 +19376,7 @@ export default function Home() {
                                     variant="timeline"
                                   />
                                 ) : null}
-                                {isToast && !hideCoupleToastDuplicateCta ? (
+                                {isToast ? (
                                   <SpeechesToastsPreview
                                     toastsRaw={speechesToastsRaw}
                                     onEdit={openSpeechesToastsEditor}
@@ -19352,7 +19395,7 @@ export default function Home() {
                                 ) : null}
                                 {canEditTimeline ? (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">
-                                    {coupleUsesWorkspace ? "Tap to open workspace" : "Tap card to edit"}
+                                    Tap card to edit
                                   </p>
                                 ) : (
                                   <p className="mt-2.5 text-[10px] font-medium text-stone-400">View only</p>
@@ -19379,7 +19422,7 @@ export default function Home() {
                                     ) : null}
                                   </>
                                 ) : null}
-                                {isToast && !hideCoupleToastDuplicateCta ? (
+                                {isToast ? (
                                   <button
                                     type="button"
                                     onClick={openSpeechesToastsEditor}
@@ -19396,7 +19439,7 @@ export default function Home() {
                                   disabled={!canEditTimeline}
                                   className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                                 >
-                                  {coupleUsesWorkspace ? "Open workspace" : "Expand"}
+                                  Expand
                                 </PrimaryButton>
                                 {canEditTimeline ? (
                                   <>
@@ -19437,7 +19480,7 @@ export default function Home() {
                               </div>
                             </div>
                           </>
-                        )}
+                        ) : null}
                         {rowExpanded && isCoupleView && coupleWorkspaceId ? (
                           <CoupleTimelineMomentWorkspace
                             workspaceId={coupleWorkspaceId}
