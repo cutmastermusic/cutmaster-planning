@@ -351,6 +351,7 @@ import {
 import {
   backfillWelcomePhotoPersonalizationFlag,
   hasPersonalizedWelcomePhotoFlag,
+  resolveCoupleWelcomePhotoDisplay,
 } from "@/lib/eventCover";
 import {
   clearEventCoverPhotoFromLocalStorage,
@@ -6944,6 +6945,42 @@ export default function Home() {
     eventPlanningReadyEventId,
   ]);
 
+  useEffect(() => {
+    if (authStage !== "app" || appMode !== "event" || activeScreen !== "Dashboard" || !isCoupleView) {
+      return;
+    }
+
+    const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
+      coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
+      coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
+      defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
+    });
+
+    console.info("[welcome-photo-debug] couple dashboard render", {
+      activeEventId,
+      coverPhotoStoragePath: eventSettings.coverPhotoStoragePath ?? null,
+      coverPhotoDataUrl: eventSettings.coverPhotoDataUrl ?? null,
+      displayUrl: welcomePhoto.displayUrl ?? null,
+      isEventSpecific: welcomePhoto.isEventSpecific,
+      defaultWelcomePhotoDataUrlExists: Boolean(appSettings.defaultWelcomePhotoDataUrl?.trim()),
+      coverPhotoHydrationReady,
+      eventPlanningReadyEventId,
+      databaseEventsLoaded,
+      hasPersonalizedWelcomePhoto: hasPersonalizedWelcomePhotoFlag(eventSettings),
+    });
+  }, [
+    activeEventId,
+    activeScreen,
+    appMode,
+    appSettings.defaultWelcomePhotoDataUrl,
+    authStage,
+    coverPhotoHydrationReady,
+    databaseEventsLoaded,
+    eventPlanningReadyEventId,
+    eventSettings,
+    isCoupleView,
+  ]);
+
   const coupleChapterNavLockRef = useRef<{ chapterId: CoupleWeddingChapterId; at: number } | null>(
     null,
   );
@@ -9789,10 +9826,20 @@ export default function Home() {
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
             eventStatus: normalizeEventStatus(dbEvent.eventStatus),
-            ...coverPhotoFieldsFromDbRow({
-              coverPhotoStoragePath: dbEvent.coverPhotoStoragePath,
-              coverPhotoTransform: dbEvent.coverPhotoTransform,
-            }),
+            ...(() => {
+              const coverFields = coverPhotoFieldsFromDbRow({
+                coverPhotoStoragePath: dbEvent.coverPhotoStoragePath,
+                coverPhotoTransform: dbEvent.coverPhotoTransform,
+              });
+              console.info("[welcome-photo-debug] db hydration cover fields", {
+                dbEventId: dbEvent.id,
+                dbCoverPhotoStoragePath: dbEvent.coverPhotoStoragePath ?? null,
+                coverPhotoStoragePath: coverFields.coverPhotoStoragePath ?? null,
+                coverPhotoDataUrl: coverFields.coverPhotoDataUrl ?? null,
+                coverPhotoTransform: coverFields.coverPhotoTransform ?? null,
+              });
+              return coverFields;
+            })(),
           };
 
           seededEvent.settings.planningQuestionAnswers = buildPlanningQuestionAnswersFromDbRow(
@@ -10036,12 +10083,10 @@ export default function Home() {
             // DB is source of truth once JSON columns exist — replace stale
             // localStorage working state (planning answers + ceremony plan) and
             // defer DB autosave until after this sync completes.
-            queueMicrotask(() => {
-              loadEventPlanningIntoWorkingState(resolvedEvent);
-              if (!musicHubTasteDirtyRef.current) {
-                persistUiSuppressBootCountRef.current += 1;
-              }
-            });
+            loadEventPlanningIntoWorkingState(resolvedEvent);
+            if (!musicHubTasteDirtyRef.current) {
+              persistUiSuppressBootCountRef.current += 1;
+            }
             return resolvedId;
           });
           databaseHydrationCompleteRef.current = true;
