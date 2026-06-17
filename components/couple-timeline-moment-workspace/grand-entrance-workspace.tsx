@@ -1,10 +1,6 @@
 "use client";
 
 import {
-  CoupleTimelineMomentHomeRefPanel,
-  CoupleTimelineMomentRefFact,
-} from "@/components/couple-timeline-moment-workspace/home-ref-panel";
-import {
   CoupleTimelineMomentSongCueFields,
   CoupleTimelineMomentTimelineFields,
 } from "@/components/couple-timeline-moment-workspace/timeline-fields";
@@ -13,10 +9,7 @@ import {
   CoupleTimelineMomentWorkspaceShell,
 } from "@/components/couple-timeline-moment-workspace/shell";
 import { PrimaryButton, lightUiSecondaryButtonClass } from "@/components/planning-ui";
-import type {
-  GrandEntranceMomentWorkspaceRef,
-  MusicHubMomentWorkspaceRef,
-} from "@/lib/timelineMomentWorkspace";
+import type { GrandEntranceMomentWorkspaceRef } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
 
 type GrandEntranceMomentWorkspaceProps = {
@@ -28,13 +21,11 @@ type GrandEntranceMomentWorkspaceProps = {
   momentType: TimelineMomentType;
   canEdit: boolean;
   grandEntranceRef: GrandEntranceMomentWorkspaceRef;
-  musicHubRef: MusicHubMomentWorkspaceRef;
   onTimeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSongTitleChange: (value: string) => void;
   onArtistChange: (value: string) => void;
   onOpenLineup: () => void;
-  onOpenMusicHub: () => void;
   onDone: () => void;
 };
 
@@ -47,18 +38,13 @@ export function GrandEntranceMomentWorkspace({
   momentType,
   canEdit,
   grandEntranceRef,
-  musicHubRef,
   onTimeChange,
   onNotesChange,
   onSongTitleChange,
   onArtistChange,
   onOpenLineup,
-  onOpenMusicHub,
   onDone,
 }: GrandEntranceMomentWorkspaceProps) {
-  const hasSongCue = Boolean(songTitle.trim() || artist.trim());
-  const musicHubHasSignal =
-    musicHubRef.playlistLinkCount > 0 || musicHubRef.hasMusicProfile || musicHubRef.hasVibeNotes;
   const hasLineup = grandEntranceRef.lineupPreview.length > 0;
 
   return (
@@ -70,25 +56,23 @@ export function GrandEntranceMomentWorkspace({
       showMomentTypeLabel={false}
       showEmptyTimeLabel={false}
     >
-      <CoupleTimelineMomentWorkspaceSection
-        title="When does the room shift?"
-        description="Set the moment in the timeline and the cue your team should follow."
-      >
+      {time.trim() ? (
+        <p className="-mt-2 text-lg font-medium tracking-tight text-stone-900">{time.trim()}</p>
+      ) : null}
+
+      <CoupleTimelineMomentWorkspaceSection title="When does this happen?">
         <CoupleTimelineMomentTimelineFields
           time={time}
           notes={notes}
           onTimeChange={onTimeChange}
           onNotesChange={onNotesChange}
           disabled={!canEdit}
-          notesLabel="Entrance direction"
+          notesLabel="Notes"
           notesPlaceholder="Where the couple waits, how the room should be brought up, or who gives the go-ahead."
         />
       </CoupleTimelineMomentWorkspaceSection>
 
-      <CoupleTimelineMomentWorkspaceSection
-        title="What song carries the entrance?"
-        description="This is the scheduled cue for the timeline. Broader music direction stays in Music Hub."
-      >
+      <CoupleTimelineMomentWorkspaceSection title="What song should play?">
         <CoupleTimelineMomentSongCueFields
           songTitle={songTitle}
           artist={artist}
@@ -96,17 +80,9 @@ export function GrandEntranceMomentWorkspace({
           onArtistChange={onArtistChange}
           disabled={!canEdit}
         />
-        {!hasSongCue ? (
-          <p className="mt-3 text-sm leading-relaxed text-stone-500">
-            Add the entrance song here when it feels decided.
-          </p>
-        ) : null}
       </CoupleTimelineMomentWorkspaceSection>
 
-      <CoupleTimelineMomentWorkspaceSection
-        title="Who is being introduced?"
-        description="Names, roles, and pronunciation live with People & Vendors."
-      >
+      <CoupleTimelineMomentWorkspaceSection title="Who is being introduced?">
         {hasLineup ? (
           <ol className="space-y-3">
             {grandEntranceRef.lineupPreview.map((line) => (
@@ -124,11 +100,7 @@ export function GrandEntranceMomentWorkspace({
               </li>
             ) : null}
           </ol>
-        ) : (
-          <p className="text-sm leading-relaxed text-stone-500">
-            Build the entrance order when you are ready.
-          </p>
-        )}
+        ) : null}
         <PrimaryButton
           type="button"
           onClick={onOpenLineup}
@@ -137,38 +109,6 @@ export function GrandEntranceMomentWorkspace({
           Edit entrance order
         </PrimaryButton>
       </CoupleTimelineMomentWorkspaceSection>
-
-      {musicHubHasSignal ? (
-        <CoupleTimelineMomentWorkspaceSection
-          title="What music context should we keep in mind?"
-          description="Referenced from Music Hub — playlists, taste profile, and broader music direction."
-        >
-          <CoupleTimelineMomentHomeRefPanel
-            actionLabel="Open Music Hub"
-            onAction={onOpenMusicHub}
-            summary={
-              <>
-                {musicHubRef.playlistLinkCount > 0 ? (
-                  <CoupleTimelineMomentRefFact
-                    label="Shared playlists"
-                    value={`${musicHubRef.playlistLinkCount} link${musicHubRef.playlistLinkCount === 1 ? "" : "s"}${
-                      musicHubRef.playlistPreview.length > 0
-                        ? ` · ${musicHubRef.playlistPreview.join(", ")}`
-                        : ""
-                    }`}
-                  />
-                ) : null}
-                {musicHubRef.hasMusicProfile ? (
-                  <CoupleTimelineMomentRefFact label="Music profile" value="Saved" />
-                ) : null}
-                {musicHubRef.hasVibeNotes ? (
-                  <CoupleTimelineMomentRefFact label="Vibe notes" value="Added" />
-                ) : null}
-              </>
-            }
-          />
-        </CoupleTimelineMomentWorkspaceSection>
-      ) : null}
     </CoupleTimelineMomentWorkspaceShell>
   );
 }

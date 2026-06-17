@@ -1,9 +1,11 @@
 import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
 import { parseSpeechesToasts } from "@/lib/speechesToasts";
+import { isGrandEntranceTimelineItem } from "@/lib/grandEntranceDetail";
 import { resolveTimelineMomentType, type TimelineMomentType } from "@/lib/timelineMomentType";
 import type { SharedPlaylistLink } from "@/types/planning";
 
 const MAX_SUMMARY_LINES = 3;
+const MAX_GRAND_ENTRANCE_SUMMARY_LINES = 4;
 
 export type CoupleTimelineMomentSummaryContext = {
   speechesToastsRaw: string;
@@ -71,12 +73,18 @@ function summaryForMomentType(
       break;
     }
     case "introduction": {
-      for (const entry of parseWeddingPartyLineup(context.weddingPartyLineupRaw).slice(0, MAX_SUMMARY_LINES)) {
+      const song = formatSongSummary(item.songTitle, item.artist);
+      const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
+      const maxLineupLines =
+        isGrandEntrance ? MAX_GRAND_ENTRANCE_SUMMARY_LINES - (song ? 1 : 0) : MAX_SUMMARY_LINES;
+      for (const entry of parseWeddingPartyLineup(context.weddingPartyLineupRaw).slice(0, maxLineupLines)) {
         const role = entry.role.trim();
         const intro = entry.introDisplayName.trim();
         const line = role || intro;
         if (line) lines.push(line);
       }
+      if (isGrandEntrance && song) lines.push(song);
+      if (isGrandEntrance) return lines.slice(0, MAX_GRAND_ENTRANCE_SUMMARY_LINES);
       break;
     }
     case "dance": {

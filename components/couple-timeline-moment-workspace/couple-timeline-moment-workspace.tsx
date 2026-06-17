@@ -108,13 +108,11 @@ export function CoupleTimelineMomentWorkspace({
           momentType={momentType}
           canEdit={canEdit}
           grandEntranceRef={grandEntranceRef}
-          musicHubRef={musicHubRef}
           onTimeChange={onTimeChange}
           onNotesChange={onNotesChange}
           onSongTitleChange={onSongTitleChange}
           onArtistChange={onArtistChange}
           onOpenLineup={onOpenGrandEntranceLineup}
-          onOpenMusicHub={onOpenMusicHub}
           onDone={onDone}
         />
       );
