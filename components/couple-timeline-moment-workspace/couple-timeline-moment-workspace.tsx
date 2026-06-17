@@ -2,6 +2,7 @@
 
 import { CeremonyMomentWorkspace } from "@/components/couple-timeline-moment-workspace/ceremony-workspace";
 import { DanceFirstMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-first-workspace";
+import { DanceParentMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-parent-workspace";
 import { GrandEntranceMomentWorkspace } from "@/components/couple-timeline-moment-workspace/grand-entrance-workspace";
 import { SpeechToastsMomentWorkspace } from "@/components/couple-timeline-moment-workspace/speech-toasts-workspace";
 import type {
@@ -9,6 +10,7 @@ import type {
   CoupleTimelineMomentWorkspaceId,
   GrandEntranceMomentWorkspaceRef,
   MusicHubMomentWorkspaceRef,
+  ParentDanceMomentWorkspaceRef,
 } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
 import type { SpeechesToastEntry } from "@/lib/speechesToasts";
@@ -26,6 +28,7 @@ export type CoupleTimelineMomentWorkspaceProps = {
   musicHubRef: MusicHubMomentWorkspaceRef;
   ceremonyRef: CeremonyMomentWorkspaceRef;
   grandEntranceRef: GrandEntranceMomentWorkspaceRef;
+  parentDanceRef: ParentDanceMomentWorkspaceRef;
   onTimeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSongTitleChange: (value: string) => void;
@@ -51,6 +54,7 @@ export function CoupleTimelineMomentWorkspace({
   musicHubRef,
   ceremonyRef,
   grandEntranceRef,
+  parentDanceRef,
   onTimeChange,
   onNotesChange,
   onSongTitleChange,
@@ -79,6 +83,24 @@ export function CoupleTimelineMomentWorkspace({
           onSongTitleChange={onSongTitleChange}
           onArtistChange={onArtistChange}
           onOpenMusicHub={onOpenMusicHub}
+          onDone={onDone}
+        />
+      );
+    case "dance_parent":
+      return (
+        <DanceParentMomentWorkspace
+          title={title}
+          time={time}
+          notes={notes}
+          songTitle={songTitle}
+          artist={artist}
+          momentType={momentType}
+          canEdit={canEdit}
+          parentDanceRef={parentDanceRef}
+          onTimeChange={onTimeChange}
+          onNotesChange={onNotesChange}
+          onSongTitleChange={onSongTitleChange}
+          onArtistChange={onArtistChange}
           onDone={onDone}
         />
       );

@@ -1,5 +1,6 @@
 import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
 import { parseSpeechesToasts } from "@/lib/speechesToasts";
+import { findParentDanceParticipants, isParentDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { isGrandEntranceTimelineItem } from "@/lib/grandEntranceDetail";
 import { resolveTimelineMomentType, type TimelineMomentType } from "@/lib/timelineMomentType";
 import type { SharedPlaylistLink } from "@/types/planning";
@@ -12,6 +13,7 @@ const MAX_NAMES_PER_INTRO_GROUP = 3;
 export type CoupleTimelineMomentSummaryContext = {
   speechesToastsRaw: string;
   weddingPartyLineupRaw: string;
+  formalDancesRaw: string;
   officiantName: string;
   ceremonyNotes: string;
   unityCeremonyNotes: string;
@@ -132,6 +134,10 @@ function summaryForMomentType(
       break;
     }
     case "dance": {
+      const participants = isParentDanceTimelineItem(item.title)
+        ? findParentDanceParticipants(item.title, context.formalDancesRaw)
+        : "";
+      if (participants) lines.push(participants);
       const song = formatSongSummary(item.songTitle, item.artist);
       if (song) lines.push(song);
       break;

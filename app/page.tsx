@@ -373,6 +373,7 @@ import {
   buildCeremonyMomentWorkspaceRef,
   buildGrandEntranceMomentWorkspaceRef,
   buildMusicHubMomentWorkspaceRef,
+  buildParentDanceMomentWorkspaceRef,
   resolveCoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
 import {
@@ -450,7 +451,7 @@ import {
 } from "@/lib/restoreDefaultTimelineMoments";
 import { FormalDanceCommandCard } from "@/components/formal-dance-command-card";
 import { GrandEntranceCommandCard } from "@/components/grand-entrance-command-card";
-import { isFormalDanceTimelineItem } from "@/lib/formalDanceDetail";
+import { FORMAL_DANCES_PLANNING_KEY, isFormalDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -5760,6 +5761,10 @@ export default function Home() {
   );
   const speechesToastsRaw = useMemo(
     () => eventSettings.planningQuestionAnswers?.[SPEECHES_TOASTS_PLANNING_KEY] ?? "",
+    [eventSettings.planningQuestionAnswers],
+  );
+  const formalDancesRaw = useMemo(
+    () => eventSettings.planningQuestionAnswers?.[FORMAL_DANCES_PLANNING_KEY] ?? "",
     [eventSettings.planningQuestionAnswers],
   );
   const speechesToastsSummary = useMemo(() => {
@@ -12714,6 +12719,7 @@ export default function Home() {
     () => ({
       speechesToastsRaw,
       weddingPartyLineupRaw,
+      formalDancesRaw,
       officiantName,
       ceremonyNotes,
       unityCeremonyNotes: unityCeremonySong.notes ?? "",
@@ -12723,6 +12729,7 @@ export default function Home() {
     [
       speechesToastsRaw,
       weddingPartyLineupRaw,
+      formalDancesRaw,
       officiantName,
       ceremonyNotes,
       unityCeremonySong.notes,
@@ -19642,6 +19649,10 @@ export default function Home() {
                             musicHubRef={coupleMomentMusicHubRef}
                             ceremonyRef={coupleMomentCeremonyRef}
                             grandEntranceRef={coupleMomentGrandEntranceRef}
+                            parentDanceRef={buildParentDanceMomentWorkspaceRef(
+                              recvTitle,
+                              formalDancesRaw,
+                            )}
                             onTimeChange={(value) =>
                               patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)
                             }

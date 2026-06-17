@@ -1,4 +1,5 @@
 import { normalizeDefaultTimelineMomentKey } from "@/lib/restoreDefaultTimelineMoments";
+import { findParentDanceParticipants, isParentDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { isGrandEntranceTimelineItem } from "@/lib/grandEntranceDetail";
 import { isToastTimelineItem } from "@/lib/speechesToasts";
 import { getWeddingPartyLineupPreviewContent } from "@/lib/weddingPartyLineup";
@@ -13,6 +14,7 @@ import type { CeremonyPlan, CeremonyTimelineItem } from "@/types/planning";
 /** Reference implementations — expand to more moment types over time. */
 export type CoupleTimelineMomentWorkspaceId =
   | "dance_first"
+  | "dance_parent"
   | "speech_toasts"
   | "ceremony"
   | "grand_entrance";
@@ -35,6 +37,9 @@ export function resolveCoupleTimelineMomentWorkspaceId(item: {
 
   if (momentType === "dance" && isFirstDanceTimelineItem(item.title)) {
     return "dance_first";
+  }
+  if (momentType === "dance" && isParentDanceTimelineItem(item.title)) {
+    return "dance_parent";
   }
   if (momentType === "speech" && isToastTimelineItem(item.title)) {
     return "speech_toasts";
@@ -100,6 +105,19 @@ export function buildGrandEntranceMomentWorkspaceRef(
   };
 }
 
+export type ParentDanceMomentWorkspaceRef = {
+  participants: string;
+};
+
+export function buildParentDanceMomentWorkspaceRef(
+  title: string,
+  formalDancesRaw: string | undefined | null,
+): ParentDanceMomentWorkspaceRef {
+  return {
+    participants: findParentDanceParticipants(title, formalDancesRaw),
+  };
+}
+
 function formatCeremonySong(plan: CeremonyPlan | undefined): string {
   if (!plan) return "";
   const title = plan.title?.trim() ?? "";
@@ -153,6 +171,8 @@ export function coupleTimelineMomentWorkspaceTitle(id: CoupleTimelineMomentWorks
   switch (id) {
     case "dance_first":
       return "First Dance";
+    case "dance_parent":
+      return "Parent Dance";
     case "speech_toasts":
       return "Toasts";
     case "ceremony":
