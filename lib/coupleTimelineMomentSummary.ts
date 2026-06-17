@@ -6,6 +6,8 @@ import type { SharedPlaylistLink } from "@/types/planning";
 
 const MAX_SUMMARY_LINES = 3;
 const MAX_GRAND_ENTRANCE_SUMMARY_LINES = 4;
+const MAX_GRAND_ENTRANCE_GROUPS = 3;
+const MAX_NAMES_PER_INTRO_GROUP = 3;
 
 export type CoupleTimelineMomentSummaryContext = {
   speechesToastsRaw: string;
@@ -50,6 +52,47 @@ function truncateLine(text: string, max = 72): string {
   return `${trimmed.slice(0, max - 1).trimEnd()}…`;
 }
 
+function normalizeGroupKey(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function formatGrandEntranceLineupSummary(lineupRaw: string): string[] {
+  const groups: Array<{ label: string; names: string[] }> = [];
+  const groupIndex = new Map<string, number>();
+
+  for (const entry of parseWeddingPartyLineup(lineupRaw)) {
+    const role = entry.role.trim();
+    const introName = entry.introDisplayName.trim();
+    const label = role || introName;
+    if (!label) continue;
+
+    const key = normalizeGroupKey(role || `intro:${introName}`);
+    let index = groupIndex.get(key);
+    if (index == null) {
+      index = groups.length;
+      groupIndex.set(key, index);
+      groups.push({ label, names: [] });
+    }
+
+    if (introName && normalizeGroupKey(introName) !== normalizeGroupKey(role)) {
+      groups[index]?.names.push(introName);
+    }
+  }
+
+  return groups.slice(0, MAX_GRAND_ENTRANCE_GROUPS).map((group) => {
+    if (group.names.length === 0) return group.label;
+
+    const visibleNames = group.names.slice(0, MAX_NAMES_PER_INTRO_GROUP);
+    const moreCount = group.names.length - visibleNames.length;
+    const value =
+      moreCount > 0
+        ? `${visibleNames.join(", ")} + ${moreCount} more`
+        : visibleNames.join(", ");
+
+    return `${group.label}: ${value}`;
+  });
+}
+
 function summaryForMomentType(
   momentType: TimelineMomentType,
   item: {
@@ -75,16 +118,17 @@ function summaryForMomentType(
     case "introduction": {
       const song = formatSongSummary(item.songTitle, item.artist);
       const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
-      const maxLineupLines =
-        isGrandEntrance ? MAX_GRAND_ENTRANCE_SUMMARY_LINES - (song ? 1 : 0) : MAX_SUMMARY_LINES;
-      for (const entry of parseWeddingPartyLineup(context.weddingPartyLineupRaw).slice(0, maxLineupLines)) {
+      if (isGrandEntrance) {
+        lines.push(...formatGrandEntranceLineupSummary(context.weddingPartyLineupRaw));
+        if (song) lines.push(song);
+        return lines.slice(0, MAX_GRAND_ENTRANCE_SUMMARY_LINES);
+      }
+      for (const entry of parseWeddingPartyLineup(context.weddingPartyLineupRaw).slice(0, MAX_SUMMARY_LINES)) {
         const role = entry.role.trim();
         const intro = entry.introDisplayName.trim();
         const line = role || intro;
         if (line) lines.push(line);
       }
-      if (isGrandEntrance && song) lines.push(song);
-      if (isGrandEntrance) return lines.slice(0, MAX_GRAND_ENTRANCE_SUMMARY_LINES);
       break;
     }
     case "dance": {
