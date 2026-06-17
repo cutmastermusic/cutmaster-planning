@@ -762,6 +762,7 @@ type MusicHubPrepSnapshotProps = {
   doNotPlayCount: number;
   showMustPlay: boolean;
   showDoNotPlay: boolean;
+  buttonVariant?: "default" | "couple";
 };
 
 function MusicHubPrepSnapshot({
@@ -771,6 +772,7 @@ function MusicHubPrepSnapshot({
   doNotPlayCount,
   showMustPlay,
   showDoNotPlay,
+  buttonVariant = "default",
 }: MusicHubPrepSnapshotProps) {
   const chips: Array<{
     id: string;
@@ -782,7 +784,10 @@ function MusicHubPrepSnapshot({
       id: "music-hub-playlist-links",
       label: "Playlist links",
       count: playlistCount,
-      shell: "border-[#00D4FF]/35 bg-[#00D4FF]/10 hover:border-[#00D4FF]/55 hover:bg-[#00D4FF]/15",
+      shell:
+        buttonVariant === "couple"
+          ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/[0.06] hover:border-[#2f4a3e]/45 hover:bg-[#2f4a3e]/[0.09]"
+          : "border-[#00D4FF]/35 bg-[#00D4FF]/10 hover:border-[#00D4FF]/55 hover:bg-[#00D4FF]/15",
     },
   ];
   if (showMustPlay) {
@@ -791,13 +796,19 @@ function MusicHubPrepSnapshot({
         id: "music-hub-must-play",
         label: "Must play",
         count: mustPlayCount,
-        shell: "border-[#7E52A0]/30 bg-[#7E52A0]/[0.07] hover:border-[#7E52A0]/45 hover:bg-[#7E52A0]/[0.11]",
+        shell:
+          buttonVariant === "couple"
+            ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/[0.06] hover:border-[#2f4a3e]/45 hover:bg-[#2f4a3e]/[0.09]"
+            : "border-[#7E52A0]/30 bg-[#7E52A0]/[0.07] hover:border-[#7E52A0]/45 hover:bg-[#7E52A0]/[0.11]",
       },
       {
         id: "music-hub-play-if-possible",
         label: "Play if possible",
         count: playIfPossibleCount,
-        shell: "border-emerald-300/80 bg-emerald-50/90 hover:border-emerald-400 hover:bg-emerald-50",
+        shell:
+          buttonVariant === "couple"
+            ? "border-stone-300/80 bg-stone-50/90 hover:border-[#2f4a3e]/35 hover:bg-stone-100/80"
+            : "border-emerald-300/80 bg-emerald-50/90 hover:border-emerald-400 hover:bg-emerald-50",
       },
     );
   }
@@ -806,7 +817,10 @@ function MusicHubPrepSnapshot({
       id: "music-hub-do-not-play",
       label: "Do not play",
       count: doNotPlayCount,
-      shell: "border-rose-300/70 bg-rose-50/70 hover:border-rose-400 hover:bg-rose-50",
+      shell:
+        buttonVariant === "couple"
+          ? "border-stone-300/80 bg-white hover:border-stone-400 hover:bg-stone-50"
+          : "border-rose-300/70 bg-rose-50/70 hover:border-rose-400 hover:bg-rose-50",
     });
   }
 
@@ -17707,7 +17721,13 @@ export default function Home() {
             <PremiumCard variant="accent">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#00D4FF]/75">Music planning</p>
+                  <p
+                    className={`text-[11px] uppercase tracking-[0.18em] ${
+                      isCoupleView ? "text-[#2f4a3e]/75" : "text-[#00D4FF]/75"
+                    }`}
+                  >
+                    Music planning
+                  </p>
                   <SectionTitle className="mt-1">Music Hub</SectionTitle>
                 </div>
                 <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
@@ -17732,6 +17752,7 @@ export default function Home() {
               doNotPlayCount={doNotPlaySongs.length}
               showMustPlay={sectionMustPlayEnabled}
               showDoNotPlay={sectionDoNotPlayEnabled}
+              buttonVariant={isCoupleView ? "couple" : "default"}
             />
 
             <PremiumCard
@@ -17961,6 +17982,7 @@ export default function Home() {
                       selected={musicTasteProfile.danceFloorStyles}
                       disabled={!canManageMusic}
                       onToggle={(label) => toggleMusicTasteChip("danceFloorStyles", label)}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   </div>
                 </div>
@@ -17973,6 +17995,7 @@ export default function Home() {
                       selected={musicTasteProfile.crowdPreferences}
                       disabled={!canManageMusic}
                       onToggle={(label) => toggleMusicTasteChip("crowdPreferences", label)}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   </div>
                 </div>
@@ -17985,6 +18008,7 @@ export default function Home() {
                       selected={musicTasteProfile.musicBehavior}
                       disabled={!canManageMusic}
                       onToggle={(label) => toggleMusicTasteChip("musicBehavior", label)}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   </div>
                 </div>
@@ -18000,6 +18024,7 @@ export default function Home() {
                       selected={musicTasteProfile.lineDancesAndGroupSongs ?? []}
                       disabled={!canManageMusic}
                       onToggle={(label) => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   </div>
                 </div>
@@ -18032,6 +18057,7 @@ export default function Home() {
                   selected={musicGenreEraSelections}
                   disabled={!canManageMusic}
                   onToggle={toggleGenreEraChip}
+                  buttonVariant={isCoupleView ? "couple" : "default"}
                 />
               </div>
               {genreOtherSelected ? (
@@ -18158,7 +18184,13 @@ export default function Home() {
                       <SectionTitle>Must play</SectionTitle>
                       <p className="mt-1 text-xs text-stone-600">Songs that should absolutely make the night.</p>
                     </div>
-                    <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-stone-900">
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
+                        isCoupleView
+                          ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                          : "border-[#00D4FF]/35 bg-[#00D4FF]/15 text-stone-900"
+                      }`}
+                    >
                       {mustPlaySongs.length}
                     </span>
                   </div>
@@ -18168,6 +18200,7 @@ export default function Home() {
                         wrapWithCard={false}
                         title="No must-plays yet"
                         description="Name a few songs your DJ should absolutely work in—three strong picks is a great start."
+                        buttonVariant={isCoupleView ? "couple" : "default"}
                         primaryAction={{
                           label: "Add must-play song",
                           onClick: () => {
@@ -18215,6 +18248,7 @@ export default function Home() {
                         wrapWithCard={false}
                         title="No “play if possible” yet"
                         description="Optional—add a few if specific songs would make you smile."
+                        buttonVariant={isCoupleView ? "couple" : "default"}
                         primaryAction={{
                           label: "Add from box above",
                           onClick: () => {
@@ -18262,6 +18296,7 @@ export default function Home() {
                         wrapWithCard={false}
                         title="Nothing on the block list"
                         description="A short “do not play” keeps the vibe aligned."
+                        buttonVariant={isCoupleView ? "couple" : "default"}
                         primaryAction={{
                           label: "Add from quick add",
                           onClick: () => {
@@ -18356,7 +18391,11 @@ export default function Home() {
                                   setPlaylistAddDrafts((prev) => ({ ...prev, [bucketId]: "" }));
                                 }}
                                 disabled={!canManageMusic}
-                                className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                                className={
+                                  isCoupleView
+                                    ? `px-3 py-2.5 text-xs ${couplePortalPrimaryButtonClass}`
+                                    : "rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                                }
                               >
                                 Add
                               </PrimaryButton>
@@ -18370,6 +18409,7 @@ export default function Home() {
                                     cardClassName="py-3"
                                     title="No songs for this moment"
                                     description="Add a line above—one title and artist is enough to set the vibe."
+                                    buttonVariant={isCoupleView ? "couple" : "default"}
                                   />
                                 </li>
                               ) : null}
@@ -18458,7 +18498,7 @@ export default function Home() {
                   <PrimaryButton
                     type="button"
                     onClick={() => setActiveScreen("Guest Requests")}
-                    className={lightUiCyanPrimaryButtonClass}
+                    className={isCoupleView ? couplePortalSecondaryButtonClass : lightUiCyanPrimaryButtonClass}
                   >
                     Open guest requests
                   </PrimaryButton>
