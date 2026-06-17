@@ -62,6 +62,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type FocusEvent,
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
@@ -376,7 +377,9 @@ import {
   buildMusicHubMomentWorkspaceRef,
   buildOpenDancingMomentWorkspaceRef,
   buildParentDanceMomentWorkspaceRef,
+  isCakeCuttingTimelineItem,
   isCeremonyMainTimelineMoment,
+  isFirstDanceTimelineItem,
   resolveCoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
 import {
@@ -454,7 +457,7 @@ import {
 } from "@/lib/restoreDefaultTimelineMoments";
 import { FormalDanceCommandCard } from "@/components/formal-dance-command-card";
 import { GrandEntranceCommandCard } from "@/components/grand-entrance-command-card";
-import { FORMAL_DANCES_PLANNING_KEY, isFormalDanceTimelineItem } from "@/lib/formalDanceDetail";
+import { FORMAL_DANCES_PLANNING_KEY, isFormalDanceTimelineItem, isParentDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-script-preview";
 import {
   createEmptyWeddingPartyLineupEntry,
@@ -3105,6 +3108,18 @@ function TimelineSongCueLine({
   );
 }
 
+function receptionTimelineItemSupportsInlineSongCue(title: string): boolean {
+  const normalizedTitle = title.trim().toLowerCase();
+  return (
+    isFirstDanceTimelineItem(title) ||
+    isParentDanceTimelineItem(title) ||
+    isCakeCuttingTimelineItem(title) ||
+    isGrandEntranceTimelineItem(title) ||
+    normalizedTitle === "last dance" ||
+    normalizedTitle === "private last dance"
+  );
+}
+
 const EVENT_NOTE_CATEGORIES = [
   "General",
   "Planning",
@@ -3287,6 +3302,12 @@ export default function Home() {
     value: string;
   } | null>(null);
   const receptionTimelineQuickTimeCancelRef = useRef(false);
+  const [receptionTimelineQuickSongEdit, setReceptionTimelineQuickSongEdit] = useState<{
+    itemId: string;
+    songTitle: string;
+    artist: string;
+  } | null>(null);
+  const receptionTimelineQuickSongCancelRef = useRef(false);
   /** Confirm before removing reception or ceremony timeline rows from the planning UI */
   const [pendingTimelineDelete, setPendingTimelineDelete] = useState<
     | { kind: "reception"; id: string; label: string }
@@ -3833,6 +3854,7 @@ export default function Home() {
 
   const openReceptionTimelineCardExpanded = useCallback((row: TimelineItem) => {
     setReceptionTimelineQuickTimeEdit(null);
+    setReceptionTimelineQuickSongEdit(null);
     const prevDraft = receptionTimelineInlineEditDraftRef.current;
     if (prevDraft && prevDraft.itemId !== row.id) {
       setTimelineItems((prev) =>
@@ -3908,6 +3930,7 @@ export default function Home() {
     (row: TimelineItem) => {
       closeReceptionTimelineCardExpanded();
       receptionTimelineQuickTimeCancelRef.current = false;
+      setReceptionTimelineQuickSongEdit(null);
       setReceptionTimelineQuickTimeEdit({
         itemId: row.id,
         value: row.time,
@@ -3938,6 +3961,54 @@ export default function Home() {
         return changed ? next : prev;
       });
       setReceptionTimelineQuickTimeEdit(null);
+    },
+    [],
+  );
+
+  const beginReceptionTimelineQuickSongEdit = useCallback(
+    (row: TimelineItem) => {
+      closeReceptionTimelineCardExpanded();
+      receptionTimelineQuickSongCancelRef.current = false;
+      setReceptionTimelineQuickTimeEdit(null);
+      setReceptionTimelineQuickSongEdit({
+        itemId: row.id,
+        songTitle: row.songTitle ?? "",
+        artist: row.artist ?? "",
+      });
+    },
+    [closeReceptionTimelineCardExpanded],
+  );
+
+  const cancelReceptionTimelineQuickSongEdit = useCallback(() => {
+    receptionTimelineQuickSongCancelRef.current = true;
+    setReceptionTimelineQuickSongEdit(null);
+  }, []);
+
+  const commitReceptionTimelineQuickSongEdit = useCallback(
+    (itemId: string, values: { songTitle: string; artist: string }) => {
+      if (receptionTimelineQuickSongCancelRef.current) {
+        receptionTimelineQuickSongCancelRef.current = false;
+        return;
+      }
+      const nextSongTitle = values.songTitle.trim();
+      const nextArtist = values.artist.trim();
+      setTimelineItems((prev) => {
+        let changed = false;
+        const next = prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const currentSongTitle = item.songTitle ?? "";
+          const currentArtist = item.artist ?? "";
+          if (currentSongTitle === nextSongTitle && currentArtist === nextArtist) return item;
+          changed = true;
+          return {
+            ...item,
+            songTitle: nextSongTitle || undefined,
+            artist: nextArtist || undefined,
+          };
+        });
+        return changed ? next : prev;
+      });
+      setReceptionTimelineQuickSongEdit(null);
     },
     [],
   );
@@ -7046,6 +7117,122 @@ export default function Home() {
       commitReceptionTimelineQuickTimeEdit,
       isCoupleView,
       receptionTimelineQuickTimeEdit,
+    ],
+  );
+  const renderReceptionTimelineQuickSongCue = useCallback(
+    ({
+      row,
+      kind,
+      preview,
+      hasSong,
+      className,
+    }: {
+      row: TimelineItem | null;
+      kind: string;
+      preview: string;
+      hasSong: boolean;
+      className?: string;
+    }) => {
+      if (isCoupleView || !canEditTimeline || !row || !receptionTimelineItemSupportsInlineSongCue(row.title)) {
+        return <TimelineSongCueLine kind={kind} preview={preview} hasSong={hasSong} className={className} />;
+      }
+
+      const edit = receptionTimelineQuickSongEdit?.itemId === row.id ? receptionTimelineQuickSongEdit : null;
+
+      if (edit) {
+        const commit = () => commitReceptionTimelineQuickSongEdit(row.id, edit);
+        const handleEditorBlur = (event: FocusEvent<HTMLDivElement>) => {
+          const nextTarget = event.relatedTarget;
+          if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+          commit();
+        };
+
+        return (
+          <div
+            className="mt-1 grid max-w-[34rem] grid-cols-1 gap-2 rounded-xl border border-stone-300 bg-white p-2 shadow-sm sm:grid-cols-2"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onBlur={handleEditorBlur}
+          >
+            <input
+              autoFocus
+              aria-label={`Edit song title for ${row.title}`}
+              value={edit.songTitle}
+              placeholder="Song title"
+              onChange={(event) => {
+                const next = event.target.value;
+                setReceptionTimelineQuickSongEdit((prev) =>
+                  prev && prev.itemId === row.id ? { ...prev, songTitle: next } : prev,
+                );
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  commit();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelReceptionTimelineQuickSongEdit();
+                }
+              }}
+              className="min-h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-medium text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-200"
+            />
+            <input
+              aria-label={`Edit artist for ${row.title}`}
+              value={edit.artist}
+              placeholder="Artist"
+              onChange={(event) => {
+                const next = event.target.value;
+                setReceptionTimelineQuickSongEdit((prev) =>
+                  prev && prev.itemId === row.id ? { ...prev, artist: next } : prev,
+                );
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  commit();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelReceptionTimelineQuickSongEdit();
+                }
+              }}
+              className="min-h-9 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-medium text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-200"
+            />
+          </div>
+        );
+      }
+
+      const label = hasSong ? preview : "Add song";
+      return (
+        <button
+          type="button"
+          aria-label={`${hasSong ? "Edit" : "Add"} song cue for ${row.title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            beginReceptionTimelineQuickSongEdit(row);
+          }}
+          className={`${className ?? TIMELINE_CARD_CUE_CLASS} rounded-lg border border-transparent px-1.5 py-1 text-left transition hover:border-stone-200 hover:bg-stone-50 focus:border-stone-300 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-200`}
+        >
+          <span className="font-medium text-stone-400">Song</span>
+          <span className="mx-1.5 text-stone-300" aria-hidden>
+            ·
+          </span>
+          <span className={hasSong ? "font-medium text-stone-900" : "font-medium text-stone-500"}>{label}</span>
+        </button>
+      );
+    },
+    [
+      beginReceptionTimelineQuickSongEdit,
+      canEditTimeline,
+      cancelReceptionTimelineQuickSongEdit,
+      commitReceptionTimelineQuickSongEdit,
+      isCoupleView,
+      receptionTimelineQuickSongEdit,
     ],
   );
   const isCoupleEditorialShell = isCoupleView && appMode === "event";
@@ -19496,11 +19683,12 @@ export default function Home() {
                                   title={item.title}
                                   timeSlot={renderReceptionTimelineQuickTimeSlot(timelineRow ?? null, item.time ?? "")}
                                 />
-                                <TimelineSongCueLine
-                                  kind={cueKind}
-                                  preview={songPreview}
-                                  hasSong={Boolean(songArtistCompact)}
-                                />
+                                {renderReceptionTimelineQuickSongCue({
+                                  row: timelineRow ?? null,
+                                  kind: cueKind,
+                                  preview: songPreview,
+                                  hasSong: Boolean(songArtistCompact),
+                                })}
                                 {isGrandEntrance ? (
                                   <WeddingPartyLineupPreview
                                     lineupRaw={weddingPartyLineupRaw}
@@ -19666,19 +19854,24 @@ export default function Home() {
                                   </div>
                                 </div>
                                 {songArtistCompact ? (
-                                  <TimelineSongCueLine
-                                    kind={cueKind}
-                                    preview={songArtistCompact}
-                                    hasSong
-                                    className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
-                                  />
-                                ) : receptionTimelineRowMissingSong(item) ? (
-                                  <TimelineSongCueLine
-                                    kind="Song"
-                                    preview="Song details needed"
-                                    hasSong={false}
-                                    className={`mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`}
-                                  />
+                                  renderReceptionTimelineQuickSongCue({
+                                    row: timelineRow ?? null,
+                                    kind: cueKind,
+                                    preview: songArtistCompact,
+                                    hasSong: true,
+                                    className: `mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`,
+                                  })
+                                ) : receptionTimelineRowMissingSong(item) ||
+                                  (!isCoupleView &&
+                                    timelineRow != null &&
+                                    receptionTimelineItemSupportsInlineSongCue(timelineRow.title)) ? (
+                                  renderReceptionTimelineQuickSongCue({
+                                    row: timelineRow ?? null,
+                                    kind: "Song",
+                                    preview: "Song details needed",
+                                    hasSong: false,
+                                    className: `mt-2 ${TIMELINE_CARD_CUE_CLASS} text-[15px]`,
+                                  })
                                 ) : null}
                                 {isGrandEntrance ? (
                                   <WeddingPartyLineupPreview
