@@ -2,7 +2,11 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { PrimaryButton } from "@/components/planning-ui";
+import {
+  PrimaryButton,
+  couplePortalSecondaryButtonClass,
+  couplePortalTertiaryButtonClass,
+} from "@/components/planning-ui";
 import {
   createEmptySpeechesToastEntry,
   parseSpeechesToasts,
@@ -107,7 +111,7 @@ export function CoupleSpeechesToastsInlineEditor({
                     type="button"
                     onClick={() => moveEntry(entry.id, -1)}
                     disabled={index === 0}
-                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-800 disabled:opacity-40"
+                    className={`${couplePortalTertiaryButtonClass} px-2 py-1 text-[11px] disabled:opacity-40`}
                   >
                     Up
                   </PrimaryButton>
@@ -115,14 +119,14 @@ export function CoupleSpeechesToastsInlineEditor({
                     type="button"
                     onClick={() => moveEntry(entry.id, 1)}
                     disabled={index === sortedEntries.length - 1}
-                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-800 disabled:opacity-40"
+                    className={`${couplePortalTertiaryButtonClass} px-2 py-1 text-[11px] disabled:opacity-40`}
                   >
                     Down
                   </PrimaryButton>
                   <PrimaryButton
                     type="button"
                     onClick={() => removeEntry(entry.id)}
-                    className="rounded-lg border border-stone-300 bg-white px-2 py-1 text-[11px] font-semibold text-stone-700"
+                    className={`${couplePortalTertiaryButtonClass} px-2 py-1 text-[11px] text-stone-700`}
                   >
                     Remove
                   </PrimaryButton>
@@ -161,7 +165,7 @@ export function CoupleSpeechesToastsInlineEditor({
         <PrimaryButton
           type="button"
           onClick={addEntry}
-          className="w-full rounded-xl border border-dashed border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-800 hover:bg-stone-50 sm:w-auto"
+          className={`w-full border-dashed px-4 py-3 text-sm sm:w-auto ${couplePortalSecondaryButtonClass}`}
         >
           + Add speaker
         </PrimaryButton>

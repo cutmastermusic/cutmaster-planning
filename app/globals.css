@@ -895,23 +895,7 @@ body.cm-ros-scroll-lock {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: 999px;
-  background: var(--cm-editorial-accent);
-  padding: 0.45rem 1rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #fff;
-  transition: background-color 0.2s ease;
   flex-shrink: 0;
-}
-
-.cm-dashboard-v3-cta:hover {
-  background: #263d33;
-}
-
-.cm-dashboard-v3-cta:focus-visible {
-  outline: 2px solid rgba(47, 74, 62, 0.4);
-  outline-offset: 2px;
 }
 
 /* Journey — timeline, quiet rhythm */

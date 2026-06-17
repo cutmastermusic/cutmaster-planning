@@ -2,7 +2,11 @@
 
 import { useCallback, useState } from "react";
 
-import { lightUiGhostButtonClass, lightUiInputClass } from "@/components/planning-ui";
+import {
+  couplePortalPrimaryButtonClass,
+  lightUiGhostButtonClass,
+  lightUiInputClass,
+} from "@/components/planning-ui";
 import type { GuestRequestStatus, SongEntry, SongListType } from "@/types/planning";
 
 const songTableHeaderClass =
@@ -31,6 +35,7 @@ type MusicHubSongListProps = {
     patch: Partial<Pick<SongEntry, "title" | "artist" | "notes">>,
   ) => void;
   disabled?: boolean;
+  buttonVariant?: "default" | "couple";
 };
 
 function SongListRow({
@@ -40,6 +45,7 @@ function SongListRow({
   onRemove,
   onUpdateSong,
   disabled = false,
+  buttonVariant = "default",
 }: {
   song: SongEntry;
   listType: SongListType;
@@ -47,6 +53,7 @@ function SongListRow({
   onRemove: MusicHubSongListProps["onRemove"];
   onUpdateSong: MusicHubSongListProps["onUpdateSong"];
   disabled?: boolean;
+  buttonVariant?: MusicHubSongListProps["buttonVariant"];
 }) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(song.title);
@@ -190,7 +197,11 @@ function SongListRow({
               type="button"
               disabled={disabled || !draftTitle.trim()}
               onClick={saveEdit}
-              className={`${songActionButtonClass} border-stone-800 bg-[#00D4FF] text-stone-950 hover:brightness-105`}
+              className={
+                buttonVariant === "couple"
+                  ? `${couplePortalPrimaryButtonClass} min-h-8 px-2 py-1 text-[11px] disabled:opacity-55`
+                  : `${songActionButtonClass} border-stone-800 bg-[#00D4FF] text-stone-950 hover:brightness-105`
+              }
             >
               Save
             </button>
@@ -211,6 +222,7 @@ export function MusicHubSongList({
   onRemove,
   onUpdateSong,
   disabled = false,
+  buttonVariant = "default",
 }: MusicHubSongListProps) {
   if (songs.length === 0) return null;
 
@@ -232,6 +244,7 @@ export function MusicHubSongList({
             onRemove={onRemove}
             onUpdateSong={onUpdateSong}
             disabled={disabled}
+          buttonVariant={buttonVariant}
           />
         ))}
       </div>

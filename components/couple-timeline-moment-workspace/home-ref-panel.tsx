@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { PrimaryButton, lightUiSecondaryButtonClass } from "@/components/planning-ui";
+import { PrimaryButton, couplePortalSecondaryButtonClass } from "@/components/planning-ui";
 
 type CoupleTimelineMomentHomeRefPanelProps = {
   summary: ReactNode;
@@ -29,7 +29,7 @@ export function CoupleTimelineMomentHomeRefPanel({
       <PrimaryButton
         type="button"
         onClick={onAction}
-        className={`w-full sm:w-auto ${lightUiSecondaryButtonClass}`}
+        className={`w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
       >
         {actionLabel}
       </PrimaryButton>

@@ -82,6 +82,9 @@ import {
   TextArea,
   TextInput,
   darkUiWorkspaceJumpButtonClass,
+  couplePortalPrimaryButtonClass,
+  couplePortalSecondaryButtonClass,
+  couplePortalTertiaryButtonClass,
   lightUiCyanPrimaryButtonClass,
   lightUiDestructiveButtonClass,
   lightUiEmptyHintInCardClass,
@@ -15716,7 +15719,11 @@ export default function Home() {
                     }
                     setAuthStage("app");
                   }}
-                  className="w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black hover:brightness-110"
+                  className={
+                    inviteAccessPreview.role === "Couple"
+                      ? `w-full ${couplePortalPrimaryButtonClass}`
+                      : "w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black hover:brightness-110"
+                  }
                 >
                   Start Planning
                 </PrimaryButton>
@@ -17683,6 +17690,7 @@ export default function Home() {
             <EventHomeNav
               trail={["Music Hub"]}
               onBack={() => setActiveScreen("Dashboard")}
+              buttonVariant={isCoupleView ? "couple" : "default"}
               primaryAction={{
                 label: "Add playlist link",
                 onClick: () => {
@@ -17773,7 +17781,11 @@ export default function Home() {
                   type="button"
                   onClick={addMusicPlaylistLink}
                   disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
-                  className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                  className={
+                    isCoupleView
+                      ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
+                      : "w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                  }
                 >
                   Save playlist link
                 </PrimaryButton>
@@ -18072,7 +18084,9 @@ export default function Home() {
                     onClick={() => setNewSongListType("mustPlay")}
                     disabled={!canManageMusic}
                     className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "mustPlay"
-                      ? "border-black bg-[#00D4FF] text-black"
+                      ? isCoupleView
+                        ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
+                        : "border-black bg-[#00D4FF] text-black"
                       : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                   >
@@ -18103,7 +18117,9 @@ export default function Home() {
                   onClick={() => setNewSongHighPriority((prev) => !prev)}
                   disabled={!canManageMusic}
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${newSongHighPriority
-                    ? "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
+                    ? isCoupleView
+                      ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                      : "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
                     : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                 >
@@ -18112,7 +18128,11 @@ export default function Home() {
                 <PrimaryButton
                   onClick={addSong}
                   disabled={!canManageMusic}
-                  className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                  className={
+                    isCoupleView
+                      ? `w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`
+                      : "w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                  }
                 >
                   Add Song
                 </PrimaryButton>
@@ -18170,6 +18190,7 @@ export default function Home() {
                       onRemove={removeSong}
                       onUpdateSong={updateSong}
                       disabled={!canManageMusic}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   )}
                 </PremiumCard>
@@ -18216,6 +18237,7 @@ export default function Home() {
                       onRemove={removeSong}
                       onUpdateSong={updateSong}
                       disabled={!canManageMusic}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   )}
                 </PremiumCard>
@@ -18262,6 +18284,7 @@ export default function Home() {
                       onRemove={removeSong}
                       onUpdateSong={updateSong}
                       disabled={!canManageMusic}
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                     />
                   )}
                 </PremiumCard>
@@ -18670,6 +18693,7 @@ export default function Home() {
             <EventHomeNav
               trail={["Ceremony"]}
               onBack={() => setActiveScreen("Dashboard")}
+              buttonVariant={isCoupleView ? "couple" : "default"}
               primaryAction={{
                 label: "+ Add ceremony moment",
                 onClick: openCeremonyTimelineComposer,
@@ -18777,6 +18801,7 @@ export default function Home() {
                 <SectionEmptyState
                   title="Build your ceremony flow"
                   description="Add aisle-to-recessional moments one at a time. Times and songs can stay blank for now."
+                  buttonVariant={isCoupleView ? "couple" : "default"}
                   primaryAction={{
                     label: "+ Add ceremony moment",
                     onClick: openCeremonyTimelineComposer,
@@ -19142,7 +19167,11 @@ export default function Home() {
                             <PrimaryButton
                               type="button"
                               onClick={() => closeCeremonyTimelineCardExpanded()}
-                              className={TIMELINE_CARD_EDIT_DONE_BTN_CLASS}
+                              className={
+                                isCoupleView
+                                  ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
+                                  : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
+                              }
                             >
                               Done
                             </PrimaryButton>
@@ -19356,6 +19385,7 @@ export default function Home() {
                       : ["Event timeline"]
                 }
                 onBack={() => setActiveScreen("Dashboard")}
+                buttonVariant={isCoupleView ? "couple" : "default"}
                 primaryAction={{
                   label: "+ Add moment",
                   onClick: openReceptionTimelineComposerAtTop,
@@ -19594,6 +19624,7 @@ export default function Home() {
                     <SectionEmptyState
                       title="Build your reception flow"
                       description="Add moments from cocktail through last dance. Times can stay blank until your DJ locks the schedule."
+                      buttonVariant={isCoupleView ? "couple" : "default"}
                       primaryAction={{
                         label: "Add first moment",
                         onClick: openReceptionTimelineComposerAtTop,
@@ -20280,7 +20311,11 @@ export default function Home() {
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => closeReceptionTimelineCardExpanded()}
-                                  className={TIMELINE_CARD_EDIT_DONE_BTN_CLASS}
+                                  className={
+                                    isCoupleView
+                                      ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
+                                      : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
+                                  }
                                 >
                                   Done
                                 </PrimaryButton>
@@ -20424,7 +20459,7 @@ export default function Home() {
                           onClick={() => {
                             void requestTimelineReview();
                           }}
-                          className="w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-sm hover:brightness-105"
+                          className={`w-full px-4 py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
                         >
                           Request Timeline Review
                         </PrimaryButton>
@@ -20436,7 +20471,7 @@ export default function Home() {
                               block: "start",
                             })
                           }
-                          className="w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-stone-50"
+                          className={`w-full px-4 py-2.5 text-sm ${couplePortalTertiaryButtonClass}`}
                         >
                           Continue Editing
                         </button>
@@ -20563,6 +20598,7 @@ export default function Home() {
             <EventHomeNav
               trail={["Guest Requests"]}
               onBack={() => setActiveScreen("Dashboard")}
+              buttonVariant={isCoupleView ? "couple" : "default"}
               primaryAction={
                 guestRequestView === "admin" && coupleAttentionSummary.pendingGuestCount > 0
                   ? {
@@ -20646,6 +20682,7 @@ export default function Home() {
                           wrapWithCard={false}
                           title="No guest requests yet"
                           description="Share your request link—submitted songs appear here for you to approve or decline."
+                          buttonVariant={isCoupleView ? "couple" : "default"}
                           primaryAction={{
                             label: "Preview guest view",
                             onClick: () => setGuestRequestView("guest"),
@@ -21119,6 +21156,7 @@ export default function Home() {
             <EventHomeNav
               trail={["People & Vendors"]}
               onBack={() => setActiveScreen("Dashboard")}
+              buttonVariant={isCoupleView ? "couple" : "default"}
               primaryAction={
                 canManageEventTeamPartners
                   ? {
@@ -21165,7 +21203,11 @@ export default function Home() {
                 {canManageEventTeamPartners ? (
                   <PrimaryButton
                     onClick={openAddTeamMemberModal}
-                    className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                    className={
+                      isCoupleView
+                        ? `w-full shrink-0 sm:w-auto sm:py-2 ${couplePortalPrimaryButtonClass}`
+                        : "w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                    }
                   >
                     {isCoupleView ? "Add vendor / contact" : "Add team member"}
                   </PrimaryButton>
@@ -21496,7 +21538,11 @@ export default function Home() {
                   <PrimaryButton
                     type="button"
                     onClick={() => window.print()}
-                    className="min-h-11 w-full border border-black bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:min-w-[12.5rem] sm:py-2.5"
+                    className={
+                      isCoupleView
+                        ? `min-h-11 w-full px-5 py-2.5 text-sm sm:min-w-[12.5rem] sm:py-2.5 ${couplePortalPrimaryButtonClass}`
+                        : "min-h-11 w-full border border-black bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:min-w-[12.5rem] sm:py-2.5"
+                    }
                   >
                     Print / Save PDF
                   </PrimaryButton>
@@ -23963,7 +24009,11 @@ export default function Home() {
                   type="button"
                   onClick={closeTeamMemberModal}
                   disabled={teamSaving}
-                  className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:opacity-60"
+                  className={
+                    isCoupleView
+                      ? `px-3 py-2 text-xs disabled:opacity-60 ${couplePortalSecondaryButtonClass}`
+                      : "rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 disabled:opacity-60"
+                  }
                 >
                   Cancel
                 </PrimaryButton>
@@ -23973,7 +24023,11 @@ export default function Home() {
                     console.log("REAL SAVE BUTTON CLICKED");
                   }}
                   disabled={!canSaveTeamModal || teamSaving}
-                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
+                  className={
+                    isCoupleView
+                      ? `px-3 py-2 text-xs disabled:opacity-60 ${couplePortalPrimaryButtonClass}`
+                      : "rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
+                  }
                 >
                   {teamSaving
                     ? "Saving…"

@@ -12,8 +12,8 @@ import { createPortal } from "react-dom";
 
 import {
   PremiumCard,
-  lightUiCouplePrimaryButtonClass,
-  lightUiSecondaryButtonClass,
+  couplePortalPrimaryButtonClass,
+  couplePortalSecondaryButtonClass,
 } from "@/components/planning-ui";
 import {
   couplePlanningEyebrowClass,
@@ -33,8 +33,8 @@ import type { PlanningQuestionDef } from "@/types/planning";
 const guidedNavButtonBaseClass =
   "relative z-[1] min-h-12 touch-manipulation rounded-xl px-3 py-2.5 text-[13px] font-medium leading-none tracking-[0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 sm:min-h-11";
 
-const guidedNavPrimaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiCouplePrimaryButtonClass}`;
-const guidedNavSecondaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${lightUiSecondaryButtonClass}`;
+const guidedNavPrimaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${couplePortalPrimaryButtonClass}`;
+const guidedNavSecondaryClass = `w-full sm:w-auto sm:min-w-[7.5rem] ${couplePortalSecondaryButtonClass}`;
 
 /** Reserve space so fixed mobile nav does not cover the active question. */
 const guidedStepContentSpacerClass =
@@ -548,7 +548,7 @@ export function CoupleGuidedQuestionSection({
             {allAnswered && (onCompletionPrimary ?? onContinueToNextChapter) ? (
               <GuidedNavButton
                 onAction={() => (onCompletionPrimary ?? onContinueToNextChapter)?.()}
-                className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCouplePrimaryButtonClass}`}
+                className={`w-full sm:w-auto sm:min-w-[12rem] ${couplePortalPrimaryButtonClass}`}
               >
                 {completionPrimaryLabel ?? continueToNextChapterLabel}
               </GuidedNavButton>
@@ -556,7 +556,7 @@ export function CoupleGuidedQuestionSection({
             {allAnswered && onCompletionSecondary ? (
               <GuidedNavButton
                 onAction={onCompletionSecondary}
-                className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
+                className={`w-full sm:w-auto sm:min-w-[12rem] ${couplePortalSecondaryButtonClass}`}
               >
                 {completionSecondaryLabel ?? "Continue"}
               </GuidedNavButton>
@@ -565,7 +565,7 @@ export function CoupleGuidedQuestionSection({
               <GuidedNavButton
                 onAction={goToGuided}
                 clickOnly
-                className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
+                className={`w-full sm:w-auto sm:min-w-[10rem] ${couplePortalSecondaryButtonClass}`}
               >
                 Go to unanswered questions
               </GuidedNavButton>
@@ -573,7 +573,7 @@ export function CoupleGuidedQuestionSection({
               <GuidedNavButton
                 onAction={goToGuided}
                 clickOnly
-                className={`w-full sm:w-auto sm:min-w-[10rem] ${lightUiSecondaryButtonClass}`}
+                className={`w-full sm:w-auto sm:min-w-[10rem] ${couplePortalSecondaryButtonClass}`}
               >
                 Edit answers one at a time
               </GuidedNavButton>

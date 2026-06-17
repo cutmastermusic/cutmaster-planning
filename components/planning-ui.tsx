@@ -205,9 +205,19 @@ export const lightUiSecondaryButtonClass =
 export const lightUiCyanPrimaryButtonClass =
   "rounded-[var(--cm-radius-control)] bg-[var(--cm-accent)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-accent-foreground)] shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
 
-/** Blanc forest-green primary for couple-facing surfaces (editorial shell). */
-export const lightUiCouplePrimaryButtonClass =
-  "rounded-[var(--cm-radius-control)] bg-[#2f4a3e] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
+/** Couple Portal primary action: warm editorial green, used for Continue / Save / Request Review. */
+export const couplePortalPrimaryButtonClass =
+  "rounded-[var(--cm-radius-control)] bg-[var(--cm-editorial-accent)] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
+
+/** Couple Portal secondary action: light surface, subtle border, dark text. */
+export const couplePortalSecondaryButtonClass = lightUiSecondaryButtonClass;
+
+/** Couple Portal tertiary action: text-only, quiet editorial action. */
+export const couplePortalTertiaryButtonClass =
+  "rounded-[var(--cm-radius-control)] border border-transparent bg-transparent px-2.5 py-2 text-[11px] font-semibold text-[#2f4a3e] transition-[background-color,color,border-color] hover:bg-stone-100/80 hover:text-[#263d33] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/30 focus-visible:ring-offset-2";
+
+/** @deprecated Use couplePortalPrimaryButtonClass. */
+export const lightUiCouplePrimaryButtonClass = couplePortalPrimaryButtonClass;
 
 /** Destructive control on light surfaces. */
 export const lightUiDestructiveButtonClass =
@@ -300,13 +310,20 @@ export function EventHomeNav({
   backLabel = "← Back to Event Home",
   primaryAction,
   className = "",
+  buttonVariant = "default",
 }: {
   trail: string[];
   onBack: () => void;
   backLabel?: string;
   primaryAction?: EventHomeNavAction;
   className?: string;
+  buttonVariant?: "default" | "couple";
 }) {
+  const primaryActionClass =
+    buttonVariant === "couple"
+      ? `min-h-12 w-full shrink-0 px-4 py-3.5 text-sm disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start ${couplePortalPrimaryButtonClass}`
+      : "min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start";
+
   return (
     <div className={`no-print flex min-w-0 flex-col gap-3 ${className}`.trim()}>
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
@@ -337,7 +354,7 @@ export function EventHomeNav({
             type="button"
             onClick={primaryAction.onClick}
             disabled={primaryAction.disabled}
-            className="min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start"
+            className={primaryActionClass}
           >
             {primaryAction.label}
           </PrimaryButton>
@@ -358,6 +375,7 @@ type SectionEmptyStateProps = {
   description: string;
   primaryAction?: EmptyStateAction;
   secondaryAction?: EmptyStateAction;
+  buttonVariant?: "default" | "couple";
   /** When false, renders a subtle inset panel for use inside an existing card. */
   wrapWithCard?: boolean;
   cardClassName?: string;
@@ -368,9 +386,19 @@ export function SectionEmptyState({
   description,
   primaryAction,
   secondaryAction,
+  buttonVariant = "default",
   wrapWithCard = true,
   cardClassName = "",
 }: SectionEmptyStateProps) {
+  const primaryActionClass =
+    buttonVariant === "couple"
+      ? `min-h-11 w-full px-4 py-2.5 text-sm disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2 ${couplePortalPrimaryButtonClass}`
+      : "min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2";
+  const secondaryActionClass =
+    buttonVariant === "couple"
+      ? `min-h-11 w-full px-4 py-2.5 text-sm disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2 ${couplePortalSecondaryButtonClass}`
+      : "min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2";
+
   const inner = (
     <>
       <p className="text-sm font-semibold text-stone-900">{title}</p>
@@ -382,7 +410,7 @@ export function SectionEmptyState({
               type="button"
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled}
-              className="min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2"
+              className={primaryActionClass}
             >
               {primaryAction.label}
             </PrimaryButton>
@@ -392,7 +420,7 @@ export function SectionEmptyState({
               type="button"
               onClick={secondaryAction.onClick}
               disabled={secondaryAction.disabled}
-              className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2"
+              className={secondaryActionClass}
             >
               {secondaryAction.label}
             </PrimaryButton>

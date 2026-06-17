@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useCoupleMobileActionHandlers } from "@/components/couple-mobile-action-button";
 import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-planning-prep-dashboard";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
+import { couplePortalPrimaryButtonClass } from "@/components/planning-ui";
 import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
 import { resolveCoupleWelcomePhotoDisplay } from "@/lib/eventCover";
 import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
@@ -324,7 +325,7 @@ function TodayCardEmbed({ content }: { content: TodayContent }) {
         <button
           type="button"
           {...mobileActionHandlers}
-          className="cm-dashboard-v3-cta"
+          className={`cm-dashboard-v3-cta ${couplePortalPrimaryButtonClass}`}
         >
           {content.ctaLabel}
           <span aria-hidden>→</span>

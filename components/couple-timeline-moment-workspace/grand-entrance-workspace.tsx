@@ -8,7 +8,7 @@ import {
   CoupleTimelineMomentWorkspaceSection,
   CoupleTimelineMomentWorkspaceShell,
 } from "@/components/couple-timeline-moment-workspace/shell";
-import { PrimaryButton, lightUiSecondaryButtonClass } from "@/components/planning-ui";
+import { PrimaryButton, couplePortalSecondaryButtonClass } from "@/components/planning-ui";
 import type { GrandEntranceMomentWorkspaceRef } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
 
@@ -104,7 +104,7 @@ export function GrandEntranceMomentWorkspace({
         <PrimaryButton
           type="button"
           onClick={onOpenLineup}
-          className={`mt-4 w-full sm:w-auto ${lightUiSecondaryButtonClass}`}
+          className={`mt-4 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
         >
           Edit entrance order
         </PrimaryButton>

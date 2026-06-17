@@ -6,7 +6,7 @@ import {
   couplePlanningEyebrowClass,
   couplePlanningTitleClass,
 } from "@/components/couple-planning-ui";
-import { PrimaryButton, lightUiCouplePrimaryButtonClass } from "@/components/planning-ui";
+import { PrimaryButton, couplePortalPrimaryButtonClass } from "@/components/planning-ui";
 import { timelineMomentTypeLabel, type TimelineMomentType } from "@/lib/timelineMomentType";
 
 type CoupleTimelineMomentWorkspaceShellProps = {
@@ -65,7 +65,7 @@ export function CoupleTimelineMomentWorkspaceShell({
         <PrimaryButton
           type="button"
           onClick={onDone}
-          className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiCouplePrimaryButtonClass}`}
+          className={`w-full sm:w-auto sm:min-w-[12rem] ${couplePortalPrimaryButtonClass}`}
         >
           Done
         </PrimaryButton>

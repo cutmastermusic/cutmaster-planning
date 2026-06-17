@@ -16,8 +16,8 @@ import {
 } from "@/components/couple-planning-ui";
 import {
   PremiumCard,
-  lightUiCouplePrimaryButtonClass,
-  lightUiSecondaryButtonClass,
+  couplePortalPrimaryButtonClass,
+  couplePortalSecondaryButtonClass,
 } from "@/components/planning-ui";
 import {
   buildCoupleFinalReviewWeddingSummary,
@@ -223,13 +223,13 @@ function CoupleFinalReviewCompletionCelebration({
         <CoupleMobileActionFooter>
           <CoupleMobileActionButton
             onAction={onViewTimeline}
-            className={`w-full sm:w-auto sm:min-w-[14rem] ${lightUiCouplePrimaryButtonClass}`}
+            className={`w-full sm:w-auto sm:min-w-[14rem] ${couplePortalPrimaryButtonClass}`}
           >
             View My Timeline
           </CoupleMobileActionButton>
           <CoupleMobileActionButton
             onAction={onReturnToDashboard}
-            className={`w-full sm:w-auto sm:min-w-[12rem] ${lightUiSecondaryButtonClass}`}
+            className={`w-full sm:w-auto sm:min-w-[12rem] ${couplePortalSecondaryButtonClass}`}
           >
             Return to Dashboard
           </CoupleMobileActionButton>

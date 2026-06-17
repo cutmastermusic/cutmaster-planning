@@ -10,7 +10,7 @@ import {
   type CoupleGuidedResumeProps,
 } from "@/components/couple-guided-question-section";
 import { CoupleMobileActionButton } from "@/components/couple-mobile-action-button";
-import { lightUiCouplePrimaryButtonClass } from "@/components/planning-ui";
+import { couplePortalPrimaryButtonClass } from "@/components/planning-ui";
 import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import {
   RECEPTION_MOMENTS_GATE_OPTIONS,
@@ -144,7 +144,7 @@ export function CoupleReceptionMomentsGuidedSection({
             <p className="mt-4 text-sm font-medium text-stone-900">{weddingPartyLineupSummary}</p>
             <CoupleMobileActionButton
               onAction={onOpenWeddingPartyLineupEditor}
-              className={`mt-4 w-full sm:w-auto ${lightUiCouplePrimaryButtonClass}`}
+              className={`mt-4 w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
             >
               {lineupCtaLabel}
             </CoupleMobileActionButton>
@@ -205,7 +205,7 @@ export function CoupleReceptionMomentsGuidedSection({
             </p>
             <CoupleMobileActionButton
               onAction={onOpenSpeechesToastsEditor}
-              className={`mt-4 w-full sm:w-auto ${lightUiCouplePrimaryButtonClass}`}
+              className={`mt-4 w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
             >
               {toastsCtaLabel}
             </CoupleMobileActionButton>
