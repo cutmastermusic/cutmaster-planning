@@ -7,6 +7,7 @@ import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-plan
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
 import { resolveCoupleWelcomePhotoDisplay } from "@/lib/eventCover";
+import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
 import type { CoverPhotoTransform } from "@/types/planning";
 import type {
   CoupleFinalPlanningHint,
@@ -258,6 +259,8 @@ export type CoupleHomeToolSection = {
 };
 
 type CoupleDashboardV2Props = {
+  /** TEMPORARY — active event id for welcome photo trace logging. */
+  eventId?: string;
   coupleDisplayName: string;
   eventDateDisplay: string;
   daysUntilWedding: number | null;
@@ -341,6 +344,7 @@ function ClockIcon() {
 }
 
 function CoupleHeroPhoto({
+  eventId,
   coverPhotoDataUrl,
   coverPhotoStoragePath,
   coverPhotoTransform,
@@ -349,6 +353,7 @@ function CoupleHeroPhoto({
   defaultWelcomePhotoTransform,
   onRequestCoverPhoto,
 }: {
+  eventId?: string;
   coverPhotoDataUrl?: string;
   coverPhotoStoragePath?: string;
   coverPhotoTransform?: CoverPhotoTransform;
@@ -357,12 +362,28 @@ function CoupleHeroPhoto({
   defaultWelcomePhotoTransform?: CoverPhotoTransform;
   onRequestCoverPhoto?: () => void;
 }) {
+  logPhotoTrace(6, {
+    eventId,
+    coverPhotoStoragePath,
+    coverPhotoDataUrl,
+    defaultWelcomePhotoDataUrl,
+  });
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
     coverPhotoDataUrl,
     coverPhotoStoragePath,
     defaultWelcomePhotoDataUrl,
   });
   const { displayUrl, isEventSpecific } = welcomePhoto;
+  logPhotoTrace(
+    7,
+    {
+      eventId,
+      coverPhotoStoragePath,
+      coverPhotoDataUrl,
+      defaultWelcomePhotoDataUrl,
+    },
+    welcomePhoto,
+  );
   const showOnboardingPill = !(isEventSpecific && Boolean(displayUrl));
   const openPicker = onRequestCoverPhoto ?? (() => undefined);
   const mobileActionHandlers = useCoupleMobileActionHandlers(openPicker);
@@ -487,6 +508,7 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
         </div>
         <div className="cm-dashboard-v3-hero-photo-wrap">
           <CoupleHeroPhoto
+            eventId={props.eventId}
             coverPhotoDataUrl={props.coverPhotoDataUrl}
             coverPhotoStoragePath={props.coverPhotoStoragePath}
             coverPhotoTransform={props.coverPhotoTransform}

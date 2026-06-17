@@ -344,6 +344,7 @@ import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
 import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
+import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
 import {
   deleteEventCoverPhotoRemote,
   uploadEventCoverPhoto,
@@ -4933,16 +4934,29 @@ export default function Home() {
           isDbBacked: databaseEventIdsRef.current.has(evt.id),
         });
     const normalizedSettings = backfillWelcomePhotoPersonalizationFlag(mergedSettings);
-    setEventSettings((prev) =>
-      deferCoverPhotoFields
+    logPhotoTrace(4, {
+      eventId: evt.id,
+      coverPhotoStoragePath: normalizedSettings.coverPhotoStoragePath,
+      coverPhotoDataUrl: normalizedSettings.coverPhotoDataUrl,
+      defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
+    });
+    setEventSettings((prev) => {
+      const next = deferCoverPhotoFields
         ? {
             ...normalizedSettings,
             coverPhotoDataUrl: prev.coverPhotoDataUrl,
             coverPhotoTransform: prev.coverPhotoTransform,
             coverPhotoStoragePath: prev.coverPhotoStoragePath,
           }
-        : normalizedSettings,
-    );
+        : normalizedSettings;
+      logPhotoTrace(5, {
+        eventId: evt.id,
+        coverPhotoStoragePath: next.coverPhotoStoragePath,
+        coverPhotoDataUrl: next.coverPhotoDataUrl,
+        defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
+      });
+      return next;
+    });
 
     // Reset local editing modes when switching context.
     setEditingTimelineId(null);
@@ -9770,9 +9784,26 @@ export default function Home() {
       dbWorkingStateReadyEventIdRef.current = null;
       databaseHydrationCompleteRef.current = false;
       setEventPlanningReadyEventId(null);
+      const traceEventId = activeEventId;
+      const traceDefaultWelcomePhoto = appSettings.defaultWelcomePhotoDataUrl;
 
       try {
         const databaseEvents = await getDatabaseEvents();
+
+        const activeDbRow =
+          databaseEvents.find((row) => row.id === traceEventId) ?? databaseEvents[0];
+        if (activeDbRow) {
+          const traceCoverFields = coverPhotoFieldsFromDbRow({
+            coverPhotoStoragePath: activeDbRow.coverPhotoStoragePath,
+            coverPhotoTransform: activeDbRow.coverPhotoTransform,
+          });
+          logPhotoTrace(1, {
+            eventId: activeDbRow.id,
+            coverPhotoStoragePath: activeDbRow.coverPhotoStoragePath,
+            coverPhotoDataUrl: traceCoverFields.coverPhotoDataUrl,
+            defaultWelcomePhotoDataUrl: traceDefaultWelcomePhoto,
+          });
+        }
 
         // Merge server ids with any ids already registered this session (e.g. a
         // create that finished while getEvents was in flight) so guards stay accurate.
@@ -10004,6 +10035,17 @@ export default function Home() {
           return seededEvent;
         });
 
+        const traceHydratedEvent =
+          hydratedEvents.find((evt) => evt.id === traceEventId) ?? hydratedEvents[0];
+        if (traceHydratedEvent) {
+          logPhotoTrace(2, {
+            eventId: traceHydratedEvent.id,
+            coverPhotoStoragePath: traceHydratedEvent.settings?.coverPhotoStoragePath,
+            coverPhotoDataUrl: traceHydratedEvent.settings?.coverPhotoDataUrl,
+            defaultWelcomePhotoDataUrl: traceDefaultWelcomePhoto,
+          });
+        }
+
         setEvents((prev) => {
           const prevWithWorkingPlanning =
             activeEventId &&
@@ -10086,6 +10128,12 @@ export default function Home() {
             // DB is source of truth once JSON columns exist — replace stale
             // localStorage working state (planning answers + ceremony plan) and
             // defer DB autosave until after this sync completes.
+            logPhotoTrace(3, {
+              eventId: resolvedEvent.id,
+              coverPhotoStoragePath: resolvedEvent.settings?.coverPhotoStoragePath,
+              coverPhotoDataUrl: resolvedEvent.settings?.coverPhotoDataUrl,
+              defaultWelcomePhotoDataUrl: traceDefaultWelcomePhoto,
+            });
             loadEventPlanningIntoWorkingState(resolvedEvent);
             if (!musicHubTasteDirtyRef.current) {
               persistUiSuppressBootCountRef.current += 1;
@@ -16844,6 +16892,7 @@ export default function Home() {
           isCoupleView ? (
             <section className={workspaceSectionDashboardClass}>
               <CoupleDashboardV2
+                eventId={activeEventId}
                 coupleDisplayName={coupleDisplayName}
                 eventDateDisplay={eventDateDisplay}
                 daysUntilWedding={daysUntilWedding}
