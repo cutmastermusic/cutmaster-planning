@@ -17718,7 +17718,7 @@ export default function Home() {
               }}
             />
 
-            <PremiumCard variant="accent">
+            <PremiumCard variant="accent" className={isCoupleView ? "order-[1]" : ""}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p
@@ -17726,14 +17726,18 @@ export default function Home() {
                       isCoupleView ? "text-[#2f4a3e]/75" : "text-[#00D4FF]/75"
                     }`}
                   >
-                    Music planning
+                    {isCoupleView ? "Music" : "Music planning"}
                   </p>
-                  <SectionTitle className="mt-1">Music Hub</SectionTitle>
+                  <SectionTitle className="mt-1">
+                    {isCoupleView ? "The Soundtrack to Your Wedding" : "Music Hub"}
+                  </SectionTitle>
                 </div>
                 <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
               </div>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                Build the soundtrack for your event, from must-play songs to guest requests.
+                {isCoupleView
+                  ? "Music is one of the things your guests will remember most. Let’s build a soundtrack that feels like you."
+                  : "Build the soundtrack for your event, from must-play songs to guest requests."}
               </p>
             </PremiumCard>
 
@@ -17745,29 +17749,29 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <MusicHubPrepSnapshot
-              playlistCount={musicPlaylistLinks.length}
-              mustPlayCount={mustPlaySongs.length}
-              playIfPossibleCount={playIfPossibleSongs.length}
-              doNotPlayCount={doNotPlaySongs.length}
-              showMustPlay={sectionMustPlayEnabled}
-              showDoNotPlay={sectionDoNotPlayEnabled}
-              buttonVariant={isCoupleView ? "couple" : "default"}
-            />
+            {!isCoupleView ? (
+              <MusicHubPrepSnapshot
+                playlistCount={musicPlaylistLinks.length}
+                mustPlayCount={mustPlaySongs.length}
+                playIfPossibleCount={playIfPossibleSongs.length}
+                doNotPlayCount={doNotPlaySongs.length}
+                showMustPlay={sectionMustPlayEnabled}
+                showDoNotPlay={sectionDoNotPlayEnabled}
+                buttonVariant="default"
+              />
+            ) : null}
 
             <PremiumCard
               id="music-hub-playlist-links"
-              className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
+              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[10]" : ""}`}
             >
-              <SectionTitle className="text-stone-950">Playlist links</SectionTitle>
+              <SectionTitle className="text-stone-950">Playlist Links</SectionTitle>
               <p className="mt-1 text-sm leading-snug text-stone-600">
-                Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste.
+                {isCoupleView
+                  ? "Already have playlists? Share them here and we’ll use them as part of your music planning."
+                  : "Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste."}
               </p>
-              {isCoupleView ? (
-                <p className="mt-2 text-xs text-stone-500">
-                  Saved to your event—links follow you across refresh, logout, and other devices.
-                </p>
-              ) : (
+              {isCoupleView ? null : (
                 <p className="mt-2 text-xs text-stone-500">
                   Saved to this event in the cloud for couples and staff to access from any device.
                 </p>
@@ -17881,17 +17885,19 @@ export default function Home() {
                                 disabled={!canManageMusic}
                               />
                             </div>
-                            <div
-                              className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-stone-50/80 px-3 py-2.5"
-                              aria-label="Imported tracks placeholder"
-                            >
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                Imported tracks
-                              </p>
-                              <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
-                                Track import is coming later. For now, your DJ uses this link to listen and prep manually.
-                              </p>
-                            </div>
+                            {!isCoupleView ? (
+                              <div
+                                className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-stone-50/80 px-3 py-2.5"
+                                aria-label="Imported tracks placeholder"
+                              >
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Imported tracks
+                                </p>
+                                <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
+                                  Track import is coming later. For now, your DJ uses this link to listen and prep manually.
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
                         </details>
                       </li>
@@ -17909,6 +17915,7 @@ export default function Home() {
               )}
             </PremiumCard>
 
+            {!isCoupleView ? (
             <PremiumCard
               id="music-hub-spotify-import"
               className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
@@ -17962,16 +17969,52 @@ export default function Home() {
                 </PrimaryButton>
               </div>
             </PremiumCard>
+            ) : null}
 
             <PremiumCard
               id="music-hub-taste-profile"
-              className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
+              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[30]" : ""}`}
             >
-              <SectionTitle className="text-stone-950">Music taste profile</SectionTitle>
+              <SectionTitle className="text-stone-950">
+                {isCoupleView ? "Open Dancing" : "Music taste profile"}
+              </SectionTitle>
               <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                How do you want the event to feel? Tap what fits—this guides your DJ and keeps planning collaborative,
-                not a giant manual playlist.
+                {isCoupleView
+                  ? "Tell us about the kind of dance floor you’re hoping for."
+                  : "How do you want the event to feel? Tap what fits—this guides your DJ and keeps planning collaborative, not a giant manual playlist."}
               </p>
+              {isCoupleView &&
+              (coupleMomentOpenDancingRef.guestCount ||
+                coupleMomentOpenDancingRef.ageGroup ||
+                coupleMomentOpenDancingRef.partyRating ||
+                coupleMomentOpenDancingRef.guestRequestPolicy) ? (
+                <dl className="mt-4 grid gap-3 rounded-xl border border-stone-200 bg-stone-50/70 px-4 py-4 sm:grid-cols-2">
+                  {coupleMomentOpenDancingRef.guestCount ? (
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest count</dt>
+                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.guestCount}</dd>
+                    </div>
+                  ) : null}
+                  {coupleMomentOpenDancingRef.ageGroup ? (
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Age groups</dt>
+                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.ageGroup}</dd>
+                    </div>
+                  ) : null}
+                  {coupleMomentOpenDancingRef.partyRating ? (
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Crowd energy</dt>
+                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.partyRating}</dd>
+                    </div>
+                  ) : null}
+                  {coupleMomentOpenDancingRef.guestRequestPolicy ? (
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest requests</dt>
+                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.guestRequestPolicy}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              ) : null}
               <div className="mt-5 space-y-6">
                 <div>
                   <p className={lightUiFormLabelClass}>Dance floor style</p>
@@ -18014,9 +18057,11 @@ export default function Home() {
                 </div>
                 <div>
                   <p className={lightUiFormLabelClass}>Line dances &amp; group songs</p>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                    No judgement here — check all that apply.
-                  </p>
+                  {!isCoupleView ? (
+                    <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                      No judgement here — check all that apply.
+                    </p>
+                  ) : null}
                   <div className="mt-2.5">
                     <MusicHubChipRow
                       keyPrefix="taste-line-dance"
@@ -18039,16 +18084,22 @@ export default function Home() {
                   placeholder="e.g. Big energy after dinner, singalongs guests know, then room for a few surprises…"
                   disabled={!canManageMusic}
                 />
-                <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
-                  Describe the kind of energy or atmosphere you want your guests to experience.
-                </p>
+                {!isCoupleView ? (
+                  <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
+                    Describe the kind of energy or atmosphere you want your guests to experience.
+                  </p>
+                ) : null}
               </div>
             </PremiumCard>
 
-            <PremiumCard className="border-stone-200 bg-white shadow-sm">
-              <SectionTitle className="text-stone-950">Genres &amp; eras</SectionTitle>
+            <PremiumCard className={`border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[31]" : ""}`}>
+              <SectionTitle className="text-stone-950">
+                {isCoupleView ? "Favorite Genres" : "Genres & eras"}
+              </SectionTitle>
               <p className="mt-1 text-sm text-stone-600">
-                Tap everything that fits—this is a quick map, not a test.
+                {isCoupleView
+                  ? "Choose the sounds, decades, and styles that feel most like your celebration."
+                  : "Tap everything that fits—this is a quick map, not a test."}
               </p>
               <div className="mt-4">
                 <MusicHubChipRow
@@ -18075,10 +18126,14 @@ export default function Home() {
               ) : null}
             </PremiumCard>
 
-            <PremiumCard id="music-hub-quick-add" className="border border-dashed border-stone-300 bg-stone-50/60 shadow-none">
-              <SectionTitle className="text-stone-950">Individual songs (optional)</SectionTitle>
+            <PremiumCard id="music-hub-quick-add" className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}>
+              <SectionTitle className="text-stone-950">
+                {isCoupleView ? "Add Songs to Your Lists" : "Individual songs (optional)"}
+              </SectionTitle>
               <p className="mt-1 text-sm text-stone-600">
-                Add individual songs only if there are specific tracks we should know about. Most couples stop at playlists and genres.
+                {isCoupleView
+                  ? "Use this when a song belongs on your Must Play List, would be fun if it fits, or should be avoided."
+                  : "Add individual songs only if there are specific tracks we should know about. Most couples stop at playlists and genres."}
               </p>
               <div className="mt-4 space-y-3">
                 <TextInput
@@ -18136,7 +18191,7 @@ export default function Home() {
                       : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                   >
-                    Do not play
+                    {isCoupleView ? "Songs to avoid" : "Do not play"}
                   </PrimaryButton>
                 </div>
                 <PrimaryButton
@@ -18166,23 +18221,33 @@ export default function Home() {
             </PremiumCard>
 
             {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
-              <div className="flex flex-col gap-1.5">
+              <div className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                  Priority songs
+                  {isCoupleView ? "Must Play List" : "Priority songs"}
                 </p>
                 <p className="text-xs leading-relaxed text-stone-600">
-                  Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from.
+                  {isCoupleView
+                    ? "These are the songs that absolutely have to be part of your celebration."
+                    : "Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from."}
                 </p>
               </div>
             )}
 
-            <div className="space-y-5">
+            <div className={isCoupleView ? "contents" : "space-y-5"}>
               {sectionMustPlayEnabled && (
-                <PremiumCard variant="accent" id="music-hub-must-play">
+                <PremiumCard
+                  variant="accent"
+                  id="music-hub-must-play"
+                  className={isCoupleView ? "order-[20]" : ""}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle>Must play</SectionTitle>
-                      <p className="mt-1 text-xs text-stone-600">Songs that should absolutely make the night.</p>
+                      <SectionTitle>{isCoupleView ? "Must Play List" : "Must play"}</SectionTitle>
+                      <p className="mt-1 text-xs text-stone-600">
+                        {isCoupleView
+                          ? "These are the songs that absolutely have to be part of your celebration."
+                          : "Songs that should absolutely make the night."}
+                      </p>
                     </div>
                     <span
                       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
@@ -18230,12 +18295,19 @@ export default function Home() {
               )}
 
               {sectionMustPlayEnabled && (
-                <PremiumCard className="border border-emerald-200/80 bg-white shadow-none" id="music-hub-play-if-possible">
+                <PremiumCard
+                  className={`border border-emerald-200/80 bg-white shadow-none ${isCoupleView ? "order-[32]" : ""}`}
+                  id="music-hub-play-if-possible"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle className="text-stone-950">Play if possible</SectionTitle>
+                      <SectionTitle className="text-stone-950">
+                        {isCoupleView ? "Songs If They Fit" : "Play if possible"}
+                      </SectionTitle>
                       <p className="mt-1 text-xs text-stone-600">
-                        Nice-to-haves when the moment feels right—never a guarantee.
+                        {isCoupleView
+                          ? "Songs and artists that would feel good if the room is ready for them."
+                          : "Nice-to-haves when the moment feels right—never a guarantee."}
                       </p>
                     </div>
                     <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
@@ -18278,12 +18350,19 @@ export default function Home() {
               )}
 
               {sectionDoNotPlayEnabled && (
-                <PremiumCard className="border-stone-300 bg-white shadow-none" id="music-hub-do-not-play">
+                <PremiumCard
+                  className={`border-stone-300 bg-white shadow-none ${isCoupleView ? "order-[40]" : ""}`}
+                  id="music-hub-do-not-play"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <SectionTitle className="text-stone-950">Do not play</SectionTitle>
+                      <SectionTitle className="text-stone-950">
+                        {isCoupleView ? "Songs to Avoid" : "Do not play"}
+                      </SectionTitle>
                       <p className="mt-1 text-xs text-stone-600">
-                        Songs, artists, genres, or vibes to steer away from—notes optional.
+                        {isCoupleView
+                          ? "Are there any songs or artists you’d rather not hear on your wedding day?"
+                          : "Songs, artists, genres, or vibes to steer away from—notes optional."}
                       </p>
                     </div>
                     <span className="rounded-full border border-stone-300 bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-900">
@@ -18327,9 +18406,9 @@ export default function Home() {
             </div>
 
             {sectionPlaylistsEnabled && (
-              <details className="group no-print rounded-2xl border border-stone-200 bg-white shadow-sm">
+              <details className={`group no-print rounded-2xl border border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[33]" : ""}`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3.5 text-sm font-semibold text-stone-900 sm:px-5 [&::-webkit-details-marker]:hidden">
-                  <span>Song ideas by part of the night (optional)</span>
+                  <span>{isCoupleView ? "Dance Floor Ideas by Part of the Night" : "Song ideas by part of the night (optional)"}</span>
                   <span className="text-[11px] font-medium text-stone-500 transition-transform group-open:rotate-180">
                     ▼
                   </span>
@@ -18337,9 +18416,13 @@ export default function Home() {
                 <div className="border-t border-stone-200 px-4 pb-4 pt-2 sm:px-5">
                   <div className="space-y-4">
                     <div className="px-1">
-                      <SectionTitle className="text-stone-950">Playlists by moment</SectionTitle>
+                      <SectionTitle className="text-stone-950">
+                        {isCoupleView ? "Dance Floor Preferences" : "Playlists by moment"}
+                      </SectionTitle>
                       <p className="mt-1 text-xs text-stone-600">
-                        Each block is its own pocket—drag to reorder, or nudge with arrows.
+                        {isCoupleView
+                          ? "Use these optional pockets for artists, songs, and dance floor ideas that belong to a specific part of the night."
+                          : "Each block is its own pocket—drag to reorder, or nudge with arrows."}
                       </p>
                     </div>
                     <div className="grid gap-5 lg:grid-cols-2 lg:gap-4">
@@ -18486,13 +18569,35 @@ export default function Home() {
               </details>
             )}
 
+            {isCoupleView ? (
+              <PremiumCard className="order-[45] border-stone-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <SectionTitle className="text-stone-950">Special Songs</SectionTitle>
+                    <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                      Your special songs are managed from your wedding timeline.
+                    </p>
+                  </div>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
+                    className={couplePortalSecondaryButtonClass}
+                  >
+                    View Timeline
+                  </PrimaryButton>
+                </div>
+              </PremiumCard>
+            ) : null}
+
             {sectionGuestRequestsEnabled ? (
-              <PremiumCard>
+              <PremiumCard className={isCoupleView ? "order-[50]" : ""}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <SectionTitle>Guest requests</SectionTitle>
+                    <SectionTitle>{isCoupleView ? "Guest Requests" : "Guest requests"}</SectionTitle>
                     <p className="mt-1 text-xs text-stone-600">
-                      What guests are asking for—approve in one tap on the full screen.
+                      {isCoupleView
+                        ? "Would you like your guests to help build the playlist?"
+                        : "What guests are asking for—approve in one tap on the full screen."}
                     </p>
                   </div>
                   <PrimaryButton
@@ -18565,7 +18670,7 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ) : (
-              <PremiumCard className="border-dashed border-stone-300 bg-stone-50">
+              <PremiumCard className={`border-dashed border-stone-300 bg-stone-50 ${isCoupleView ? "order-[50]" : ""}`}>
                 <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
                 <p className="mt-2 text-xs text-stone-600">
                   Guest requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
@@ -18575,10 +18680,12 @@ export default function Home() {
             )}
 
             {sectionMusicNotesEnabled && (
-              <PremiumCard variant="accent">
-                <SectionTitle>Music notes &amp; vibe</SectionTitle>
+              <PremiumCard variant="accent" className={isCoupleView ? "order-[34]" : ""}>
+                <SectionTitle>{isCoupleView ? "More Dance Floor Direction" : "Music notes & vibe"}</SectionTitle>
                 <p className="mt-1 text-xs text-stone-600">
-                  Give your DJ emotional guardrails—not just logistics.
+                  {isCoupleView
+                    ? "Add any extra feeling, pacing, or song guidance you want your DJ to keep in mind."
+                    : "Give your DJ emotional guardrails—not just logistics."}
                 </p>
                 <div className="mt-4 space-y-3">
                   <TextArea
