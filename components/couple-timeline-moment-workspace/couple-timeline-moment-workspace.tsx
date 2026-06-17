@@ -2,10 +2,12 @@
 
 import { CeremonyMomentWorkspace } from "@/components/couple-timeline-moment-workspace/ceremony-workspace";
 import { DanceFirstMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-first-workspace";
+import { GrandEntranceMomentWorkspace } from "@/components/couple-timeline-moment-workspace/grand-entrance-workspace";
 import { SpeechToastsMomentWorkspace } from "@/components/couple-timeline-moment-workspace/speech-toasts-workspace";
 import type {
   CeremonyMomentWorkspaceRef,
   CoupleTimelineMomentWorkspaceId,
+  GrandEntranceMomentWorkspaceRef,
   MusicHubMomentWorkspaceRef,
 } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
@@ -23,11 +25,13 @@ export type CoupleTimelineMomentWorkspaceProps = {
   toastsRaw: string;
   musicHubRef: MusicHubMomentWorkspaceRef;
   ceremonyRef: CeremonyMomentWorkspaceRef;
+  grandEntranceRef: GrandEntranceMomentWorkspaceRef;
   onTimeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSongTitleChange: (value: string) => void;
   onArtistChange: (value: string) => void;
   onSpeechesToastsChange: (entries: SpeechesToastEntry[]) => void;
+  onOpenGrandEntranceLineup: () => void;
   onOpenMusicHub: () => void;
   onOpenCeremonyPlanning: () => void;
   onOpenCeremonyTimeline: () => void;
@@ -46,11 +50,13 @@ export function CoupleTimelineMomentWorkspace({
   toastsRaw,
   musicHubRef,
   ceremonyRef,
+  grandEntranceRef,
   onTimeChange,
   onNotesChange,
   onSongTitleChange,
   onArtistChange,
   onSpeechesToastsChange,
+  onOpenGrandEntranceLineup,
   onOpenMusicHub,
   onOpenCeremonyPlanning,
   onOpenCeremonyTimeline,
@@ -88,6 +94,27 @@ export function CoupleTimelineMomentWorkspace({
           onTimeChange={onTimeChange}
           onNotesChange={onNotesChange}
           onSpeechesToastsChange={onSpeechesToastsChange}
+          onDone={onDone}
+        />
+      );
+    case "grand_entrance":
+      return (
+        <GrandEntranceMomentWorkspace
+          title={title}
+          time={time}
+          notes={notes}
+          songTitle={songTitle}
+          artist={artist}
+          momentType={momentType}
+          canEdit={canEdit}
+          grandEntranceRef={grandEntranceRef}
+          musicHubRef={musicHubRef}
+          onTimeChange={onTimeChange}
+          onNotesChange={onNotesChange}
+          onSongTitleChange={onSongTitleChange}
+          onArtistChange={onArtistChange}
+          onOpenLineup={onOpenGrandEntranceLineup}
+          onOpenMusicHub={onOpenMusicHub}
           onDone={onDone}
         />
       );

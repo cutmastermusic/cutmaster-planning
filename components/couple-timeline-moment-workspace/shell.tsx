@@ -14,6 +14,8 @@ type CoupleTimelineMomentWorkspaceShellProps = {
   timeLabel: string;
   momentType: TimelineMomentType;
   onDone: () => void;
+  showMomentTypeLabel?: boolean;
+  showEmptyTimeLabel?: boolean;
   headerActions?: ReactNode;
   children: ReactNode;
 };
@@ -23,27 +25,36 @@ export function CoupleTimelineMomentWorkspaceShell({
   timeLabel,
   momentType,
   onDone,
+  showMomentTypeLabel = true,
+  showEmptyTimeLabel = true,
   headerActions,
   children,
 }: CoupleTimelineMomentWorkspaceShellProps) {
+  const hasTimeLabel = Boolean(timeLabel.trim());
+  const showMetadata = hasTimeLabel || showEmptyTimeLabel || showMomentTypeLabel;
+
   return (
     <div className="md:mx-auto md:w-full md:max-w-[44rem] lg:max-w-[52rem]">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-stone-200/90 pb-5 md:mb-8 md:pb-6">
         <div className="min-w-0 flex-1 space-y-2">
           <p className={couplePlanningEyebrowClass}>Timeline moment</p>
           <h3 className={`${couplePlanningTitleClass} !mt-1`}>{title}</h3>
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            {timeLabel.trim() ? (
-              <span className="rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-sm font-medium text-stone-800">
-                {timeLabel.trim()}
-              </span>
-            ) : (
-              <span className="text-sm text-stone-500">Time not set yet</span>
-            )}
-            <span className="inline-flex rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600">
-              {timelineMomentTypeLabel(momentType)}
-            </span>
-          </div>
+          {showMetadata ? (
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              {hasTimeLabel ? (
+                <span className="rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-sm font-medium text-stone-800">
+                  {timeLabel.trim()}
+                </span>
+              ) : showEmptyTimeLabel ? (
+                <span className="text-sm text-stone-500">Time not set yet</span>
+              ) : null}
+              {showMomentTypeLabel ? (
+                <span className="inline-flex rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+                  {timelineMomentTypeLabel(momentType)}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {headerActions ? <div className="flex shrink-0 flex-wrap gap-2">{headerActions}</div> : null}
       </div>

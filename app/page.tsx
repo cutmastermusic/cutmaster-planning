@@ -371,6 +371,7 @@ import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-mome
 import { buildCoupleTimelineMomentSummaryLines } from "@/lib/coupleTimelineMomentSummary";
 import {
   buildCeremonyMomentWorkspaceRef,
+  buildGrandEntranceMomentWorkspaceRef,
   buildMusicHubMomentWorkspaceRef,
   resolveCoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
@@ -12676,6 +12677,11 @@ export default function Home() {
     [musicGenreEraSelections, musicTasteProfile, musicVibeDetail, musicPlaylistLinks],
   );
 
+  const coupleMomentGrandEntranceRef = useMemo(
+    () => buildGrandEntranceMomentWorkspaceRef(weddingPartyLineupRaw),
+    [weddingPartyLineupRaw],
+  );
+
   const coupleMomentCeremonyRef = useMemo(
     () =>
       buildCeremonyMomentWorkspaceRef({
@@ -19635,6 +19641,7 @@ export default function Home() {
                             toastsRaw={speechesToastsRaw}
                             musicHubRef={coupleMomentMusicHubRef}
                             ceremonyRef={coupleMomentCeremonyRef}
+                            grandEntranceRef={coupleMomentGrandEntranceRef}
                             onTimeChange={(value) =>
                               patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)
                             }
@@ -19650,6 +19657,7 @@ export default function Home() {
                             onSpeechesToastsChange={(entries) => {
                               void persistSpeechesToastsEntries(entries);
                             }}
+                            onOpenGrandEntranceLineup={openWeddingPartyLineupEditor}
                             onOpenMusicHub={() => selectActiveScreen("Music Hub")}
                             onOpenCeremonyPlanning={() => openCouplePlanningChapter("ceremony")}
                             onOpenCeremonyTimeline={scrollToCeremonyTimelineSection}

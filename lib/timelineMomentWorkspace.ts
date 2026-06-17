@@ -1,5 +1,7 @@
 import { normalizeDefaultTimelineMomentKey } from "@/lib/restoreDefaultTimelineMoments";
+import { isGrandEntranceTimelineItem } from "@/lib/grandEntranceDetail";
 import { isToastTimelineItem } from "@/lib/speechesToasts";
+import { getWeddingPartyLineupPreviewContent } from "@/lib/weddingPartyLineup";
 import type { EventMusicHubPlanSnapshot } from "@/lib/musicHubPlan";
 import { musicTasteProfileHasSelections, emptyMusicTasteProfile } from "@/data/musicTasteProfileCatalog";
 import {
@@ -9,7 +11,11 @@ import {
 import type { CeremonyPlan, CeremonyTimelineItem } from "@/types/planning";
 
 /** Reference implementations — expand to more moment types over time. */
-export type CoupleTimelineMomentWorkspaceId = "dance_first" | "speech_toasts" | "ceremony";
+export type CoupleTimelineMomentWorkspaceId =
+  | "dance_first"
+  | "speech_toasts"
+  | "ceremony"
+  | "grand_entrance";
 
 export function isFirstDanceTimelineItem(title: string): boolean {
   const key = normalizeDefaultTimelineMomentKey(title);
@@ -35,6 +41,9 @@ export function resolveCoupleTimelineMomentWorkspaceId(item: {
   }
   if (momentType === "ceremony" && isCeremonyMainTimelineMoment(item.title)) {
     return "ceremony";
+  }
+  if (momentType === "introduction" && isGrandEntranceTimelineItem(item.title)) {
+    return "grand_entrance";
   }
 
   return null;
@@ -73,6 +82,21 @@ export function buildMusicHubMomentWorkspaceRef(
         vibe?.crowdNotes?.trim() ||
         vibe?.cleanMusicPrefs?.trim(),
     ),
+  };
+}
+
+export type GrandEntranceMomentWorkspaceRef = {
+  lineupPreview: Array<{ primary: string; secondary?: string }>;
+  moreLineupCount: number;
+};
+
+export function buildGrandEntranceMomentWorkspaceRef(
+  lineupRaw: string | undefined | null,
+): GrandEntranceMomentWorkspaceRef {
+  const preview = getWeddingPartyLineupPreviewContent(lineupRaw, 4);
+  return {
+    lineupPreview: preview.previewLines,
+    moreLineupCount: preview.moreCount,
   };
 }
 
@@ -133,5 +157,7 @@ export function coupleTimelineMomentWorkspaceTitle(id: CoupleTimelineMomentWorks
       return "Toasts";
     case "ceremony":
       return "Ceremony";
+    case "grand_entrance":
+      return "Grand Entrance";
   }
 }
