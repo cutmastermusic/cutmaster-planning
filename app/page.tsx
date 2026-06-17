@@ -62,6 +62,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
 import {
@@ -2902,15 +2903,17 @@ function TimelineMomentHeadline({
   timeLabel,
   title,
   titleClassName = "",
+  timeSlot,
 }: {
   timeLabel: string;
   title: string;
   titleClassName?: string;
+  timeSlot?: ReactNode;
 }) {
   const time = timeLabel.trim() || "—";
   return (
     <div className={TIMELINE_CARD_TIME_TITLE_ROW_CLASS}>
-      <p className={TIMELINE_CARD_TIME_INLINE_CLASS}>{time}</p>
+      {timeSlot ?? <p className={TIMELINE_CARD_TIME_INLINE_CLASS}>{time}</p>}
       <h3 className={`${TIMELINE_CARD_TITLE_CLASS} min-w-0 flex-1 ${titleClassName}`.trim()}>
         {title}
       </h3>
@@ -3279,6 +3282,11 @@ export default function Home() {
     itemId: string;
     values: ReceptionTimelineInlineEditDraftValues;
   } | null>(null);
+  const [receptionTimelineQuickTimeEdit, setReceptionTimelineQuickTimeEdit] = useState<{
+    itemId: string;
+    value: string;
+  } | null>(null);
+  const receptionTimelineQuickTimeCancelRef = useRef(false);
   /** Confirm before removing reception or ceremony timeline rows from the planning UI */
   const [pendingTimelineDelete, setPendingTimelineDelete] = useState<
     | { kind: "reception"; id: string; label: string }
@@ -3824,6 +3832,7 @@ export default function Home() {
   }, [flushReceptionTimelineInlineEditDraftIntoTimeline]);
 
   const openReceptionTimelineCardExpanded = useCallback((row: TimelineItem) => {
+    setReceptionTimelineQuickTimeEdit(null);
     const prevDraft = receptionTimelineInlineEditDraftRef.current;
     if (prevDraft && prevDraft.itemId !== row.id) {
       setTimelineItems((prev) =>
@@ -3891,6 +3900,44 @@ export default function Home() {
         }
         return prev;
       });
+    },
+    [],
+  );
+
+  const beginReceptionTimelineQuickTimeEdit = useCallback(
+    (row: TimelineItem) => {
+      closeReceptionTimelineCardExpanded();
+      receptionTimelineQuickTimeCancelRef.current = false;
+      setReceptionTimelineQuickTimeEdit({
+        itemId: row.id,
+        value: row.time,
+      });
+    },
+    [closeReceptionTimelineCardExpanded],
+  );
+
+  const cancelReceptionTimelineQuickTimeEdit = useCallback(() => {
+    receptionTimelineQuickTimeCancelRef.current = true;
+    setReceptionTimelineQuickTimeEdit(null);
+  }, []);
+
+  const commitReceptionTimelineQuickTimeEdit = useCallback(
+    (itemId: string, value: string) => {
+      if (receptionTimelineQuickTimeCancelRef.current) {
+        receptionTimelineQuickTimeCancelRef.current = false;
+        return;
+      }
+      const nextTime = value.trim();
+      setTimelineItems((prev) => {
+        let changed = false;
+        const next = prev.map((item) => {
+          if (item.id !== itemId || item.time === nextTime) return item;
+          changed = true;
+          return { ...item, time: nextTime };
+        });
+        return changed ? next : prev;
+      });
+      setReceptionTimelineQuickTimeEdit(null);
     },
     [],
   );
@@ -6940,6 +6987,67 @@ export default function Home() {
   const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
+  const renderReceptionTimelineQuickTimeSlot = useCallback(
+    (row: TimelineItem | null, displayTime: string) => {
+      if (isCoupleView || !canEditTimeline || !row) return undefined;
+      const edit = receptionTimelineQuickTimeEdit?.itemId === row.id ? receptionTimelineQuickTimeEdit : null;
+
+      if (edit) {
+        return (
+          <input
+            autoFocus
+            aria-label={`Edit time for ${row.title}`}
+            value={edit.value}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              const next = event.target.value;
+              setReceptionTimelineQuickTimeEdit((prev) =>
+                prev && prev.itemId === row.id ? { ...prev, value: next } : prev,
+              );
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.stopPropagation();
+                commitReceptionTimelineQuickTimeEdit(row.id, edit.value);
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelReceptionTimelineQuickTimeEdit();
+              }
+            }}
+            onBlur={() => commitReceptionTimelineQuickTimeEdit(row.id, edit.value)}
+            className={`${TIMELINE_CARD_TIME_INLINE_CLASS} min-h-8 w-[7.5rem] rounded-lg border border-stone-300 bg-white px-2 py-1 text-stone-900 outline-none ring-0 transition focus:border-stone-500 focus:bg-white focus:ring-2 focus:ring-stone-200`}
+          />
+        );
+      }
+
+      return (
+        <button
+          type="button"
+          aria-label={`Edit time for ${row.title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            beginReceptionTimelineQuickTimeEdit(row);
+          }}
+          className={`${TIMELINE_CARD_TIME_INLINE_CLASS} -mx-1 rounded-md border border-transparent px-1 py-0.5 text-left transition hover:border-stone-200 hover:bg-stone-50 hover:text-stone-800 focus:border-stone-300 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-200`}
+        >
+          {displayTime.trim() || "—"}
+        </button>
+      );
+    },
+    [
+      beginReceptionTimelineQuickTimeEdit,
+      canEditTimeline,
+      cancelReceptionTimelineQuickTimeEdit,
+      commitReceptionTimelineQuickTimeEdit,
+      isCoupleView,
+      receptionTimelineQuickTimeEdit,
+    ],
+  );
   const isCoupleEditorialShell = isCoupleView && appMode === "event";
   /** True couple/client sessions — not Admin previewing as Couple. */
   const isRealCoupleSession = sessionIsCoupleForPersist;
@@ -19383,7 +19491,11 @@ export default function Home() {
                           <>
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                               <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
-                                <TimelineMomentHeadline timeLabel={item.time ?? ""} title={item.title} />
+                                <TimelineMomentHeadline
+                                  timeLabel={item.time ?? ""}
+                                  title={item.title}
+                                  timeSlot={renderReceptionTimelineQuickTimeSlot(timelineRow ?? null, item.time ?? "")}
+                                />
                                 <TimelineSongCueLine
                                   kind={cueKind}
                                   preview={songPreview}
@@ -19532,6 +19644,7 @@ export default function Home() {
                                       timeLabel={item.time ?? ""}
                                       title={item.title}
                                       titleClassName="text-[1.05rem]"
+                                      timeSlot={renderReceptionTimelineQuickTimeSlot(timelineRow ?? null, item.time ?? "")}
                                     />
                                   </div>
                                   <div className="flex shrink-0 flex-col items-end gap-1.5">
