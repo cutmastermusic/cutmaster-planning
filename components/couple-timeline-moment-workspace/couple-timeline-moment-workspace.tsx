@@ -1,6 +1,7 @@
 "use client";
 
 import { CeremonyMomentWorkspace } from "@/components/couple-timeline-moment-workspace/ceremony-workspace";
+import { CakeCuttingMomentWorkspace } from "@/components/couple-timeline-moment-workspace/cake-cutting-workspace";
 import { DanceFirstMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-first-workspace";
 import { DanceParentMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-parent-workspace";
 import { GrandEntranceMomentWorkspace } from "@/components/couple-timeline-moment-workspace/grand-entrance-workspace";
@@ -97,6 +98,23 @@ export function CoupleTimelineMomentWorkspace({
           momentType={momentType}
           canEdit={canEdit}
           parentDanceRef={parentDanceRef}
+          onTimeChange={onTimeChange}
+          onNotesChange={onNotesChange}
+          onSongTitleChange={onSongTitleChange}
+          onArtistChange={onArtistChange}
+          onDone={onDone}
+        />
+      );
+    case "cake_cutting":
+      return (
+        <CakeCuttingMomentWorkspace
+          title={title}
+          time={time}
+          notes={notes}
+          songTitle={songTitle}
+          artist={artist}
+          momentType={momentType}
+          canEdit={canEdit}
           onTimeChange={onTimeChange}
           onNotesChange={onNotesChange}
           onSongTitleChange={onSongTitleChange}

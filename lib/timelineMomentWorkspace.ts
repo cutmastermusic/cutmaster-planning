@@ -15,6 +15,7 @@ import type { CeremonyPlan, CeremonyTimelineItem } from "@/types/planning";
 export type CoupleTimelineMomentWorkspaceId =
   | "dance_first"
   | "dance_parent"
+  | "cake_cutting"
   | "speech_toasts"
   | "ceremony"
   | "grand_entrance";
@@ -27,6 +28,11 @@ export function isFirstDanceTimelineItem(title: string): boolean {
 export function isCeremonyMainTimelineMoment(title: string): boolean {
   const key = normalizeDefaultTimelineMomentKey(title);
   return key === "ceremony" || key === "pre-ceremony";
+}
+
+export function isCakeCuttingTimelineItem(title: string): boolean {
+  const key = normalizeDefaultTimelineMomentKey(title);
+  return key === "cake cutting";
 }
 
 export function resolveCoupleTimelineMomentWorkspaceId(item: {
@@ -46,6 +52,9 @@ export function resolveCoupleTimelineMomentWorkspaceId(item: {
   }
   if (momentType === "ceremony" && isCeremonyMainTimelineMoment(item.title)) {
     return "ceremony";
+  }
+  if (momentType === "tradition" && isCakeCuttingTimelineItem(item.title)) {
+    return "cake_cutting";
   }
   if (momentType === "introduction" && isGrandEntranceTimelineItem(item.title)) {
     return "grand_entrance";
@@ -204,6 +213,8 @@ export function coupleTimelineMomentWorkspaceTitle(id: CoupleTimelineMomentWorks
       return "First Dance";
     case "dance_parent":
       return "Parent Dance";
+    case "cake_cutting":
+      return "Cake Cutting";
     case "speech_toasts":
       return "Toasts";
     case "ceremony":

@@ -2,6 +2,7 @@ import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
 import { parseSpeechesToasts } from "@/lib/speechesToasts";
 import { findParentDanceParticipants, isParentDanceTimelineItem } from "@/lib/formalDanceDetail";
 import { isGrandEntranceTimelineItem } from "@/lib/grandEntranceDetail";
+import { isCakeCuttingTimelineItem } from "@/lib/timelineMomentWorkspace";
 import { resolveTimelineMomentType, type TimelineMomentType } from "@/lib/timelineMomentType";
 import type { SharedPlaylistLink } from "@/types/planning";
 
@@ -55,6 +56,14 @@ function truncateLine(text: string, max = 72): string {
   const trimmed = text.trim();
   if (trimmed.length <= max) return trimmed;
   return `${trimmed.slice(0, max - 1).trimEnd()}…`;
+}
+
+function isUsefulCakeCuttingNote(note: string, song: string | null): boolean {
+  const normalized = note.trim().toLowerCase();
+  if (!normalized) return false;
+  if (/^(tbd|none|n\/a|na|no notes?)\.?$/.test(normalized)) return false;
+  if (song && normalized === song.trim().toLowerCase()) return false;
+  return true;
 }
 
 function normalizeGroupKey(value: string): string {
@@ -187,6 +196,23 @@ function summaryForMomentType(
       return lines.slice(0, 4);
     }
     case "tradition":
+      if (isCakeCuttingTimelineItem(item.title)) {
+        const song = formatSongSummary(item.songTitle, item.artist);
+        if (song) lines.push(song);
+        const note = firstMeaningfulLine(item.notes);
+        if (note && isUsefulCakeCuttingNote(note, song)) lines.push(truncateLine(note));
+        break;
+      }
+      {
+        const song = formatSongSummary(item.songTitle, item.artist);
+        if (song) {
+          lines.push(song);
+        } else {
+          const note = firstMeaningfulLine(item.notes);
+          if (note) lines.push(truncateLine(note));
+        }
+        break;
+      }
     case "photo":
     case "exit":
     case "custom":
