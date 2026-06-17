@@ -16,6 +16,7 @@ export type CoupleTimelineMomentWorkspaceId =
   | "dance_first"
   | "dance_parent"
   | "cake_cutting"
+  | "open_dancing"
   | "speech_toasts"
   | "ceremony"
   | "grand_entrance";
@@ -33,6 +34,11 @@ export function isCeremonyMainTimelineMoment(title: string): boolean {
 export function isCakeCuttingTimelineItem(title: string): boolean {
   const key = normalizeDefaultTimelineMomentKey(title);
   return key === "cake cutting";
+}
+
+export function isOpenDancingTimelineItem(title: string): boolean {
+  const key = normalizeDefaultTimelineMomentKey(title);
+  return key === "open dancing" || key === "open dancing kickoff";
 }
 
 export function resolveCoupleTimelineMomentWorkspaceId(item: {
@@ -55,6 +61,9 @@ export function resolveCoupleTimelineMomentWorkspaceId(item: {
   }
   if (momentType === "tradition" && isCakeCuttingTimelineItem(item.title)) {
     return "cake_cutting";
+  }
+  if (momentType === "open_dance" && isOpenDancingTimelineItem(item.title)) {
+    return "open_dancing";
   }
   if (momentType === "introduction" && isGrandEntranceTimelineItem(item.title)) {
     return "grand_entrance";
@@ -124,6 +133,100 @@ export function buildParentDanceMomentWorkspaceRef(
 ): ParentDanceMomentWorkspaceRef {
   return {
     participants: findParentDanceParticipants(title, formalDancesRaw),
+  };
+}
+
+function readFirstAnswer(
+  answers: Record<string, string | undefined>,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = answers[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function uniqueJoined(values: Array<string | undefined>, max = 4): string {
+  const seen: string[] = [];
+  for (const value of values) {
+    for (const part of (value ?? "").split(/[,;\n]/)) {
+      const trimmed = part.trim();
+      if (trimmed && !seen.includes(trimmed)) seen.push(trimmed);
+    }
+  }
+  if (seen.length <= max) return seen.join(", ");
+  return `${seen.slice(0, max).join(", ")} + ${seen.length - max} more`;
+}
+
+export type OpenDancingMomentWorkspaceRef = {
+  guestCount: string;
+  ageGroup: string;
+  partyRating: string;
+  favoriteGenres: string;
+  guestRequestPolicy: string;
+  musicSummaries: string[];
+};
+
+export function buildOpenDancingMomentWorkspaceRef(input: {
+  answers: Record<string, string | undefined>;
+  musicHubPlan: EventMusicHubPlanSnapshot | null | undefined;
+  guestRequestsEnabled: boolean;
+}): OpenDancingMomentWorkspaceRef {
+  const plan = input.musicHubPlan;
+  const taste = plan?.musicTasteProfile ?? emptyMusicTasteProfile();
+  const vibe = plan?.musicVibeDetail;
+  const crowdPreferences = uniqueJoined(taste.crowdPreferences, 3);
+  const musicBehavior = uniqueJoined(taste.musicBehavior, 3);
+  const lineDances = uniqueJoined(taste.lineDancesAndGroupSongs ?? [], 3);
+
+  return {
+    guestCount: readFirstAnswer(input.answers, [
+      "pq_guest_count",
+      "pq_event_guest_count",
+      "pq_about_guest_count",
+      "guest_count",
+      "guestCount",
+      "expected_guest_count",
+    ]),
+    ageGroup: readFirstAnswer(input.answers, [
+      "pq_guest_age_range",
+      "pq_age_range",
+      "pq_guest_age_group",
+      "age_range",
+      "ageRange",
+      "age_group",
+    ]),
+    partyRating:
+      readFirstAnswer(input.answers, [
+        "pq_party_rating",
+        "pq_crowd_energy",
+        "pq_music_energy",
+        "party_rating",
+        "crowd_energy",
+      ]) ||
+      vibe?.energy?.trim() ||
+      uniqueJoined(taste.danceFloorStyles, 3),
+    favoriteGenres: uniqueJoined([
+      ...(plan?.musicGenreEraSelections ?? []),
+      vibe?.genres,
+    ]),
+    guestRequestPolicy:
+      readFirstAnswer(input.answers, [
+        "pq_guest_request_policy",
+        "pq_music_guest_request_policy",
+        "pq_school_requests",
+        "guest_request_policy",
+      ]) || (input.guestRequestsEnabled ? "Open" : ""),
+    musicSummaries: [
+      crowdPreferences ? `Crowd preferences: ${crowdPreferences}` : "",
+      musicBehavior ? `Music behavior: ${musicBehavior}` : "",
+      lineDances ? `Line dances: ${lineDances}` : "",
+      taste.danceFloorVibeNotes?.trim()
+        ? `Dance floor vibe: ${taste.danceFloorVibeNotes.trim()}`
+        : "",
+      vibe?.crowdNotes?.trim() ? `Crowd notes: ${vibe.crowdNotes.trim()}` : "",
+    ].filter(Boolean),
   };
 }
 
@@ -215,6 +318,8 @@ export function coupleTimelineMomentWorkspaceTitle(id: CoupleTimelineMomentWorks
       return "Parent Dance";
     case "cake_cutting":
       return "Cake Cutting";
+    case "open_dancing":
+      return "Open Dancing";
     case "speech_toasts":
       return "Toasts";
     case "ceremony":

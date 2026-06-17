@@ -373,6 +373,7 @@ import {
   buildCeremonyMomentWorkspaceRef,
   buildGrandEntranceMomentWorkspaceRef,
   buildMusicHubMomentWorkspaceRef,
+  buildOpenDancingMomentWorkspaceRef,
   buildParentDanceMomentWorkspaceRef,
   isCeremonyMainTimelineMoment,
   resolveCoupleTimelineMomentWorkspaceId,
@@ -12678,17 +12679,34 @@ export default function Home() {
     [isCoupleView, mergedTimelineItems],
   );
 
-  const coupleMomentMusicHubRef = useMemo(
+  const coupleMomentMusicHubPlan = useMemo(
     () =>
-      buildMusicHubMomentWorkspaceRef(
-        buildMusicHubPlanSnapshot({
-          musicGenreEraSelections,
-          musicTasteProfile,
-          musicVibeDetail,
-          musicPlaylistLinks,
-        }),
-      ),
+      buildMusicHubPlanSnapshot({
+        musicGenreEraSelections,
+        musicTasteProfile,
+        musicVibeDetail,
+        musicPlaylistLinks,
+      }),
     [musicGenreEraSelections, musicTasteProfile, musicVibeDetail, musicPlaylistLinks],
+  );
+
+  const coupleMomentMusicHubRef = useMemo(
+    () => buildMusicHubMomentWorkspaceRef(coupleMomentMusicHubPlan),
+    [coupleMomentMusicHubPlan],
+  );
+
+  const coupleMomentOpenDancingRef = useMemo(
+    () =>
+      buildOpenDancingMomentWorkspaceRef({
+        answers: eventSettings.planningQuestionAnswers ?? {},
+        musicHubPlan: coupleMomentMusicHubPlan,
+        guestRequestsEnabled: eventSettings.sectionGuestRequestsEnabled,
+      }),
+    [
+      coupleMomentMusicHubPlan,
+      eventSettings.planningQuestionAnswers,
+      eventSettings.sectionGuestRequestsEnabled,
+    ],
   );
 
   const coupleMomentGrandEntranceRef = useMemo(
@@ -12743,6 +12761,11 @@ export default function Home() {
       ceremonyRecessionalSong: coupleMomentCeremonyRef.recessionalSong,
       ceremonyNotes,
       unityCeremonyNotes: unityCeremonySong.notes ?? "",
+      openDancingGuestCount: coupleMomentOpenDancingRef.guestCount,
+      openDancingAgeGroup: coupleMomentOpenDancingRef.ageGroup,
+      openDancingPartyRating: coupleMomentOpenDancingRef.partyRating,
+      openDancingFavoriteGenres: coupleMomentOpenDancingRef.favoriteGenres,
+      openDancingGuestRequestPolicy: coupleMomentOpenDancingRef.guestRequestPolicy,
       musicPlaylistLinks,
       mustPlayCount: mustPlaySongs.length,
     }),
@@ -12756,6 +12779,11 @@ export default function Home() {
       coupleMomentCeremonyRef.recessionalSong,
       ceremonyNotes,
       unityCeremonySong.notes,
+      coupleMomentOpenDancingRef.guestCount,
+      coupleMomentOpenDancingRef.ageGroup,
+      coupleMomentOpenDancingRef.partyRating,
+      coupleMomentOpenDancingRef.favoriteGenres,
+      coupleMomentOpenDancingRef.guestRequestPolicy,
       musicPlaylistLinks,
       mustPlaySongs.length,
     ],
@@ -19676,6 +19704,7 @@ export default function Home() {
                               recvTitle,
                               formalDancesRaw,
                             )}
+                            openDancingRef={coupleMomentOpenDancingRef}
                             onTimeChange={(value) =>
                               patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)
                             }

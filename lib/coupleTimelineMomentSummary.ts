@@ -21,6 +21,11 @@ export type CoupleTimelineMomentSummaryContext = {
   ceremonyRecessionalSong: string;
   ceremonyNotes: string;
   unityCeremonyNotes: string;
+  openDancingGuestCount: string;
+  openDancingAgeGroup: string;
+  openDancingPartyRating: string;
+  openDancingFavoriteGenres: string;
+  openDancingGuestRequestPolicy: string;
   musicPlaylistLinks: SharedPlaylistLink[];
   mustPlayCount: number;
 };
@@ -64,6 +69,12 @@ function isUsefulCakeCuttingNote(note: string, song: string | null): boolean {
   if (/^(tbd|none|n\/a|na|no notes?)\.?$/.test(normalized)) return false;
   if (song && normalized === song.trim().toLowerCase()) return false;
   return true;
+}
+
+function isMeaningfulTimelineNote(note: string): boolean {
+  const normalized = note.trim().toLowerCase();
+  if (!normalized) return false;
+  return !/^(tbd|none|n\/a|na|no notes?)\.?$/.test(normalized);
 }
 
 function normalizeGroupKey(value: string): string {
@@ -166,20 +177,26 @@ function summaryForMomentType(
       break;
     }
     case "open_dance": {
-      if (context.mustPlayCount > 0) {
-        lines.push("Must Play Playlist");
-        lines.push(
-          `${context.mustPlayCount} song${context.mustPlayCount === 1 ? "" : "s"}`,
-        );
-      } else {
-        const playlist = firstPlaylistSummary(context.musicPlaylistLinks);
-        if (playlist) lines.push(playlist);
-        else {
-          const song = formatSongSummary(item.songTitle, item.artist);
-          if (song) lines.push(song);
-        }
+      if (context.openDancingGuestCount.trim()) {
+        lines.push(`Guest Count: ${context.openDancingGuestCount.trim()}`);
       }
-      break;
+      if (context.openDancingAgeGroup.trim()) {
+        lines.push(`Age Group: ${context.openDancingAgeGroup.trim()}`);
+      }
+      if (context.openDancingPartyRating.trim()) {
+        lines.push(`Party Rating: ${context.openDancingPartyRating.trim()}`);
+      }
+      if (context.openDancingFavoriteGenres.trim()) {
+        lines.push(`Favorite Genres: ${context.openDancingFavoriteGenres.trim()}`);
+      }
+      if (context.openDancingGuestRequestPolicy.trim()) {
+        lines.push(`Guest Request Policy: ${context.openDancingGuestRequestPolicy.trim()}`);
+      }
+      const note = firstMeaningfulLine(item.notes);
+      if (note && isMeaningfulTimelineNote(note) && lines.length < 5) {
+        lines.push(truncateLine(note));
+      }
+      return lines.slice(0, 5);
     }
     case "ceremony": {
       const officiant = context.officiantName.trim();

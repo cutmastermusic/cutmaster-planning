@@ -5,12 +5,14 @@ import { CakeCuttingMomentWorkspace } from "@/components/couple-timeline-moment-
 import { DanceFirstMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-first-workspace";
 import { DanceParentMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-parent-workspace";
 import { GrandEntranceMomentWorkspace } from "@/components/couple-timeline-moment-workspace/grand-entrance-workspace";
+import { OpenDancingMomentWorkspace } from "@/components/couple-timeline-moment-workspace/open-dancing-workspace";
 import { SpeechToastsMomentWorkspace } from "@/components/couple-timeline-moment-workspace/speech-toasts-workspace";
 import type {
   CeremonyMomentWorkspaceRef,
   CoupleTimelineMomentWorkspaceId,
   GrandEntranceMomentWorkspaceRef,
   MusicHubMomentWorkspaceRef,
+  OpenDancingMomentWorkspaceRef,
   ParentDanceMomentWorkspaceRef,
 } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
@@ -30,6 +32,7 @@ export type CoupleTimelineMomentWorkspaceProps = {
   ceremonyRef: CeremonyMomentWorkspaceRef;
   grandEntranceRef: GrandEntranceMomentWorkspaceRef;
   parentDanceRef: ParentDanceMomentWorkspaceRef;
+  openDancingRef: OpenDancingMomentWorkspaceRef;
   onTimeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSongTitleChange: (value: string) => void;
@@ -56,6 +59,7 @@ export function CoupleTimelineMomentWorkspace({
   ceremonyRef,
   grandEntranceRef,
   parentDanceRef,
+  openDancingRef,
   onTimeChange,
   onNotesChange,
   onSongTitleChange,
@@ -119,6 +123,20 @@ export function CoupleTimelineMomentWorkspace({
           onNotesChange={onNotesChange}
           onSongTitleChange={onSongTitleChange}
           onArtistChange={onArtistChange}
+          onDone={onDone}
+        />
+      );
+    case "open_dancing":
+      return (
+        <OpenDancingMomentWorkspace
+          title={title}
+          time={time}
+          notes={notes}
+          momentType={momentType}
+          canEdit={canEdit}
+          openDancingRef={openDancingRef}
+          onTimeChange={onTimeChange}
+          onNotesChange={onNotesChange}
           onDone={onDone}
         />
       );
