@@ -1,14 +1,10 @@
 "use client";
 
 import {
-  CoupleTimelineMomentHomeRefPanel,
-  CoupleTimelineMomentRefFact,
-} from "@/components/couple-timeline-moment-workspace/home-ref-panel";
-import { CoupleTimelineMomentTimelineFields } from "@/components/couple-timeline-moment-workspace/timeline-fields";
-import {
   CoupleTimelineMomentWorkspaceSection,
   CoupleTimelineMomentWorkspaceShell,
 } from "@/components/couple-timeline-moment-workspace/shell";
+import { TextArea, TextInput } from "@/components/planning-ui";
 import type { CeremonyMomentWorkspaceRef } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
 
@@ -26,6 +22,42 @@ type CeremonyMomentWorkspaceProps = {
   onDone: () => void;
 };
 
+const labelClass = "text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500";
+const fieldClass =
+  "mt-1.5 w-full rounded-xl border border-stone-200/90 bg-white px-3.5 py-3 text-base text-stone-900 shadow-none transition focus:border-[#2f4a3e]/40 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/15 disabled:cursor-default disabled:bg-stone-100/80";
+
+function CeremonyReference({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  if (!value.trim()) return null;
+  return (
+    <div>
+      <p className={labelClass}>{label}</p>
+      <p className="mt-1 text-sm font-medium leading-relaxed text-stone-900">{value.trim()}</p>
+    </div>
+  );
+}
+
+function CeremonySongReference({
+  label,
+  song,
+}: {
+  label: string;
+  song: string;
+}) {
+  if (!song.trim()) return null;
+  return (
+    <div className="rounded-xl border border-stone-200/80 bg-stone-50/60 px-4 py-3">
+      <p className="text-sm font-semibold leading-snug text-stone-950">{label}</p>
+      <p className="mt-1 text-sm leading-relaxed text-stone-700">{song.trim()}</p>
+    </div>
+  );
+}
+
 export function CeremonyMomentWorkspace({
   title,
   time,
@@ -35,18 +67,13 @@ export function CeremonyMomentWorkspace({
   ceremonyRef,
   onTimeChange,
   onNotesChange,
-  onOpenCeremonyPlanning,
-  onOpenCeremonyTimeline,
   onDone,
 }: CeremonyMomentWorkspaceProps) {
-  const planningHasSignal = Boolean(
-    ceremonyRef.ceremonyStartTime ||
-      ceremonyRef.guestArrivalTime ||
-      ceremonyRef.officiantName ||
-      ceremonyRef.locationSummary ||
+  const hasProcessionalSongs = Boolean(
+    ceremonyRef.grandparentsProcessionalSong ||
+      ceremonyRef.parentsProcessionalSong ||
       ceremonyRef.processionalSong ||
-      ceremonyRef.recessionalSong ||
-      ceremonyRef.ceremonyNotes,
+      ceremonyRef.partnerProcessionalSong,
   );
 
   return (
@@ -55,78 +82,59 @@ export function CeremonyMomentWorkspace({
       timeLabel={time}
       momentType={momentType}
       onDone={onDone}
+      showMomentTypeLabel={false}
+      showEmptyTimeLabel={false}
     >
-      <CoupleTimelineMomentWorkspaceSection
-        title="Timing & flow"
-        description="How this ceremony block fits into your day-of sequence."
-        homeLabel="Timeline"
-      >
-        <CoupleTimelineMomentTimelineFields
-          time={time}
-          notes={notes}
-          onTimeChange={onTimeChange}
-          onNotesChange={onNotesChange}
+      <CoupleTimelineMomentWorkspaceSection title="Time">
+        <TextInput
+          id="couple-ceremony-workspace-time"
+          label="Time"
+          value={time}
+          onChange={onTimeChange}
           disabled={!canEdit}
-          notesLabel="Flow notes"
-          notesPlaceholder="Guest arrival cues, when guests should be seated, or handoff notes for your DJ/MC."
+          labelClassName={labelClass}
+          inputClassName={fieldClass}
+          placeholder="e.g. 4:00 PM"
         />
       </CoupleTimelineMomentWorkspaceSection>
 
-      <CoupleTimelineMomentWorkspaceSection
-        title="Ceremony details"
-        description="Referenced from Ceremony planning — details are not duplicated on the timeline."
-        homeLabel="Ceremony"
-      >
-        <CoupleTimelineMomentHomeRefPanel
-          isEmpty={!planningHasSignal}
-          emptyMessage="Add ceremony details in Ceremony planning when you are ready."
-          actionLabel="Open Ceremony planning"
-          onAction={onOpenCeremonyPlanning}
-          summary={
-            <>
-              <CoupleTimelineMomentRefFact label="Ceremony start" value={ceremonyRef.ceremonyStartTime} />
-              <CoupleTimelineMomentRefFact label="Guest arrival" value={ceremonyRef.guestArrivalTime} />
-              <CoupleTimelineMomentRefFact label="Officiant" value={ceremonyRef.officiantName} />
-              <CoupleTimelineMomentRefFact label="Location" value={ceremonyRef.locationSummary} />
-              <CoupleTimelineMomentRefFact label="Processional song" value={ceremonyRef.processionalSong} />
-              <CoupleTimelineMomentRefFact label="Recessional song" value={ceremonyRef.recessionalSong} />
-              {ceremonyRef.ceremonyNotes ? (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-                    Ceremony notes
-                  </p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-stone-800">
-                    {ceremonyRef.ceremonyNotes}
-                  </p>
-                </div>
-              ) : null}
-            </>
-          }
-        />
-      </CoupleTimelineMomentWorkspaceSection>
+      {ceremonyRef.locationSummary || ceremonyRef.officiantName ? (
+        <CoupleTimelineMomentWorkspaceSection title="Details">
+          <div className="space-y-4">
+            <CeremonyReference label="Location" value={ceremonyRef.locationSummary} />
+            <CeremonyReference label="Officiant" value={ceremonyRef.officiantName} />
+          </div>
+        </CoupleTimelineMomentWorkspaceSection>
+      ) : null}
 
-      <CoupleTimelineMomentWorkspaceSection
-        title="Ceremony timeline"
-        description="Moment-by-moment ceremony flow lives on your Ceremony timeline."
-        homeLabel="Ceremony timeline"
-      >
-        <CoupleTimelineMomentHomeRefPanel
-          isEmpty={ceremonyRef.ceremonyMomentsPreview.length === 0}
-          emptyMessage="Add ceremony moments on your Ceremony timeline when the order feels clear."
-          actionLabel="View Ceremony timeline"
-          onAction={onOpenCeremonyTimeline}
-          summary={
-            <ol className="space-y-2">
-              {ceremonyRef.ceremonyMomentsPreview.map((row) => (
-                <li key={`${row.moment}-${row.timeOrOrder}`} className="flex gap-3 text-sm">
-                  <span className="w-16 shrink-0 font-medium text-stone-500">
-                    {row.timeOrOrder || "—"}
-                  </span>
-                  <span className="font-medium text-stone-900">{row.moment}</span>
-                </li>
-              ))}
-            </ol>
-          }
+      {hasProcessionalSongs ? (
+        <CoupleTimelineMomentWorkspaceSection title="Processional">
+          <div className="space-y-3">
+            <CeremonySongReference label="Grandparents" song={ceremonyRef.grandparentsProcessionalSong} />
+            <CeremonySongReference label="Parents" song={ceremonyRef.parentsProcessionalSong} />
+            <CeremonySongReference label="Wedding Party" song={ceremonyRef.processionalSong} />
+            <CeremonySongReference label="Bride / Groom" song={ceremonyRef.partnerProcessionalSong} />
+          </div>
+        </CoupleTimelineMomentWorkspaceSection>
+      ) : null}
+
+      {ceremonyRef.recessionalSong ? (
+        <CoupleTimelineMomentWorkspaceSection title="Recessional">
+          <CeremonySongReference label="Song" song={ceremonyRef.recessionalSong} />
+        </CoupleTimelineMomentWorkspaceSection>
+      ) : null}
+
+      <CoupleTimelineMomentWorkspaceSection title="Notes">
+        <TextArea
+          id="couple-ceremony-workspace-notes"
+          label="Notes"
+          value={notes}
+          onChange={onNotesChange}
+          disabled={!canEdit}
+          labelClassName={labelClass}
+          textareaClassName={`${fieldClass} min-h-[6.5rem] resize-y`}
+          rows={3}
+          placeholder="Guest arrival cues, seating notes, or handoff details."
         />
       </CoupleTimelineMomentWorkspaceSection>
     </CoupleTimelineMomentWorkspaceShell>

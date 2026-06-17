@@ -118,7 +118,7 @@ export function buildParentDanceMomentWorkspaceRef(
   };
 }
 
-function formatCeremonySong(plan: CeremonyPlan | undefined): string {
+function formatCeremonySong(plan: Pick<CeremonyPlan, "title" | "artist"> | undefined): string {
   if (!plan) return "";
   const title = plan.title?.trim() ?? "";
   const artist = plan.artist?.trim() ?? "";
@@ -126,12 +126,31 @@ function formatCeremonySong(plan: CeremonyPlan | undefined): string {
   return title || artist;
 }
 
+function findCeremonyMomentSong(
+  items: CeremonyTimelineItem[],
+  pattern: RegExp,
+): string {
+  const row = items.find((item) => pattern.test(item.moment.trim()));
+  return formatCeremonySong(
+    row
+      ? {
+          title: row.songTitle,
+          artist: row.artist,
+        }
+      : undefined,
+  );
+}
+
 export type CeremonyMomentWorkspaceRef = {
   ceremonyStartTime: string;
   guestArrivalTime: string;
   officiantName: string;
   locationSummary: string;
+  grandparentsProcessionalSong: string;
+  parentsProcessionalSong: string;
   processionalSong: string;
+  partnerProcessionalSong: string;
+  unityCeremonySong: string;
   recessionalSong: string;
   ceremonyNotes: string;
   ceremonyMomentsPreview: Array<{ moment: string; timeOrOrder: string }>;
@@ -143,8 +162,12 @@ export function buildCeremonyMomentWorkspaceRef(input: {
   officiantName: string;
   ceremonyNotes: string;
   weddingPartyProcessional: CeremonyPlan;
+  brideGroomProcessional: CeremonyPlan;
+  unityCeremonySong: CeremonyPlan;
   recessionalSong: CeremonyPlan;
   ceremonyLocationAnswer?: string;
+  ceremonyLocationDetail?: string;
+  ceremonyLocationSetting?: string;
   ceremonyTimelineItems: CeremonyTimelineItem[];
 }): CeremonyMomentWorkspaceRef {
   const preview = input.ceremonyTimelineItems
@@ -159,8 +182,16 @@ export function buildCeremonyMomentWorkspaceRef(input: {
     ceremonyStartTime: input.ceremonyStartTime.trim(),
     guestArrivalTime: input.ceremonyGuestArrivalTime.trim(),
     officiantName: input.officiantName.trim(),
-    locationSummary: input.ceremonyLocationAnswer?.trim() ?? "",
+    locationSummary:
+      input.ceremonyLocationSetting?.trim() ||
+      input.ceremonyLocationDetail?.trim() ||
+      input.ceremonyLocationAnswer?.trim() ||
+      "",
+    grandparentsProcessionalSong: findCeremonyMomentSong(input.ceremonyTimelineItems, /grandparent/i),
+    parentsProcessionalSong: findCeremonyMomentSong(input.ceremonyTimelineItems, /\bparents?\b/i),
     processionalSong: formatCeremonySong(input.weddingPartyProcessional),
+    partnerProcessionalSong: formatCeremonySong(input.brideGroomProcessional),
+    unityCeremonySong: formatCeremonySong(input.unityCeremonySong),
     recessionalSong: formatCeremonySong(input.recessionalSong),
     ceremonyNotes: input.ceremonyNotes.trim(),
     ceremonyMomentsPreview: preview,

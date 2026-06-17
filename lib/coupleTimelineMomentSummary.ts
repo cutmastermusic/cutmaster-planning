@@ -15,6 +15,9 @@ export type CoupleTimelineMomentSummaryContext = {
   weddingPartyLineupRaw: string;
   formalDancesRaw: string;
   officiantName: string;
+  ceremonyProcessionalSong: string;
+  ceremonyPartnerProcessionalSong: string;
+  ceremonyRecessionalSong: string;
   ceremonyNotes: string;
   unityCeremonyNotes: string;
   musicPlaylistLinks: SharedPlaylistLink[];
@@ -172,13 +175,16 @@ function summaryForMomentType(
     case "ceremony": {
       const officiant = context.officiantName.trim();
       if (officiant) lines.push(officiant);
-      const detail = firstMeaningfulLine(
-        context.unityCeremonyNotes,
-        context.ceremonyNotes,
-        item.notes,
-      );
-      if (detail && lines.length < MAX_SUMMARY_LINES) lines.push(detail);
-      break;
+      if (context.ceremonyProcessionalSong.trim()) {
+        lines.push(context.ceremonyProcessionalSong.trim());
+      }
+      if (context.ceremonyPartnerProcessionalSong.trim()) {
+        lines.push(context.ceremonyPartnerProcessionalSong.trim());
+      }
+      if (context.ceremonyRecessionalSong.trim()) {
+        lines.push(context.ceremonyRecessionalSong.trim());
+      }
+      return lines.slice(0, 4);
     }
     case "tradition":
     case "photo":
