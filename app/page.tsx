@@ -17705,20 +17705,28 @@ export default function Home() {
               trail={["Music Hub"]}
               onBack={() => setActiveScreen("Dashboard")}
               buttonVariant={isCoupleView ? "couple" : "default"}
-              primaryAction={{
-                label: "Add playlist link",
-                onClick: () => {
-                  document.getElementById("music-hub-playlist-links")?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  });
-                  window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
-                },
-                disabled: !canManageMusic,
-              }}
+              primaryAction={
+                isCoupleView
+                  ? undefined
+                  : {
+                    label: "Add playlist link",
+                    onClick: () => {
+                      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                      window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
+                    },
+                    disabled: !canManageMusic,
+                  }
+              }
             />
 
-            <PremiumCard variant="accent" className={isCoupleView ? "order-[1]" : ""}>
+            <PremiumCard
+              variant="accent"
+              className={isCoupleView ? "order-[1]" : ""}
+              style={isCoupleView ? { order: 1 } : undefined}
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p
@@ -17740,6 +17748,57 @@ export default function Home() {
                   : "Build the soundtrack for your event, from must-play songs to guest requests."}
               </p>
             </PremiumCard>
+
+            {isCoupleView ? (
+              <PremiumCard className="border-stone-200 bg-white shadow-sm" style={{ order: 2 }}>
+                <SectionTitle className="text-stone-950">Where would you like to start?</SectionTitle>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                      window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
+                    }}
+                    disabled={!canManageMusic}
+                    className="flex min-h-[11rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    <span>
+                      <span className="block text-base font-semibold text-stone-950">I already have playlists</span>
+                      <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+                        Share Spotify, Apple Music, YouTube, or other playlist links with your DJ.
+                      </span>
+                    </span>
+                    <span className={`mt-4 inline-flex ${couplePortalPrimaryButtonClass}`}>
+                      Add Playlist Link
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById("music-hub-must-play")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }}
+                    disabled={!canManageMusic}
+                    className="flex min-h-[11rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    <span>
+                      <span className="block text-base font-semibold text-stone-950">I want to build it here</span>
+                      <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+                        Add must-play songs, open dancing favorites, and songs to avoid.
+                      </span>
+                    </span>
+                    <span className={`mt-4 inline-flex ${couplePortalSecondaryButtonClass}`}>
+                      Start Adding Songs
+                    </span>
+                  </button>
+                </div>
+              </PremiumCard>
+            ) : null}
 
             {!canManageMusic && (
               <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
@@ -17764,6 +17823,7 @@ export default function Home() {
             <PremiumCard
               id="music-hub-playlist-links"
               className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[10]" : ""}`}
+              style={isCoupleView ? { order: 3 } : undefined}
             >
               <SectionTitle className="text-stone-950">Playlist Links</SectionTitle>
               <p className="mt-1 text-sm leading-snug text-stone-600">
@@ -17974,6 +18034,7 @@ export default function Home() {
             <PremiumCard
               id="music-hub-taste-profile"
               className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[30]" : ""}`}
+              style={isCoupleView ? { order: 7 } : undefined}
             >
               <SectionTitle className="text-stone-950">
                 {isCoupleView ? "Open Dancing" : "Music taste profile"}
@@ -18092,7 +18153,10 @@ export default function Home() {
               </div>
             </PremiumCard>
 
-            <PremiumCard className={`border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[31]" : ""}`}>
+            <PremiumCard
+              className={`border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[31]" : ""}`}
+              style={isCoupleView ? { order: 8 } : undefined}
+            >
               <SectionTitle className="text-stone-950">
                 {isCoupleView ? "Favorite Genres" : "Genres & eras"}
               </SectionTitle>
@@ -18126,7 +18190,11 @@ export default function Home() {
               ) : null}
             </PremiumCard>
 
-            <PremiumCard id="music-hub-quick-add" className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}>
+            <PremiumCard
+              id="music-hub-quick-add"
+              className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}
+              style={isCoupleView ? { order: 6 } : undefined}
+            >
               <SectionTitle className="text-stone-950">
                 {isCoupleView ? "Add Songs to Your Lists" : "Individual songs (optional)"}
               </SectionTitle>
@@ -18221,7 +18289,10 @@ export default function Home() {
             </PremiumCard>
 
             {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
-              <div className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}>
+              <div
+                className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}
+                style={isCoupleView ? { order: 4 } : undefined}
+              >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
                   {isCoupleView ? "Must Play List" : "Priority songs"}
                 </p>
@@ -18239,6 +18310,7 @@ export default function Home() {
                   variant="accent"
                   id="music-hub-must-play"
                   className={isCoupleView ? "order-[20]" : ""}
+                  style={isCoupleView ? { order: 5 } : undefined}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -18298,6 +18370,7 @@ export default function Home() {
                 <PremiumCard
                   className={`border border-emerald-200/80 bg-white shadow-none ${isCoupleView ? "order-[32]" : ""}`}
                   id="music-hub-play-if-possible"
+                  style={isCoupleView ? { order: 9 } : undefined}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -18353,6 +18426,7 @@ export default function Home() {
                 <PremiumCard
                   className={`border-stone-300 bg-white shadow-none ${isCoupleView ? "order-[40]" : ""}`}
                   id="music-hub-do-not-play"
+                  style={isCoupleView ? { order: 12 } : undefined}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -18406,7 +18480,10 @@ export default function Home() {
             </div>
 
             {sectionPlaylistsEnabled && (
-              <details className={`group no-print rounded-2xl border border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[33]" : ""}`}>
+              <details
+                className={`group no-print rounded-2xl border border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[33]" : ""}`}
+                style={isCoupleView ? { order: 10 } : undefined}
+              >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3.5 text-sm font-semibold text-stone-900 sm:px-5 [&::-webkit-details-marker]:hidden">
                   <span>{isCoupleView ? "Dance Floor Ideas by Part of the Night" : "Song ideas by part of the night (optional)"}</span>
                   <span className="text-[11px] font-medium text-stone-500 transition-transform group-open:rotate-180">
@@ -18570,7 +18647,7 @@ export default function Home() {
             )}
 
             {isCoupleView ? (
-              <PremiumCard className="order-[45] border-stone-200 bg-white shadow-sm">
+              <PremiumCard className="order-[45] border-stone-200 bg-white shadow-sm" style={{ order: 14 }}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <SectionTitle className="text-stone-950">Special Songs</SectionTitle>
@@ -18590,7 +18667,10 @@ export default function Home() {
             ) : null}
 
             {sectionGuestRequestsEnabled ? (
-              <PremiumCard className={isCoupleView ? "order-[50]" : ""}>
+              <PremiumCard
+                className={isCoupleView ? "order-[50]" : ""}
+                style={isCoupleView ? { order: 13 } : undefined}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <SectionTitle>{isCoupleView ? "Guest Requests" : "Guest requests"}</SectionTitle>
@@ -18670,7 +18750,10 @@ export default function Home() {
                 </div>
               </PremiumCard>
             ) : (
-              <PremiumCard className={`border-dashed border-stone-300 bg-stone-50 ${isCoupleView ? "order-[50]" : ""}`}>
+              <PremiumCard
+                className={`border-dashed border-stone-300 bg-stone-50 ${isCoupleView ? "order-[50]" : ""}`}
+                style={isCoupleView ? { order: 13 } : undefined}
+              >
                 <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
                 <p className="mt-2 text-xs text-stone-600">
                   Guest requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
@@ -18680,7 +18763,11 @@ export default function Home() {
             )}
 
             {sectionMusicNotesEnabled && (
-              <PremiumCard variant="accent" className={isCoupleView ? "order-[34]" : ""}>
+              <PremiumCard
+                variant="accent"
+                className={isCoupleView ? "order-[34]" : ""}
+                style={isCoupleView ? { order: 11 } : undefined}
+              >
                 <SectionTitle>{isCoupleView ? "More Dance Floor Direction" : "Music notes & vibe"}</SectionTitle>
                 <p className="mt-1 text-xs text-stone-600">
                   {isCoupleView
