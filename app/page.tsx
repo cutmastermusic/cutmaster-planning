@@ -374,6 +374,7 @@ import {
   buildGrandEntranceMomentWorkspaceRef,
   buildMusicHubMomentWorkspaceRef,
   buildParentDanceMomentWorkspaceRef,
+  isCeremonyMainTimelineMoment,
   resolveCoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
 import {
@@ -12669,6 +12670,14 @@ export default function Home() {
     [timelineItems],
   );
 
+  const receptionTimelineDisplayItems = useMemo(
+    () =>
+      isCoupleView
+        ? mergedTimelineItems.filter((item) => !isCeremonyMainTimelineMoment(item.title))
+        : mergedTimelineItems,
+    [isCoupleView, mergedTimelineItems],
+  );
+
   const coupleMomentMusicHubRef = useMemo(
     () =>
       buildMusicHubMomentWorkspaceRef(
@@ -19177,7 +19186,7 @@ export default function Home() {
                 </PremiumCard>
               )}
 
-              {mergedTimelineItems.length > 0 && receptionTimelineClockOrderConflict ? (
+              {receptionTimelineDisplayItems.length > 0 && receptionTimelineClockOrderConflict ? (
                 <div className="no-print rounded-xl border border-stone-300 bg-stone-50/90 px-4 py-3 shadow-none sm:flex sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-stone-900">
@@ -19206,7 +19215,7 @@ export default function Home() {
                     : TIMELINE_STREAM_CLASS
                 }
               >
-                {mergedTimelineItems.length === 0 ? (
+                {receptionTimelineDisplayItems.length === 0 ? (
                   showTimelinePresetOnboarding ? null : (
                     <SectionEmptyState
                       title="Build your reception flow"
@@ -19231,7 +19240,7 @@ export default function Home() {
                   )
                 ) : (
                   <>
-                  {mergedTimelineItems.map((item, index) => {
+                  {receptionTimelineDisplayItems.map((item, index) => {
                     const timelineRow = timelineItems.find((t) => t.id === item.id);
                     const rowExpanded = receptionTimelineExpandedId === item.id;
                     const songPreview =
@@ -19929,7 +19938,7 @@ export default function Home() {
                           </button>
                           <TimelineCardPositionIndicator
                             index={index}
-                            total={mergedTimelineItems.length}
+                            total={receptionTimelineDisplayItems.length}
                           />
                         </div>
                       </PremiumCard>
@@ -19975,14 +19984,18 @@ export default function Home() {
                       </Fragment>
                     )
                   })}
-                  {missingDefaultMainTimelineMoments.length > 0 && canEditTimeline ? (
+                  {missingDefaultMainTimelineMoments.filter(
+                    (moment) => !isCoupleView || !isCeremonyMainTimelineMoment(moment.title),
+                  ).length > 0 && canEditTimeline ? (
                     <RestoreDefaultTimelineMoments
-                      missingMoments={missingDefaultMainTimelineMoments}
+                      missingMoments={missingDefaultMainTimelineMoments.filter(
+                        (moment) => !isCoupleView || !isCeremonyMainTimelineMoment(moment.title),
+                      )}
                       onRestore={restoreDefaultMainTimelineMoment}
                       disabled={!canEditTimeline}
                     />
                   ) : null}
-                  {mergedTimelineItems.length >= 1 && mergedTimelineItems.length <= 3 ? (
+                  {receptionTimelineDisplayItems.length >= 1 && receptionTimelineDisplayItems.length <= 3 ? (
                     <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
                       <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
                         Add the next reception moment with{" "}
