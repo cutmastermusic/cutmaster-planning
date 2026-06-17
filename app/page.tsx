@@ -5045,6 +5045,7 @@ export default function Home() {
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
         ),
+        timelineReviewRequestedAt: evt.settings?.timelineReviewRequestedAt,
         ceremonyCoverageStatus: normalizeCeremonyCoverageStatus(
           evt.settings?.ceremonyCoverageStatus,
           (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
@@ -6618,6 +6619,47 @@ export default function Home() {
     },
     [activeEventId, isActualCouple],
   );
+
+  const requestTimelineReview = useCallback(async () => {
+    const requestedAt = eventSettings.timelineReviewRequestedAt ?? new Date().toISOString();
+    const nextSettings: EventSettings = {
+      ...eventSettings,
+      timelineReviewRequestedAt: requestedAt,
+    };
+
+    setEventSettings(nextSettings);
+    if (activeEventId) {
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? {
+              ...evt,
+              lastUpdatedAt: Date.now(),
+              settings: { ...evt.settings, timelineReviewRequestedAt: requestedAt },
+            }
+            : evt,
+        ),
+      );
+    }
+
+    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
+    const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
+    const result = await persistEventMetadataToDatabase(
+      activeEventId,
+      nextSettings,
+      sessionIsCoupleForPersist,
+      preservedSettings,
+    );
+    if (!result.ok) {
+      console.error("Failed to persist timeline review request:", result.error);
+    }
+  }, [
+    activeEventId,
+    eventSettings,
+    events,
+    persistEventMetadataToDatabase,
+    sessionIsCoupleForPersist,
+  ]);
 
   const setChecklistTaskHandled = useCallback(
     (taskId: string, handled: boolean) => {
@@ -10163,6 +10205,9 @@ export default function Home() {
               ? new Date(dbEvent.date).toISOString().split("T")[0]
               : "",
             eventStatus: normalizeEventStatus(dbEvent.eventStatus),
+            timelineReviewRequestedAt: dbEvent.timelineReviewRequestedAt
+              ? new Date(dbEvent.timelineReviewRequestedAt).toISOString()
+              : undefined,
             ...(() => {
               const coverFields = coverPhotoFieldsFromDbRow({
                 coverPhotoStoragePath: dbEvent.coverPhotoStoragePath,
@@ -10886,6 +10931,7 @@ export default function Home() {
           evt.settings?.eventStatus,
           (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
         ),
+          timelineReviewRequestedAt: evt.settings?.timelineReviewRequestedAt,
           ceremonyCoverageStatus: normalizeCeremonyCoverageStatus(
             evt.settings?.ceremonyCoverageStatus,
             (evt.settings?.eventLayoutProfile as EventLayoutProfile) ?? "Wedding",
@@ -17319,6 +17365,11 @@ export default function Home() {
                         <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200">
                           {eventVenueDisplay}
                         </span>
+                        {!isCoupleView && eventSettings.timelineReviewRequestedAt ? (
+                          <span className="inline-flex rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold text-zinc-100">
+                            Timeline Review Requested
+                          </span>
+                        ) : null}
                       </div>
                       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
                         <div className="min-w-0 flex-1">
@@ -20342,6 +20393,58 @@ export default function Home() {
                   </>
                 )}
               </div>
+
+              {isCoupleView ? (
+                <PremiumCard className="border-stone-200 bg-stone-50/80 shadow-sm">
+                  {eventSettings.timelineReviewRequestedAt ? (
+                    <div className="mx-auto max-w-[44rem] text-center">
+                      <p className="text-base font-semibold tracking-tight text-stone-950">
+                        Timeline Review Requested
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                        Thanks — we&apos;ll review your timeline and reach out if we have any questions.
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                        You can continue making changes anytime.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold tracking-tight text-stone-950">
+                          Your timeline is looking great.
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                          When you&apos;re ready, request a review and we&apos;ll take a look before your wedding.
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-2 sm:min-w-[12rem]">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => {
+                            void requestTimelineReview();
+                          }}
+                          className="w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-sm hover:brightness-105"
+                        >
+                          Request Timeline Review
+                        </PrimaryButton>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            document.getElementById("timeline-section-reception")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            })
+                          }
+                          className="w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-stone-50"
+                        >
+                          Continue Editing
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </PremiumCard>
+              ) : null}
 
               {!isCoupleView && (
                 <PremiumCard variant="accent">

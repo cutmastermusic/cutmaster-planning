@@ -108,6 +108,7 @@ type EventData = {
   receptionLocation?: string | null;
   internalNotes?: string | null;
   eventStatus?: string | null;
+  timelineReviewRequestedAt?: Date | null;
 };
 
 function eventDataToMetadataUpdate(data: EventData): DatabaseEventMetadataUpdate {
@@ -125,6 +126,7 @@ function eventDataToMetadataUpdate(data: EventData): DatabaseEventMetadataUpdate
     receptionLocation: data.receptionLocation,
     internalNotes: data.internalNotes,
     eventStatus: data.eventStatus ?? undefined,
+    timelineReviewRequestedAt: data.timelineReviewRequestedAt,
   };
 }
 
@@ -233,6 +235,7 @@ export async function createEvent(data: EventData) {
         receptionLocation: data.receptionLocation,
         internalNotes: data.internalNotes,
         eventStatus: data.eventStatus ?? "Planning",
+        timelineReviewRequestedAt: data.timelineReviewRequestedAt ?? null,
         ownerId: demoUser.id,
         timelines: {
           create: {
@@ -425,6 +428,7 @@ export async function updateEvent(id: string, data: EventData) {
         receptionLocation: true,
         internalNotes: true,
         eventStatus: true,
+      timelineReviewRequestedAt: true,
       },
     });
 
@@ -443,6 +447,7 @@ export async function updateEvent(id: string, data: EventData) {
         receptionLocation: existing.receptionLocation,
         internalNotes: existing.internalNotes,
         eventStatus: existing.eventStatus,
+        timelineReviewRequestedAt: metadata.timelineReviewRequestedAt,
       });
     }
   }
@@ -466,6 +471,7 @@ export async function updateEvent(id: string, data: EventData) {
       receptionLocation: metadata.receptionLocation,
       internalNotes: metadata.internalNotes,
       eventStatus: metadata.eventStatus ?? undefined,
+      timelineReviewRequestedAt: metadata.timelineReviewRequestedAt,
     },
   });
 }

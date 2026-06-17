@@ -80,6 +80,7 @@ model Event {
   receptionLocation String?
   internalNotes     String?
   eventStatus       String   @default("Planning")
+  timelineReviewRequestedAt DateTime?
 
   /** DB-backed Grand Entrance moment detail (syncs across devices). */
   grandEntranceScript  String?

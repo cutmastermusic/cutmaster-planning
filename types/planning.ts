@@ -567,6 +567,8 @@ export type EventSettings = {
   hasPersonalizedWelcomePhoto?: boolean;
   /** Planning/execution stage; defaults to Planning when missing. */
   eventStatus?: EventStatus;
+  /** ISO timestamp for the couple's simple timeline review request. Editing remains open. */
+  timelineReviewRequestedAt?: string;
   /** Whether Cutmaster provides ceremony audio; defaults by event type when missing. */
   ceremonyCoverageStatus?: CeremonyCoverageStatus;
 };

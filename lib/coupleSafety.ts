@@ -79,6 +79,7 @@ export type DatabaseEventMetadataUpdate = {
   receptionLocation?: string | null;
   internalNotes?: string | null;
   eventStatus?: string | null;
+  timelineReviewRequestedAt?: Date | null;
 };
 
 export function buildDatabaseEventUpdateForRole(
@@ -102,6 +103,9 @@ export function buildDatabaseEventUpdateForRole(
     receptionLocation: settings.receptionLocation || null,
     internalNotes: settings.internalNotes || null,
     eventStatus: settings.eventStatus ?? undefined,
+    timelineReviewRequestedAt: settings.timelineReviewRequestedAt
+      ? new Date(settings.timelineReviewRequestedAt)
+      : null,
   };
 }
 
