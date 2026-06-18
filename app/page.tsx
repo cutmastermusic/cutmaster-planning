@@ -20827,15 +20827,30 @@ export default function Home() {
                               <CoupleTimelineMomentCardSummary lines={coupleSummaryLines} />
                             </CoupleScrollSafeTapSurface>
                             {canEditTimeline ? (
-                              <PrimaryButton
-                                type="button"
-                                onClick={() => {
-                                  if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                                }}
-                                className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} w-full md:w-auto md:shrink-0`}
-                              >
-                                Edit
-                              </PrimaryButton>
+                              <div className="flex w-full flex-col gap-2 md:w-auto md:shrink-0 md:flex-row md:flex-wrap md:justify-end">
+                                <PrimaryButton
+                                  type="button"
+                                  onClick={() => {
+                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                  }}
+                                  className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} w-full md:w-auto md:shrink-0`}
+                                >
+                                  Edit
+                                </PrimaryButton>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPendingTimelineDelete({
+                                      kind: "reception",
+                                      id: item.id,
+                                      label: item.title.trim() || "this moment",
+                                    })
+                                  }
+                                  className={`${TIMELINE_CARD_ACTION_BTN_DELETE_CLASS} w-full md:w-auto md:shrink-0`}
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             ) : null}
                           </div>
                         ) : !rowExpanded ? (
