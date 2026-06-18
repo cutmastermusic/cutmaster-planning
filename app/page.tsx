@@ -5962,27 +5962,12 @@ export default function Home() {
       if (parseSpeechesToasts(speechesToastsRaw).length > 0) completed += 1;
     }
     for (const row of planningQuestionsGroupedBySection) {
+      if (isCoupleWeddingPlanningView && row.group.id === "reception_moments") continue;
       const visibleQuestions = row.questions.filter(
         (question) =>
           question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
           question.id !== SPEECHES_TOASTS_PLANNING_KEY,
       );
-      if (isCoupleWeddingPlanningView && row.group.id === "reception_moments") {
-        let sectionSteps = visibleQuestions.length;
-        let sectionAnswered = visibleQuestions.filter((q) => (answers[q.id] ?? "").trim()).length;
-        if (showWeddingPartyLineupSection) {
-          sectionSteps += 1;
-          if (parseWeddingPartyLineup(weddingPartyLineupRaw).length > 0) sectionAnswered += 1;
-        }
-        if (showSpeechesToastsSection) {
-          sectionSteps += 1;
-          if (parseSpeechesToasts(speechesToastsRaw).length > 0) sectionAnswered += 1;
-        }
-        if (sectionSteps === 0) continue;
-        total += 1;
-        if (sectionAnswered === sectionSteps) completed += 1;
-        continue;
-      }
       if (visibleQuestions.length === 0) continue;
       total += 1;
       if (computePlanningQuestionGroupCompletion(visibleQuestions, answers) === 100) {
@@ -11150,7 +11135,12 @@ export default function Home() {
             : "landing",
         );
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
-        setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
+        const storedPlanningChapterId = parsed.appState.activePlanningChapterId ?? null;
+        const restoredPlanningChapterId: CoupleWeddingChapterId | null =
+          storedPlanningChapterId && COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER.includes(storedPlanningChapterId)
+            ? storedPlanningChapterId
+            : null;
+        setActivePlanningChapterId(restoredPlanningChapterId);
         setPlanningChapterGuidedResume(parsed.appState.planningChapterGuidedResume ?? {});
         setGuidedChapterResumeMode("restore");
         const restoredScreen = migrateLegacyScreenId(parsed.appState.activeScreen ?? "Dashboard");
@@ -11162,7 +11152,7 @@ export default function Home() {
         setActiveScreen(restoredScreen);
         pendingCoupleNavRestoreRef.current = {
           screen: restoredScreen,
-          chapterId: parsed.appState.activePlanningChapterId ?? null,
+          chapterId: restoredPlanningChapterId,
         };
       }
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
@@ -13127,7 +13117,6 @@ export default function Home() {
     const storyChapterIds: CoupleWeddingChapterId[] = [
       "about_you",
       "ceremony",
-      "reception_moments",
       "music_vibe",
       "your_team",
     ];
@@ -13165,16 +13154,12 @@ export default function Home() {
       weddingDate: eventSettings.weddingDate ?? "",
       venue: eventSettings.venue ?? "",
       answers: eventSettings.planningQuestionAnswers ?? {},
-      showWeddingPartyLineupSection,
-      showSpeechesToastsSection,
     }),
     [
       eventSettings.coupleNames,
       eventSettings.planningQuestionAnswers,
       eventSettings.venue,
       eventSettings.weddingDate,
-      showSpeechesToastsSection,
-      showWeddingPartyLineupSection,
     ],
   );
 
@@ -24546,12 +24531,6 @@ export default function Home() {
                 renderQuestionEditor={({ question, value, onChange }) => (
                   <PlanningQuestionAnswerEditor q={question} value={value} onChange={onChange} />
                 )}
-                showWeddingPartyLineupSection={showWeddingPartyLineupSection}
-                showSpeechesToastsSection={showSpeechesToastsSection}
-                weddingPartyLineupSummary={weddingPartyLineupSummary}
-                speechesToastsSummary={speechesToastsSummary}
-                onOpenWeddingPartyLineupEditor={openWeddingPartyLineupEditor}
-                onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
                 onContinueToNextChapter={async (chapterAnswers) => {
                   if (activePlanningChapterId === "your_team") {
                     await handleCoupleYourTeamChapterContinue(chapterAnswers);

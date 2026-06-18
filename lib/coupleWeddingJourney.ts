@@ -29,7 +29,6 @@ export type CoupleWeddingChapterId =
 export const COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER: CoupleWeddingChapterId[] = [
   "about_you",
   "ceremony",
-  "reception_moments",
   "music_vibe",
   "your_team",
   "final_review",
@@ -39,7 +38,6 @@ export const COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER: CoupleWeddingChapterId[] = [
 export const COUPLE_WEDDING_STORY_CHAPTER_IDS: CoupleWeddingChapterId[] = [
   "about_you",
   "ceremony",
-  "reception_moments",
   "music_vibe",
 ];
 
@@ -157,19 +155,19 @@ const CHAPTER_CARD_COPY: Record<
     isPlaceholder: false,
   },
   music_vibe: {
-    kicker: "Chapter 4",
+    kicker: "Chapter 3",
     title: "Music Profile",
     description: "Your musical identity—energy, genres, and dance-floor vision before playlists.",
     isPlaceholder: false,
   },
   your_team: {
-    kicker: "Chapter 5",
+    kicker: "Chapter 4",
     title: "Your Team",
     description: "Who you've booked—and who's still on your list.",
     isPlaceholder: false,
   },
   final_review: {
-    kicker: "Chapter 6",
+    kicker: "Chapter 5",
     title: "Final Review",
     description: "A calm pass to confirm your story is ready for the big day.",
     isPlaceholder: false,
@@ -222,7 +220,7 @@ export function buildCoupleWeddingChapterCards(
       statLine =
         completionPct >= 100
           ? "Ready for your final pass"
-          : "Opens for a final pass once Chapters 1–5 are complete";
+          : "Opens for a final pass once Chapters 1–4 are complete";
       statSubline = "Tap anytime to see what still needs attention";
     } else if (visibleQuestions.length > 0) {
       const answered = visibleQuestions.filter((q) => (input.answers[q.id] ?? "").trim()).length;

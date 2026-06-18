@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
 import { CoupleCeremonyGuidedSection } from "@/components/couple-ceremony-guided-section";
 import { CoupleFinalReviewSection } from "@/components/couple-final-review-section";
-import { CoupleReceptionMomentsGuidedSection } from "@/components/couple-reception-moments-guided-section";
 import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guided-section";
 import {
   CoupleGuidedQuestionSection,
@@ -21,14 +20,12 @@ import {
   couplePortalPrimaryButtonClass,
 } from "@/components/planning-ui";
 import type { GroupedPlanningQuestionsRow } from "@/data/planningQuestionGroups";
-import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import {
   coupleWeddingChapterNavLabel,
   isCoupleWeddingGuidedChapter,
   type CoupleWeddingChapterId,
   type CoupleWeddingChapterStatus,
 } from "@/lib/coupleWeddingJourney";
-import { SPEECHES_TOASTS_PLANNING_KEY } from "@/lib/speechesToasts";
 import { buildGuidedChapterReviewIncompleteHint } from "@/lib/coupleGuidedChapterMissingFields";
 import type { CoupleOperationalReadinessInput, CoupleFinalReviewSummaryInput } from "@/lib/coupleFinalReviewPlanning";
 import type { PlanningQuestionDef } from "@/types/planning";
@@ -57,13 +54,6 @@ const COUPLE_WEDDING_GUIDED_CHAPTER_COPY: Record<
     intro: "A quick pass on ceremony audio and logistics—exact details can wait if you are still deciding.",
     completionMessage: "Thanks — this helps us know what to plan for your ceremony.",
   },
-  reception_moments: {
-    sectionId: "reception-moments-guided",
-    eyebrow: "Reception Moments",
-    title: "Let's plan the moments everyone will remember",
-    intro: "These are the moments that make your reception feel personal.",
-    completionMessage: "Thanks — these details help us shape a reception that feels like you.",
-  },
   music_vibe: {
     sectionId: "music-profile-guided",
     eyebrow: "Music Profile",
@@ -83,12 +73,6 @@ export type CoupleWeddingChapterScreenProps = {
     value: string;
     onChange: (next: string) => void;
   }) => ReactNode;
-  showWeddingPartyLineupSection: boolean;
-  showSpeechesToastsSection: boolean;
-  weddingPartyLineupSummary: string;
-  speechesToastsSummary: string;
-  onOpenWeddingPartyLineupEditor: () => void;
-  onOpenSpeechesToastsEditor: () => void;
   onContinueToNextChapter: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
   continueToNextChapterLabel: string;
   yourTeamContinueBlockedMessage?: string | null;
@@ -109,11 +93,7 @@ export type CoupleWeddingChapterScreenProps = {
 
 function visibleQuestionsForRow(row: GroupedPlanningQuestionsRow | null): PlanningQuestionDef[] {
   if (!row) return [];
-  return row.questions.filter(
-    (question) =>
-      question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
-      question.id !== SPEECHES_TOASTS_PLANNING_KEY,
-  );
+  return row.questions;
 }
 
 export function CoupleWeddingChapterScreen({
@@ -122,12 +102,6 @@ export function CoupleWeddingChapterScreen({
   answers,
   onAnswerChange,
   renderQuestionEditor,
-  showWeddingPartyLineupSection,
-  showSpeechesToastsSection,
-  weddingPartyLineupSummary,
-  speechesToastsSummary,
-  onOpenWeddingPartyLineupEditor,
-  onOpenSpeechesToastsEditor,
   onContinueToNextChapter,
   continueToNextChapterLabel,
   yourTeamContinueBlockedMessage = null,
@@ -236,25 +210,6 @@ export function CoupleWeddingChapterScreen({
           </PrimaryButton>
         </PremiumCard>
       </section>
-    );
-  }
-
-  if (chapterId === "reception_moments") {
-    return (
-      <CoupleReceptionMomentsGuidedSection
-        questions={visibleQuestions}
-        answers={answers}
-        onAnswerChange={onAnswerChange}
-        renderQuestionEditor={renderQuestionEditor}
-        showWeddingPartyLineupSection={showWeddingPartyLineupSection}
-        showSpeechesToastsSection={showSpeechesToastsSection}
-        weddingPartyLineupSummary={weddingPartyLineupSummary}
-        speechesToastsSummary={speechesToastsSummary}
-        onOpenWeddingPartyLineupEditor={onOpenWeddingPartyLineupEditor}
-        onOpenSpeechesToastsEditor={onOpenSpeechesToastsEditor}
-        {...chapterContinueProps}
-        {...guidedResumeProps}
-      />
     );
   }
 

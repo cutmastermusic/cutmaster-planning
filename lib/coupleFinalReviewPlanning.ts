@@ -7,7 +7,6 @@ import {
   normalizeCeremonyCutmasterServicesAnswer,
   normalizeCeremonyLocationAnswer,
 } from "@/lib/coupleCeremonyPlanning";
-import { GRAND_ENTRANCE_PLANNING_LINEUP_KEY } from "@/lib/grandEntranceDetail";
 import {
   MUSIC_PROFILE_QUESTION_IDS,
   formatPlanningQuestionChipAnswerForDisplay,
@@ -19,8 +18,6 @@ import {
   parseYourTeamOtherPartnersAnswer,
   parseYourTeamRoleSlotAnswer,
 } from "@/lib/coupleYourTeamPlanning";
-import { SPEECHES_TOASTS_PLANNING_KEY, parseSpeechesToasts } from "@/lib/speechesToasts";
-import { parseWeddingPartyLineup } from "@/lib/weddingPartyLineup";
 import { formatEventDateForDisplay } from "@/utils/planning";
 
 export type CoupleOperationalReadinessRow = {
@@ -123,8 +120,6 @@ export type CoupleFinalReviewSummaryInput = {
   weddingDate: string;
   venue: string;
   answers: Record<string, string | undefined>;
-  showWeddingPartyLineupSection: boolean;
-  showSpeechesToastsSection: boolean;
 };
 
 const ABOUT_YOU_SUMMARY_CANDIDATES: ReadonlyArray<{ id: string; label: string }> = [
@@ -231,50 +226,6 @@ function buildCeremonySummaryLines(
   return lines;
 }
 
-function buildReceptionMomentsSummaryLines(
-  input: CoupleFinalReviewSummaryInput,
-): CoupleFinalReviewSummaryLine[] {
-  const { answers } = input;
-  const lines: CoupleFinalReviewSummaryLine[] = [];
-
-  const formalDances = trimSummaryText(answers.pq_formal_dances);
-  if (formalDances) {
-    lines.push({ label: "Formal dances", value: firstLinePreview(formalDances) });
-  }
-
-  if (input.showSpeechesToastsSection) {
-    const toastCount = parseSpeechesToasts(answers[SPEECHES_TOASTS_PLANNING_KEY] ?? "").length;
-    if (toastCount > 0) {
-      lines.push({
-        label: "Toasts",
-        value: `${toastCount} speaker${toastCount === 1 ? "" : "s"} planned`,
-      });
-    }
-  }
-
-  if (input.showWeddingPartyLineupSection) {
-    const partyCount = parseWeddingPartyLineup(answers[GRAND_ENTRANCE_PLANNING_LINEUP_KEY] ?? "").length;
-    if (partyCount > 0) {
-      lines.push({
-        label: "Wedding party",
-        value: `${partyCount} entrance${partyCount === 1 ? "" : "s"} planned`,
-      });
-    }
-  }
-
-  const traditions = trimSummaryText(answers.pq_traditions);
-  if (traditions) {
-    lines.push({ label: "Traditions", value: firstLinePreview(traditions) });
-  }
-
-  const lastDance = trimSummaryText(answers.pq_last_dance);
-  if (lastDance) {
-    lines.push({ label: "Last dance", value: truncateSummaryText(lastDance) });
-  }
-
-  return lines;
-}
-
 function buildMusicProfileSummaryLines(
   answers: Record<string, string | undefined>,
 ): CoupleFinalReviewSummaryLine[] {
@@ -363,11 +314,6 @@ export function buildCoupleFinalReviewWeddingSummary(
 
   const ceremonyLines = buildCeremonySummaryLines(input.answers);
   if (ceremonyLines.length > 0) chapters.push({ title: "Ceremony", lines: ceremonyLines });
-
-  const receptionLines = buildReceptionMomentsSummaryLines(input);
-  if (receptionLines.length > 0) {
-    chapters.push({ title: "Reception Moments", lines: receptionLines });
-  }
 
   const musicLines = buildMusicProfileSummaryLines(input.answers);
   if (musicLines.length > 0) chapters.push({ title: "Music Profile", lines: musicLines });
