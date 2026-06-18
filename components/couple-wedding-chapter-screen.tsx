@@ -87,8 +87,6 @@ export type CoupleWeddingChapterScreenProps = {
   showSpeechesToastsSection: boolean;
   weddingPartyLineupSummary: string;
   speechesToastsSummary: string;
-  ceremonyNotes: string;
-  onCeremonyNotesChange: (next: string) => void;
   onOpenWeddingPartyLineupEditor: () => void;
   onOpenSpeechesToastsEditor: () => void;
   onContinueToNextChapter: (chapterAnswers?: Record<string, string | undefined>) => void | Promise<void>;
@@ -128,8 +126,6 @@ export function CoupleWeddingChapterScreen({
   showSpeechesToastsSection,
   weddingPartyLineupSummary,
   speechesToastsSummary,
-  ceremonyNotes,
-  onCeremonyNotesChange,
   onOpenWeddingPartyLineupEditor,
   onOpenSpeechesToastsEditor,
   onContinueToNextChapter,
@@ -212,9 +208,6 @@ export function CoupleWeddingChapterScreen({
       <CoupleCeremonyGuidedSection
         answers={answers}
         onAnswerChange={onAnswerChange}
-        ceremonyNotes={ceremonyNotes}
-        onCeremonyNotesChange={onCeremonyNotesChange}
-        onOpenTimeline={onOpenTimeline}
         {...chapterContinueProps}
         {...guidedResumeProps}
       />

@@ -1,6 +1,7 @@
 /** Ceremony chapter — planning question IDs and checkpoint logic. */
 
 export const CEREMONY_CHAPTER_QUESTION_IDS = {
+  hasCeremony: "pq_has_ceremony",
   cutmasterServices: "pq_ceremony_cutmaster_services",
   startTime: "pq_ceremony_start_time",
   location: "pq_ceremony_location",
@@ -13,6 +14,10 @@ export const CEREMONY_LEGACY_QUESTION_IDS = ["pq_ceremony"] as const;
 export const CEREMONY_CUTMASTER_SERVICES_OPTIONS = ["Yes", "No", "Not sure yet"] as const;
 
 export type CeremonyCutmasterServicesAnswer = "yes" | "no" | "not_sure";
+
+export const CEREMONY_HAPPENING_OPTIONS = ["Yes", "No"] as const;
+
+export type CeremonyHappeningAnswer = "yes" | "no";
 
 export const CEREMONY_LOCATION_OPTIONS = [
   "Same location as reception",
@@ -35,6 +40,19 @@ const CEREMONY_SERVICES_VALUE_TO_LABEL: Record<CeremonyCutmasterServicesAnswer, 
   yes: "Yes",
   no: "No",
   not_sure: "Not sure yet",
+};
+
+const CEREMONY_HAPPENING_LABEL_TO_VALUE: Record<
+  (typeof CEREMONY_HAPPENING_OPTIONS)[number],
+  CeremonyHappeningAnswer
+> = {
+  Yes: "yes",
+  No: "no",
+};
+
+const CEREMONY_HAPPENING_VALUE_TO_LABEL: Record<CeremonyHappeningAnswer, string> = {
+  yes: "Yes",
+  no: "No",
 };
 
 const CEREMONY_LOCATION_LABEL_TO_VALUE: Record<
@@ -76,6 +94,21 @@ export function ceremonyCutmasterServicesValueFromLabel(label: string): Ceremony
   return CEREMONY_SERVICES_LABEL_TO_VALUE[label as (typeof CEREMONY_CUTMASTER_SERVICES_OPTIONS)[number]] ?? "";
 }
 
+export function normalizeCeremonyHappeningAnswer(raw: string | undefined): CeremonyHappeningAnswer | "" {
+  const trimmed = (raw ?? "").trim().toLowerCase();
+  if (trimmed === "yes" || trimmed === "no") return trimmed;
+  return "";
+}
+
+export function ceremonyHappeningLabelFromValue(value: CeremonyHappeningAnswer | ""): string {
+  if (!value) return "";
+  return CEREMONY_HAPPENING_VALUE_TO_LABEL[value];
+}
+
+export function ceremonyHappeningValueFromLabel(label: string): CeremonyHappeningAnswer | "" {
+  return CEREMONY_HAPPENING_LABEL_TO_VALUE[label as (typeof CEREMONY_HAPPENING_OPTIONS)[number]] ?? "";
+}
+
 export function normalizeCeremonyLocationAnswer(raw: string | undefined): CeremonyLocationAnswer | "" {
   const trimmed = (raw ?? "").trim().toLowerCase();
   if (
@@ -112,30 +145,12 @@ export function hasLegacyCeremonyPlanningAnswer(
   return Boolean((answers.pq_ceremony ?? "").trim());
 }
 
-function isCeremonyLocationAnswered(answers: Record<string, string | undefined>): boolean {
-  const location = normalizeCeremonyLocationAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.location]);
-  if (!location) return false;
-  if (location === "different") {
-    return Boolean((answers[CEREMONY_CHAPTER_QUESTION_IDS.locationDetails] ?? "").trim());
-  }
-  return true;
-}
-
 function ceremonyRequiredChecks(answers: Record<string, string | undefined>): boolean[] {
-  if (hasLegacyCeremonyPlanningAnswer(answers)) {
-    return [true];
-  }
-
-  const services = normalizeCeremonyCutmasterServicesAnswer(
-    answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
-  );
-  if (!services) return [false];
-
-  return [true, isCeremonyLocationAnswered(answers)];
+  return [Boolean(normalizeCeremonyHappeningAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony]))];
 }
 
-/** Max guided required steps for the couple ceremony chapter (audio + location). */
-export const CEREMONY_GUIDED_MAX_STEP_COUNT = 2;
+/** Max guided required steps for the couple ceremony chapter. */
+export const CEREMONY_GUIDED_MAX_STEP_COUNT = 1;
 
 export function computeCeremonyChapterCompletionPct(
   answers: Record<string, string | undefined>,
@@ -164,25 +179,11 @@ export function isCeremonyChapterComplete(answers: Record<string, string | undef
 export function describeCeremonyChapterMissingFields(
   answers: Record<string, string | undefined>,
 ): string[] {
-  if (hasLegacyCeremonyPlanningAnswer(answers)) {
-    return [];
-  }
-
   const missing: string[] = [];
-  const services = normalizeCeremonyCutmasterServicesAnswer(
-    answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
-  );
+  const hasCeremony = normalizeCeremonyHappeningAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony]);
 
-  if (!services) {
-    missing.push("Ceremony audio/services with Cutmaster Music");
-    return missing;
-  }
-
-  const location = normalizeCeremonyLocationAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.location]);
-  if (!location) {
-    missing.push("Ceremony location");
-  } else if (location === "different" && !(answers[CEREMONY_CHAPTER_QUESTION_IDS.locationDetails] ?? "").trim()) {
-    missing.push("Ceremony location details");
+  if (!hasCeremony) {
+    missing.push("Whether you are having a ceremony");
   }
 
   return missing;
