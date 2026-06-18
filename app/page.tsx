@@ -622,6 +622,12 @@ const MUSIC_GENRE_ERA_ORDER = new Map(
   MUSIC_GENRE_ERA_OPTIONS.map((label, index) => [label, index]),
 );
 
+type CoupleMusicHubScreen = "landing" | "profile" | "songLists";
+
+function isValidCoupleMusicHubScreen(value: unknown): value is CoupleMusicHubScreen {
+  return value === "landing" || value === "profile" || value === "songLists";
+}
+
 type LocalAppStateBackup = {
   activeScreen: Screen;
   appMode: AppMode;
@@ -629,6 +635,7 @@ type LocalAppStateBackup = {
   currentRole: UserRole | null;
   rolePreview: UserRole;
   guestRequestView: "admin" | "guest";
+  coupleMusicHubScreen?: CoupleMusicHubScreen;
   activePlanningChapterId?: CoupleWeddingChapterId | null;
   planningChapterGuidedResume?: CouplePlanningChapterGuidedResumeState;
   inviteAccessPreview: {
@@ -3261,8 +3268,7 @@ export default function Home() {
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
-  const [coupleMusicHubScreen, setCoupleMusicHubScreen] =
-    useState<"landing" | "profile" | "songLists">("landing");
+  const [coupleMusicHubScreen, setCoupleMusicHubScreen] = useState<CoupleMusicHubScreen>("landing");
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
@@ -11000,6 +11006,11 @@ export default function Home() {
           ),
         );
         setGuestRequestView(parsed.appState.guestRequestView === "guest" ? "guest" : "admin");
+        setCoupleMusicHubScreen(
+          isValidCoupleMusicHubScreen(parsed.appState.coupleMusicHubScreen)
+            ? parsed.appState.coupleMusicHubScreen
+            : "landing",
+        );
         setInviteAccessPreview(parsed.appState.inviteAccessPreview ?? null);
         setActivePlanningChapterId(parsed.appState.activePlanningChapterId ?? null);
         setPlanningChapterGuidedResume(parsed.appState.planningChapterGuidedResume ?? {});
@@ -11193,6 +11204,7 @@ export default function Home() {
           currentRole,
           rolePreview,
           guestRequestView,
+          coupleMusicHubScreen,
           inviteAccessPreview,
           activePlanningChapterId,
           planningChapterGuidedResume,
@@ -11399,6 +11411,7 @@ export default function Home() {
     currentRole,
     rolePreview,
     guestRequestView,
+    coupleMusicHubScreen,
     inviteAccessPreview,
     activePlanningChapterId,
     planningChapterGuidedResume,
@@ -11703,6 +11716,7 @@ export default function Home() {
       currentRole,
       rolePreview,
       guestRequestView,
+      coupleMusicHubScreen,
       inviteAccessPreview,
     }),
     [
@@ -11712,6 +11726,7 @@ export default function Home() {
       currentRole,
       rolePreview,
       guestRequestView,
+      coupleMusicHubScreen,
       inviteAccessPreview,
     ],
   );
@@ -11933,6 +11948,11 @@ export default function Home() {
       ),
     );
     setGuestRequestView(backupAppState.guestRequestView === "guest" ? "guest" : "admin");
+    setCoupleMusicHubScreen(
+      isValidCoupleMusicHubScreen(backupAppState.coupleMusicHubScreen)
+        ? backupAppState.coupleMusicHubScreen
+        : "landing",
+    );
     setInviteAccessPreview(backupAppState.inviteAccessPreview ?? null);
     setActiveScreen(migrateLegacyScreenId(backupAppState.activeScreen ?? "Dashboard"));
   };
