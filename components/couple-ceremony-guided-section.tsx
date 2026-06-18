@@ -191,24 +191,37 @@ export function CoupleCeremonyGuidedSection({
       renderGuided: () => (
         <div className={planningQuestionFieldShellClass}>
           <p className={couplePlanningQuestionLabelClass}>Ceremony Moments / Music</p>
-          <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
-            Processional, family entrances, wedding party, bride or groom, unity moments, and recessional songs live
-            on your Ceremony Timeline so each cue stays in the flow of the day.
-          </p>
-          <PrimaryButton
-            type="button"
-            onClick={onOpenTimeline}
-            className={`mt-5 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
-          >
-            Open Ceremony Timeline
-          </PrimaryButton>
+          {servicesValue === "no" ? (
+            <div className="mt-3 space-y-4">
+              <CeremonyCoverageNotice />
+              <p className={couplePlanningQuestionHelperClass}>
+                We’ll keep Ceremony noted in your Reception Timeline for context.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
+                Processional, family entrances, wedding party, bride or groom, unity moments, and recessional songs live
+                on your Ceremony Timeline so each cue stays in the flow of the day.
+              </p>
+              <PrimaryButton
+                type="button"
+                onClick={onOpenTimeline}
+                className={`mt-5 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+              >
+                Open Ceremony Timeline
+              </PrimaryButton>
+            </>
+          )}
         </div>
       ),
       renderReview: () => (
         <div className={planningQuestionFieldShellClass}>
           <p className={couplePlanningQuestionLabelClass}>Ceremony Moments / Music</p>
           <p className="mt-3 text-sm leading-relaxed text-stone-900">
-            Ceremony music is managed on your Ceremony Timeline.
+            {servicesValue === "no"
+              ? "Ceremony will stay noted in your Reception Timeline for context."
+              : "Ceremony music is managed on your Ceremony Timeline."}
           </p>
         </div>
       ),

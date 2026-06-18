@@ -6782,14 +6782,25 @@ export default function Home() {
     isCeremonyCoverageNotProvided(eventSettings) || coupleCeremonyAudioAnswer === "no";
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
   const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
+  const hideCoupleCeremonyTimelineForNoAudio = effectiveRole === "Couple" && coupleCeremonyAudioAnswer === "no";
+  const visibleUnifiedTimeline = unifiedEventTimeline && !hideCoupleCeremonyTimelineForNoAudio;
   const isTimelineWorkspaceScreen =
     activeScreen === "Timeline" || activeScreen === "Reception Timeline";
   useEffect(() => {
     if (!hasHydrated) return;
     if (unifiedEventTimeline && activeScreen === "Ceremony") {
       setActiveScreen("Timeline");
+    } else if (hideCoupleCeremonyTimelineForNoAudio && activeScreen === "Ceremony") {
+      setActiveScreen(sectionReceptionTimelineEnabled ? "Timeline" : "Dashboard");
     }
-  }, [hasHydrated, unifiedEventTimeline, activeScreen, setActiveScreen]);
+  }, [
+    activeScreen,
+    hasHydrated,
+    hideCoupleCeremonyTimelineForNoAudio,
+    sectionReceptionTimelineEnabled,
+    setActiveScreen,
+    unifiedEventTimeline,
+  ]);
 
   const sectionPlaylistsEnabled = eventSettings.sectionPlaylistsEnabled;
   const sectionMustPlayEnabled = eventSettings.sectionMustPlayEnabled;
@@ -6859,21 +6870,22 @@ export default function Home() {
     authStage === "app" &&
     appMode === "event" &&
     isTimelineWorkspaceScreen &&
-    unifiedEventTimeline;
+    visibleUnifiedTimeline;
 
   const showCeremonyOnlyTimelineWorkspace =
     authStage === "app" &&
     appMode === "event" &&
     activeScreen === "Ceremony" &&
     sectionCeremonyEnabled &&
-    !unifiedEventTimeline;
+    !visibleUnifiedTimeline &&
+    !hideCoupleCeremonyTimelineForNoAudio;
 
   const showReceptionOnlyTimelineWorkspace =
     authStage === "app" &&
     appMode === "event" &&
     isTimelineWorkspaceScreen &&
     sectionReceptionTimelineEnabled &&
-    !unifiedEventTimeline;
+    !visibleUnifiedTimeline;
 
 
   const coupleActivePlanningChapterRow = useMemo(() => {
@@ -9273,15 +9285,15 @@ export default function Home() {
   }, [sectionReceptionTimelineEnabled]);
 
   const coupleCeremonyGapTargetScreen = useMemo((): Screen => {
-    if (unifiedEventTimeline) return "Timeline";
+    if (visibleUnifiedTimeline || hideCoupleCeremonyTimelineForNoAudio) return "Timeline";
     return "Ceremony";
-  }, [unifiedEventTimeline]);
+  }, [hideCoupleCeremonyTimelineForNoAudio, visibleUnifiedTimeline]);
 
   const navigateCoupleFinalPlanningHint = useCallback(
     (screen: Screen) => {
       let resolved = screen;
-      if (screen === "Ceremony" && unifiedEventTimeline) {
-        resolved = "Timeline";
+      if (screen === "Ceremony" && (visibleUnifiedTimeline || hideCoupleCeremonyTimelineForNoAudio)) {
+        resolved = sectionReceptionTimelineEnabled ? "Timeline" : "Dashboard";
       } else if (screen === "Dashboard" && sectionPlanningQuestionsEnabled) {
         resolved = "Planning Questions";
       } else if (
@@ -9295,9 +9307,11 @@ export default function Home() {
     },
     [
       coupleTimelineEntryScreen,
+      hideCoupleCeremonyTimelineForNoAudio,
+      sectionReceptionTimelineEnabled,
       sectionPlanningQuestionsEnabled,
       selectActiveScreen,
-      unifiedEventTimeline,
+      visibleUnifiedTimeline,
     ],
   );
 
@@ -9327,7 +9341,9 @@ export default function Home() {
       return "Planning Questions";
     }
 
-    if (sectionCeremonyEnabled && !hasKeyCeremonySongs) return unifiedEventTimeline ? "Timeline" : "Ceremony";
+    if (sectionCeremonyEnabled && !hideCoupleCeremonyTimelineForNoAudio && !hasKeyCeremonySongs) {
+      return visibleUnifiedTimeline ? "Timeline" : "Ceremony";
+    }
 
     if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
       return "Timeline";
@@ -9409,7 +9425,7 @@ export default function Home() {
     const receptionMomentCount = timelineItems.length;
     const ceremonyMomentCount = ceremonyTimelineItems.length;
 
-    if (sectionCeremonyEnabled && !unifiedEventTimeline) {
+    if (sectionCeremonyEnabled && !visibleUnifiedTimeline && !hideCoupleCeremonyTimelineForNoAudio) {
       cards.push({
         id: "ceremony",
         kicker: "Ceremony",
@@ -9438,14 +9454,14 @@ export default function Home() {
       cards.push({
         id: "reception",
         kicker: "Timeline",
-        title: unifiedEventTimeline ? "Event timeline" : "Reception timeline",
-        description: unifiedEventTimeline
+        title: visibleUnifiedTimeline ? "Event timeline" : "Reception timeline",
+        description: visibleUnifiedTimeline
           ? "Ceremony through reception—one continuous flow for the full event day."
           : "Your evening in order—times, moments, songs, and MC notes.",
         screen: coupleTimelineEntryScreen,
         completion,
         ctaLabel: needsWork ? "Continue" : "Review",
-        statLine: unifiedEventTimeline
+        statLine: visibleUnifiedTimeline
           ? `${ceremonyMomentCount + receptionMomentCount} moment${ceremonyMomentCount + receptionMomentCount === 1 ? "" : "s"} · ceremony & reception`
           : `${receptionMomentCount} moment${receptionMomentCount === 1 ? "" : "s"} planned`,
         statSubline: timelineUpdatedLabel
@@ -20546,6 +20562,9 @@ export default function Home() {
                     ) : null}
                   </div>
                 </div>
+                {hideCoupleCeremonyTimelineForNoAudio ? (
+                  <CeremonyCoverageNotice />
+                ) : null}
               </div>
               </>
               ) : null}
@@ -20738,13 +20757,17 @@ export default function Home() {
                     const timelineDragActive = draggingTimelineId !== null;
                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                     const isToast = isToastTimelineItem(item.title);
-                    const coupleWorkspaceId =
+                    const resolvedCoupleWorkspaceId =
                       isCoupleView && item.momentType
                         ? resolveCoupleTimelineMomentWorkspaceId({
                             title: item.title,
                             momentType: item.momentType,
                           })
                         : null;
+                    const coupleWorkspaceId =
+                      hideCoupleCeremonyTimelineForNoAudio && resolvedCoupleWorkspaceId === "ceremony"
+                        ? null
+                        : resolvedCoupleWorkspaceId;
                     const coupleSummaryLines = isCoupleView
                       ? buildCoupleTimelineMomentSummaryLines(item, coupleTimelineSummaryContext)
                       : [];
