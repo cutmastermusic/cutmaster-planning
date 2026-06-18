@@ -17796,9 +17796,12 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setCoupleMusicHubScreen("profile")}
-                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-[#2f4a3e]/30 bg-[#2f4a3e]/[0.06] p-5 text-left shadow-sm ring-1 ring-[#2f4a3e]/10 transition hover:border-[#2f4a3e]/45 hover:bg-[#2f4a3e]/[0.09]"
                       >
                         <span>
+                          <span className="mb-3 inline-flex rounded-full border border-[#2f4a3e]/25 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]">
+                            Recommended first
+                          </span>
                           <span className="block text-lg font-semibold text-stone-950">🎧 Music Profile</span>
                           <span className="mt-3 block text-sm leading-relaxed text-stone-600">
                             Help us understand your guests, your style, and the kind of dance floor you’re imagining.
@@ -17813,7 +17816,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setCoupleMusicHubScreen("songLists")}
-                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/30 hover:bg-stone-50/80"
                       >
                         <span>
                           <span className="block text-lg font-semibold text-stone-950">❤️ Song Lists</span>
@@ -18290,6 +18293,23 @@ export default function Home() {
                     </PrimaryButton>
                   </div>
                 </PremiumCard>
+                <PremiumCard className="border-[#2f4a3e]/18 bg-[#2f4a3e]/[0.04] shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <SectionTitle className="text-stone-950">Your soundtrack is taking shape.</SectionTitle>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+                        Now let’s see how your music fits into the flow of your wedding day.
+                      </p>
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
+                      className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
+                    >
+                      Return to Timeline
+                    </PrimaryButton>
+                  </div>
+                </PremiumCard>
                   </>
                 ) : null}
 
@@ -18489,6 +18509,23 @@ export default function Home() {
                         </div>
                       </div>
                     ) : null}
+                  </div>
+                </PremiumCard>
+                <PremiumCard className="border-[#2f4a3e]/18 bg-[#2f4a3e]/[0.04] shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <SectionTitle className="text-stone-950">Great — we know your style.</SectionTitle>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+                        Next, let’s start adding the songs that will bring your celebration to life.
+                      </p>
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setCoupleMusicHubScreen("songLists")}
+                      className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
+                    >
+                      Continue to Song Lists
+                    </PrimaryButton>
                   </div>
                 </PremiumCard>
 
@@ -24324,6 +24361,7 @@ export default function Home() {
                 continueToNextChapterLabel={coupleActiveChapterContinueLabel}
                 onOpenMusicHub={() => {
                   closeCouplePlanningChapter();
+                  setCoupleMusicHubScreen("profile");
                   selectActiveScreen("Music Hub");
                 }}
                 onOpenEventTeam={async (chapterAnswers) => {

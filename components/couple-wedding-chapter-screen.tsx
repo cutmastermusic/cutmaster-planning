@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { CoupleAboutYouGuidedSection } from "@/components/couple-about-you-guided-section";
 import { CoupleCeremonyGuidedSection } from "@/components/couple-ceremony-guided-section";
 import { CoupleFinalReviewSection } from "@/components/couple-final-review-section";
-import { CoupleMusicProfileGuidedSection } from "@/components/couple-music-profile-guided-section";
 import { CoupleReceptionMomentsGuidedSection } from "@/components/couple-reception-moments-guided-section";
 import { CoupleYourTeamGuidedSection } from "@/components/couple-your-team-guided-section";
 import {
@@ -217,14 +216,26 @@ export function CoupleWeddingChapterScreen({
 
   if (chapterId === "music_vibe") {
     return (
-      <CoupleMusicProfileGuidedSection
-        answers={answers}
-        onAnswerChange={onAnswerChange}
-        onOpenMusicHub={onOpenMusicHub}
-        onContinueToNextChapter={onContinueToNextChapter}
-        continueToNextChapterLabel={continueToNextChapterLabel}
-        {...guidedResumeProps}
-      />
+      <section className={couplePlanningSectionCardClass}>
+        <PremiumCard className="border-stone-200 bg-white shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f4a3e]/75">
+            Music Profile
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-stone-950">
+            Next: build your soundtrack
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
+            Music deserves its own space. We’ll ask about your style, your guests, and the songs you love in Music Hub.
+          </p>
+          <PrimaryButton
+            type="button"
+            onClick={onOpenMusicHub}
+            className={`mt-6 w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
+          >
+            Open Music Profile
+          </PrimaryButton>
+        </PremiumCard>
+      </section>
     );
   }
 
