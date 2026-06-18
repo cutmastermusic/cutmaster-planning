@@ -109,6 +109,7 @@ body.cm-ros-scroll-lock {
 
 /* Couple editorial shell — unified warm canvas */
 .cm-app-shell--couple-editorial {
+  --cm-editorial-accent: #2f4a3e;
   --cm-canvas: #f8f6f2;
   --cm-surface: #fcfbf8;
   --cm-surface-muted: #f8f6f2;

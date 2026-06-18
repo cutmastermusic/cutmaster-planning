@@ -207,7 +207,7 @@ export const lightUiCyanPrimaryButtonClass =
 
 /** Couple Portal primary action: warm editorial green, used for Continue / Save / Request Review. */
 export const couplePortalPrimaryButtonClass =
-  "rounded-[var(--cm-radius-control)] bg-[var(--cm-editorial-accent)] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] bg-[#2f4a3e] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
 
 /** Couple Portal secondary action: white surface, green border, green text. */
 export const couplePortalSecondaryButtonClass =
