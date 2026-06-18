@@ -3258,6 +3258,7 @@ export default function Home() {
   const [newSongTitle, setNewSongTitle] = useState("");
   const [newSongArtist, setNewSongArtist] = useState("");
   const [newSongNotes, setNewSongNotes] = useState("");
+  const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
@@ -17930,10 +17931,7 @@ export default function Home() {
                   <PremiumCard variant="accent" id="music-hub-must-play">
                     <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
                       <SectionTitle className="text-stone-950">Add a Song</SectionTitle>
-                      <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                        Start with a few songs that absolutely have to be part of your celebration.
-                      </p>
-                      <div className="mt-4 space-y-4">
+                      <div className="mt-4 space-y-3">
                         <TextInput
                           id="song-title"
                           label="Song Title"
@@ -17950,22 +17948,14 @@ export default function Home() {
                           placeholder="e.g. Beyonce"
                           disabled={!canManageMusic}
                         />
-                        <TextArea
-                          id="song-notes"
-                          label="Notes (optional)"
-                          value={newSongNotes}
-                          onChange={setNewSongNotes}
-                          placeholder="Special mix notes, timing cues, energy guidance..."
-                          disabled={!canManageMusic}
-                        />
                         <div>
-                          <p className={lightUiFormLabelClass}>Where should this song go?</p>
-                          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                          <p className={lightUiFormLabelClass}>Choose a playlist</p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
                             <button
                               type="button"
                               onClick={() => setNewSongListType("mustPlay")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "mustPlay"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -17973,18 +17963,20 @@ export default function Home() {
                               aria-pressed={newSongListType === "mustPlay"}
                             >
                               {newSongListType === "mustPlay" ? (
-                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                <span className="absolute right-2.5 top-2.5 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
                                   ✓
                                 </span>
                               ) : null}
-                              <span className="block text-xl leading-none">❤️</span>
-                              <span className="mt-2 block text-sm font-semibold">Must Play</span>
+                              <span className="flex items-center gap-2 pr-7">
+                                <span className="text-lg leading-none">❤️</span>
+                                <span className="text-sm font-semibold">Must Play</span>
+                              </span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setNewSongListType("playIfPossible")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "playIfPossible"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -17992,18 +17984,20 @@ export default function Home() {
                               aria-pressed={newSongListType === "playIfPossible"}
                             >
                               {newSongListType === "playIfPossible" ? (
-                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                <span className="absolute right-2.5 top-2.5 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
                                   ✓
                                 </span>
                               ) : null}
-                              <span className="block text-xl leading-none">💃</span>
-                              <span className="mt-2 block text-sm font-semibold">Open Dancing</span>
+                              <span className="flex items-center gap-2 pr-7">
+                                <span className="text-lg leading-none">💃</span>
+                                <span className="text-sm font-semibold">Open Dancing</span>
+                              </span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setNewSongListType("doNotPlay")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "doNotPlay"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -18011,17 +18005,49 @@ export default function Home() {
                               aria-pressed={newSongListType === "doNotPlay"}
                             >
                               {newSongListType === "doNotPlay" ? (
-                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                <span className="absolute right-2.5 top-2.5 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
                                   ✓
                                 </span>
                               ) : null}
-                              <span className="block text-xl leading-none">🚫</span>
-                              <span className="mt-2 block text-sm font-semibold">Songs to Avoid</span>
+                              <span className="flex items-center gap-2 pr-7">
+                                <span className="text-lg leading-none">🚫</span>
+                                <span className="text-sm font-semibold">Songs to Avoid</span>
+                              </span>
                             </button>
                           </div>
                         </div>
+                        {musicSongNoteExpanded || newSongNotes.trim() ? (
+                          <TextArea
+                            id="song-notes"
+                            label="Notes (optional)"
+                            value={newSongNotes}
+                            onChange={setNewSongNotes}
+                            placeholder="Special mix notes, timing cues, energy guidance..."
+                            disabled={!canManageMusic}
+                            rows={2}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMusicSongNoteExpanded(true);
+                              window.setTimeout(() => document.getElementById("song-notes")?.focus(), 50);
+                            }}
+                            disabled={!canManageMusic}
+                            className="text-left text-sm font-semibold text-[#2f4a3e] transition hover:text-[#263d33] disabled:cursor-not-allowed disabled:opacity-55"
+                          >
+                            + Add a note <span className="font-normal text-stone-500">(optional)</span>
+                          </button>
+                        )}
                         <PrimaryButton
-                          onClick={addSong}
+                          onClick={() => {
+                            const shouldResetComposer = Boolean(newSongTitle.trim());
+                            addSong();
+                            if (shouldResetComposer) {
+                              setMusicSongNoteExpanded(false);
+                              window.setTimeout(() => document.getElementById("song-title")?.focus(), 50);
+                            }
+                          }}
                           disabled={!canManageMusic}
                           className={`w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
                         >
