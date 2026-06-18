@@ -1,10 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  getGrandEntranceMcScriptPreviewContent,
-  type GrandEntranceDetailFields,
-} from "@/lib/grandEntranceDetail";
+import type { GrandEntranceDetailFields } from "@/lib/grandEntranceDetail";
 import { getWeddingPartyLineupPreviewContent } from "@/lib/weddingPartyLineup";
 
 type GrandEntranceCommandCardProps = {
@@ -55,11 +52,8 @@ export function GrandEntranceCommandCard({
   showOperationalSections,
 }: GrandEntranceCommandCardProps) {
   const lineup = getWeddingPartyLineupPreviewContent(lineupRaw, undefined);
-  const mcScript = getGrandEntranceMcScriptPreviewContent(detail.script, undefined);
-  const coupleScript = getGrandEntranceMcScriptPreviewContent(
-    detail.coupleEntranceScript,
-    undefined,
-  );
+  const mcScript = detail.script.trim();
+  const coupleScript = detail.coupleEntranceScript.trim();
   const coupleAnnouncement = detail.coupleEntrance.trim();
 
   const bodyMuted = done ? "text-stone-500" : "text-stone-800";
@@ -86,14 +80,12 @@ export function GrandEntranceCommandCard({
 
       {showOperationalSections ? (
         <CommandCardSection label="MC script" done={done}>
-          {mcScript.isEmpty ? (
-            <p className={emptyTextClass(done)}>No MC script yet</p>
+          {mcScript ? (
+            <p className={`whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
+              {mcScript}
+            </p>
           ) : (
-            <div className={`space-y-1.5 text-sm leading-relaxed whitespace-pre-wrap sm:text-[15px] ${bodyMuted}`}>
-              {mcScript.previewLines.map((line, index) => (
-                <p key={`mc-${index}-${line.slice(0, 24)}`}>{line}</p>
-              ))}
-            </div>
+            <p className={emptyTextClass(done)}>No MC script yet</p>
           )}
         </CommandCardSection>
       ) : null}
@@ -119,14 +111,12 @@ export function GrandEntranceCommandCard({
 
       {showOperationalSections ? (
         <CommandCardSection label="Couple entrance script" done={done}>
-          {coupleScript.isEmpty ? (
-            <p className={emptyTextClass(done)}>No couple entrance script yet</p>
+          {coupleScript ? (
+            <p className={`whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
+              {coupleScript}
+            </p>
           ) : (
-            <div className={`space-y-1.5 text-sm leading-relaxed whitespace-pre-wrap sm:text-[15px] ${bodyMuted}`}>
-              {coupleScript.previewLines.map((line, index) => (
-                <p key={`couple-script-${index}-${line.slice(0, 24)}`}>{line}</p>
-              ))}
-            </div>
+            <p className={emptyTextClass(done)}>No couple entrance script yet</p>
           )}
         </CommandCardSection>
       ) : null}
