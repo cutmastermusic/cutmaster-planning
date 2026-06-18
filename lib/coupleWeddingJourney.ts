@@ -10,7 +10,7 @@ import {
   countCeremonyRequiredStepsAnswered,
   countCeremonyRequiredStepsTotal,
 } from "@/lib/coupleCeremonyPlanning";
-import { computeMusicProfileChapterCompletionPct, MUSIC_PROFILE_GUIDED_STEP_COUNT } from "@/lib/coupleMusicProfilePlanning";
+import { MUSIC_PROFILE_GUIDED_STEP_COUNT } from "@/lib/coupleMusicProfilePlanning";
 import {
   computeYourTeamChapterCompletionPct,
   countYourTeamRequiredStepsAnswered,
@@ -63,6 +63,7 @@ export type CoupleWeddingJourneyProgressInput = {
   answers: Record<string, string | undefined>;
   showWeddingPartyLineupSection: boolean;
   showSpeechesToastsSection: boolean;
+  musicHubHasSignal: boolean;
   vendorContactCount: number;
   collaboratorCount: number;
 };
@@ -92,7 +93,7 @@ export function computeCoupleWeddingChapterCompletionPct(
   }
 
   if (chapterId === "music_vibe") {
-    return computeMusicProfileChapterCompletionPct(answers);
+    return input.musicHubHasSignal ? 100 : 0;
   }
 
   if (chapterId === "ceremony") {

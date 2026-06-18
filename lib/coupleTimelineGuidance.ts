@@ -46,6 +46,7 @@ export function buildCoupleTimelineReviewGapLabels(
   const labels: string[] = [];
 
   for (const note of [...reviewNotes, ...danceNotes]) {
+    if (/not on timeline|add key reception moments/i.test(note)) continue;
     const friendly = coupleFriendlyTimelineGapLabel(note);
     const key = friendly.toLowerCase();
     if (seen.has(key)) continue;

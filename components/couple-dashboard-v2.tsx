@@ -38,7 +38,7 @@ function getTimeOfDayGreeting(): string {
 const JOURNEY_DISPLAY_NAMES: Record<CoupleWeddingChapterId, string> = {
   about_you: "Your Story",
   ceremony: "Ceremony",
-  reception_moments: "Reception Moments",
+  reception_moments: "Timeline",
   music_vibe: "Music Profile",
   your_team: "Wedding Team",
   final_review: "Final Review",
@@ -53,7 +53,6 @@ function chapterTimeLabel(chapterId: CoupleWeddingChapterId | null): string {
   if (chapterId === "about_you") return "About 5 minutes";
   if (chapterId === "final_review") return "About 3 minutes";
   if (chapterId === "your_team") return "About 10 minutes";
-  if (chapterId === "reception_moments") return "About 5 minutes";
   return "About 5 minutes";
 }
 
@@ -68,9 +67,6 @@ function warmChapterDescription(
     return "Everything you shared is saved. Tap to revisit anytime.";
   }
   if (chapter.status === "In Progress") {
-    if (chapterId === "reception_moments") {
-      return "You're halfway through planning your reception.";
-    }
     return `Pick up ${journeyDisplayName(chapterId)} where you left off.`;
   }
   if (chapterId === "about_you") {
@@ -177,7 +173,7 @@ function resolveTodayContent(
     return {
       chapterName: "Your Story",
       description:
-        "We'll guide you through a few short chapters about your ceremony, reception, music, and the moments that matter most.",
+        "We'll guide you through a few short chapters, then point you to the right workspace for day-of details.",
       timeEstimate: chapterTimeLabel("about_you"),
       ctaLabel: coupleWeddingWelcomeAction?.ctaLabel
         ? coupleWeddingWelcomeAction.ctaLabel.replace(/^(Start|Continue|Open)\s+/, "")
@@ -222,8 +218,7 @@ function resolveTodayContent(
   if (showCoupleAboutYourDayWelcomeCard) {
     return {
       chapterName: "Your Story",
-      description:
-        "Tell us a little about your ceremony, reception, and the moments that matter most.",
+      description: "Tell us a little about your celebration—short answers are enough.",
       timeEstimate: chapterTimeLabel("about_you"),
       ctaLabel: "Continue",
       handleContinue,

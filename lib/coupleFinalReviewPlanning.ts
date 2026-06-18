@@ -61,7 +61,7 @@ export function buildCoupleOperationalReadinessRows(
       label: "Timeline",
       status: readinessStatus(timelineComplete, timelineStarted),
       detail: timelineComplete
-        ? "Key moments and formal dances are in place"
+        ? "Timeline details are in place"
         : timelineStarted
           ? "Moments added—keep refining times and songs"
           : "Add your first moments when timing feels real",

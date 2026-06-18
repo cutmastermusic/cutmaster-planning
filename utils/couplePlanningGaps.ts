@@ -77,26 +77,6 @@ function hasMusicTasteSignal(input: CouplePlanningGapsInput): boolean {
   );
 }
 
-function hasKeyTimelineMoments(rows: CouplePlanningTimelineRow[]): boolean {
-  const titles = rows.map((item) => item.title.toLowerCase());
-  return ["cocktail", "dinner", "toast", "open danc", "last"].every((needle) =>
-    titles.some((title) => title.includes(needle)),
-  );
-}
-
-function hasKeyFormalDanceSongs(rows: CouplePlanningTimelineRow[]): boolean {
-  return (
-    rows.some((t) => /first dance/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
-    rows.some((t) => /father\/daughter/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0) &&
-    rows.some((t) => /mother\/son/i.test(t.title) && (t.songTitle?.trim() ?? "").length > 0)
-  );
-}
-
-function lastDanceMissingSong(rows: CouplePlanningTimelineRow[]): boolean {
-  const row = rows.find((item) => /last\s*dance/i.test(item.title));
-  return Boolean(row && !(row.songTitle?.trim().length));
-}
-
 function unansweredPlanningQuestions(
   questions: PlanningQuestionDef[],
   answers: Record<string, string | undefined>,
@@ -149,33 +129,6 @@ export function buildCouplePlanningGaps(input: CouplePlanningGapsInput): CoupleP
         targetScreen: input.timelineScreen,
         priority: 20,
       });
-    } else {
-      if (!hasKeyTimelineMoments(items)) {
-        gaps.push({
-          id: "gap-timeline-anchors",
-          area: "timeline",
-          message: "Add anchor moments (cocktail, dinner, toasts, dancing, and a closing beat).",
-          targetScreen: input.timelineScreen,
-          priority: 25,
-        });
-      }
-      if (!hasKeyFormalDanceSongs(items)) {
-        gaps.push({
-          id: "gap-formal-dances",
-          area: "timeline",
-          message: "Add songs for your formal dances on the timeline (first dance and parent dances).",
-          targetScreen: input.timelineScreen,
-          priority: 30,
-        });
-      } else if (lastDanceMissingSong(items)) {
-        gaps.push({
-          id: "gap-last-dance",
-          area: "timeline",
-          message: "Pick a last dance song when you want the night to land with intention.",
-          targetScreen: input.timelineScreen,
-          priority: 35,
-        });
-      }
     }
   }
 

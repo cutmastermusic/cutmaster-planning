@@ -2606,7 +2606,7 @@ function resolveAccountRoleLabel(params: {
 const COUPLE_ABOUT_YOUR_DAY_LABEL = "About your day";
 
 const COUPLE_ABOUT_YOUR_DAY_INTRO_BODY =
-  "Share the story of your celebration—ceremony, reception, wedding party, and the moments that matter most. Short answers are enough, and you can update them anytime.";
+  "Share the story of your celebration. Short answers are enough, and you can update them anytime.";
 
 /** Warm subtitles for grouped prompts — couple presentation only; group ids unchanged. */
 const COUPLE_ABOUT_YOUR_DAY_GROUP_SUBTITLES: Partial<Record<string, string>> = {
@@ -5909,6 +5909,20 @@ export default function Home() {
     () => groupPlanningQuestionsBySection(planningQuestionsForEvent, layoutProfileForActiveEvent),
     [planningQuestionsForEvent, layoutProfileForActiveEvent],
   );
+  const dashboardPlanningQuestionsForCouple = useMemo(
+    () =>
+      isCoupleWeddingPlanningView
+        ? planningQuestionsForEvent.filter((question) => question.sectionGroup === "about_you")
+        : planningQuestionsForEvent,
+    [isCoupleWeddingPlanningView, planningQuestionsForEvent],
+  );
+  const dashboardPlanningQuestionGroupsForCouple = useMemo(
+    () =>
+      isCoupleWeddingPlanningView
+        ? planningQuestionsGroupedBySection.filter((row) => row.group.id === "about_you")
+        : planningQuestionsGroupedBySection,
+    [isCoupleWeddingPlanningView, planningQuestionsGroupedBySection],
+  );
   const showWeddingPartyLineupSection = useMemo(
     () =>
       planningQuestionsForEvent.some((question) => question.id === GRAND_ENTRANCE_PLANNING_LINEUP_KEY),
@@ -5963,8 +5977,7 @@ export default function Home() {
       total += 1;
       if (parseSpeechesToasts(speechesToastsRaw).length > 0) completed += 1;
     }
-    for (const row of planningQuestionsGroupedBySection) {
-      if (isCoupleWeddingPlanningView && row.group.id === "reception_moments") continue;
+    for (const row of dashboardPlanningQuestionGroupsForCouple) {
       const visibleQuestions = row.questions.filter(
         (question) =>
           question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
@@ -5980,7 +5993,7 @@ export default function Home() {
     return { completed, total };
   }, [
     eventSettings.planningQuestionAnswers,
-    planningQuestionsGroupedBySection,
+    dashboardPlanningQuestionGroupsForCouple,
     isCoupleWeddingPlanningView,
     showSpeechesToastsSection,
     showWeddingPartyLineupSection,
@@ -6892,6 +6905,13 @@ export default function Home() {
   const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
   const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
+  const musicHubHasCoupleSignal =
+    musicPlaylistLinks.length > 0 ||
+    musicGenreEraSelections.length > 0 ||
+    mustPlaySongs.length > 0 ||
+    playIfPossibleSongs.length > 0 ||
+    musicTasteProfileHasSelections(musicTasteProfile) ||
+    PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
   const coupleWeddingJourneyInput = useMemo(
     () => {
       const externalTeamCount = teamMembers.filter((member) => !isCutmasterEventTeamMember(member)).length;
@@ -6900,6 +6920,7 @@ export default function Home() {
         answers: eventSettings.planningQuestionAnswers ?? {},
         showWeddingPartyLineupSection,
         showSpeechesToastsSection,
+        musicHubHasSignal: musicHubHasCoupleSignal,
         vendorContactCount: sectionVendorContactsEnabled
           ? Math.max(vendors.length, externalTeamCount)
           : 0,
@@ -6909,6 +6930,7 @@ export default function Home() {
     [
       activeEvent?.collaborators?.length,
       eventSettings.planningQuestionAnswers,
+      musicHubHasCoupleSignal,
       planningQuestionsGroupedBySection,
       sectionVendorContactsEnabled,
       showSpeechesToastsSection,
@@ -7061,6 +7083,9 @@ export default function Home() {
     () => buildCoupleTimelineReviewGapLabels(planningChecklistInput),
     [planningChecklistInput],
   );
+  const coupleTimelineNeedsDashboardAttention =
+    sectionReceptionTimelineEnabled &&
+    (timelineItems.length === 0 || coupleTimelineReviewGapLabels.length > 0);
 
   const planningChecklistDueConfig = useMemo(
     (): PlanningChecklistDueConfig => ({
@@ -9399,7 +9424,7 @@ export default function Home() {
 
   const coupleGuidedNextScreen = useMemo((): Screen => {
     const answers = eventSettings.planningQuestionAnswers ?? {};
-    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+    const unansweredPlanningQuestionCount = dashboardPlanningQuestionsForCouple.filter(
       (q) => !answers[q.id]?.trim(),
     ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
@@ -9427,7 +9452,7 @@ export default function Home() {
       return visibleUnifiedTimeline ? "Timeline" : "Ceremony";
     }
 
-    if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
+    if (coupleTimelineNeedsDashboardAttention) {
       return "Timeline";
     }
 
@@ -9439,7 +9464,9 @@ export default function Home() {
     }
     if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Guest Requests";
 
-    const nextIncomplete = planningChecklist.find((t) => t.status !== "Complete");
+    const nextIncomplete = planningChecklist.find(
+      (t) => t.status !== "Complete" && t.linkedSection !== "Notes" && t.linkedSection !== "Event Settings",
+    );
     if (nextIncomplete) return nextIncomplete.linkedSection;
 
     if (sectionPlanningChecklistEnabled) return "Planning Checklist";
@@ -9452,11 +9479,11 @@ export default function Home() {
     guestRequests,
     hasEventDetailsComplete,
     hasKeyCeremonySongs,
-    hasKeyFormalDanceSongs,
-    hasKeyTimelineMoments,
+    hideCoupleCeremonyTimelineForNoCeremony,
+    coupleTimelineNeedsDashboardAttention,
     sectionMustPlayEnabled,
     sectionPlaylistsEnabled,
-    planningQuestionsForEvent,
+    dashboardPlanningQuestionsForCouple,
     sectionCeremonyEnabled,
     sectionGuestRequestsEnabled,
     sectionPlanningChecklistEnabled,
@@ -9528,9 +9555,12 @@ export default function Home() {
     if (coupleTimelineEntryScreen) {
       let completion = 100;
       if (sectionReceptionTimelineEnabled) {
-        completion = Math.round(
-          (hasKeyTimelineMoments ? 50 : 0) + (hasKeyFormalDanceSongs ? 50 : 0),
-        );
+        completion =
+          timelineItems.length === 0
+            ? 0
+            : coupleTimelineReviewGapLabels.length > 0
+              ? 62
+              : 100;
       }
       const needsWork = completion < 100;
       cards.push({
@@ -9683,10 +9713,10 @@ export default function Home() {
       });
     }
 
-    if (sectionPlanningQuestionsEnabled && planningQuestionsForEvent.length > 0 && !isCoupleWeddingPlanningView) {
+    if (sectionPlanningQuestionsEnabled && dashboardPlanningQuestionsForCouple.length > 0 && !isCoupleWeddingPlanningView) {
       const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
       const pqHasAnswer = (qId: string) => Boolean(pqAnswers[qId]?.trim());
-      const pqList = planningQuestionsForEvent;
+      const pqList = dashboardPlanningQuestionsForCouple;
       const answeredCount = pqList.filter((q) => pqHasAnswer(q.id)).length;
       const requiredQs = pqList.filter((q) => q.required);
       const requiredComplete =
@@ -9761,8 +9791,7 @@ export default function Home() {
     guestRequests,
     hasFinalDjNotes,
     hasKeyCeremonySongs,
-    hasKeyFormalDanceSongs,
-    hasKeyTimelineMoments,
+    coupleTimelineReviewGapLabels.length,
     hasMomentPlaylistLines,
     isCoupleWeddingPlanningView,
     isCoupleWeddingJourneyComplete,
@@ -9786,15 +9815,15 @@ export default function Home() {
     activeEvent?.collaborators,
     acceptedCollaborators.length,
     pendingCollaborators.length,
-    planningQuestionsForEvent,
+    dashboardPlanningQuestionsForCouple,
   ]);
 
   const coupleAttentionSummary = useMemo(() => {
     const answers = eventSettings.planningQuestionAnswers ?? {};
-    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+    const unansweredPlanningQuestionCount = dashboardPlanningQuestionsForCouple.filter(
       (q) => !answers[q.id]?.trim(),
     ).length;
-    const answeredPlanningQuestionCount = planningQuestionsForEvent.filter((q) =>
+    const answeredPlanningQuestionCount = dashboardPlanningQuestionsForCouple.filter((q) =>
       Boolean(answers[q.id]?.trim()),
     ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
@@ -9806,15 +9835,15 @@ export default function Home() {
   }, [
     eventSettings.planningQuestionAnswers,
     guestRequests,
-    planningQuestionsForEvent,
+    dashboardPlanningQuestionsForCouple,
   ]);
 
   const showCoupleAboutYourDayWelcomeCard = useMemo(() => {
-    if (!sectionPlanningQuestionsEnabled || planningQuestionsForEvent.length === 0) return false;
+    if (!sectionPlanningQuestionsEnabled || dashboardPlanningQuestionsForCouple.length === 0) return false;
     return coupleAttentionSummary.answeredPlanningQuestionCount === 0;
   }, [
     coupleAttentionSummary.answeredPlanningQuestionCount,
-    planningQuestionsForEvent.length,
+    dashboardPlanningQuestionsForCouple.length,
     sectionPlanningQuestionsEnabled,
   ]);
 
@@ -11687,12 +11716,7 @@ export default function Home() {
         pushNotification(`${pendingCount} guest requests pending`, "system");
       }, 0);
     }
-    if (!hasKeyFormalDanceSongs) {
-      window.setTimeout(() => {
-        pushNotification("Formal dances incomplete", "system");
-      }, 0);
-    }
-  }, [guestRequests, hasHydrated, hasKeyFormalDanceSongs, pushNotification]);
+  }, [guestRequests, hasHydrated, pushNotification]);
 
   const completedChecklistIdsRef = useRef<string[]>([]);
   useEffect(() => {
@@ -13134,18 +13158,17 @@ export default function Home() {
   const coupleFinalReviewOperationalInput = useMemo(
     () => ({
       timelineItemsCount: timelineItems.length,
-      hasKeyTimelineMoments,
-      hasKeyFormalDanceSongs,
+      hasKeyTimelineMoments: timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention,
+      hasKeyFormalDanceSongs: timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention,
       hasMusicHubSignal: computeMusicTasteSignal(planningChecklistInput),
-      musicProfileChapterComplete:
-        computeCoupleWeddingChapterCompletionPct("music_vibe", coupleWeddingJourneyInput) >= 100,
+      musicProfileChapterComplete: musicHubHasCoupleSignal,
       eventTeamVendorCount: coupleWeddingJourneyInput.vendorContactCount,
       collaboratorCount: coupleWeddingJourneyInput.collaboratorCount,
     }),
     [
       coupleWeddingJourneyInput,
-      hasKeyFormalDanceSongs,
-      hasKeyTimelineMoments,
+      coupleTimelineNeedsDashboardAttention,
+      musicHubHasCoupleSignal,
       planningChecklistInput,
       timelineItems.length,
     ],
@@ -13746,7 +13769,7 @@ export default function Home() {
       buildCouplePlanningGaps({
         timelineScreen: coupleTimelineEntryScreen ?? primaryTimelineScreenForHome,
         ceremonyTargetScreen: coupleCeremonyGapTargetScreen,
-        sectionCeremonyEnabled,
+        sectionCeremonyEnabled: sectionCeremonyEnabled && !hideCoupleCeremonyTimelineForNoCeremony,
         sectionReceptionTimelineEnabled,
         sectionMustPlayEnabled,
         sectionPlaylistsEnabled,
@@ -13763,7 +13786,7 @@ export default function Home() {
         playlistVibeOverrides,
         musicTasteProfileRaw: musicTasteProfile,
         vendors,
-        planningQuestions: planningQuestionsForEvent,
+        planningQuestions: dashboardPlanningQuestionsForCouple,
         planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
         planningQuestionsTargetScreen: "Planning Questions",
       }),
@@ -13774,13 +13797,14 @@ export default function Home() {
       coupleTimelineEntryScreen,
       eventSettings.planningQuestionAnswers,
       hasKeyCeremonySongs,
+      hideCoupleCeremonyTimelineForNoCeremony,
       mergedTimelineItems,
       musicGenreEraSelections.length,
       musicPlaylistLinks.length,
       musicTasteProfile,
       mustPlaySongs.length,
       playIfPossibleSongs.length,
-      planningQuestionsForEvent,
+      dashboardPlanningQuestionsForCouple,
       playlistVibeOverrides,
       primaryTimelineScreenForHome,
       sectionCeremonyEnabled,
@@ -13878,9 +13902,6 @@ export default function Home() {
       "ceremony-music":
         "Add ceremony music cues when timing firms up—processional and recessional are enough to start.",
       "must-play": "Share a few must-play songs or a playlist link so your DJ can read your vibe early.",
-      "parent-dances":
-        "Add songs for your formal dances on the timeline when you're ready—first dance and parent dances matter most.",
-      "event-notes": "Drop a short note for your DJ or planner when something important comes to mind.",
       "final-review": "When you're ready, mark planning as final review so your team knows you're steady.",
     };
 
@@ -13928,7 +13949,7 @@ export default function Home() {
     }
 
     if (storyCompleteHandoff) {
-      if (sectionReceptionTimelineEnabled && (!hasKeyTimelineMoments || !hasKeyFormalDanceSongs)) {
+      if (coupleTimelineNeedsDashboardAttention) {
         return {
           title: storyCompleteTitle,
           body: storyCompleteBody,
@@ -13948,23 +13969,29 @@ export default function Home() {
     }
 
     const pqAnswers = eventSettings.planningQuestionAnswers ?? {};
-    const unansweredPlanningQuestionCount = planningQuestionsForEvent.filter(
+    const unansweredPlanningQuestionCount = dashboardPlanningQuestionsForCouple.filter(
       (q) => !(pqAnswers[q.id] ?? "").trim(),
     ).length;
     if (
       !isCoupleWeddingPlanningView &&
       sectionPlanningQuestionsEnabled &&
-      planningQuestionsForEvent.length > 0 &&
+      dashboardPlanningQuestionsForCouple.length > 0 &&
       unansweredPlanningQuestionCount > 0
     ) {
       return {
-        body: "Tell us a little about your ceremony, reception, and the moments that matter—most couples finish in about five minutes.",
+        body: "Tell us a little about your celebration—short answers are enough.",
         ctaLabel: COUPLE_ABOUT_YOUR_DAY_LABEL,
         targetScreen: "Planning Questions" as Screen,
       };
     }
 
-    const firstAttention = planningProgressChecks.find((c) => c.state === "attention");
+    const firstAttention = planningProgressChecks.find(
+      (c) =>
+        c.state === "attention" &&
+        c.id !== "parent-dances" &&
+        c.id !== "notes" &&
+        c.id !== "final-review",
+    );
     if (firstAttention?.targetScreen) {
       const screenCtas: Partial<Record<Screen, string>> = {
         "Event Settings": "Event details",
@@ -13973,7 +14000,6 @@ export default function Home() {
         "Reception Timeline": "Timeline",
         "Music Hub": "Music",
         "Event Team": "People & vendors",
-        Notes: "Notes",
       };
       return withStoryHandoff({
         body:
@@ -14015,13 +14041,11 @@ export default function Home() {
       Timeline: "Review your timeline and add the moments you already know.",
       "Reception Timeline": "Review your timeline and add the moments you already know.",
       "Music Hub": "Share taste, playlists, or a few must-plays so your DJ can prep calmly.",
-      "Planning Questions":
-        "Tell us a little about your ceremony, reception, and the moments that matter—most couples finish in about five minutes.",
+      "Planning Questions": "Tell us a little about your celebration—short answers are enough.",
       "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
       "Planning Checklist": "Glance at your checklist when you want a structured pass.",
       "Event Prep": "Open your Event Plan when you want a single shareable packet.",
       "Event Team": "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
-      Notes: "Add a note for your DJ or planner when something important comes to mind.",
     };
 
     const guidedCtas: Partial<Record<Screen, string>> = {
@@ -14035,7 +14059,6 @@ export default function Home() {
       "Planning Checklist": "Checklist",
       "Event Prep": "Event Plan",
       "Event Team": "People & vendors",
-      Notes: "Notes",
     };
 
     return withStoryHandoff({
@@ -14052,12 +14075,11 @@ export default function Home() {
     eventSettings.planningQuestionAnswers,
     firstIncompleteCoupleStoryChapter,
     hasEventDetailsComplete,
-    hasKeyFormalDanceSongs,
-    hasKeyTimelineMoments,
+    coupleTimelineNeedsDashboardAttention,
     isCoupleWeddingPlanningView,
     planningChecklistInput,
     planningProgressChecks,
-    planningQuestionsForEvent,
+    dashboardPlanningQuestionsForCouple,
     sectionMustPlayEnabled,
     sectionPlanningQuestionsEnabled,
     sectionPlaylistsEnabled,
