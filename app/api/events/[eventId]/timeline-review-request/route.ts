@@ -49,6 +49,17 @@ function uniqueEmails(emails: string[]): string[] {
   return next;
 }
 
+async function readLastEditedAt(request: Request): Promise<Date | null> {
+  try {
+    const body = (await request.json()) as { lastEditedAt?: unknown };
+    if (typeof body.lastEditedAt !== "string") return null;
+    const parsed = new Date(body.lastEditedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ eventId: string }> },
@@ -88,7 +99,12 @@ export async function POST(
       return jsonError("Event not found.", 404);
     }
 
-    if (event.timelineReviewRequestedAt) {
+    const lastEditedAt = await readLastEditedAt(request);
+    const hasUpdatesSinceReview =
+      Boolean(event.timelineReviewRequestedAt && lastEditedAt) &&
+      lastEditedAt!.getTime() > event.timelineReviewRequestedAt!.getTime() + 1000;
+
+    if (event.timelineReviewRequestedAt && !hasUpdatesSinceReview) {
       return NextResponse.json({
         ok: true,
         status: "already_requested",
@@ -99,10 +115,15 @@ export async function POST(
 
     const requestedAt = new Date();
     const claimed = await prisma.event.updateMany({
-      where: {
-        id: eventId,
-        timelineReviewRequestedAt: null,
-      },
+      where: event.timelineReviewRequestedAt
+        ? {
+            id: eventId,
+            timelineReviewRequestedAt: event.timelineReviewRequestedAt,
+          }
+        : {
+            id: eventId,
+            timelineReviewRequestedAt: null,
+          },
       data: {
         timelineReviewRequestedAt: requestedAt,
       },
@@ -167,7 +188,7 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      status: "requested",
+      status: event.timelineReviewRequestedAt ? "updated_requested" : "requested",
       requestedAt: requestedAt.toISOString(),
       notification,
     });

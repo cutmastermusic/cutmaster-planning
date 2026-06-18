@@ -3491,6 +3491,8 @@ export default function Home() {
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [timelineReviewConfirmationKind, setTimelineReviewConfirmationKind] =
+    useState<"initial" | "updated" | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [activityEventFilter, setActivityEventFilter] = useState<string>("all");
   const [activityTypeFilter, setActivityTypeFilter] = useState<string>("all");
@@ -3765,6 +3767,20 @@ export default function Home() {
   ]);
   const activeEvent =
     visibleEvents.find((event) => event.id === activeEventId) ?? visibleEvents[0];
+  const markActiveEventPlanningEdited = useCallback((editedAt = Date.now()) => {
+    if (!activeEventId) return editedAt;
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              lastUpdatedAt: editedAt,
+            }
+          : evt,
+      ),
+    );
+    return editedAt;
+  }, [activeEventId]);
   const weddingDetails: WeddingDetails = activeEvent?.meta ?? {
     couple: "",
     date: "",
@@ -6651,47 +6667,69 @@ export default function Home() {
 
   const requestTimelineReview = useCallback(async () => {
     const wasAlreadyRequested = Boolean(eventSettings.timelineReviewRequestedAt);
+    const reviewRequestedAtMs = eventSettings.timelineReviewRequestedAt
+      ? Date.parse(eventSettings.timelineReviewRequestedAt)
+      : 0;
+    const lastPlanningEditedAt = activeEvent?.lastUpdatedAt ?? 0;
+    const hasUpdatesSinceReview =
+      wasAlreadyRequested &&
+      Number.isFinite(reviewRequestedAtMs) &&
+      lastPlanningEditedAt > reviewRequestedAtMs + 1000;
+
+    if (wasAlreadyRequested && !hasUpdatesSinceReview) return;
+
     const requestedAt = eventSettings.timelineReviewRequestedAt ?? new Date().toISOString();
     const nextSettings: EventSettings = {
       ...eventSettings,
       timelineReviewRequestedAt: requestedAt,
     };
 
-    setEventSettings(nextSettings);
-    if (activeEventId) {
-      setEvents((prev) =>
-        prev.map((evt) =>
-          evt.id === activeEventId
-            ? {
-              ...evt,
-              lastUpdatedAt: Date.now(),
-              settings: { ...evt.settings, timelineReviewRequestedAt: requestedAt },
-            }
-            : evt,
-        ),
-      );
+    if (!wasAlreadyRequested) {
+      setEventSettings(nextSettings);
+      setTimelineReviewConfirmationKind("initial");
+      if (activeEventId) {
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === activeEventId
+              ? {
+                ...evt,
+                lastUpdatedAt: Date.parse(requestedAt) || Date.now(),
+                settings: { ...evt.settings, timelineReviewRequestedAt: requestedAt },
+              }
+              : evt,
+          ),
+        );
+      }
     }
 
-    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId) || wasAlreadyRequested) return;
+    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
 
     try {
       const response = await fetch(
         `/api/events/${encodeURIComponent(activeEventId)}/timeline-review-request`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lastEditedAt: lastPlanningEditedAt > 0 ? new Date(lastPlanningEditedAt).toISOString() : null,
+          }),
+        },
       );
       if (response.ok) {
         const payload = (await response.json()) as {
+          status?: string;
           requestedAt?: string;
           notification?: { status: string; error?: string; reason?: string };
         };
         if (payload.requestedAt && payload.requestedAt !== requestedAt) {
           setEventSettings((prev) => ({ ...prev, timelineReviewRequestedAt: payload.requestedAt }));
+          const nextRequestedAtMs = Date.parse(payload.requestedAt) || Date.now();
           setEvents((prev) =>
             prev.map((evt) =>
               evt.id === activeEventId
                 ? {
                     ...evt,
-                    lastUpdatedAt: Date.now(),
+                    lastUpdatedAt: nextRequestedAtMs,
                     settings: { ...evt.settings, timelineReviewRequestedAt: payload.requestedAt },
                   }
                 : evt,
@@ -6703,12 +6741,17 @@ export default function Home() {
         } else if (payload.notification?.status === "skipped") {
           console.warn("Timeline review request email skipped:", payload.notification.reason);
         }
+        if (payload.status === "requested" || payload.status === "updated_requested") {
+          setTimelineReviewConfirmationKind(payload.status === "updated_requested" ? "updated" : "initial");
+        }
         return;
       }
       console.error("Timeline review request notification failed:", await response.text());
     } catch (error) {
       console.error("Timeline review request notification threw:", error);
     }
+
+    if (wasAlreadyRequested) return;
 
     const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
     const result = await persistEventMetadataToDatabase(
@@ -6722,11 +6765,20 @@ export default function Home() {
     }
   }, [
     activeEventId,
+    activeEvent?.lastUpdatedAt,
     eventSettings,
     events,
     persistEventMetadataToDatabase,
     sessionIsCoupleForPersist,
   ]);
+
+  const timelineReviewRequestedAtMs = eventSettings.timelineReviewRequestedAt
+    ? Date.parse(eventSettings.timelineReviewRequestedAt)
+    : 0;
+  const timelineReviewHasUpdatesSinceRequest =
+    Boolean(eventSettings.timelineReviewRequestedAt) &&
+    Number.isFinite(timelineReviewRequestedAtMs) &&
+    (activeEvent?.lastUpdatedAt ?? 0) > timelineReviewRequestedAtMs + 1000;
 
   const setChecklistTaskHandled = useCallback(
     (taskId: string, handled: boolean) => {
@@ -12393,6 +12445,7 @@ export default function Home() {
       return;
     }
     setTimelineComposerError(null);
+    markActiveEventPlanningEdited();
 
     const clearSpeechesToastsTimelineSuppressed = () => {
       if (!isToastTimelineItem(cleanTitle)) return;
@@ -12496,6 +12549,7 @@ export default function Home() {
       : eventSettings.planningQuestionAnswers ?? {};
 
     setTimelineItems(nextTimelineItems);
+    markActiveEventPlanningEdited();
 
     if (suppressSpeechesToastsTimeline) {
       setEventSettings((prev) => ({
@@ -14822,6 +14876,7 @@ export default function Home() {
           [questionId]: next,
         },
       }));
+      markActiveEventPlanningEdited();
       if (!activeEventId) return;
       setEvents((prev) =>
         prev.map((evt) =>
@@ -14841,7 +14896,7 @@ export default function Home() {
       );
       flushPlanningQuestionAnswersToLocalStorage(nextAnswers);
     },
-    [activeEventId, flushPlanningQuestionAnswersToLocalStorage],
+    [activeEventId, flushPlanningQuestionAnswersToLocalStorage, markActiveEventPlanningEdited],
   );
 
   useEffect(() => {
@@ -21566,15 +21621,41 @@ export default function Home() {
 
               {isCoupleView ? (
                 <PremiumCard className="border-stone-200 bg-stone-50/80 shadow-sm">
-                  {eventSettings.timelineReviewRequestedAt ? (
+                  {eventSettings.timelineReviewRequestedAt && !timelineReviewHasUpdatesSinceRequest ? (
                     <div className="mx-auto max-w-[44rem] text-center">
                       <p className="text-base font-semibold tracking-tight text-stone-950">
                         You&apos;re all set!
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                        We&apos;ve notified your DJ that your planning is ready for review. They&apos;ll use this
-                        information to prepare for your final planning meeting.
+                        {timelineReviewConfirmationKind === "updated"
+                          ? "We’ve notified your DJ that your updated planning is ready for review."
+                          : "We’ve notified your DJ that your planning is ready for review. They’ll use this information to prepare for your final planning meeting."}
                       </p>
+                    </div>
+                  ) : eventSettings.timelineReviewRequestedAt && timelineReviewHasUpdatesSinceRequest ? (
+                    <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="inline-flex rounded-full border border-[#2f4a3e]/25 bg-[#2f4a3e]/10 px-2.5 py-1 text-[11px] font-semibold text-[#2f4a3e]">
+                          Updated after review request
+                        </p>
+                        <p className="mt-3 text-base font-semibold tracking-tight text-stone-950">
+                          Ready to send your updates?
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                          Your DJ has the first review request. Send an updated review when you want them to see the latest planning changes.
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-2 sm:min-w-[13rem]">
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => {
+                            void requestTimelineReview();
+                          }}
+                          className={`w-full px-4 py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
+                        >
+                          Send Updated Timeline Review
+                        </PrimaryButton>
+                      </div>
                     </div>
                   ) : (
                     <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
