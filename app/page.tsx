@@ -3261,6 +3261,8 @@ export default function Home() {
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
+  const [coupleMusicHubScreen, setCoupleMusicHubScreen] =
+    useState<"landing" | "profile" | "songLists">("landing");
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
@@ -17725,77 +17727,83 @@ export default function Home() {
 
             {isCoupleView ? (
               <>
-                <PremiumCard variant="accent">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music</p>
-                      <SectionTitle className="mt-1">The Soundtrack to Your Wedding</SectionTitle>
+                {coupleMusicHubScreen === "landing" ? (
+                  <>
+                    <PremiumCard variant="accent">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music</p>
+                          <SectionTitle className="mt-1">🎶 The Soundtrack to Your Wedding</SectionTitle>
+                        </div>
+                        <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
+                      </div>
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+                        Music is one of the things your guests will remember most.
+                      </p>
+                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
+                        Let’s build a soundtrack that feels like you.
+                      </p>
+                    </PremiumCard>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setCoupleMusicHubScreen("profile")}
+                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                      >
+                        <span>
+                          <span className="block text-lg font-semibold text-stone-950">🎧 Music Profile</span>
+                          <span className="mt-3 block text-sm leading-relaxed text-stone-600">
+                            Help us understand your guests, your style, and the kind of dance floor you’re imagining.
+                          </span>
+                          <span className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            Estimated time
+                          </span>
+                          <span className="mt-1 block text-sm font-semibold text-[#2f4a3e]">2–3 minutes</span>
+                        </span>
+                        <span className="mt-5 text-sm font-semibold text-[#2f4a3e]">Continue →</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoupleMusicHubScreen("songLists")}
+                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                      >
+                        <span>
+                          <span className="block text-lg font-semibold text-stone-950">❤️ Song Lists</span>
+                          <span className="mt-3 block text-sm leading-relaxed text-stone-600">
+                            Already know some songs?
+                          </span>
+                          <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+                            Build your Must Play List, Open Dancing playlist, and Songs to Avoid.
+                          </span>
+                          <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+                            Go at your own pace.
+                          </span>
+                        </span>
+                        <span className="mt-5 text-sm font-semibold text-[#2f4a3e]">Continue →</span>
+                      </button>
                     </div>
-                    <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
-                  </div>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-                    Music is one of the things your guests will remember most.
-                  </p>
-                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
-                    Let’s build a soundtrack that feels like you.
-                  </p>
-                </PremiumCard>
-
-                <PremiumCard className="border-stone-200 bg-white shadow-sm">
-                  <SectionTitle className="text-stone-950">
-                    There are two easy ways to build your soundtrack.
-                  </SectionTitle>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <button
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music Hub</p>
+                      <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">
+                        {coupleMusicHubScreen === "profile" ? "Music Profile" : "Song Lists"}
+                      </h2>
+                    </div>
+                    <PrimaryButton
                       type="button"
-                      onClick={() => {
-                        document.getElementById("music-hub-playlist-links")?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                        window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
-                      }}
-                      disabled={!canManageMusic}
-                      className="flex min-h-[12rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
+                      onClick={() => setCoupleMusicHubScreen("landing")}
+                      className={couplePortalSecondaryButtonClass}
                     >
-                      <span>
-                        <span className="block text-base font-semibold text-stone-950">Already have playlists?</span>
-                        <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                          Share your Spotify, Apple Music, YouTube, or other playlists with us.
-                        </span>
-                        <span className="mt-1 block text-sm leading-relaxed text-stone-600">
-                          We’ll use them as part of your music planning.
-                        </span>
-                      </span>
-                      <span className={`mt-4 inline-flex ${couplePortalPrimaryButtonClass}`}>
-                        Add Playlist Link
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("music-hub-must-play")?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }}
-                      disabled={!canManageMusic}
-                      className="flex min-h-[12rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
-                    >
-                      <span>
-                        <span className="block text-base font-semibold text-stone-950">Starting from scratch?</span>
-                        <span className="mt-2 block text-sm leading-relaxed text-stone-600">No problem.</span>
-                        <span className="mt-1 block text-sm leading-relaxed text-stone-600">
-                          We’ll help you build your music one step at a time.
-                        </span>
-                      </span>
-                      <span className={`mt-4 inline-flex ${couplePortalSecondaryButtonClass}`}>
-                        Start Adding Songs
-                      </span>
-                    </button>
+                      Back to Music Hub
+                    </PrimaryButton>
                   </div>
-                </PremiumCard>
+                )}
 
+                {coupleMusicHubScreen === "songLists" ? (
+                  <>
                 <PremiumCard
                   id="music-hub-playlist-links"
                   className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
@@ -18135,7 +18143,11 @@ export default function Home() {
                     </div>
                   </PremiumCard>
                 ) : null}
+                  </>
+                ) : null}
 
+                {coupleMusicHubScreen === "profile" ? (
+                  <>
                 <PremiumCard
                   id="music-hub-taste-profile"
                   className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
@@ -18433,6 +18445,8 @@ export default function Home() {
                     </PrimaryButton>
                   </div>
                 </PremiumCard>
+                  </>
+                ) : null}
               </>
             ) : (
               <>
