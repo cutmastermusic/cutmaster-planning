@@ -17932,15 +17932,15 @@ export default function Home() {
                     <p className="mt-1 text-sm leading-relaxed text-stone-600">
                       These are the songs that absolutely have to be part of your celebration.
                     </p>
-                    <div className="mt-4 rounded-2xl border border-stone-200 bg-white/80 p-4">
-                      <SectionTitle className="text-stone-950">Add Songs</SectionTitle>
-                      <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                        Add must-play songs, open dancing favorites, and songs to avoid.
+                    <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
+                      <SectionTitle className="text-stone-950">Add a Song</SectionTitle>
+                      <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                        Start with a few songs that absolutely have to be part of your celebration.
                       </p>
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-4 space-y-4">
                         <TextInput
                           id="song-title"
-                          label="Song title"
+                          label="Song Title"
                           value={newSongTitle}
                           onChange={setNewSongTitle}
                           placeholder="e.g. Crazy in Love"
@@ -17962,52 +17962,50 @@ export default function Home() {
                           placeholder="Special mix notes, timing cues, energy guidance..."
                           disabled={!canManageMusic}
                         />
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                          <PrimaryButton
+                        <div>
+                          <p className={lightUiFormLabelClass}>Where should this song go?</p>
+                          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                          <button
+                            type="button"
                             onClick={() => setNewSongListType("mustPlay")}
                             disabled={!canManageMusic}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
+                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                               newSongListType === "mustPlay"
                                 ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
-                                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
                             }`}
                           >
-                            Must play
-                          </PrimaryButton>
-                          <PrimaryButton
+                            <span className="block text-xl leading-none">❤️</span>
+                            <span className="mt-2 block text-sm font-semibold">Must Play</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setNewSongListType("playIfPossible")}
                             disabled={!canManageMusic}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
+                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                               newSongListType === "playIfPossible"
                                 ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
                             }`}
                           >
-                            Play if possible
-                          </PrimaryButton>
-                          <PrimaryButton
+                            <span className="block text-xl leading-none">💃</span>
+                            <span className="mt-2 block text-sm font-semibold">Open Dancing</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setNewSongListType("doNotPlay")}
                             disabled={!canManageMusic}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${
+                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                               newSongListType === "doNotPlay"
                                 ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
                             }`}
                           >
-                            Songs to avoid
-                          </PrimaryButton>
+                            <span className="block text-xl leading-none">🚫</span>
+                            <span className="mt-2 block text-sm font-semibold">Songs to Avoid</span>
+                          </button>
+                          </div>
                         </div>
-                        <PrimaryButton
-                          onClick={() => setNewSongHighPriority((prev) => !prev)}
-                          disabled={!canManageMusic}
-                          className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
-                            newSongHighPriority
-                              ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                          }`}
-                        >
-                          {newSongHighPriority ? "High Priority Enabled" : "Mark as High Priority"}
-                        </PrimaryButton>
                         <PrimaryButton
                           onClick={addSong}
                           disabled={!canManageMusic}
@@ -18021,8 +18019,8 @@ export default function Home() {
                       <div className="mt-4">
                         <SectionEmptyState
                           wrapWithCard={false}
-                          title="No must-plays yet"
-                          description="Start with the songs you would be sad not to hear."
+                          title="No songs yet."
+                          description="Start by adding a few songs you can’t imagine your wedding without."
                           buttonVariant="couple"
                         />
                       </div>
