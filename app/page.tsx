@@ -18011,7 +18011,11 @@ export default function Home() {
                           disabled={!canManageMusic}
                           className={`w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
                         >
-                          Add Song
+                          {newSongListType === "mustPlay"
+                            ? "Add to Must Play"
+                            : newSongListType === "playIfPossible"
+                              ? "Add to Open Dancing"
+                              : "Add to Songs to Avoid"}
                         </PrimaryButton>
                       </div>
                     </div>
