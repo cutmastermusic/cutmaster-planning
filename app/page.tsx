@@ -6650,6 +6650,7 @@ export default function Home() {
   );
 
   const requestTimelineReview = useCallback(async () => {
+    const wasAlreadyRequested = Boolean(eventSettings.timelineReviewRequestedAt);
     const requestedAt = eventSettings.timelineReviewRequestedAt ?? new Date().toISOString();
     const nextSettings: EventSettings = {
       ...eventSettings,
@@ -6671,7 +6672,44 @@ export default function Home() {
       );
     }
 
-    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId)) return;
+    if (!activeEventId || !databaseEventIdsRef.current.has(activeEventId) || wasAlreadyRequested) return;
+
+    try {
+      const response = await fetch(
+        `/api/events/${encodeURIComponent(activeEventId)}/timeline-review-request`,
+        { method: "POST" },
+      );
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          requestedAt?: string;
+          notification?: { status: string; error?: string; reason?: string };
+        };
+        if (payload.requestedAt && payload.requestedAt !== requestedAt) {
+          setEventSettings((prev) => ({ ...prev, timelineReviewRequestedAt: payload.requestedAt }));
+          setEvents((prev) =>
+            prev.map((evt) =>
+              evt.id === activeEventId
+                ? {
+                    ...evt,
+                    lastUpdatedAt: Date.now(),
+                    settings: { ...evt.settings, timelineReviewRequestedAt: payload.requestedAt },
+                  }
+                : evt,
+            ),
+          );
+        }
+        if (payload.notification?.status === "failed") {
+          console.error("Timeline review request email failed:", payload.notification.error);
+        } else if (payload.notification?.status === "skipped") {
+          console.warn("Timeline review request email skipped:", payload.notification.reason);
+        }
+        return;
+      }
+      console.error("Timeline review request notification failed:", await response.text());
+    } catch (error) {
+      console.error("Timeline review request notification threw:", error);
+    }
+
     const preservedSettings = events.find((evt) => evt.id === activeEventId)?.settings;
     const result = await persistEventMetadataToDatabase(
       activeEventId,
@@ -21531,13 +21569,11 @@ export default function Home() {
                   {eventSettings.timelineReviewRequestedAt ? (
                     <div className="mx-auto max-w-[44rem] text-center">
                       <p className="text-base font-semibold tracking-tight text-stone-950">
-                        Timeline Review Requested
+                        You&apos;re all set!
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                        Thanks — we&apos;ll review your timeline and reach out if we have any questions.
-                      </p>
-                      <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                        You can continue making changes anytime.
+                        We&apos;ve notified your DJ that your planning is ready for review. They&apos;ll use this
+                        information to prepare for your final planning meeting.
                       </p>
                     </div>
                   ) : (
