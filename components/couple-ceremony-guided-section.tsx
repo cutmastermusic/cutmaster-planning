@@ -58,7 +58,7 @@ export function CoupleCeremonyGuidedSection({
 
     const hasCeremonyStep: CoupleGuidedQuestionStep = {
       id: "ceremony-happening",
-      missingLabel: "Whether you are having a ceremony",
+      missingLabel: "Whether Cutmaster Music is providing ceremony audio",
       isAnswered: (nextAnswers) =>
         Boolean(
           normalizeCeremonyHappeningAnswer(
@@ -67,8 +67,7 @@ export function CoupleCeremonyGuidedSection({
         ),
       renderGuided: () => (
         <CouplePlanningChipSelect
-          label="Will you be having a ceremony?"
-          helperText="This simply tells us whether ceremony planning should stay visible for this event."
+          label="Will Cutmaster Music be providing ceremony audio for your wedding?"
           mode="single"
           options={CEREMONY_HAPPENING_OPTIONS}
           value={ceremonyHappeningLabelFromValue(
@@ -86,7 +85,7 @@ export function CoupleCeremonyGuidedSection({
       ),
       renderReview: () =>
         renderSingleReview(
-          "Will you be having a ceremony?",
+          "Will Cutmaster Music be providing ceremony audio for your wedding?",
           ceremonyHappeningLabelFromValue(
             normalizeCeremonyHappeningAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony]),
           ),
@@ -105,15 +104,16 @@ export function CoupleCeremonyGuidedSection({
     <CoupleGuidedQuestionSection
       sectionId="ceremony-guided"
       eyebrow="Ceremony"
-      title="Ceremony"
-      intro="A quick checkpoint so we know whether ceremony planning should stay part of this event."
+      title="Your Ceremony"
+      intro="Will Cutmaster Music be providing ceremony audio for your wedding?"
       steps={steps}
       answers={answers}
       reviewIncompleteHint={reviewIncompleteHint}
-      completionMessage={
+      completionTitle={hasCeremonyValue === "no" ? "No problem!" : "Perfect!"}
+      completionBody={
         hasCeremonyValue === "no"
-          ? "Thanks — we’ll keep the couple flow focused on the reception."
-          : "Thanks — ceremony planning will stay visible for this event."
+          ? "We'll focus on the parts of your wedding where Cutmaster Music will be involved."
+          : "We'll help you plan your ceremony—including your ceremony timeline, music, location, and audio details—later in your planning."
       }
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
