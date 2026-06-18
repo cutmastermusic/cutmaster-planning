@@ -2850,6 +2850,8 @@ const TIMELINE_CARD_SHELL_CLASS =
   "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-5 md:py-4 lg:px-5 lg:py-4 xl:px-6";
 const TIMELINE_STREAM_CLASS =
   "min-w-0 space-y-2.5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3 md:max-h-[min(72dvh,52rem)] md:space-y-2.5 md:overflow-y-auto md:overscroll-y-contain";
+const COUPLE_TIMELINE_STREAM_CLASS =
+  "min-w-0 space-y-2.5 overflow-x-hidden sm:space-y-3 md:space-y-2.5";
 const TIMELINE_STREAM_UNIFIED_CLASS =
   "min-w-0 space-y-2.5 overflow-x-hidden sm:space-y-3 md:space-y-2.5";
 const TIMELINE_SECTION_HEADER_CLASS =
@@ -19987,7 +19989,9 @@ export default function Home() {
               className={
                 showUnifiedTimelineWorkspace
                   ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
-                  : TIMELINE_STREAM_CLASS
+                  : isCoupleView
+                    ? COUPLE_TIMELINE_STREAM_CLASS
+                    : TIMELINE_STREAM_CLASS
               }
             >
               {ceremonyTimelineItems.length === 0 ? (
@@ -20809,7 +20813,9 @@ export default function Home() {
                 className={
                   showUnifiedTimelineWorkspace
                     ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
-                    : TIMELINE_STREAM_CLASS
+                    : isCoupleView
+                      ? COUPLE_TIMELINE_STREAM_CLASS
+                      : TIMELINE_STREAM_CLASS
                 }
               >
                 {receptionTimelineDisplayItems.length === 0 ? (
