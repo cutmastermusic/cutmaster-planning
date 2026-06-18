@@ -12157,6 +12157,12 @@ export default function Home() {
     if (role === "Planner") return "border border-sky-400 bg-sky-50 font-semibold text-sky-950";
     return "border border-emerald-400 bg-emerald-50 font-semibold text-emerald-950";
   };
+  const coupleRoleBadgeClass = (role: UserRole | TeamMemberRole | string) => {
+    if (role === "Admin") return "border border-stone-300 bg-stone-100 font-semibold text-stone-800";
+    if (role === "DJ") return "border border-[#2f4a3e]/30 bg-[#2f4a3e]/10 font-semibold text-[#2f4a3e]";
+    if (role === "Planner") return "border border-[#9a7c3d]/35 bg-[#9a7c3d]/10 font-semibold text-[#6f5528]";
+    return "border border-[#2f4a3e]/25 bg-[#2f4a3e]/[0.07] font-semibold text-[#2f4a3e]";
+  };
 
   const handleInviteCollaborator = () => {
     const name = inviteName.trim();
@@ -22153,7 +22159,7 @@ export default function Home() {
                     : undefined
               }
             />
-            <PremiumCard variant="accent">
+            <PremiumCard variant={isCoupleView ? "default" : "accent"}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <SectionTitle>People &amp; Vendors</SectionTitle>
                 <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
@@ -22275,7 +22281,9 @@ export default function Home() {
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
-                          ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
+                          ? isCoupleView
+                            ? "border border-[#2f4a3e]/30 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                            : "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
                           : "border border-stone-200 bg-stone-100 text-stone-600"
                           }`}
                       >
@@ -22286,7 +22294,11 @@ export default function Home() {
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <PrimaryButton
                           onClick={() => startEditingTeamMember(member)}
-                          className="min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-0 sm:py-2"
+                          className={
+                            isCoupleView
+                              ? `min-h-11 px-2 py-2.5 text-[11px] sm:min-h-0 sm:py-2 ${couplePortalSecondaryButtonClass}`
+                              : "min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:min-h-0 sm:py-2"
+                          }
                         >
                           Edit
                         </PrimaryButton>
@@ -22323,6 +22335,7 @@ export default function Home() {
                           }
                         : undefined
                     }
+                    buttonVariant={isCoupleView ? "couple" : "default"}
                   />
                 )}
               </div>
@@ -22340,10 +22353,11 @@ export default function Home() {
                 canInvite={canInviteCollaborators}
                 modalOpen={inviteModalOpen}
                 onModalOpenChange={setInviteModalOpen}
+                buttonVariant={isCoupleView ? "couple" : "default"}
               />
             ) : (
               <>
-            <PremiumCard variant="accent">
+            <PremiumCard variant={isCoupleView ? "default" : "accent"}>
               <SectionTitle>App access</SectionTitle>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
                 Who can sign in to this event in Cutmaster Planning. Invites are simulated locally in this prototype.
@@ -22362,7 +22376,11 @@ export default function Home() {
                 <div className="mt-3">
                   <PrimaryButton
                     onClick={() => setInviteModalOpen(true)}
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+                    className={
+                      isCoupleView
+                        ? `w-full px-3 py-2.5 text-xs sm:w-auto ${couplePortalSecondaryButtonClass}`
+                        : "w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+                    }
                   >
                     Invite to app
                   </PrimaryButton>
@@ -22389,14 +22407,18 @@ export default function Home() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${roleBadgeClass(collab.role)}`}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${isCoupleView ? coupleRoleBadgeClass(collab.role) : roleBadgeClass(collab.role)}`}
                       >
                         Access: {collab.role}
                       </span>
                       <span
                         className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${collab.status === "Accepted"
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                          : "border-violet-300 bg-violet-50 text-violet-950"
+                          ? isCoupleView
+                            ? "border-[#2f4a3e]/30 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-950"
+                          : isCoupleView
+                            ? "border-stone-300 bg-stone-50 text-stone-700"
+                            : "border-violet-300 bg-violet-50 text-violet-950"
                           }`}
                       >
                         {collab.status === "Accepted" ? "Can open app" : "Invite pending"}
@@ -22419,7 +22441,11 @@ export default function Home() {
                           ),
                         )
                       }
-                      className={lightUiSelectClass}
+                      className={
+                        isCoupleView
+                          ? "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] py-3.5 pl-3 pr-10 text-left text-base leading-snug text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-[#2f4a3e]/60 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/20 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60"
+                          : lightUiSelectClass
+                      }
                     >
                       {(["Couple", "DJ", "Planner", "Admin"] as UserRole[]).map((role) => (
                         <option key={`${collab.id}-${role}`} value={role} className="bg-white text-stone-900">
@@ -22436,7 +22462,11 @@ export default function Home() {
                         ),
                       )
                     }
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-400 hover:bg-stone-50 sm:w-auto sm:min-w-[8.5rem]"
+                    className={
+                      isCoupleView
+                        ? `w-full px-3 py-2.5 text-xs sm:w-auto sm:min-w-[8.5rem] ${couplePortalSecondaryButtonClass}`
+                        : "w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-400 hover:bg-stone-50 sm:w-auto sm:min-w-[8.5rem]"
+                    }
                   >
                     {collab.status === "Pending" ? "Simulate accept" : "Mark pending"}
                   </PrimaryButton>
@@ -24835,7 +24865,11 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={closeTeamMemberModal}
-                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                className={
+                  isCoupleView
+                    ? `px-3 py-2 text-xs ${couplePortalTertiaryButtonClass}`
+                    : "rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                }
               >
                 Close
               </PrimaryButton>
@@ -24866,7 +24900,11 @@ export default function Home() {
                     onChange={(event) =>
                       setTeamRoleDraft(event.target.value as TeamMemberRole)
                     }
-                    className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                    className={
+                      isCoupleView
+                        ? "mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-[#2f4a3e]/60 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/20 disabled:opacity-60"
+                        : "mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                    }
                   >
                     {eventTeamRoleGroupsForModal.map((group) => (
                       <optgroup key={`team-role-group-${group.label}`} label={group.label}>
@@ -24970,7 +25008,9 @@ export default function Home() {
                   onClick={() => setTeamActiveDraft((prev) => !prev)}
                   disabled={!canSaveTeamModal}
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${teamActiveDraft
-                    ? "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
+                    ? isCoupleView
+                      ? "border-[#2f4a3e]/35 bg-[#2f4a3e]/10 text-[#2f4a3e] shadow-sm hover:bg-[#2f4a3e]/15"
+                      : "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
                     : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
                     }`}
                 >

@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { PremiumCard, PrimaryButton, SectionTitle, TextInput } from "@/components/planning-ui";
+import {
+  PremiumCard,
+  PrimaryButton,
+  SectionTitle,
+  TextInput,
+  couplePortalPrimaryButtonClass,
+  couplePortalSecondaryButtonClass,
+  couplePortalTertiaryButtonClass,
+} from "@/components/planning-ui";
 import {
   createEventInvite,
   getEventInviteUrl,
@@ -22,6 +30,7 @@ type EventInviteAdminSectionProps = {
   canInvite: boolean;
   modalOpen: boolean;
   onModalOpenChange: (open: boolean) => void;
+  buttonVariant?: "default" | "couple";
 };
 
 type CreateInviteSuccess = {
@@ -67,6 +76,22 @@ function inviteStateBadgeClass(state: EventInviteListState): string {
       return "border-rose-300 bg-rose-50 text-rose-950";
     case "accepted":
       return "border-sky-300 bg-sky-50 text-sky-950";
+    default:
+      return "border-stone-300 bg-stone-100 text-stone-700";
+  }
+}
+
+function coupleInviteStateBadgeClass(state: EventInviteListState): string {
+  switch (state) {
+    case "active":
+    case "accepted":
+      return "border-[#2f4a3e]/30 bg-[#2f4a3e]/10 text-[#2f4a3e]";
+    case "pending":
+      return "border-stone-300 bg-stone-50 text-stone-700";
+    case "expired":
+      return "border-stone-300 bg-stone-100 text-stone-700";
+    case "revoked":
+      return "border-rose-300 bg-rose-50 text-rose-950";
     default:
       return "border-stone-300 bg-stone-100 text-stone-700";
   }
@@ -133,10 +158,12 @@ function InvitePersonCard({
   row,
   feedback,
   children,
+  buttonVariant = "default",
 }: {
   row: EventInviteListItem;
   feedback?: RowFeedback | null;
   children?: ReactNode;
+  buttonVariant?: "default" | "couple";
 }) {
   return (
     <PremiumCard className="border-stone-200 bg-white p-4 shadow-sm ring-1 ring-stone-200/80 sm:p-5">
@@ -157,7 +184,11 @@ function InvitePersonCard({
           </p>
         </div>
         <span
-          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${inviteStateBadgeClass(row.inviteState)}`}
+          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+            buttonVariant === "couple"
+              ? coupleInviteStateBadgeClass(row.inviteState)
+              : inviteStateBadgeClass(row.inviteState)
+          }`}
         >
           {inviteStateLabel(row.inviteState)}
         </span>
@@ -185,6 +216,7 @@ export function EventInviteAdminSection({
   canInvite,
   modalOpen,
   onModalOpenChange,
+  buttonVariant = "default",
 }: EventInviteAdminSectionProps) {
   const [invites, setInvites] = useState<EventInviteListItem[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(true);
@@ -196,6 +228,14 @@ export function EventInviteAdminSection({
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
   const [rowFeedback, setRowFeedback] = useState<Record<string, RowFeedback>>({});
   const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
+  const inviteSecondaryActionButtonClass =
+    buttonVariant === "couple"
+      ? `px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60 ${couplePortalSecondaryButtonClass}`
+      : secondaryActionButtonClass;
+  const invitePrimaryActionButtonClass =
+    buttonVariant === "couple"
+      ? `w-full px-3 py-2.5 text-xs disabled:opacity-60 ${couplePortalPrimaryButtonClass}`
+      : "w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60";
 
   useEffect(() => {
     let cancelled = false;
@@ -432,7 +472,7 @@ export function EventInviteAdminSection({
 
   return (
     <>
-      <PremiumCard variant="accent">
+      <PremiumCard variant={buttonVariant === "couple" ? "default" : "accent"}>
         <SectionTitle>Planning Portal access</SectionTitle>
         <p className="mt-2 text-sm leading-relaxed text-stone-600">
           Invite collaborators to sign in and work in the Planning Portal for this event. An email
@@ -457,7 +497,11 @@ export function EventInviteAdminSection({
                 resetModalFields();
                 onModalOpenChange(true);
               }}
-              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+              className={
+                buttonVariant === "couple"
+                  ? `w-full px-3 py-2.5 text-xs sm:w-auto ${couplePortalSecondaryButtonClass}`
+                  : "w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:w-auto"
+              }
             >
               Send portal invite
             </PrimaryButton>
@@ -487,6 +531,7 @@ export function EventInviteAdminSection({
                     key={row.eventMemberId}
                     row={row}
                     feedback={rowFeedback[feedbackKey] ?? null}
+                    buttonVariant={buttonVariant}
                   >
                     {canInvite ? (
                       <PrimaryButton
@@ -522,7 +567,12 @@ export function EventInviteAdminSection({
                   null;
 
                 return (
-                  <InvitePersonCard key={row.inviteId} row={row} feedback={feedback}>
+                  <InvitePersonCard
+                    key={row.inviteId}
+                    row={row}
+                    feedback={feedback}
+                    buttonVariant={buttonVariant}
+                  >
                     {canInvite ? (
                       <>
                         <PrimaryButton
@@ -531,7 +581,7 @@ export function EventInviteAdminSection({
                           onClick={() => {
                             void handleCopyPendingLink(row);
                           }}
-                          className={secondaryActionButtonClass}
+                          className={inviteSecondaryActionButtonClass}
                         >
                           {rowBusy[copyKey] ? "Copying…" : "Copy link"}
                         </PrimaryButton>
@@ -541,7 +591,7 @@ export function EventInviteAdminSection({
                           onClick={() => {
                             void handleResendInvite(row);
                           }}
-                          className={secondaryActionButtonClass}
+                          className={inviteSecondaryActionButtonClass}
                         >
                           {rowBusy[resendKey] ? "Resending…" : "Resend"}
                         </PrimaryButton>
@@ -569,7 +619,7 @@ export function EventInviteAdminSection({
                 Past invitations
               </p>
               {inactiveInvites.map((row) => (
-                <InvitePersonCard key={row.inviteId} row={row} />
+                <InvitePersonCard key={row.inviteId} row={row} buttonVariant={buttonVariant} />
               ))}
             </div>
           ) : null}
@@ -584,7 +634,11 @@ export function EventInviteAdminSection({
               <PrimaryButton
                 type="button"
                 onClick={handleCloseModal}
-                className="rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                className={
+                  buttonVariant === "couple"
+                    ? `px-3 py-2 text-xs ${couplePortalTertiaryButtonClass}`
+                    : "rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                }
               >
                 Close
               </PrimaryButton>
@@ -611,7 +665,7 @@ export function EventInviteAdminSection({
                   onClick={() => {
                     void handleCopyUrl(createSuccess.inviteUrl);
                   }}
-                  className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+                  className={invitePrimaryActionButtonClass}
                 >
                   {copyStatus === "copied"
                     ? "Copied!"
@@ -643,7 +697,7 @@ export function EventInviteAdminSection({
                     void handleCreateInvite();
                   }}
                   disabled={creating}
-                  className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60"
+                  className={invitePrimaryActionButtonClass}
                 >
                   {creating ? "Creating…" : "Create invite"}
                 </PrimaryButton>
