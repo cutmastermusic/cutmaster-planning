@@ -322,7 +322,6 @@ import {
 } from "@/lib/djMusicNotes";
 import {
   defaultCeremonyCoverageStatus,
-  isCeremonyCoverageNotProvided,
   normalizeCeremonyCoverageStatus,
   type CeremonyCoverageStatus,
 } from "@/lib/ceremonyCoverage";
@@ -6649,7 +6648,22 @@ export default function Home() {
   const updateCeremonyCoverageStatus = useCallback(
     (status: CeremonyCoverageStatus) => {
       if (isActualCouple) return;
-      setEventSettings((prev) => ({ ...prev, ceremonyCoverageStatus: status }));
+      const mirroredCheckpointAnswer =
+        status === "provided" ? "yes" : status === "not_provided" ? "no" : undefined;
+      setEventSettings((prev) => {
+        const nextAnswers = { ...(prev.planningQuestionAnswers ?? {}) };
+        if (mirroredCheckpointAnswer) {
+          nextAnswers[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony] = mirroredCheckpointAnswer;
+        } else {
+          delete nextAnswers[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony];
+        }
+        return {
+          ...prev,
+          ceremonyCoverageStatus: status,
+          planningQuestionAnswers: nextAnswers,
+        };
+      });
+      markActiveEventPlanningEdited();
       if (!activeEventId) return;
       setEvents((prev) =>
         prev.map((evt) =>
@@ -6657,13 +6671,26 @@ export default function Home() {
             ? {
               ...evt,
               lastUpdatedAt: Date.now(),
-              settings: { ...evt.settings, ceremonyCoverageStatus: status },
+              settings: {
+                ...evt.settings,
+                ceremonyCoverageStatus: status,
+                planningQuestionAnswers: mirroredCheckpointAnswer
+                  ? {
+                      ...(evt.settings?.planningQuestionAnswers ?? {}),
+                      [CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony]: mirroredCheckpointAnswer,
+                    }
+                  : Object.fromEntries(
+                      Object.entries(evt.settings?.planningQuestionAnswers ?? {}).filter(
+                        ([key]) => key !== CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony,
+                      ),
+                    ),
+              },
             }
             : evt,
         ),
       );
     },
-    [activeEventId, isActualCouple],
+    [activeEventId, isActualCouple, markActiveEventPlanningEdited],
   );
 
   const requestTimelineReview = useCallback(async () => {
@@ -6866,20 +6893,60 @@ export default function Home() {
 
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
-  const coupleHasCeremonyAnswer = normalizeCeremonyHappeningAnswer(
+  const ceremonyCoverageStatus = normalizeCeremonyCoverageStatus(
+    eventSettings.ceremonyCoverageStatus,
+    eventSettings.eventLayoutProfile,
+  );
+  const ceremonyCheckpointServiceAnswer = normalizeCeremonyHappeningAnswer(
     eventSettings.planningQuestionAnswers?.[CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony],
   );
+  const ceremonyServicesNotProvided = ceremonyCoverageStatus === "not_provided";
+  const ceremonyServicesEnabled = sectionCeremonyEnabled && !ceremonyServicesNotProvided;
   const coupleCeremonyAudioAnswer = normalizeCeremonyCutmasterServicesAnswer(
     eventSettings.planningQuestionAnswers?.[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
   );
-  const showCeremonyCoverageNotice = isCeremonyCoverageNotProvided(eventSettings);
+  const showCeremonyCoverageNotice = ceremonyServicesNotProvided;
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
   const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
   const hideCoupleCeremonyTimelineForNoCeremony =
-    effectiveRole === "Couple" && coupleHasCeremonyAnswer === "no";
+    effectiveRole === "Couple" && ceremonyServicesNotProvided;
   const visibleUnifiedTimeline = unifiedEventTimeline && !hideCoupleCeremonyTimelineForNoCeremony;
   const isTimelineWorkspaceScreen =
     activeScreen === "Timeline" || activeScreen === "Reception Timeline";
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const mirroredCoverageStatus: CeremonyCoverageStatus | null =
+      ceremonyCheckpointServiceAnswer === "yes"
+        ? "provided"
+        : ceremonyCheckpointServiceAnswer === "no"
+          ? "not_provided"
+          : null;
+    if (!mirroredCoverageStatus || mirroredCoverageStatus === ceremonyCoverageStatus) return;
+
+    setEventSettings((prev) => ({
+      ...prev,
+      ceremonyCoverageStatus: mirroredCoverageStatus,
+    }));
+    if (!activeEventId) return;
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? {
+              ...evt,
+              settings: {
+                ...evt.settings,
+                ceremonyCoverageStatus: mirroredCoverageStatus,
+              },
+            }
+          : evt,
+      ),
+    );
+  }, [
+    activeEventId,
+    ceremonyCheckpointServiceAnswer,
+    ceremonyCoverageStatus,
+    hasHydrated,
+  ]);
   useEffect(() => {
     if (!hasHydrated) return;
     if (unifiedEventTimeline && activeScreen === "Ceremony") {
@@ -9374,6 +9441,7 @@ export default function Home() {
     effectiveRole,
     hideCoupleCeremonyTimelineForNoCeremony,
     sectionCeremonyEnabled,
+    ceremonyServicesEnabled,
     sectionDoNotPlayEnabled,
     sectionGuestRequestsEnabled,
     sectionMustPlayEnabled,
@@ -13354,16 +13422,16 @@ export default function Home() {
 
   const runOfShowCeremonyAllMomentsDone = useMemo(
     () =>
-      sectionCeremonyEnabled &&
+      ceremonyServicesEnabled &&
       ceremonyTimelineItems.length > 0 &&
       ceremonyTimelineItems.every((item) => runOfShowDoneKeys.has(`c:${item.id}`)),
-    [sectionCeremonyEnabled, ceremonyTimelineItems, runOfShowDoneKeys],
+    [ceremonyServicesEnabled, ceremonyTimelineItems, runOfShowDoneKeys],
   );
 
   /** Ceremony (if enabled) then reception — matches on-screen Run Of Show order. */
   const runOfShowOrderedSteps = useMemo(() => {
     const steps: { key: string; title: string }[] = [];
-    if (sectionCeremonyEnabled) {
+    if (ceremonyServicesEnabled) {
       ceremonyTimelineItems.forEach((item) => {
         steps.push({
           key: `c:${item.id}`,
@@ -13381,7 +13449,7 @@ export default function Home() {
     }
     return steps;
   }, [
-    sectionCeremonyEnabled,
+    ceremonyServicesEnabled,
     sectionReceptionTimelineEnabled,
     ceremonyTimelineItems,
     mergedTimelineItems,
@@ -13410,7 +13478,7 @@ export default function Home() {
 
     const currentlyAllDone = new Set<string>();
     if (
-      sectionCeremonyEnabled &&
+      ceremonyServicesEnabled &&
       ceremonyTimelineItems.length > 0 &&
       runOfShowCeremonyAllMomentsDone
     ) {
@@ -13439,7 +13507,7 @@ export default function Home() {
       if (newlyComplete.length > 0) {
         const newlyCompleteSet = new Set(newlyComplete);
         const completionOrder: string[] = [];
-        if (sectionCeremonyEnabled) completionOrder.push(RUN_OF_SHOW_CEREMONY_SECTION_ID);
+        if (ceremonyServicesEnabled) completionOrder.push(RUN_OF_SHOW_CEREMONY_SECTION_ID);
         for (const phase of runOfShowReceptionPhaseGroups) completionOrder.push(phase.id);
         let mostRecentCompleteId: string | null = null;
         for (const id of completionOrder) {
@@ -13458,7 +13526,7 @@ export default function Home() {
     runOfShowAllDoneSectionIdsRef.current = currentlyAllDone;
   }, [
     runOfShowOverlayActive,
-    sectionCeremonyEnabled,
+    ceremonyServicesEnabled,
     ceremonyTimelineItems.length,
     runOfShowCeremonyAllMomentsDone,
     runOfShowReceptionPhaseGroups,
@@ -14130,14 +14198,14 @@ export default function Home() {
       `Date: ${formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}`,
       `Venue: ${eventSettings.venue || weddingDetails.venue || "TBD"}`,
       ...(eventVenueAddress ? [`Venue Address: ${eventVenueAddress}`] : []),
-      ...(eventCeremonyLocation ? [`Ceremony Location: ${eventCeremonyLocation}`] : []),
+      ...(ceremonyServicesEnabled && eventCeremonyLocation ? [`Ceremony Location: ${eventCeremonyLocation}`] : []),
       ...(eventReceptionLocation ? [`Reception Location: ${eventReceptionLocation}`] : []),
       `Event Type: ${effectiveEventType || "TBD"}`,
       `Package: ${eventSettings.packageName || "TBD"}`,
       `Assigned DJ: ${assignedDjLabel}`,
     ];
 
-    if (sectionCeremonyEnabled) {
+    if (ceremonyServicesEnabled) {
       lines.push(
         `Setup Time: ${eventSettings.eventStartTime || "TBD"}`,
         `Ceremony Start: ${ceremonyStartTime || "TBD"}`,
@@ -14149,7 +14217,7 @@ export default function Home() {
 
     lines.push("", "");
 
-    if (sectionCeremonyEnabled) {
+    if (ceremonyServicesEnabled) {
       lines.push(
         "CEREMONY TIMELINE",
         ...ceremonyTimelineItems.map((item) => {
@@ -14883,8 +14951,17 @@ export default function Home() {
         ...(eventSettingsRef.current.planningQuestionAnswers ?? {}),
         [questionId]: next,
       };
+      const ceremonyCoveragePatch: CeremonyCoverageStatus | null =
+        questionId === CEREMONY_CHAPTER_QUESTION_IDS.hasCeremony
+          ? next === "yes"
+            ? "provided"
+            : next === "no"
+              ? "not_provided"
+              : "unknown"
+          : null;
       setEventSettings((prev) => ({
         ...prev,
+        ...(ceremonyCoveragePatch ? { ceremonyCoverageStatus: ceremonyCoveragePatch } : {}),
         planningQuestionAnswers: {
           ...(prev.planningQuestionAnswers ?? {}),
           [questionId]: next,
@@ -14899,6 +14976,7 @@ export default function Home() {
                 ...evt,
                 settings: {
                   ...evt.settings,
+                  ...(ceremonyCoveragePatch ? { ceremonyCoverageStatus: ceremonyCoveragePatch } : {}),
                   planningQuestionAnswers: {
                     ...(evt.settings?.planningQuestionAnswers ?? {}),
                     [questionId]: next,
@@ -15300,7 +15378,7 @@ export default function Home() {
         const filtered = new Set([...prev].filter((id) => validIds.has(id)));
 
         const ceremonyAll =
-          sectionCeremonyEnabled &&
+          ceremonyServicesEnabled &&
           ceremonyTimelineItems.length > 0 &&
           ceremonyTimelineItems.every((item) => runOfShowDoneKeys.has(`c:${item.id}`));
         if (!ceremonyAll) filtered.delete(RUN_OF_SHOW_CEREMONY_SECTION_ID);
@@ -15322,7 +15400,7 @@ export default function Home() {
     runOfShowDoneKeys,
     runOfShowReceptionPhaseGroups,
     ceremonyTimelineItems,
-    sectionCeremonyEnabled,
+    ceremonyServicesEnabled,
     persistRunOfShowSectionUi,
   ]);
 
@@ -23152,14 +23230,18 @@ export default function Home() {
                     <tbody>
                       <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
                       <tr><th>Date</th><td>{formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}</td><th>Venue</th><td><EventDocumentVenueOverview venueName={eventSettings.venue || weddingDetails.venue || ""} venueAddress={eventVenueAddress} /></td></tr>
-                      <tr><th>Ceremony Location</th><td><EventDocumentLocationLink value={eventCeremonyLocation} /></td><th>Reception Location</th><td><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
+                      {ceremonyServicesEnabled ? (
+                        <tr><th>Ceremony Location</th><td><EventDocumentLocationLink value={eventCeremonyLocation} /></td><th>Reception Location</th><td><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
+                      ) : (
+                        <tr><th>Reception Location</th><td colSpan={3}><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
+                      )}
                       <tr><th>Event type</th><td>{effectiveEventType || "TBD"}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
                       <tr><th>Assigned DJ</th><td colSpan={3}>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
                     </tbody>
                   </table>
                 </div>
 
-                {sectionCeremonyEnabled && (
+                {ceremonyServicesEnabled && (
                   <>
                     <div className="doc-section print-break-avoid">
                       <p className="doc-section-phase">Phase 1</p>
@@ -23210,7 +23292,7 @@ export default function Home() {
                 {sectionReceptionTimelineEnabled && (
                   <>
                     <div className="doc-section live-reception-page-break print-break-avoid">
-                      <p className="doc-section-phase">{sectionCeremonyEnabled ? "Phase 2" : "Phase 1"}</p>
+                      <p className="doc-section-phase">{ceremonyServicesEnabled ? "Phase 2" : "Phase 1"}</p>
                       <h3>{eventPrepReceptionHeading}</h3>
                       <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
                         <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
@@ -25868,14 +25950,11 @@ export default function Home() {
                 className="relative z-0 mx-auto w-full max-w-5xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl"
                 data-run-of-show-inner=""
               >
-                {sectionCeremonyEnabled ? (
+                {ceremonyServicesEnabled ? (
                   <section className="mb-14 sm:mb-16">
                     <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       Ceremony
                     </h3>
-                    {showCeremonyCoverageNotice ? (
-                      <CeremonyCoverageNotice className="mt-5" />
-                    ) : null}
                     <div className="mt-6 grid gap-3 text-sm leading-relaxed text-stone-700 sm:grid-cols-2 sm:gap-x-10 md:gap-4 md:text-base md:leading-relaxed">
                       <p>
                         <span className="font-semibold text-stone-900">Ceremony start</span>{" "}
@@ -26445,9 +26524,9 @@ export default function Home() {
                   showMustPlay={sectionMustPlayEnabled}
                 />
 
-                {!sectionCeremonyEnabled && !sectionReceptionTimelineEnabled ? (
+                {!ceremonyServicesEnabled && !sectionReceptionTimelineEnabled ? (
                   <p className="py-12 text-center text-base text-stone-600">
-                    No ceremony or reception timeline is enabled for this event.
+                    No ceremony services or reception timeline are enabled for this event.
                   </p>
                 ) : null}
 
