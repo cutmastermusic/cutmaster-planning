@@ -434,7 +434,9 @@ import {
 } from "@/lib/coupleYourTeamPlanning";
 import {
   CEREMONY_CHAPTER_QUESTION_IDS,
+  ceremonyCutmasterServicesLabelFromValue,
   ceremonyLocationLabelFromValue,
+  normalizeCeremonyCutmasterServicesAnswer,
   normalizeCeremonyLocationAnswer,
 } from "@/lib/coupleCeremonyPlanning";
 import {
@@ -6773,7 +6775,11 @@ export default function Home() {
 
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
-  const showCeremonyCoverageNotice = isCeremonyCoverageNotProvided(eventSettings);
+  const coupleCeremonyAudioAnswer = normalizeCeremonyCutmasterServicesAnswer(
+    eventSettings.planningQuestionAnswers?.[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
+  );
+  const showCeremonyCoverageNotice =
+    isCeremonyCoverageNotProvided(eventSettings) || coupleCeremonyAudioAnswer === "no";
   const sectionReceptionTimelineEnabled = eventSettings.sectionReceptionTimelineEnabled;
   const unifiedEventTimeline = sectionCeremonyEnabled && sectionReceptionTimelineEnabled;
   const isTimelineWorkspaceScreen =
@@ -13125,6 +13131,8 @@ export default function Home() {
   const coupleMomentCeremonyRef = useMemo(
     () =>
       buildCeremonyMomentWorkspaceRef({
+        ceremonyAudioStatus: ceremonyCutmasterServicesLabelFromValue(coupleCeremonyAudioAnswer),
+        ceremonyAudioNotProvided: showCeremonyCoverageNotice,
         ceremonyStartTime,
         ceremonyGuestArrivalTime,
         officiantName,
@@ -13146,6 +13154,8 @@ export default function Home() {
     [
       ceremonyStartTime,
       ceremonyGuestArrivalTime,
+      coupleCeremonyAudioAnswer,
+      showCeremonyCoverageNotice,
       officiantName,
       ceremonyNotes,
       weddingPartyProcessional,
@@ -24348,6 +24358,8 @@ export default function Home() {
                 showSpeechesToastsSection={showSpeechesToastsSection}
                 weddingPartyLineupSummary={weddingPartyLineupSummary}
                 speechesToastsSummary={speechesToastsSummary}
+                ceremonyNotes={ceremonyNotes}
+                onCeremonyNotesChange={setCeremonyNotes}
                 onOpenWeddingPartyLineupEditor={openWeddingPartyLineupEditor}
                 onOpenSpeechesToastsEditor={openSpeechesToastsEditor}
                 onContinueToNextChapter={async (chapterAnswers) => {

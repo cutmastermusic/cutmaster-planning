@@ -14,13 +14,17 @@ import {
   couplePlanningQuestionLabelClass,
   couplePlanningQuestionShellClass,
 } from "@/components/couple-planning-ui";
-import { TextArea, TextInput } from "@/components/planning-ui";
+import {
+  PrimaryButton,
+  TextArea,
+  couplePortalSecondaryButtonClass,
+} from "@/components/planning-ui";
+import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import {
   CEREMONY_CHAPTER_QUESTION_IDS,
   CEREMONY_CUTMASTER_SERVICES_OPTIONS,
   CEREMONY_LOCATION_OPTIONS,
   buildCeremonyChapterReviewIncompleteHint,
-  ceremonyChapterNeedsLogistics,
   ceremonyCutmasterServicesLabelFromValue,
   ceremonyCutmasterServicesValueFromLabel,
   ceremonyLocationLabelFromValue,
@@ -34,6 +38,9 @@ const planningQuestionFieldShellClass = couplePlanningQuestionShellClass;
 export type CoupleCeremonyGuidedSectionProps = {
   answers: Record<string, string | undefined>;
   onAnswerChange: (questionId: string, next: string) => void;
+  ceremonyNotes: string;
+  onCeremonyNotesChange: (next: string) => void;
+  onOpenTimeline: () => void;
   onContinueToNextChapter?: () => void;
   continueToNextChapterLabel?: string;
 } & CoupleGuidedResumeProps;
@@ -41,6 +48,9 @@ export type CoupleCeremonyGuidedSectionProps = {
 export function CoupleCeremonyGuidedSection({
   answers,
   onAnswerChange,
+  ceremonyNotes,
+  onCeremonyNotesChange,
+  onOpenTimeline,
   onContinueToNextChapter,
   continueToNextChapterLabel,
   guidedResume,
@@ -50,7 +60,6 @@ export function CoupleCeremonyGuidedSection({
   const servicesValue = normalizeCeremonyCutmasterServicesAnswer(
     answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
   );
-  const needsLogistics = ceremonyChapterNeedsLogistics(servicesValue);
 
   const steps = useMemo((): CoupleGuidedQuestionStep[] => {
     const setSingle = (questionId: string, next: string) => onAnswerChange(questionId, next);
@@ -66,7 +75,7 @@ export function CoupleCeremonyGuidedSection({
 
     const servicesStep: CoupleGuidedQuestionStep = {
       id: "ceremony-cutmaster-services",
-      missingLabel: "Ceremony audio/services with Cutmaster Music",
+      missingLabel: "Ceremony audio with Cutmaster Music",
       isAnswered: (nextAnswers) =>
         Boolean(
           normalizeCeremonyCutmasterServicesAnswer(
@@ -74,63 +83,35 @@ export function CoupleCeremonyGuidedSection({
           ),
         ),
       renderGuided: () => (
-        <CouplePlanningChipSelect
-          label="Is Cutmaster Music providing ceremony audio/services?"
-          helperText="This helps us know whether to plan sound, mics, and music for your ceremony."
-          mode="single"
-          options={CEREMONY_CUTMASTER_SERVICES_OPTIONS}
-          value={ceremonyCutmasterServicesLabelFromValue(
-            normalizeCeremonyCutmasterServicesAnswer(
-              answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
-            ),
-          )}
-          onChange={(next) =>
-            setSingle(
-              CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices,
-              ceremonyCutmasterServicesValueFromLabel(next as string),
-            )
-          }
-        />
+        <div className="space-y-4">
+          <CouplePlanningChipSelect
+            label="Is Cutmaster Music providing ceremony audio?"
+            helperText="This helps us keep the ceremony visible while making the right plan for music support."
+            mode="single"
+            options={CEREMONY_CUTMASTER_SERVICES_OPTIONS}
+            value={ceremonyCutmasterServicesLabelFromValue(
+              normalizeCeremonyCutmasterServicesAnswer(
+                answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
+              ),
+            )}
+            onChange={(next) =>
+              setSingle(
+                CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices,
+                ceremonyCutmasterServicesValueFromLabel(next as string),
+              )
+            }
+          />
+          {servicesValue === "no" ? <CeremonyCoverageNotice /> : null}
+        </div>
       ),
       renderReview: () =>
         renderSingleReview(
-          "Is Cutmaster Music providing ceremony audio/services?",
+          "Is Cutmaster Music providing ceremony audio?",
           ceremonyCutmasterServicesLabelFromValue(
             normalizeCeremonyCutmasterServicesAnswer(
               answers[CEREMONY_CHAPTER_QUESTION_IDS.cutmasterServices],
             ),
           ),
-        ),
-    };
-
-    if (!needsLogistics) {
-      return [servicesStep];
-    }
-
-    const startTimeStep: CoupleGuidedQuestionStep = {
-      id: "ceremony-start-time",
-      missingLabel: "Ceremony start time",
-      isAnswered: (nextAnswers) =>
-        Boolean((nextAnswers[CEREMONY_CHAPTER_QUESTION_IDS.startTime] ?? "").trim()),
-      renderGuided: () => (
-        <div className={planningQuestionFieldShellClass}>
-          <TextInput
-            id="ceremony-start-time"
-            label="What time is the ceremony scheduled to start?"
-            value={answers[CEREMONY_CHAPTER_QUESTION_IDS.startTime] ?? ""}
-            onChange={(next) => setSingle(CEREMONY_CHAPTER_QUESTION_IDS.startTime, next)}
-            placeholder="e.g. 4:00 PM, 4pm, or TBD"
-            labelClassName={`block ${couplePlanningQuestionLabelClass}`}
-          />
-          <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
-            An approximate time is fine—enter TBD if you have not locked it in yet.
-          </p>
-        </div>
-      ),
-      renderReview: () =>
-        renderSingleReview(
-          "What time is the ceremony scheduled to start?",
-          answers[CEREMONY_CHAPTER_QUESTION_IDS.startTime],
         ),
     };
 
@@ -155,6 +136,7 @@ export function CoupleCeremonyGuidedSection({
         <div className="space-y-4">
           <CouplePlanningChipSelect
             label="Where is the ceremony taking place?"
+            helperText="A general location is enough for now. Exact setup details can come later."
             mode="single"
             options={CEREMONY_LOCATION_OPTIONS}
             value={ceremonyLocationLabelFromValue(locationValue)}
@@ -202,8 +184,62 @@ export function CoupleCeremonyGuidedSection({
       ),
     };
 
-    return [servicesStep, startTimeStep, locationStep];
-  }, [answers, needsLogistics, onAnswerChange]);
+    const ceremonyMomentsStep: CoupleGuidedQuestionStep = {
+      id: "ceremony-moments-music",
+      optional: true,
+      isAnswered: () => true,
+      renderGuided: () => (
+        <div className={planningQuestionFieldShellClass}>
+          <p className={couplePlanningQuestionLabelClass}>Ceremony Moments / Music</p>
+          <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
+            Processional, family entrances, wedding party, bride or groom, unity moments, and recessional songs live
+            on your Ceremony Timeline so each cue stays in the flow of the day.
+          </p>
+          <PrimaryButton
+            type="button"
+            onClick={onOpenTimeline}
+            className={`mt-5 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+          >
+            Open Ceremony Timeline
+          </PrimaryButton>
+        </div>
+      ),
+      renderReview: () => (
+        <div className={planningQuestionFieldShellClass}>
+          <p className={couplePlanningQuestionLabelClass}>Ceremony Moments / Music</p>
+          <p className="mt-3 text-sm leading-relaxed text-stone-900">
+            Ceremony music is managed on your Ceremony Timeline.
+          </p>
+        </div>
+      ),
+    };
+
+    const notesStep: CoupleGuidedQuestionStep = {
+      id: "ceremony-notes",
+      optional: true,
+      isAnswered: () => Boolean(ceremonyNotes.trim()),
+      renderGuided: () => (
+        <div className={planningQuestionFieldShellClass}>
+          <TextArea
+            id="ceremony-notes-couple"
+            label="Ceremony notes"
+            value={ceremonyNotes}
+            onChange={onCeremonyNotesChange}
+            rows={4}
+            placeholder="Any ceremony details, tone, special moments, or music notes you want us to know."
+            labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+          />
+          <p className={`mt-3 ${couplePlanningQuestionHelperClass}`}>
+            Keep this high level. Our team can handle production details later.
+          </p>
+        </div>
+      ),
+      renderReview: () =>
+        renderSingleReview("Ceremony notes", ceremonyNotes),
+    };
+
+    return [servicesStep, locationStep, ceremonyMomentsStep, notesStep];
+  }, [answers, ceremonyNotes, onAnswerChange, onCeremonyNotesChange, onOpenTimeline, servicesValue]);
 
   const reviewIncompleteHint = useMemo(
     () => buildCeremonyChapterReviewIncompleteHint(answers),
@@ -214,12 +250,12 @@ export function CoupleCeremonyGuidedSection({
     <CoupleGuidedQuestionSection
       sectionId="ceremony-guided"
       eyebrow="Ceremony"
-      title="Ceremony services checkpoint"
-      intro="A quick pass on ceremony audio and logistics—exact details can wait if you are still deciding."
+      title="Ceremony"
+      intro="A calm pass through ceremony audio, location, music moments, and notes. Production details can come later."
       steps={steps}
       answers={answers}
       reviewIncompleteHint={reviewIncompleteHint}
-      completionMessage="Thanks — this helps us know what to plan for your ceremony."
+      completionMessage="Thanks — this gives us a clear ceremony starting point."
       onContinueToNextChapter={onContinueToNextChapter}
       continueToNextChapterLabel={continueToNextChapterLabel}
       guidedResume={guidedResume}

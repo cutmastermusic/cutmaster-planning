@@ -9,7 +9,7 @@ export function CeremonyCoverageNotice({ className = "" }: CeremonyCoverageNotic
       role="note"
     >
       <p className="font-semibold text-stone-900">
-        Cutmaster Music is not providing ceremony audio for this event.
+        Cutmaster Music is not providing ceremony audio.
       </p>
       <p className="mt-1 text-stone-700">Ceremony details are shown for context only.</p>
     </div>

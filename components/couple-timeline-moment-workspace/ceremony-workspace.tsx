@@ -4,7 +4,8 @@ import {
   CoupleTimelineMomentWorkspaceSection,
   CoupleTimelineMomentWorkspaceShell,
 } from "@/components/couple-timeline-moment-workspace/shell";
-import { TextArea, TextInput } from "@/components/planning-ui";
+import { TextArea } from "@/components/planning-ui";
+import { CeremonyCoverageNotice } from "@/components/ceremony-coverage-notice";
 import type { CeremonyMomentWorkspaceRef } from "@/lib/timelineMomentWorkspace";
 import type { TimelineMomentType } from "@/lib/timelineMomentType";
 
@@ -65,15 +66,24 @@ export function CeremonyMomentWorkspace({
   momentType,
   canEdit,
   ceremonyRef,
-  onTimeChange,
   onNotesChange,
   onDone,
 }: CeremonyMomentWorkspaceProps) {
-  const hasProcessionalSongs = Boolean(
+  const processionalSongs = [
+    { label: "Family", song: ceremonyRef.grandparentsProcessionalSong || ceremonyRef.parentsProcessionalSong },
+    { label: "Wedding Party", song: ceremonyRef.processionalSong },
+    { label: "Bride / Groom", song: ceremonyRef.partnerProcessionalSong },
+    { label: "Unity", song: ceremonyRef.unityCeremonySong },
+    { label: "Recessional", song: ceremonyRef.recessionalSong },
+  ];
+  const hasCeremonyMusic = Boolean(
     ceremonyRef.grandparentsProcessionalSong ||
       ceremonyRef.parentsProcessionalSong ||
       ceremonyRef.processionalSong ||
-      ceremonyRef.partnerProcessionalSong,
+      ceremonyRef.partnerProcessionalSong ||
+      ceremonyRef.unityCeremonySong ||
+      ceremonyRef.recessionalSong ||
+      ceremonyRef.ceremonyMomentsPreview.some((moment) => moment.song),
   );
 
   return (
@@ -85,44 +95,47 @@ export function CeremonyMomentWorkspace({
       showMomentTypeLabel={false}
       showEmptyTimeLabel={false}
     >
-      <CoupleTimelineMomentWorkspaceSection title="Time">
-        <TextInput
-          id="couple-ceremony-workspace-time"
-          label="Time"
-          value={time}
-          onChange={onTimeChange}
-          disabled={!canEdit}
-          labelClassName={labelClass}
-          inputClassName={fieldClass}
-          placeholder="e.g. 4:00 PM"
-        />
+      <CoupleTimelineMomentWorkspaceSection title="Ceremony Audio">
+        <div className="space-y-3">
+          <CeremonyReference label="Cutmaster Music ceremony audio" value={ceremonyRef.ceremonyAudioStatus} />
+          {ceremonyRef.ceremonyAudioNotProvided ? <CeremonyCoverageNotice /> : null}
+        </div>
       </CoupleTimelineMomentWorkspaceSection>
 
-      {ceremonyRef.locationSummary || ceremonyRef.officiantName ? (
-        <CoupleTimelineMomentWorkspaceSection title="Details">
-          <div className="space-y-4">
-            <CeremonyReference label="Location" value={ceremonyRef.locationSummary} />
-            <CeremonyReference label="Officiant" value={ceremonyRef.officiantName} />
-          </div>
-        </CoupleTimelineMomentWorkspaceSection>
-      ) : null}
+      <CoupleTimelineMomentWorkspaceSection title="Location">
+        <div className="space-y-4">
+          <CeremonyReference label="Ceremony location" value={ceremonyRef.locationSummary || "Not answered"} />
+          <CeremonyReference label="Officiant" value={ceremonyRef.officiantName} />
+        </div>
+      </CoupleTimelineMomentWorkspaceSection>
 
-      {hasProcessionalSongs ? (
-        <CoupleTimelineMomentWorkspaceSection title="Processional">
+      <CoupleTimelineMomentWorkspaceSection title="Ceremony Moments / Music">
+        {hasCeremonyMusic || ceremonyRef.ceremonyMomentsPreview.length > 0 ? (
           <div className="space-y-3">
-            <CeremonySongReference label="Grandparents" song={ceremonyRef.grandparentsProcessionalSong} />
-            <CeremonySongReference label="Parents" song={ceremonyRef.parentsProcessionalSong} />
-            <CeremonySongReference label="Wedding Party" song={ceremonyRef.processionalSong} />
-            <CeremonySongReference label="Bride / Groom" song={ceremonyRef.partnerProcessionalSong} />
+            {processionalSongs.map((entry) => (
+              <CeremonySongReference key={entry.label} label={entry.label} song={entry.song} />
+            ))}
+            {ceremonyRef.ceremonyMomentsPreview.length > 0 ? (
+              <div className="rounded-xl border border-stone-200/80 bg-white px-4 py-3">
+                <p className="text-sm font-semibold leading-snug text-stone-950">Ceremony timeline</p>
+                <div className="mt-3 space-y-2">
+                  {ceremonyRef.ceremonyMomentsPreview.map((moment) => (
+                    <div key={`${moment.timeOrOrder}-${moment.moment}`} className="text-sm leading-relaxed text-stone-700">
+                      <span className="font-medium text-stone-950">{moment.moment}</span>
+                      {moment.timeOrOrder ? <span className="text-stone-500"> · {moment.timeOrOrder}</span> : null}
+                      {moment.song ? <span className="block text-stone-600">{moment.song}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        </CoupleTimelineMomentWorkspaceSection>
-      ) : null}
-
-      {ceremonyRef.recessionalSong ? (
-        <CoupleTimelineMomentWorkspaceSection title="Recessional">
-          <CeremonySongReference label="Song" song={ceremonyRef.recessionalSong} />
-        </CoupleTimelineMomentWorkspaceSection>
-      ) : null}
+        ) : (
+          <p className="text-sm leading-relaxed text-stone-600">
+            Add processional, unity, recessional, and other ceremony music cues to the Ceremony Timeline.
+          </p>
+        )}
+      </CoupleTimelineMomentWorkspaceSection>
 
       <CoupleTimelineMomentWorkspaceSection title="Notes">
         <TextArea

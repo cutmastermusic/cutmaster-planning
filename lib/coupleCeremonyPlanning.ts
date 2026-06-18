@@ -112,16 +112,6 @@ export function hasLegacyCeremonyPlanningAnswer(
   return Boolean((answers.pq_ceremony ?? "").trim());
 }
 
-export function ceremonyChapterNeedsLogistics(
-  services: CeremonyCutmasterServicesAnswer | "",
-): boolean {
-  return services === "yes" || services === "not_sure";
-}
-
-function isCeremonyStartTimeAnswered(answers: Record<string, string | undefined>): boolean {
-  return Boolean((answers[CEREMONY_CHAPTER_QUESTION_IDS.startTime] ?? "").trim());
-}
-
 function isCeremonyLocationAnswered(answers: Record<string, string | undefined>): boolean {
   const location = normalizeCeremonyLocationAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.location]);
   if (!location) return false;
@@ -141,15 +131,11 @@ function ceremonyRequiredChecks(answers: Record<string, string | undefined>): bo
   );
   if (!services) return [false];
 
-  if (services === "no") {
-    return [true];
-  }
-
-  return [true, isCeremonyStartTimeAnswered(answers), isCeremonyLocationAnswered(answers)];
+  return [true, isCeremonyLocationAnswered(answers)];
 }
 
-/** Max guided steps when logistics are required (services + time + location). */
-export const CEREMONY_GUIDED_MAX_STEP_COUNT = 3;
+/** Max guided required steps for the couple ceremony chapter (audio + location). */
+export const CEREMONY_GUIDED_MAX_STEP_COUNT = 2;
 
 export function computeCeremonyChapterCompletionPct(
   answers: Record<string, string | undefined>,
@@ -190,14 +176,6 @@ export function describeCeremonyChapterMissingFields(
   if (!services) {
     missing.push("Ceremony audio/services with Cutmaster Music");
     return missing;
-  }
-
-  if (!ceremonyChapterNeedsLogistics(services)) {
-    return missing;
-  }
-
-  if (!isCeremonyStartTimeAnswered(answers)) {
-    missing.push("Ceremony start time");
   }
 
   const location = normalizeCeremonyLocationAnswer(answers[CEREMONY_CHAPTER_QUESTION_IDS.location]);

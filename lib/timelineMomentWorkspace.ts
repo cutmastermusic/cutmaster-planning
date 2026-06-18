@@ -254,6 +254,8 @@ function findCeremonyMomentSong(
 }
 
 export type CeremonyMomentWorkspaceRef = {
+  ceremonyAudioStatus: string;
+  ceremonyAudioNotProvided: boolean;
   ceremonyStartTime: string;
   guestArrivalTime: string;
   officiantName: string;
@@ -265,10 +267,12 @@ export type CeremonyMomentWorkspaceRef = {
   unityCeremonySong: string;
   recessionalSong: string;
   ceremonyNotes: string;
-  ceremonyMomentsPreview: Array<{ moment: string; timeOrOrder: string }>;
+  ceremonyMomentsPreview: Array<{ moment: string; timeOrOrder: string; song: string }>;
 };
 
 export function buildCeremonyMomentWorkspaceRef(input: {
+  ceremonyAudioStatus?: string;
+  ceremonyAudioNotProvided?: boolean;
   ceremonyStartTime: string;
   ceremonyGuestArrivalTime: string;
   officiantName: string;
@@ -288,9 +292,12 @@ export function buildCeremonyMomentWorkspaceRef(input: {
     .map((row) => ({
       moment: row.moment.trim(),
       timeOrOrder: row.timeOrOrder?.trim() ?? "",
+      song: formatCeremonySong({ title: row.songTitle, artist: row.artist }),
     }));
 
   return {
+    ceremonyAudioStatus: input.ceremonyAudioStatus?.trim() || "Not answered",
+    ceremonyAudioNotProvided: Boolean(input.ceremonyAudioNotProvided),
     ceremonyStartTime: input.ceremonyStartTime.trim(),
     guestArrivalTime: input.ceremonyGuestArrivalTime.trim(),
     officiantName: input.officiantName.trim(),
