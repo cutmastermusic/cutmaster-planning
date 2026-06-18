@@ -18143,6 +18143,106 @@ export default function Home() {
                     </div>
                   </PremiumCard>
                 ) : null}
+                {sectionGuestRequestsEnabled ? (
+                  <PremiumCard>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <SectionTitle>Guest Requests</SectionTitle>
+                        <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                          Would you like your guests to help build the playlist?
+                        </p>
+                      </div>
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => setActiveScreen("Guest Requests")}
+                        className={couplePortalSecondaryButtonClass}
+                      >
+                        Open guest requests
+                      </PrimaryButton>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Approved</p>
+                        {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
+                          <div className="mt-2">
+                            <SectionEmptyState
+                              wrapWithCard={false}
+                              cardClassName="border-stone-200 bg-white py-3"
+                              title="No approvals yet"
+                              description="Approved guest picks will appear here."
+                              buttonVariant="couple"
+                            />
+                          </div>
+                        ) : (
+                          <div className="mt-2">
+                            <MusicHubGuestRequestList
+                              requests={guestRequests
+                                .filter((r) => r.status === "Approved")
+                                .map((request) => ({
+                                  id: request.id,
+                                  songTitle: request.songTitle,
+                                  artist: request.artist,
+                                  guestName: request.guestName,
+                                  dedication: request.dedication,
+                                  status: request.status,
+                                }))}
+                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Pending</p>
+                        {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
+                          <div className="mt-2">
+                            <SectionEmptyState
+                              wrapWithCard={false}
+                              cardClassName="border-stone-200 bg-white py-3"
+                              title="No pending requests"
+                              description="Guest requests will appear here when they are ready to review."
+                              buttonVariant="couple"
+                            />
+                          </div>
+                        ) : (
+                          <div className="mt-2">
+                            <MusicHubGuestRequestList
+                              requests={guestRequests
+                                .filter((r) => r.status === "Pending")
+                                .map((request) => ({
+                                  id: request.id,
+                                  songTitle: request.songTitle,
+                                  artist: request.artist,
+                                  guestName: request.guestName,
+                                  dedication: request.dedication,
+                                  status: request.status,
+                                }))}
+                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </PremiumCard>
+                ) : null}
+
+                <PremiumCard className="border-stone-200 bg-white shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <SectionTitle className="text-stone-950">Special Songs</SectionTitle>
+                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
+                        Your First Dance, Parent Dances, Ceremony Music, Grand Entrance, and other special moments are
+                        managed from your Timeline.
+                      </p>
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
+                      className={couplePortalSecondaryButtonClass}
+                    >
+                      Go to Timeline
+                    </PrimaryButton>
+                  </div>
+                </PremiumCard>
                   </>
                 ) : null}
 
@@ -18345,106 +18445,6 @@ export default function Home() {
                   </div>
                 </PremiumCard>
 
-                {sectionGuestRequestsEnabled ? (
-                  <PremiumCard>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <SectionTitle>Guest Requests</SectionTitle>
-                        <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                          Would you like your guests to help build the playlist?
-                        </p>
-                      </div>
-                      <PrimaryButton
-                        type="button"
-                        onClick={() => setActiveScreen("Guest Requests")}
-                        className={couplePortalSecondaryButtonClass}
-                      >
-                        Open guest requests
-                      </PrimaryButton>
-                    </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Approved</p>
-                        {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
-                          <div className="mt-2">
-                            <SectionEmptyState
-                              wrapWithCard={false}
-                              cardClassName="border-stone-200 bg-white py-3"
-                              title="No approvals yet"
-                              description="Approved guest picks will appear here."
-                              buttonVariant="couple"
-                            />
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <MusicHubGuestRequestList
-                              requests={guestRequests
-                                .filter((r) => r.status === "Approved")
-                                .map((request) => ({
-                                  id: request.id,
-                                  songTitle: request.songTitle,
-                                  artist: request.artist,
-                                  guestName: request.guestName,
-                                  dedication: request.dedication,
-                                  status: request.status,
-                                }))}
-                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Pending</p>
-                        {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
-                          <div className="mt-2">
-                            <SectionEmptyState
-                              wrapWithCard={false}
-                              cardClassName="border-stone-200 bg-white py-3"
-                              title="No pending requests"
-                              description="Guest requests will appear here when they are ready to review."
-                              buttonVariant="couple"
-                            />
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <MusicHubGuestRequestList
-                              requests={guestRequests
-                                .filter((r) => r.status === "Pending")
-                                .map((request) => ({
-                                  id: request.id,
-                                  songTitle: request.songTitle,
-                                  artist: request.artist,
-                                  guestName: request.guestName,
-                                  dedication: request.dedication,
-                                  status: request.status,
-                                }))}
-                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </PremiumCard>
-                ) : null}
-
-                <PremiumCard className="border-stone-200 bg-white shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <SectionTitle className="text-stone-950">Special Songs</SectionTitle>
-                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
-                        Your First Dance, Parent Dances, Ceremony Music, Grand Entrance, and other special moments are
-                        managed from your Timeline.
-                      </p>
-                    </div>
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
-                      className={couplePortalSecondaryButtonClass}
-                    >
-                      Go to Timeline
-                    </PrimaryButton>
-                  </div>
-                </PremiumCard>
                   </>
                 ) : null}
               </>
