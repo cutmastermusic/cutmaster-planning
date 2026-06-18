@@ -17928,10 +17928,6 @@ export default function Home() {
 
                 {sectionMustPlayEnabled ? (
                   <PremiumCard variant="accent" id="music-hub-must-play">
-                    <SectionTitle>Must Play List</SectionTitle>
-                    <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                      These are the songs that absolutely have to be part of your celebration.
-                    </p>
                     <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
                       <SectionTitle className="text-stone-950">Add a Song</SectionTitle>
                       <p className="mt-1 text-sm leading-relaxed text-stone-600">
@@ -18037,26 +18033,80 @@ export default function Home() {
                         </PrimaryButton>
                       </div>
                     </div>
-                    {mustPlaySongs.length === 0 ? (
-                      <div className="mt-4">
-                        <SectionEmptyState
-                          wrapWithCard={false}
-                          title="No songs yet."
-                          description="Start by adding a few songs you can’t imagine your wedding without."
-                          buttonVariant="couple"
-                        />
+                    <div className="mt-6 border-t border-stone-200/80 pt-5">
+                      <SectionTitle className="text-stone-950">Your Music Lists</SectionTitle>
+                      <div className="mt-4 space-y-5">
+                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
+                          <SectionTitle className="text-stone-950">Must Play List</SectionTitle>
+                          {mustPlaySongs.length === 0 ? (
+                            <div className="mt-3">
+                              <SectionEmptyState
+                                wrapWithCard={false}
+                                title="No songs yet."
+                                description="Start by adding a few songs you can’t imagine your wedding without."
+                                buttonVariant="couple"
+                              />
+                            </div>
+                          ) : (
+                            <MusicHubSongList
+                              songs={mustPlaySongs}
+                              listType="mustPlay"
+                              onTogglePriority={togglePriority}
+                              onRemove={removeSong}
+                              onUpdateSong={updateSong}
+                              disabled={!canManageMusic}
+                              buttonVariant="couple"
+                            />
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
+                          <SectionTitle className="text-stone-950">Open Dancing</SectionTitle>
+                          {playIfPossibleSongs.length === 0 ? (
+                            <div className="mt-3">
+                              <SectionEmptyState
+                                wrapWithCard={false}
+                                title="No open dancing songs yet"
+                                description="Add favorites you would love to hear if the dance floor is ready for them."
+                                buttonVariant="couple"
+                              />
+                            </div>
+                          ) : (
+                            <MusicHubSongList
+                              songs={playIfPossibleSongs}
+                              listType="playIfPossible"
+                              onTogglePriority={togglePriority}
+                              onRemove={removeSong}
+                              onUpdateSong={updateSong}
+                              disabled={!canManageMusic}
+                              buttonVariant="couple"
+                            />
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
+                          <SectionTitle className="text-stone-950">Songs to Avoid</SectionTitle>
+                          {doNotPlaySongs.length === 0 ? (
+                            <div className="mt-3">
+                              <SectionEmptyState
+                                wrapWithCard={false}
+                                title="Nothing here yet"
+                                description="Add songs or artists you’d rather not hear on your wedding day."
+                                buttonVariant="couple"
+                              />
+                            </div>
+                          ) : (
+                            <MusicHubSongList
+                              songs={doNotPlaySongs}
+                              listType="doNotPlay"
+                              onTogglePriority={togglePriority}
+                              onRemove={removeSong}
+                              onUpdateSong={updateSong}
+                              disabled={!canManageMusic}
+                              buttonVariant="couple"
+                            />
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <MusicHubSongList
-                        songs={mustPlaySongs}
-                        listType="mustPlay"
-                        onTogglePriority={togglePriority}
-                        onRemove={removeSong}
-                        onUpdateSong={updateSong}
-                        disabled={!canManageMusic}
-                        buttonVariant="couple"
-                      />
-                    )}
+                    </div>
                   </PremiumCard>
                 ) : null}
 
@@ -18254,62 +18304,8 @@ export default function Home() {
                         </div>
                       </div>
                     ) : null}
-                    {sectionMustPlayEnabled ? (
-                      <div className="border-t border-stone-100 pt-6">
-                        <SectionTitle className="text-stone-950">Songs If They Fit</SectionTitle>
-                        {playIfPossibleSongs.length === 0 ? (
-                          <div className="mt-3">
-                            <SectionEmptyState
-                              wrapWithCard={false}
-                              title="No “play if possible” songs yet"
-                              description="Optional songs can be added from the Must Play List section."
-                              buttonVariant="couple"
-                            />
-                          </div>
-                        ) : (
-                          <MusicHubSongList
-                            songs={playIfPossibleSongs}
-                            listType="playIfPossible"
-                            onTogglePriority={togglePriority}
-                            onRemove={removeSong}
-                            onUpdateSong={updateSong}
-                            disabled={!canManageMusic}
-                            buttonVariant="couple"
-                          />
-                        )}
-                      </div>
-                    ) : null}
                   </div>
                 </PremiumCard>
-
-                {sectionDoNotPlayEnabled ? (
-                  <PremiumCard className="border-stone-300 bg-white shadow-none" id="music-hub-do-not-play">
-                    <SectionTitle className="text-stone-950">Songs to Avoid</SectionTitle>
-                    <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                      Are there any songs or artists you’d rather not hear on your wedding day?
-                    </p>
-                    {doNotPlaySongs.length === 0 ? (
-                      <div className="mt-4">
-                        <SectionEmptyState
-                          wrapWithCard={false}
-                          title="Nothing here yet"
-                          description="Add songs to avoid from the Must Play List section."
-                          buttonVariant="couple"
-                        />
-                      </div>
-                    ) : (
-                      <MusicHubSongList
-                        songs={doNotPlaySongs}
-                        listType="doNotPlay"
-                        onTogglePriority={togglePriority}
-                        onRemove={removeSong}
-                        onUpdateSong={updateSong}
-                        disabled={!canManageMusic}
-                        buttonVariant="couple"
-                      />
-                    )}
-                  </PremiumCard>
-                ) : null}
 
                 {sectionGuestRequestsEnabled ? (
                   <PremiumCard>
