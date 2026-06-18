@@ -3783,6 +3783,7 @@ export default function Home() {
   const [teamActiveDraft, setTeamActiveDraft] = useState(true);
   const [teamModalOpen, setTeamModalOpen] = useState(false);
   const [teamSaving, setTeamSaving] = useState(false);
+  const teamSavingRef = useRef(false);
   const [teamFormStatus, setTeamFormStatus] = useState<{
     kind: "success" | "error";
     message: string;
@@ -8087,6 +8088,10 @@ export default function Home() {
     );
   }, [teamModalOpen, captureTeamMemberDraftSnapshot]);
 
+  const markTeamMemberDraftSaved = useCallback(() => {
+    teamModalBaselineRef.current = captureTeamMemberDraftSnapshot();
+  }, [captureTeamMemberDraftSnapshot]);
+
   const startEditingTeamMember = (member: TeamMember) => {
     if (!canActorManageEventTeamMember(member, canManageInternalEventTeam)) {
       setTeamFormStatus({
@@ -8145,6 +8150,9 @@ export default function Home() {
   };
 
   const closeTeamMemberModal = () => {
+    if (teamSavingRef.current || teamSaving) {
+      return;
+    }
     if (
       isEventTeamPersistenceContext &&
       teamModalHasUnsavedChanges &&
@@ -8154,6 +8162,12 @@ export default function Home() {
     ) {
       return;
     }
+    setTeamModalOpen(false);
+    resetTeamMemberDraft();
+  };
+
+  const closeTeamMemberModalAfterSave = () => {
+    markTeamMemberDraftSaved();
     setTeamModalOpen(false);
     resetTeamMemberDraft();
   };
@@ -8372,6 +8386,9 @@ export default function Home() {
 
   const saveTeamMember = async () => {
     console.log("SAVE TEAM MEMBER CLICKED");
+    if (teamSavingRef.current) {
+      return;
+    }
 
     const name = teamNameDraft.trim();
     const email = teamEmailDraft.trim();
@@ -8466,6 +8483,7 @@ export default function Home() {
     console.log("nextTeamMembers", nextTeamMembers);
 
     if (!isEventTeamPersistenceContext) {
+      teamSavingRef.current = true;
       setTeamSaving(true);
       setTeamFormStatus({ kind: "success", message: "Saving…" });
       setCompanyTeamMembers(nextTeamMembers);
@@ -8490,8 +8508,9 @@ export default function Home() {
             ? `Saved updates for ${name}.`
             : `Added ${name} to the workspace team.`,
         });
-        closeTeamMemberModal();
+        closeTeamMemberModalAfterSave();
       } finally {
+        teamSavingRef.current = false;
         setTeamSaving(false);
       }
       return;
@@ -8506,6 +8525,7 @@ export default function Home() {
       return;
     }
 
+    teamSavingRef.current = true;
     setTeamSaving(true);
     setTeamFormStatus({ kind: "success", message: "Saving…" });
 
@@ -8601,7 +8621,7 @@ export default function Home() {
           ? `Saved updates for ${name}.`
           : `Added ${name} to the team.`,
       });
-      closeTeamMemberModal();
+      closeTeamMemberModalAfterSave();
     } catch (error) {
       console.error("replaceEventTeamMembers threw", error);
       setTeamFormStatus({
@@ -8611,6 +8631,7 @@ export default function Home() {
         }`,
       });
     } finally {
+      teamSavingRef.current = false;
       setTeamSaving(false);
     }
   };
@@ -24865,10 +24886,11 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={closeTeamMemberModal}
+                disabled={teamSaving}
                 className={
                   isCoupleView
-                    ? `px-3 py-2 text-xs ${couplePortalTertiaryButtonClass}`
-                    : "rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100"
+                    ? `px-3 py-2 text-xs disabled:opacity-60 ${couplePortalTertiaryButtonClass}`
+                    : "rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-900 shadow-sm hover:bg-stone-100 disabled:opacity-60"
                 }
               >
                 Close
