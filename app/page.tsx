@@ -8104,6 +8104,16 @@ export default function Home() {
     );
   }, [parseEventDateTime, visibleEvents]);
 
+  const commandCenterTimelineReviewEvents = useMemo(() => {
+    return commandCenterEvents
+      .filter((evt) => Boolean(evt.settings?.timelineReviewRequestedAt))
+      .sort((a, b) => {
+        const aTime = Date.parse(a.settings?.timelineReviewRequestedAt ?? "");
+        const bTime = Date.parse(b.settings?.timelineReviewRequestedAt ?? "");
+        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+      });
+  }, [commandCenterEvents]);
+
   const commandCenterAttentionEvents = useMemo(() => {
     return commandCenterEvents
       .map((evt) => {
@@ -17347,6 +17357,60 @@ export default function Home() {
                       : "Operational overview across your assigned events."}
                   </p>
                 </PremiumCard>
+
+                {commandCenterTimelineReviewEvents.length > 0 ? (
+                  <PremiumCard>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <SectionTitle className="text-stone-950">Timeline Reviews</SectionTitle>
+                      <span className="rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/12 px-2.5 py-1 text-xs font-semibold text-stone-900">
+                        {commandCenterTimelineReviewEvents.length} requested
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {commandCenterTimelineReviewEvents.map((evt) => {
+                        const requestedAt = evt.settings.timelineReviewRequestedAt ?? "";
+                        const requestedMs = Date.parse(requestedAt);
+                        const requestedLabel = Number.isNaN(requestedMs)
+                          ? "Requested"
+                          : new Intl.DateTimeFormat(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(new Date(requestedMs));
+                        return (
+                          <div
+                            key={`timeline-review-${evt.id}`}
+                            className="rounded-xl border border-[#00D4FF]/45 bg-[#00D4FF]/10 px-3 py-3 shadow-sm"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-stone-950">
+                                  {evt.settings.eventName || evt.meta.couple || "Untitled Event"}
+                                </p>
+                                <p className="mt-1 text-xs text-stone-700">
+                                  Wedding date:{" "}
+                                  {formatEventDateForDisplay(
+                                    evt.settings.weddingDate || evt.meta.date || "",
+                                    "TBD",
+                                  )}
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-stone-700">
+                                  Requested: {requestedLabel}
+                                </p>
+                              </div>
+                              <PrimaryButton
+                                type="button"
+                                onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
+                                className="w-full rounded-lg border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105 sm:w-auto"
+                              >
+                                Review Timeline
+                              </PrimaryButton>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PremiumCard>
+                ) : null}
 
                 <PremiumCard>
                   <SectionTitle className="text-stone-950">Upcoming Events</SectionTitle>
