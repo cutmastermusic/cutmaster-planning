@@ -17835,7 +17835,7 @@ export default function Home() {
                       disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
                       className={`w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`}
                     >
-                      Save playlist link
+                      Add Playlist Link
                     </PrimaryButton>
                   </div>
                   {musicPlaylistLinks.length > 0 ? (
@@ -17965,45 +17965,63 @@ export default function Home() {
                         <div>
                           <p className={lightUiFormLabelClass}>Where should this song go?</p>
                           <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                          <button
-                            type="button"
-                            onClick={() => setNewSongListType("mustPlay")}
-                            disabled={!canManageMusic}
-                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                              newSongListType === "mustPlay"
-                                ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
-                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
-                            }`}
-                          >
-                            <span className="block text-xl leading-none">❤️</span>
-                            <span className="mt-2 block text-sm font-semibold">Must Play</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNewSongListType("playIfPossible")}
-                            disabled={!canManageMusic}
-                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                              newSongListType === "playIfPossible"
-                                ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
-                            }`}
-                          >
-                            <span className="block text-xl leading-none">💃</span>
-                            <span className="mt-2 block text-sm font-semibold">Open Dancing</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNewSongListType("doNotPlay")}
-                            disabled={!canManageMusic}
-                            className={`min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                              newSongListType === "doNotPlay"
-                                ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                                : "border-stone-200 bg-stone-50/80 text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-white"
-                            }`}
-                          >
-                            <span className="block text-xl leading-none">🚫</span>
-                            <span className="mt-2 block text-sm font-semibold">Songs to Avoid</span>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewSongListType("mustPlay")}
+                              disabled={!canManageMusic}
+                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                                newSongListType === "mustPlay"
+                                  ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                                  : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                              }`}
+                              aria-pressed={newSongListType === "mustPlay"}
+                            >
+                              {newSongListType === "mustPlay" ? (
+                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                  ✓
+                                </span>
+                              ) : null}
+                              <span className="block text-xl leading-none">❤️</span>
+                              <span className="mt-2 block text-sm font-semibold">Must Play</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewSongListType("playIfPossible")}
+                              disabled={!canManageMusic}
+                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                                newSongListType === "playIfPossible"
+                                  ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                                  : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                              }`}
+                              aria-pressed={newSongListType === "playIfPossible"}
+                            >
+                              {newSongListType === "playIfPossible" ? (
+                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                  ✓
+                                </span>
+                              ) : null}
+                              <span className="block text-xl leading-none">💃</span>
+                              <span className="mt-2 block text-sm font-semibold">Open Dancing</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewSongListType("doNotPlay")}
+                              disabled={!canManageMusic}
+                              className={`relative min-h-[6.75rem] rounded-2xl border px-4 py-3 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                                newSongListType === "doNotPlay"
+                                  ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                                  : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
+                              }`}
+                              aria-pressed={newSongListType === "doNotPlay"}
+                            >
+                              {newSongListType === "doNotPlay" ? (
+                                <span className="absolute right-3 top-3 rounded-full border border-[#2f4a3e]/35 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#2f4a3e]">
+                                  ✓
+                                </span>
+                              ) : null}
+                              <span className="block text-xl leading-none">🚫</span>
+                              <span className="mt-2 block text-sm font-semibold">Songs to Avoid</span>
+                            </button>
                           </div>
                         </div>
                         <PrimaryButton

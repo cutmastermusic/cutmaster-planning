@@ -209,8 +209,9 @@ export const lightUiCyanPrimaryButtonClass =
 export const couplePortalPrimaryButtonClass =
   "rounded-[var(--cm-radius-control)] bg-[var(--cm-editorial-accent)] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#3a5a4c] active:bg-[#283f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/40 focus-visible:ring-offset-2";
 
-/** Couple Portal secondary action: light surface, subtle border, dark text. */
-export const couplePortalSecondaryButtonClass = lightUiSecondaryButtonClass;
+/** Couple Portal secondary action: white surface, green border, green text. */
+export const couplePortalSecondaryButtonClass =
+  "rounded-[var(--cm-radius-control)] border border-[#2f4a3e]/35 bg-white px-3 py-2.5 text-xs font-semibold text-[#2f4a3e] shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:border-[#2f4a3e]/55 hover:bg-[#2f4a3e]/[0.06] hover:text-[#263d33] active:bg-[#2f4a3e]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f4a3e]/35 focus-visible:ring-offset-2";
 
 /** Couple Portal tertiary action: text-only, quiet editorial action. */
 export const couplePortalTertiaryButtonClass =
