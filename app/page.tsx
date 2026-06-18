@@ -2856,7 +2856,7 @@ const TIMELINE_CARD_TIME_TITLE_ROW_CLASS =
 const TIMELINE_CARD_TIME_INLINE_CLASS =
   "shrink-0 font-mono text-[13px] font-semibold tabular-nums tracking-tight text-stone-500 sm:text-sm lg:min-w-[5rem] lg:text-[13px]";
 const TIMELINE_CARD_TITLE_CLASS =
-  "text-base font-semibold leading-snug tracking-tight text-stone-950 [overflow-wrap:anywhere] md:text-lg lg:text-[1.0625rem] lg:leading-tight";
+  "whitespace-normal break-words text-base font-semibold leading-snug tracking-tight text-stone-950 md:text-lg lg:text-[1.0625rem] lg:leading-tight";
 const TIMELINE_CARD_CUE_CLASS =
   "text-sm leading-snug text-stone-700 [overflow-wrap:anywhere] md:text-[14px]";
 const TIMELINE_CARD_NOTES_CLASS =
@@ -20738,13 +20738,13 @@ export default function Home() {
                       >
                         {isDropTarget ? <TimelineDropTargetMarker /> : null}
                         {!rowExpanded && isCoupleView ? (
-                          <div className="mx-auto flex w-full max-w-[44rem] items-start justify-between gap-3 sm:gap-4 lg:max-w-[56rem] xl:max-w-[60rem]">
+                          <div className="mx-auto flex w-full max-w-[44rem] min-w-0 flex-col items-stretch gap-3 sm:gap-4 md:flex-row md:items-start md:justify-between lg:max-w-[56rem] xl:max-w-[60rem]">
                             <CoupleScrollSafeTapSurface
                               disabled={!canEditTimeline || !timelineRow}
                               onTap={() => {
                                 if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                               }}
-                              className={`min-w-0 flex-1 ${canEditTimeline
+                              className={`w-full min-w-0 md:flex-1 ${canEditTimeline
                                 ? "cursor-pointer active:scale-[0.995]"
                                 : "cursor-default opacity-80"
                                 }`}
@@ -20762,7 +20762,7 @@ export default function Home() {
                                 onClick={() => {
                                   if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                                 }}
-                                className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} shrink-0`}
+                                className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} w-full md:w-auto md:shrink-0`}
                               >
                                 Edit
                               </PrimaryButton>
