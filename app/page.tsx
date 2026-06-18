@@ -17332,9 +17332,10 @@ export default function Home() {
           <div className="mt-4">
             <PrimaryButton
               onClick={() => {
-                void commitActiveEventPlanningToEventsState().then(() => {
-                  setAppMode("events");
-                  setActiveScreen("All Events");
+                setAppMode("events");
+                setActiveScreen("All Events");
+                void commitActiveEventPlanningToEventsState().catch((error) => {
+                  console.error("Background save after Back to All Events failed:", error);
                 });
               }}
               className={`w-full ${lightUiSecondaryButtonClass}`}
