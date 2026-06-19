@@ -468,6 +468,7 @@ import { GrandEntranceMcScriptPreview } from "@/components/grand-entrance-mc-scr
 import {
   createEmptyWeddingPartyLineupEntry,
   formatWeddingPartyLineupForDisplay,
+  getWeddingPartyLineupPreviewContent,
   parseWeddingPartyLineup,
   serializeWeddingPartyLineup,
   WEDDING_PARTY_LINEUP_HELPER_COPY,
@@ -6027,19 +6028,42 @@ export default function Home() {
     weddingDetails.couple,
   ]);
   const grandEntranceMcScript = grandEntranceDetailForRos.script;
-  const runOfShowGrandEntranceScriptSections = useMemo(
-    () =>
-      [
-        { label: "MC Script", body: grandEntranceDetailForRos.script.trim() },
+  const runOfShowGrandEntranceCueSections = useMemo(
+    () => {
+      const lineup = getWeddingPartyLineupPreviewContent(
+        weddingPartyLineupRaw,
+        Number.MAX_SAFE_INTEGER,
+      );
+      const lineupBody = lineup.previewLines
+        .map((line) => [line.primary, line.secondary].filter(Boolean).join("\n   "))
+        .join("\n");
+
+      return [
+        {
+          label: "MC Intro Script",
+          body: grandEntranceDetailForRos.script.trim(),
+          emptyText: "No MC intro script yet",
+        },
+        {
+          label: "Wedding Party Lineup",
+          body: lineupBody,
+          emptyText: "No wedding party lineup yet",
+        },
         {
           label: "Couple Entrance Script",
           body: grandEntranceDetailForRos.coupleEntranceScript.trim(),
+          emptyText: "No couple entrance script yet",
         },
-      ].filter((section) => section.body),
+      ];
+    },
     [
       grandEntranceDetailForRos.script,
       grandEntranceDetailForRos.coupleEntranceScript,
+      weddingPartyLineupRaw,
     ],
+  );
+  const runOfShowGrandEntranceCueSheetHasContent = runOfShowGrandEntranceCueSections.some(
+    (section) => section.body.trim(),
   );
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
@@ -26365,7 +26389,7 @@ export default function Home() {
                                               showOperationalSections={canAccessGrandEntranceOperations}
                                               onOpenScriptModal={
                                                 canAccessGrandEntranceOperations &&
-                                                runOfShowGrandEntranceScriptSections.length > 0
+                                                runOfShowGrandEntranceCueSheetHasContent
                                                   ? () => setRunOfShowGrandEntranceScriptOpen(true)
                                                   : undefined
                                               }
@@ -26648,7 +26672,7 @@ export default function Home() {
               onClear={clearRunOfShowCardNoteEditorDraft}
             />
 
-            {runOfShowGrandEntranceScriptOpen && runOfShowGrandEntranceScriptSections.length > 0 ? (
+            {runOfShowGrandEntranceScriptOpen && runOfShowGrandEntranceCueSheetHasContent ? (
               <div
                 className="no-print fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-4 sm:items-center sm:p-6"
                 role="presentation"
@@ -26657,7 +26681,7 @@ export default function Home() {
                 <div
                   role="dialog"
                   aria-modal="true"
-                  aria-labelledby="grand-entrance-script-modal-title"
+                  aria-labelledby="grand-entrance-cue-sheet-modal-title"
                   className="flex max-h-[min(90dvh,44rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
                   onClick={(event) => event.stopPropagation()}
                 >
@@ -26667,10 +26691,10 @@ export default function Home() {
                         Run Of Show
                       </p>
                       <h3
-                        id="grand-entrance-script-modal-title"
+                        id="grand-entrance-cue-sheet-modal-title"
                         className="mt-1 text-xl font-semibold leading-tight text-stone-950 sm:text-2xl"
                       >
-                        Grand Entrance MC Script
+                        Grand Entrance Cue Sheet
                       </h3>
                     </div>
                     <button
@@ -26683,7 +26707,7 @@ export default function Home() {
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
                     <div className="space-y-6">
-                      {runOfShowGrandEntranceScriptSections.map((section) => (
+                      {runOfShowGrandEntranceCueSections.map((section) => (
                         <section
                           key={section.label}
                           className="rounded-2xl border border-stone-200 bg-stone-50/70 px-4 py-4 sm:px-5 sm:py-5"
@@ -26692,7 +26716,7 @@ export default function Home() {
                             {section.label}
                           </p>
                           <p className="mt-3 whitespace-pre-wrap text-xl leading-relaxed text-stone-950 sm:text-2xl sm:leading-relaxed">
-                            {section.body}
+                            {section.body || section.emptyText}
                           </p>
                         </section>
                       ))}

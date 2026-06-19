@@ -93,7 +93,7 @@ export function GrandEntranceCommandCard({
               </span>
               {onOpenScriptModal ? (
                 <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Tap to view full script
+                  Tap to view cue sheet
                 </span>
               ) : null}
             </button>
@@ -135,7 +135,7 @@ export function GrandEntranceCommandCard({
               </span>
               {onOpenScriptModal ? (
                 <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Tap to view full script
+                  Tap to view cue sheet
                 </span>
               ) : null}
             </button>
