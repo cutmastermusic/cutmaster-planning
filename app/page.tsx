@@ -6393,10 +6393,9 @@ export default function Home() {
     ): Promise<void> => {
       if (!activeEventId) return;
 
-      const usesRemoteCoverPhotoSource =
-        isSupabaseConfigured() && !isAuthBypassEnabled();
+      const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
 
-      if (usesRemoteCoverPhotoSource) {
+      if (isDbBacked) {
         const saved = await uploadEventCoverPhoto(activeEventId, file, transform);
         const displayUrl = withCoverPhotoCacheBust(saved.publicUrl);
         await preloadCoverPhotoImage(displayUrl);
@@ -6424,12 +6423,17 @@ export default function Home() {
     if (!activeEventId) return;
 
     const isDbBacked = databaseEventIdsRef.current.has(activeEventId);
-    if (isDbBacked && isSupabaseConfigured()) {
-      await deleteEventCoverPhotoRemote(activeEventId);
-    }
+    try {
+      if (isDbBacked) {
+        await deleteEventCoverPhotoRemote(activeEventId);
+      }
 
-    clearEventCoverPhotoFromLocalStorage(activeEventId);
-    applyEventCoverPhotoState(undefined, undefined, undefined);
+      clearEventCoverPhotoFromLocalStorage(activeEventId);
+      applyEventCoverPhotoState(undefined, undefined, undefined);
+    } catch (err) {
+      console.error("Failed to remove welcome photo.", err);
+      window.alert(err instanceof Error ? err.message : "Could not remove welcome photo.");
+    }
   }, [activeEventId, applyEventCoverPhotoState]);
 
   const closeWelcomePhotoEditor = useCallback(() => {
@@ -6498,6 +6502,7 @@ export default function Home() {
         closeWelcomePhotoEditor();
         setWelcomePhotoToastVisible(true);
       } catch (err) {
+        console.error("Failed to save welcome photo.", err);
         window.alert(err instanceof Error ? err.message : "Could not save welcome photo.");
       } finally {
         setWelcomePhotoSaving(false);
@@ -6565,7 +6570,8 @@ export default function Home() {
         const prepared = await prepareWelcomePhotoUploadFile(file);
         await commitEventCoverPhoto(prepared.file, prepared.dataUrl);
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : "Could not use that image.");
+        console.error("Failed to save welcome photo.", err);
+        window.alert(err instanceof Error ? err.message : "Could not save welcome photo.");
       }
     },
     [
@@ -23735,8 +23741,7 @@ export default function Home() {
             <PremiumCard>
               <SectionTitle className="text-stone-950">Visual identity & cover photo</SectionTitle>
               <p className="mt-2 text-xs leading-relaxed text-stone-600">
-                Preview a cover on the home hero for this session. Permanent cloud upload (e.g. Supabase Storage) is
-                coming soon—refreshing the browser restores the default placeholder until then.
+                DB-backed event photos save to cloud storage and travel with the event. Prototype-only events still use this device.
               </p>
               <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200 shadow-sm">
                 <div className="relative aspect-[21/9] min-h-[140px] w-full sm:min-h-[160px]">
