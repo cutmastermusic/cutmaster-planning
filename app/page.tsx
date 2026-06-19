@@ -170,6 +170,7 @@ import type {
   CeremonyTimelineItem,
   Collaborator,
   DisplayTimelineItem,
+  DjScriptEntry,
   DjScripts,
   DjMusicNotes,
   EventStatus,
@@ -1531,6 +1532,19 @@ function TeamCueNotes({
         <p className={bodyClass}>{plainLabel}</p>
       )}
     </div>
+  );
+}
+
+function isGrandEntranceShowBookScript(script: Pick<DjScriptEntry, "title">): boolean {
+  const normalizedTitle = (script.title ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return (
+    normalizedTitle === "grand entrance" ||
+    normalizedTitle === "grand entrance script" ||
+    normalizedTitle === "grand entrance mc script"
   );
 }
 
@@ -3375,6 +3389,7 @@ export default function Home() {
   } | null>(null);
   const [runOfShowCardNoteEditorDraft, setRunOfShowCardNoteEditorDraft] = useState("");
   const [runOfShowCardNoteEditorSavedValue, setRunOfShowCardNoteEditorSavedValue] = useState("");
+  const [runOfShowGrandEntranceScriptOpen, setRunOfShowGrandEntranceScriptOpen] = useState(false);
   const [grandEntranceDetailEditor, setGrandEntranceDetailEditor] = useState<{
     itemId: string;
     title: string;
@@ -6012,6 +6027,20 @@ export default function Home() {
     weddingDetails.couple,
   ]);
   const grandEntranceMcScript = grandEntranceDetailForRos.script;
+  const runOfShowGrandEntranceScriptSections = useMemo(
+    () =>
+      [
+        { label: "MC Script", body: grandEntranceDetailForRos.script.trim() },
+        {
+          label: "Couple Entrance Script",
+          body: grandEntranceDetailForRos.coupleEntranceScript.trim(),
+        },
+      ].filter((section) => section.body),
+    [
+      grandEntranceDetailForRos.script,
+      grandEntranceDetailForRos.coupleEntranceScript,
+    ],
+  );
 
   const [expandedPlanningQuestionGroups, setExpandedPlanningQuestionGroups] = useState<
     Record<string, boolean>
@@ -7741,7 +7770,12 @@ export default function Home() {
   // Read-only Show Book content for the bottom of Run Of Show (Admin/DJ only).
   // Only non-empty scripts/notes surface; the section hides entirely when empty.
   const runOfShowVisibleDjScripts = useMemo(
-    () => djScripts.filter((s) => (s.title ?? "").trim() || (s.body ?? "").trim()),
+    () =>
+      djScripts.filter(
+        (s) =>
+          !isGrandEntranceShowBookScript(s) &&
+          ((s.title ?? "").trim() || (s.body ?? "").trim()),
+      ),
     [djScripts],
   );
   const runOfShowVisibleMusicNotes = useMemo(
@@ -26329,6 +26363,12 @@ export default function Home() {
                                               songLabel={songCell || undefined}
                                               done={done}
                                               showOperationalSections={canAccessGrandEntranceOperations}
+                                              onOpenScriptModal={
+                                                canAccessGrandEntranceOperations &&
+                                                runOfShowGrandEntranceScriptSections.length > 0
+                                                  ? () => setRunOfShowGrandEntranceScriptOpen(true)
+                                                  : undefined
+                                              }
                                             />
                                           ) : null}
                                           {isFormalDance ? (
@@ -26607,6 +26647,60 @@ export default function Home() {
               onCancel={cancelRunOfShowCardNoteEditor}
               onClear={clearRunOfShowCardNoteEditorDraft}
             />
+
+            {runOfShowGrandEntranceScriptOpen && runOfShowGrandEntranceScriptSections.length > 0 ? (
+              <div
+                className="no-print fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-4 sm:items-center sm:p-6"
+                role="presentation"
+                onClick={() => setRunOfShowGrandEntranceScriptOpen(false)}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="grand-entrance-script-modal-title"
+                  className="flex max-h-[min(90dvh,44rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex shrink-0 items-start justify-between gap-4 border-b border-stone-200 px-5 py-4 sm:px-6 sm:py-5">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                        Run Of Show
+                      </p>
+                      <h3
+                        id="grand-entrance-script-modal-title"
+                        className="mt-1 text-xl font-semibold leading-tight text-stone-950 sm:text-2xl"
+                      >
+                        Grand Entrance MC Script
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRunOfShowGrandEntranceScriptOpen(false)}
+                      className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-300 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-900 transition hover:border-stone-400 hover:bg-stone-100"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+                    <div className="space-y-6">
+                      {runOfShowGrandEntranceScriptSections.map((section) => (
+                        <section
+                          key={section.label}
+                          className="rounded-2xl border border-stone-200 bg-stone-50/70 px-4 py-4 sm:px-5 sm:py-5"
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                            {section.label}
+                          </p>
+                          <p className="mt-3 whitespace-pre-wrap text-xl leading-relaxed text-stone-950 sm:text-2xl sm:leading-relaxed">
+                            {section.body}
+                          </p>
+                        </section>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <RunOfShowReferenceDrawer
               open={runOfShowReferenceOpen}

@@ -10,6 +10,7 @@ type GrandEntranceCommandCardProps = {
   songLabel?: string;
   done?: boolean;
   showOperationalSections: boolean;
+  onOpenScriptModal?: () => void;
 };
 
 function sectionLabelClass(done: boolean) {
@@ -50,6 +51,7 @@ export function GrandEntranceCommandCard({
   songLabel,
   done = false,
   showOperationalSections,
+  onOpenScriptModal,
 }: GrandEntranceCommandCardProps) {
   const lineup = getWeddingPartyLineupPreviewContent(lineupRaw, undefined);
   const mcScript = detail.script.trim();
@@ -81,9 +83,20 @@ export function GrandEntranceCommandCard({
       {showOperationalSections ? (
         <CommandCardSection label="MC script" done={done}>
           {mcScript ? (
-            <p className={`whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
-              {mcScript}
-            </p>
+            <button
+              type="button"
+              onClick={onOpenScriptModal}
+              className="block w-full touch-manipulation rounded-xl border border-stone-200/80 bg-white px-3 py-3 text-left transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.995]"
+            >
+              <span className={`block whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
+                {mcScript}
+              </span>
+              {onOpenScriptModal ? (
+                <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Tap to view full script
+                </span>
+              ) : null}
+            </button>
           ) : (
             <p className={emptyTextClass(done)}>No MC script yet</p>
           )}
@@ -112,9 +125,20 @@ export function GrandEntranceCommandCard({
       {showOperationalSections ? (
         <CommandCardSection label="Couple entrance script" done={done}>
           {coupleScript ? (
-            <p className={`whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
-              {coupleScript}
-            </p>
+            <button
+              type="button"
+              onClick={onOpenScriptModal}
+              className="block w-full touch-manipulation rounded-xl border border-stone-200/80 bg-white px-3 py-3 text-left transition hover:border-stone-300 hover:bg-stone-50 active:scale-[0.995]"
+            >
+              <span className={`block whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px] ${bodyMuted}`}>
+                {coupleScript}
+              </span>
+              {onOpenScriptModal ? (
+                <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Tap to view full script
+                </span>
+              ) : null}
+            </button>
           ) : (
             <p className={emptyTextClass(done)}>No couple entrance script yet</p>
           )}
