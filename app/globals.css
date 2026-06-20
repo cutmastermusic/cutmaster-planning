@@ -33,6 +33,25 @@
   /* Placeholders / tertiary — stay above “faint gray” on white (≈ WCAG-friendly vs zinc-300/400). */
   --cm-text-subtle: #6b635c;
 
+  /*
+   * Phase 1A Admin/DJ tokens.
+   * Future shared Admin/DJ components should consume these semantic values
+   * instead of one-off Tailwind colors. Existing screen classes remain unchanged
+   * during Phase 1A; Couple Portal tokens below are intentionally untouched.
+   */
+  --cm-admin-canvas: var(--cm-canvas);
+  --cm-admin-surface: var(--cm-surface);
+  --cm-admin-surface-muted: var(--cm-surface-muted);
+  --cm-admin-text-primary: var(--cm-text-primary);
+  --cm-admin-text-secondary: var(--cm-text-secondary);
+  --cm-admin-text-muted: var(--cm-text-muted);
+  --cm-admin-action-primary: #1c1917;
+  --cm-admin-focus: rgba(28, 25, 23, 0.32);
+  --cm-admin-danger: #9f1239;
+  --cm-admin-warning: #92400e;
+  --cm-admin-success: #047857;
+  --cm-admin-info: #0369a1;
+
   /* Legacy alias */
   --cm-muted: var(--cm-text-muted);
 
@@ -45,8 +64,17 @@
 
   /* Elevation */
   --cm-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.05), 0 2px 8px rgba(28, 25, 23, 0.04);
+  --cm-shadow-surface: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --cm-shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.08);
+  --cm-shadow-modal: 0 24px 80px rgba(28, 25, 23, 0.22);
   --cm-radius-card: 1rem;
   --cm-radius-control: 0.75rem;
+  --cm-space-8: 0.5rem;
+  --cm-space-12: 0.75rem;
+  --cm-space-16: 1rem;
+  --cm-space-24: 1.5rem;
+  --cm-space-32: 2rem;
+  --cm-space-48: 3rem;
   /* Default inset for PremiumCard / form surfaces */
   --cm-space-card-padding: 1.5rem;
   /* Vertical gap between major blocks inside a screen section (below header) */
