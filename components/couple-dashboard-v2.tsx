@@ -362,12 +362,12 @@ function CoupleHeroPhoto({
     eventId,
     coverPhotoStoragePath,
     coverPhotoDataUrl,
-    defaultWelcomePhotoDataUrl,
+    defaultWelcomePhotoDataUrl: coverPhotoHydrationReady ? defaultWelcomePhotoDataUrl : undefined,
   });
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
     coverPhotoDataUrl,
     coverPhotoStoragePath,
-    defaultWelcomePhotoDataUrl,
+    defaultWelcomePhotoDataUrl: coverPhotoHydrationReady ? defaultWelcomePhotoDataUrl : undefined,
   });
   const { displayUrl, isEventSpecific } = welcomePhoto;
   logPhotoTrace(
@@ -376,7 +376,7 @@ function CoupleHeroPhoto({
       eventId,
       coverPhotoStoragePath,
       coverPhotoDataUrl,
-      defaultWelcomePhotoDataUrl,
+      defaultWelcomePhotoDataUrl: coverPhotoHydrationReady ? defaultWelcomePhotoDataUrl : undefined,
     },
     welcomePhoto,
   );
@@ -386,7 +386,7 @@ function CoupleHeroPhoto({
 
   const [globalDefaultLoadFailed, setGlobalDefaultLoadFailed] = useState(false);
 
-  const showSkeleton = isEventSpecific && !coverPhotoHydrationReady;
+  const showSkeleton = !coverPhotoHydrationReady;
 
   useEffect(() => {
     setGlobalDefaultLoadFailed(false);
@@ -474,14 +474,14 @@ function HeroWithToday(props: CoupleDashboardV2Props) {
     isCoupleWeddingJourneyComplete: props.isCoupleWeddingJourneyComplete,
     coupleWeddingChapterCards: props.coupleWeddingChapterCards,
   });
+  const coverPhotoResolved = props.coverPhotoHydrationReady ?? true;
   const welcomePhoto = resolveCoupleWelcomePhotoDisplay({
     coverPhotoDataUrl: props.coverPhotoDataUrl,
     coverPhotoStoragePath: props.coverPhotoStoragePath,
-    defaultWelcomePhotoDataUrl: props.defaultWelcomePhotoDataUrl,
+    defaultWelcomePhotoDataUrl: coverPhotoResolved ? props.defaultWelcomePhotoDataUrl : undefined,
   });
-  const hasDisplayPhoto =
-    props.coverPhotoHydrationReady && Boolean(welcomePhoto.displayUrl);
-  const heroPhotoZoneClass = !props.coverPhotoHydrationReady
+  const hasDisplayPhoto = coverPhotoResolved && Boolean(welcomePhoto.displayUrl);
+  const heroPhotoZoneClass = !coverPhotoResolved
     ? "cm-dashboard-v3-hero-zone--loading-photo"
     : hasDisplayPhoto
       ? "cm-dashboard-v3-hero-zone--has-photo"
