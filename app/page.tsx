@@ -26166,66 +26166,78 @@ export default function Home() {
                             const isUpNext =
                               runOfShowUpNextMeta.banner === "upNext" &&
                               runOfShowUpNextMeta.upNextKey === doneKey;
-                            const rowSurface = done
-                              ? "rounded-2xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-8 opacity-65 ring-1 ring-inset ring-white/70 sm:px-4 sm:py-10"
-                              : isUpNext
-                                ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
-                                : "py-8 sm:py-9 md:py-10";
+                            if (done) {
+                              return (
+                                <article
+                                  key={`ros-ceremony-${row.id}`}
+                                  data-run-of-show-key={doneKey}
+                                  className="py-1.5"
+                                >
+                                  <button
+                                    type="button"
+                                    className="flex min-h-[3rem] w-full touch-manipulation items-center gap-3 rounded-xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-2 text-left opacity-75 transition hover:border-stone-300 hover:bg-stone-100 active:scale-[0.995] sm:min-h-[3.25rem] sm:px-3.5"
+                                    aria-pressed="true"
+                                    aria-label="Mark moment as not done"
+                                    onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                  >
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                                      ✓
+                                    </span>
+                                    <span className="shrink-0 font-mono text-sm font-medium tabular-nums text-stone-500 sm:text-base">
+                                      {row.order.trim() ? row.order : "—"}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-700 sm:text-base">
+                                      {row.moment}
+                                    </span>
+                                    <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                      Done
+                                    </span>
+                                  </button>
+                                </article>
+                              );
+                            }
+                            const rowSurface = isUpNext
+                              ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                              : "py-8 sm:py-9 md:py-10";
                             return (
                               <article
                                 key={`ros-ceremony-${row.id}`}
                                 data-run-of-show-key={doneKey}
-                                {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                {...(isUpNext ? { "data-run-of-show-up-next": "" } : {})}
                                 className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                               >
                                 <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
                                     type="button"
-                                    className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
-                                      ? "border-emerald-700/30 bg-emerald-50/60 hover:border-emerald-700/40 hover:bg-emerald-50/80"
-                                      : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                      }`}
+                                    className="flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-800 shadow-none transition hover:border-stone-400 hover:bg-white active:scale-[0.98] md:h-14 md:w-14"
                                     aria-pressed={done}
                                     aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
                                     onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                   >
-                                    {done ? (
-                                      <span className="text-xl font-semibold leading-none text-emerald-700" aria-hidden>
-                                        ✓
-                                      </span>
-                                    ) : (
-                                      <span
-                                        className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
-                                        aria-hidden
-                                      />
-                                    )}
+                                    <span
+                                      className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
+                                      aria-hidden
+                                    />
                                   </button>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  {isUpNext && !done ? (
+                                  {isUpNext ? (
                                     <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
                                       Up next
                                     </p>
                                   ) : null}
                                   <p
-                                    className={`font-mono text-2xl font-light tabular-nums sm:text-3xl md:text-[2rem] lg:text-[2.125rem] ${done ? "text-stone-500" : "text-stone-900"
-                                      }`}
+                                    className="font-mono text-2xl font-light tabular-nums text-stone-900 sm:text-3xl md:text-[2rem] lg:text-[2.125rem]"
                                   >
                                     {row.order.trim() ? row.order : "—"}
                                   </p>
                                   <h4
-                                    className={`mt-3 text-xl leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
-                                      ? "font-medium text-stone-700"
-                                      : "font-semibold text-stone-950"
-                                      }`}
+                                    className="mt-3 text-xl font-semibold leading-snug tracking-tight text-stone-950 sm:text-2xl md:text-[1.75rem] lg:text-[2rem]"
                                   >
                                     {row.moment}
                                   </h4>
                                   {row.song ? (
-                                    <p
-                                      className={`mt-5 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
-                                        }`}
-                                    >
+                                    <p className="mt-5 text-lg leading-snug text-stone-800 sm:text-xl">
                                       {row.song}
                                     </p>
                                   ) : null}
@@ -26345,6 +26357,36 @@ export default function Home() {
                                     const isUpNext =
                                       runOfShowUpNextMeta.banner === "upNext" &&
                                       runOfShowUpNextMeta.upNextKey === doneKey;
+                                    if (done) {
+                                      return (
+                                        <article
+                                          key={`ros-recv-${item.id}`}
+                                          data-run-of-show-key={doneKey}
+                                          className="py-1.5"
+                                        >
+                                          <button
+                                            type="button"
+                                            className="flex min-h-[3rem] w-full touch-manipulation items-center gap-3 rounded-xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-2 text-left opacity-75 transition hover:border-stone-300 hover:bg-stone-100 active:scale-[0.995] sm:min-h-[3.25rem] sm:px-3.5"
+                                            aria-pressed="true"
+                                            aria-label="Mark moment as not done"
+                                            onClick={() => toggleRunOfShowDoneKey(doneKey)}
+                                          >
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                                              ✓
+                                            </span>
+                                            <span className="shrink-0 font-mono text-sm font-medium tabular-nums text-stone-500 sm:text-base">
+                                              {item.time?.trim() ? item.time.trim() : "—"}
+                                            </span>
+                                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-700 sm:text-base">
+                                              {item.title}
+                                            </span>
+                                            <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                              Done
+                                            </span>
+                                          </button>
+                                        </article>
+                                      );
+                                    }
                                     const songLabel = [item.songTitle?.trim(), item.artist?.trim()]
                                       .filter(Boolean)
                                       .join(" - ");
@@ -26357,77 +26399,55 @@ export default function Home() {
                                     const isGrandEntrance = isGrandEntranceTimelineItem(item.title);
                                     const isToast = isToastTimelineItem(item.title);
                                     const isFormalDance = isFormalDanceTimelineItem(item);
-                                    const rowSurface = done
-                                      ? "rounded-2xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-8 opacity-65 ring-1 ring-inset ring-white/70 sm:px-4 sm:py-9 md:py-10"
-                                      : isUpNext
-                                        ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
-                                        : "py-8 sm:py-9 md:py-10";
+                                    const rowSurface = isUpNext
+                                      ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                                      : "py-8 sm:py-9 md:py-10";
                                     return (
                                       <article
                                         key={`ros-recv-${item.id}`}
                                         data-run-of-show-key={doneKey}
-                                        {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
+                                        {...(isUpNext ? { "data-run-of-show-up-next": "" } : {})}
                                         className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                                       >
                                         <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
                                             type="button"
-                                            className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
-                                              ? "border-emerald-700/30 bg-emerald-50/60 hover:border-emerald-700/40 hover:bg-emerald-50/80"
-                                              : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
-                                              }`}
+                                            className="flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-800 shadow-none transition hover:border-stone-400 hover:bg-white active:scale-[0.98] md:h-14 md:w-14"
                                             aria-pressed={done}
                                             aria-label={
                                               done ? "Mark moment as not done" : "Mark moment as done"
                                             }
                                             onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                           >
-                                            {done ? (
-                                              <span
-                                                className="text-xl font-semibold leading-none text-emerald-700"
-                                                aria-hidden
-                                              >
-                                                ✓
-                                              </span>
-                                            ) : (
-                                              <span
-                                                className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
-                                                aria-hidden
-                                              />
-                                            )}
+                                            <span
+                                              className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
+                                              aria-hidden
+                                            />
                                           </button>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                          {isUpNext && !done ? (
+                                          {isUpNext ? (
                                             <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
                                               Up next
                                             </p>
                                           ) : null}
                                           <p
-                                            className={`font-mono text-3xl font-light tabular-nums sm:text-4xl md:text-[2.5rem] lg:text-[2.75rem] ${done ? "text-stone-500" : "text-stone-900"
-                                              }`}
+                                            className="font-mono text-3xl font-light tabular-nums text-stone-900 sm:text-4xl md:text-[2.5rem] lg:text-[2.75rem]"
                                           >
                                             {item.time?.trim() ? item.time.trim() : "—"}
                                           </p>
                                           <h4
-                                            className={`mt-3 text-xl leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
-                                              ? "font-medium text-stone-700"
-                                              : "font-semibold text-stone-950"
-                                              }`}
+                                            className="mt-3 text-xl font-semibold leading-snug tracking-tight text-stone-950 sm:text-2xl md:text-[1.75rem] lg:text-[2rem]"
                                           >
                                             {item.title}
                                           </h4>
                                           <p
-                                            className={`mt-2 text-xs font-semibold uppercase tracking-wide ${done ? "text-stone-400" : "text-stone-500"
-                                              }`}
+                                            className="mt-2 text-xs font-semibold uppercase tracking-wide text-stone-500"
                                           >
                                             {item.category}
                                           </p>
                                           {songCell && !isGrandEntrance && !isFormalDance ? (
-                                            <p
-                                              className={`mt-6 text-lg leading-snug sm:text-xl ${done ? "text-stone-500" : "text-stone-800"
-                                                }`}
-                                            >
+                                            <p className="mt-6 text-lg leading-snug text-stone-800 sm:text-xl">
                                               {songCell}
                                             </p>
                                           ) : null}
