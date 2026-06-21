@@ -235,7 +235,7 @@ export function EventInviteAdminSection({
   const invitePrimaryActionButtonClass =
     buttonVariant === "couple"
       ? `w-full px-3 py-2.5 text-xs disabled:opacity-60 ${couplePortalPrimaryButtonClass}`
-      : "w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60";
+      : "w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60";
 
   useEffect(() => {
     let cancelled = false;

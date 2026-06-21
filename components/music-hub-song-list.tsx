@@ -200,7 +200,7 @@ function SongListRow({
               className={
                 buttonVariant === "couple"
                   ? `${couplePortalPrimaryButtonClass} min-h-8 px-2 py-1 text-[11px] disabled:opacity-55`
-                  : `${songActionButtonClass} border-stone-800 bg-[#00D4FF] text-stone-950 hover:brightness-105`
+                  : `${songActionButtonClass} border-[#1f2724] bg-[#1f2724] text-white hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2`
               }
             >
               Save

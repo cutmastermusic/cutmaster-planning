@@ -82,7 +82,7 @@ export function MagicLinkLoginForm({
         <PrimaryButton
           type="submit"
           disabled={status === "sending" || status === "sent"}
-          className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60"
+          className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
         >
           {status === "sending" ? "Sending…" : status === "sent" ? "Link sent" : "Send magic link"}
         </PrimaryButton>

@@ -206,9 +206,9 @@ export const workspaceSectionDashboardClass = "cm-workspace-section--dashboard";
 export const lightUiSecondaryButtonClass =
   "rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-text-primary)] shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-[var(--cm-surface-muted)] active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/35 focus-visible:ring-offset-2";
 
-/** Brand primary on light surfaces: charcoal on solid cyan (readable on mobile). */
+/** Brand primary on light surfaces: ShowFlow charcoal with brass focus. */
 export const lightUiCyanPrimaryButtonClass =
-  "rounded-[var(--cm-radius-control)] bg-[var(--cm-accent)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-accent-foreground)] shadow-sm transition-[transform,background-color,box-shadow] hover:brightness-105 active:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600/40 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-[transform,background-color,box-shadow] hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2";
 
 /** Couple Portal primary action: warm editorial green, used for Continue / Save / Request Review. */
 export const couplePortalPrimaryButtonClass =
@@ -266,7 +266,7 @@ export const lightUiEmptyHintInCardClass =
 
 /** Solid accent CTA on dark zinc sub-panels (rare; prefer light controls on workspace cards). */
 export const darkUiAccentPrimaryButtonClass =
-  "rounded-xl bg-[#00D4FF] px-3 py-2 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50";
+  "rounded-xl bg-[#1f2724] px-3 py-2 text-[11px] font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-0 disabled:opacity-50";
 
 /** Secondary outline on dark panels. */
 export const darkUiSecondaryOutlineButtonClass =
@@ -328,7 +328,7 @@ export function EventHomeNav({
   const primaryActionClass =
     buttonVariant === "couple"
       ? `min-h-12 w-full shrink-0 px-4 py-3.5 text-sm disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start ${couplePortalPrimaryButtonClass}`
-      : "min-h-12 w-full shrink-0 rounded-xl border border-black bg-[#00D4FF] px-4 py-3.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start";
+      : "min-h-12 w-full shrink-0 rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-3.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-55 sm:min-h-11 sm:py-2.5 lg:w-auto lg:self-start";
 
   return (
     <div className={`no-print flex min-w-0 flex-col gap-3 ${className}`.trim()}>
@@ -399,7 +399,7 @@ export function SectionEmptyState({
   const primaryActionClass =
     buttonVariant === "couple"
       ? `min-h-11 w-full px-4 py-2.5 text-sm disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2 ${couplePortalPrimaryButtonClass}`
-      : "min-h-11 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2";
+      : "min-h-11 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2";
   const secondaryActionClass =
     buttonVariant === "couple"
       ? `min-h-11 w-full px-4 py-2.5 text-sm disabled:opacity-55 sm:min-h-10 sm:flex-1 sm:py-2 ${couplePortalSecondaryButtonClass}`

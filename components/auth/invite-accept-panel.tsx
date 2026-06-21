@@ -68,7 +68,7 @@ function InviteUnavailableState({
             onClick={() => {
               window.location.href = copy.primaryCta.href;
             }}
-            className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+            className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
           >
             {copy.primaryCta.label}
           </PrimaryButton>
@@ -233,7 +233,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               onClick={() => {
                 window.location.href = buildLoginHref(token, invitedEmail);
               }}
-              className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+              className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
             >
               Sign in with invited email
             </PrimaryButton>
@@ -251,7 +251,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
                 void handleAccept();
               }}
               disabled={accepting}
-              className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60"
+              className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
             >
               {accepting ? "Accepting…" : "Accept invitation"}
             </PrimaryButton>
@@ -285,7 +285,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
                 void handleSignOutAndContinue(invitedEmail);
               }}
               disabled={signingOut}
-              className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97] disabled:opacity-60"
+              className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
             >
               {signingOut ? "Signing out…" : `Sign in with ${invitedEmail}`}
             </PrimaryButton>

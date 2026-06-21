@@ -1145,7 +1145,7 @@ function ReceptionTimelineMomentForm({
         <PrimaryButton
           type="submit"
           disabled={!canEdit}
-          className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem]"
+          className="w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[10rem]"
         >
           {submitLabel}
         </PrimaryButton>
@@ -1271,7 +1271,7 @@ function CeremonyTimelineMomentForm({
           type="button"
           onClick={onSubmit}
           disabled={!canEdit}
-          className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:w-auto sm:min-w-[10rem]"
+          className="w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[10rem]"
         >
           {submitLabel}
         </PrimaryButton>
@@ -2827,7 +2827,7 @@ function VendorEventCard({
         <PrimaryButton
           type="button"
           onClick={() => onCopy(vendor)}
-          className="min-h-12 flex-1 rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-[0.97] sm:min-h-9 sm:py-2 sm:text-[11px] sm:flex-none"
+          className="min-h-12 flex-1 rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:min-h-9 sm:py-2 sm:text-[11px] sm:flex-none"
         >
           Copy
         </PrimaryButton>
@@ -2918,7 +2918,7 @@ const TIMELINE_CARD_EDIT_FIELDS_CLASS = "space-y-2.5 md:space-y-3";
 const TIMELINE_CARD_EDIT_DONE_ROW_CLASS =
   "mt-4 flex flex-col items-stretch gap-2 border-t border-stone-200/70 pt-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 md:mt-4 md:pt-4";
 const TIMELINE_CARD_EDIT_DONE_BTN_CLASS =
-  "min-h-11 w-full rounded-lg border border-stone-800/15 bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-stone-950 shadow-none hover:brightness-[1.03] sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5";
+  "min-h-11 w-full rounded-lg border border-[#1f2724] bg-[#1f2724] px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5";
 const TIMELINE_DRAG_HANDLE_EDITING_CLASS =
   "border-solid border-stone-300/75 bg-stone-50/90 text-stone-600 max-md:min-h-9 max-md:py-2 sm:min-h-9 md:py-2.5 lg:min-h-8 lg:py-1.5 lg:text-[10px] lg:text-stone-500";
 /**
@@ -16169,7 +16169,7 @@ export default function Home() {
               {inviteAccessPreview && (
                 <PrimaryButton
                   onClick={() => setAuthStage("invite")}
-                  className="mt-4 w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+                  className="mt-4 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                 >
                   Open Magic Invite Link
                 </PrimaryButton>
@@ -16221,7 +16221,7 @@ export default function Home() {
                   className={
                     inviteAccessPreview.role === "Couple"
                       ? `w-full ${couplePortalPrimaryButtonClass}`
-                      : "w-full rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black hover:brightness-110"
+                      : "w-full rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                   }
                 >
                   Start Planning
@@ -16338,7 +16338,7 @@ export default function Home() {
                                 <PrimaryButton
                                   onClick={() => addPlanningQuestionToSet(profile)}
                                   disabled={!canManageEvents}
-                                  className="rounded-lg bg-[#00D4FF] px-2 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                                  className="rounded-lg bg-[#1f2724] px-2 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50"
                                 >
                                   Add Question
                                 </PrimaryButton>
@@ -16987,7 +16987,7 @@ export default function Home() {
                         <PrimaryButton
                           onClick={openAddTeamMemberModal}
                           disabled={!canManageEvents}
-                          className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                          className="w-full shrink-0 rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto sm:py-2"
                         >
                           Add Team Member
                         </PrimaryButton>
@@ -17084,7 +17084,7 @@ export default function Home() {
                           type="button"
                           onClick={openDefaultWelcomePhotoPicker}
                           disabled={!canManageEvents}
-                          className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                          className="rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50"
                         >
                           Upload Image
                         </PrimaryButton>
@@ -17135,7 +17135,7 @@ export default function Home() {
                         <PrimaryButton
                           onClick={triggerBackupFilePicker}
                           disabled={!canManageEvents}
-                          className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                          className="rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50"
                         >
                           Import Backup JSON
                         </PrimaryButton>
@@ -17178,7 +17178,7 @@ export default function Home() {
                 <PrimaryButton
                   onClick={openAddTeamMemberModal}
                   disabled={!canManageEvents}
-                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                  className="w-full shrink-0 rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto sm:py-2"
                 >
                   Add Team Member
                 </PrimaryButton>
@@ -17711,7 +17711,7 @@ export default function Home() {
                             </PrimaryButton>
                             <PrimaryButton
                               onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
-                              className="rounded-lg border border-black bg-[#00D4FF] px-2 py-2 text-[11px] font-semibold text-black shadow-none hover:brightness-105"
+                              className="rounded-lg border border-[#1f2724] bg-[#1f2724] px-2 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                             >
                               Open Event Document
                             </PrimaryButton>
@@ -18004,7 +18004,7 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={() => setActiveScreen("Timeline")}
-                        className="w-full rounded-lg border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105 sm:w-auto"
+                        className="w-full rounded-lg border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto"
                       >
                         {timelineReviewHasUpdatesSinceRequest ? "Review Updated Timeline" : "Review Timeline"}
                       </PrimaryButton>
@@ -19153,7 +19153,7 @@ export default function Home() {
                   className={
                     isCoupleView
                       ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
-                      : "w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                      : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
                   }
                 >
                   Save playlist link
@@ -19564,7 +19564,7 @@ export default function Home() {
                   className={
                     isCoupleView
                       ? `w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`
-                      : "w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                      : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                   }
                 >
                   Add Song
@@ -19838,7 +19838,7 @@ export default function Home() {
                                 className={
                                   isCoupleView
                                     ? `px-3 py-2.5 text-xs ${couplePortalPrimaryButtonClass}`
-                                    : "rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                                    : "rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                                 }
                               >
                                 Add
@@ -20972,7 +20972,7 @@ export default function Home() {
                             type="button"
                             onClick={() => applyTimelinePresetsForActiveEvent()}
                             disabled={!canEditTimeline}
-                            className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-[11px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45"
+                            className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
                           >
                             Apply preset again…
                           </PrimaryButton>
@@ -22391,7 +22391,7 @@ export default function Home() {
                   <PrimaryButton
                     onClick={submitGuestRequestForm}
                     disabled={!canManageGuestRequests}
-                    className="w-full border border-black bg-[#00D4FF] py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105"
+                    className="w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                   >
                     Submit Request
                   </PrimaryButton>
@@ -22432,7 +22432,7 @@ export default function Home() {
                 <PrimaryButton
                   onClick={openAddEventNoteModal}
                   disabled={!canEditNotes}
-                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50 sm:w-auto sm:py-2"
+                  className="w-full shrink-0 rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto sm:py-2"
                 >
                   Add Note
                 </PrimaryButton>
@@ -22576,7 +22576,7 @@ export default function Home() {
                 <PrimaryButton
                   type="button"
                   onClick={openAddDjScriptModal}
-                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                  className="w-full shrink-0 rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:py-2"
                 >
                   Add Script
                 </PrimaryButton>
@@ -22660,7 +22660,7 @@ export default function Home() {
                 <PrimaryButton
                   type="button"
                   onClick={addDjMusicNote}
-                  className="w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                  className="w-full shrink-0 rounded-xl bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:py-2"
                 >
                   Add note
                 </PrimaryButton>
@@ -23359,7 +23359,7 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={() => window.print()}
-                        className="min-h-11 w-full bg-[#00D4FF] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110 sm:min-w-[12rem]"
+                        className="min-h-11 w-full bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(31,39,36,0.18)] hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:min-w-[12rem]"
                       >
                         Print / Save PDF
                       </PrimaryButton>
@@ -25222,7 +25222,7 @@ export default function Home() {
             </div>
             <PrimaryButton
               onClick={() => setQuickActionsOpen((prev) => !prev)}
-              className={`rounded-2xl border border-[#00D4FF]/35 bg-[#00D4FF] px-4 text-sm font-semibold text-black shadow-[0_10px_28px_rgba(143,107,47,0.35)] transition-transform ${quickActionsOpen ? "rotate-45" : ""
+              className={`rounded-2xl border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(31,39,36,0.18)] transition-transform hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 ${quickActionsOpen ? "rotate-45" : ""
                 }`}
             >
               +
@@ -25285,7 +25285,7 @@ export default function Home() {
                 </PrimaryButton>
                 <PrimaryButton
                   type="submit"
-                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105"
+                  className="rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                 >
                   Add Script
                 </PrimaryButton>
@@ -25393,7 +25393,7 @@ export default function Home() {
                 <PrimaryButton
                   type="submit"
                   disabled={!canEditNotes || noteSaving}
-                  className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
+                  className="rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
                 >
                   {noteSaving ? "Saving…" : noteEditingId ? "Save Changes" : "Save Note"}
                 </PrimaryButton>
@@ -25692,7 +25692,7 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={handleInviteCollaborator}
-                className="w-full rounded-xl border border-black bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-black shadow-none hover:brightness-[0.97]"
+                className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
               >
                 Add collaborator (prototype)
               </PrimaryButton>
@@ -25743,7 +25743,7 @@ export default function Home() {
               </PrimaryButton>
               <PrimaryButton
                 onClick={handleSaveTemplateModal}
-                className="w-full rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110"
+                className="w-full rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_22px_rgba(31,39,36,0.18)] hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
               >
                 {templateModalMode === "new" ? "Save" : "Update"}
               </PrimaryButton>
@@ -26006,7 +26006,7 @@ export default function Home() {
                   </PrimaryButton>
                   <PrimaryButton
                     type="submit"
-                    className="rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black hover:brightness-110"
+                    className="rounded-xl bg-[#1f2724] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                   >
                     Save team member
                   </PrimaryButton>
@@ -27076,7 +27076,7 @@ export default function Home() {
                     type="button"
                     onClick={handleParseTimelineImport}
                     disabled={!canEditTimeline || !timelineImportRaw.trim()}
-                    className="w-full rounded-lg border border-black bg-[#00D4FF] px-4 py-2.5 text-[13px] font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto"
+                    className="w-full rounded-lg border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-[13px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45 sm:w-auto"
                   >
                     Parse Timeline
                   </PrimaryButton>

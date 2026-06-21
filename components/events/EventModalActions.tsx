@@ -23,7 +23,7 @@ export function EventModalActions({
       </button>
       <button
         type="submit"
-        className={`${actionButtonClass} bg-[#00D4FF] text-black shadow-[0_8px_22px_rgba(143,107,47,0.35)] hover:brightness-110`}
+        className={`${actionButtonClass} bg-[#1f2724] text-white shadow-[0_8px_22px_rgba(31,39,36,0.18)] hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2`}
       >
         {mode === "new" ? "Create Event" : "Save Changes"}
       </button>
