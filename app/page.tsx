@@ -25909,73 +25909,81 @@ export default function Home() {
             aria-label="Run of show"
           >
             <header className="sticky top-0 z-10 shrink-0 border-b border-stone-200 bg-white pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_0_0_rgba(15,23,42,0.06)]">
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4 px-4 py-4 sm:gap-x-6 sm:px-6 sm:py-4 md:px-8 md:py-5 lg:px-10">
-                <div className="min-w-0 flex-1 basis-full pr-0 sm:basis-[min(100%,32rem)] sm:pr-2 md:max-w-[min(100%,44rem)] lg:max-w-[min(100%,48rem)]">
-                  <h2 className="text-[1.5rem] font-semibold leading-[1.15] tracking-tight text-stone-950 sm:text-[1.75rem] md:text-[2.125rem] lg:text-[2.375rem]">
+              <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-start md:justify-between md:gap-5 md:px-8 md:py-3.5 lg:px-10">
+                <div className="min-w-0 flex-1 pr-0 md:pr-4">
+                  <h2 className="text-[1.45rem] font-semibold leading-[1.08] tracking-tight text-stone-950 sm:text-[1.7rem] md:text-[2rem] lg:text-[2.2rem]">
                     {runOfShowHeadline}
                   </h2>
-                  <p className="mt-2 max-w-3xl text-[13px] font-medium leading-snug text-stone-600 sm:text-sm md:text-[15px]">
+                  <p className="mt-1.5 max-w-3xl text-[12px] font-medium leading-snug text-stone-600 sm:text-[13px] md:text-sm">
                     {runOfShowSubline}
                   </p>
-                  {runOfShowSyncStatus ? (
-                    <p
-                      className={`mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] sm:text-[11px] ${runOfShowSyncStatus.toneClass}`}
-                      aria-live="polite"
-                      role="status"
-                    >
-                      {runOfShowSyncStatus.label}
-                    </p>
-                  ) : null}
-                  {runOfShowUpNextMeta.banner === "upNext" ? (
-                    <div
-                      className="mt-3 max-w-3xl rounded-xl border border-cyan-300/80 bg-gradient-to-r from-cyan-50/95 to-white px-4 py-3 shadow-[inset_3px_0_0_0_var(--cm-cyan)] sm:mt-3.5 md:mt-4 md:px-5 md:py-4"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-900/80 md:text-xs">
-                        Up next
-                      </p>
-                      <p className="mt-1 text-base font-semibold leading-snug text-stone-950 md:text-lg md:leading-tight">
-                        {runOfShowUpNextMeta.upNextTitle}
-                      </p>
+                  {runOfShowSyncStatus || runOfShowUpNextMeta.banner !== "none" ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {runOfShowSyncStatus ? (
+                        <p
+                          className={`rounded-full border border-current/15 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] sm:text-[11px] ${runOfShowSyncStatus.toneClass}`}
+                          aria-live="polite"
+                          role="status"
+                        >
+                          {runOfShowSyncStatus.label}
+                        </p>
+                      ) : null}
+                      {runOfShowUpNextMeta.banner === "upNext" ? (
+                        <p
+                          className="inline-flex max-w-full items-center rounded-full border border-cyan-200/90 bg-cyan-50/90 px-2.5 py-1 text-[11px] font-semibold leading-snug text-cyan-950 sm:text-xs"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <span className="shrink-0 uppercase tracking-[0.14em] text-cyan-900/75">
+                            Next:
+                          </span>
+                          <span className="ml-1.5 min-w-0 truncate text-stone-900">
+                            {runOfShowUpNextCueDetail?.subline
+                              ? `${runOfShowUpNextCueDetail.subline} · ${runOfShowUpNextMeta.upNextTitle}`
+                              : runOfShowUpNextMeta.upNextTitle}
+                          </span>
+                        </p>
+                      ) : runOfShowUpNextMeta.banner === "complete" ? (
+                        <p className="rounded-full border border-emerald-200/90 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-semibold leading-snug text-emerald-950 sm:text-xs">
+                          Run Of Show complete
+                        </p>
+                      ) : null}
                     </div>
-                  ) : runOfShowUpNextMeta.banner === "complete" ? (
-                    <p className="mt-3 max-w-3xl rounded-lg border border-emerald-200/90 bg-emerald-50/80 px-4 py-2.5 text-sm font-medium leading-snug text-emerald-950 md:mt-4 md:py-3">
-                      Run Of Show complete
-                    </p>
                   ) : null}
                 </div>
-                <div className="ml-auto flex w-full shrink-0 flex-wrap items-start justify-end gap-3 sm:w-auto sm:flex-nowrap sm:items-center sm:gap-4 sm:pt-0.5">
+                <div className="flex w-full shrink-0 flex-col gap-2 md:w-auto md:min-w-[17rem] md:items-end">
                   {/*
                     White-label: this block is the Run Of Show brand slot — replace `runOfShowHeaderBrand`
                     (or source from tenant config) so logo, companyName, and brandAccentColor stay swappable.
                   */}
-                  <div
-                    className="flex max-w-[11rem] flex-col items-end gap-1 border-l border-stone-200 pl-3 sm:max-w-[10.5rem] sm:pl-4 md:max-w-[12rem]"
-                    style={{
-                      borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={runOfShowHeaderBrand.logoSrc}
-                      alt=""
-                      className="hidden h-7 w-auto max-w-[118px] object-contain object-right brightness-0 sm:block md:h-[2.1rem] md:max-w-[140px]"
-                    />
-                    <p className="text-right text-[12px] font-semibold leading-snug text-stone-700 sm:hidden">
+                  <div className="flex w-full items-center justify-between gap-3 md:justify-end">
+                    <p className="text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-stone-400 md:hidden">
                       {runOfShowHeaderBrand.companyName}
                     </p>
-                    <p className="hidden max-w-full text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block sm:truncate">
-                      {runOfShowHeaderBrand.companyName}
-                    </p>
+                    <div
+                      className="ml-auto flex max-w-[11rem] items-center justify-end gap-2 border-l border-stone-200 pl-3 md:max-w-[12rem]"
+                      style={{
+                        borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={runOfShowHeaderBrand.logoSrc}
+                        alt=""
+                        className="hidden h-5 w-auto max-w-[112px] object-contain object-right brightness-0 sm:block md:h-6 md:max-w-[128px]"
+                      />
+                      <p className="hidden max-w-full truncate text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block">
+                        {runOfShowHeaderBrand.companyName}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex min-w-0 w-full flex-col gap-2.5 sm:w-auto sm:flex-none sm:items-end">
-                    <div className="flex w-full flex-wrap items-stretch justify-end gap-2 sm:flex-nowrap">
+                  <div className="flex min-w-0 w-full flex-col gap-1.5 md:w-auto md:flex-none md:items-end">
+                    <div className="flex w-full flex-wrap items-stretch justify-end gap-1.5 sm:flex-nowrap md:gap-2">
                       {typeof document !== "undefined" && document.fullscreenEnabled ? (
                         <PrimaryButton
                           type="button"
                           onClick={() => void toggleRunOfShowFullscreen()}
-                          className="min-h-11 flex-1 touch-manipulation rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none md:min-h-12 md:px-5 md:text-[15px]"
+                          className="min-h-10 flex-1 touch-manipulation rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:flex-none md:px-3.5 md:text-sm"
                         >
                           {runOfShowIsFullscreen ? "Exit fullscreen" : "Fullscreen"}
                         </PrimaryButton>
@@ -25983,18 +25991,18 @@ export default function Home() {
                       <PrimaryButton
                         type="button"
                         onClick={closeRunOfShow}
-                        className="min-h-11 flex-1 touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-800 sm:flex-none md:min-h-12 md:px-5 md:text-[15px]"
+                        className="min-h-10 flex-1 touch-manipulation rounded-xl border border-stone-800 bg-stone-900 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-stone-800 sm:flex-none md:px-3.5 md:text-sm"
                       >
                         Exit Run Of Show
                       </PrimaryButton>
                     </div>
-                    <div className="flex w-full flex-wrap items-center justify-end gap-2 border-t border-stone-100 pt-2 sm:border-t-0 sm:pt-0 md:gap-2.5">
+                    <div className="flex w-full flex-wrap items-center justify-end gap-1.5 md:gap-2">
                       {RUN_OF_SHOW_ANNOTATION_ENABLED ? (
                         <>
                           <button
                             type="button"
                             onClick={() => setRunOfShowAnnotateMode((v) => !v)}
-                            className={`min-h-11 shrink-0 touch-manipulation rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition md:min-h-12 md:px-4 md:text-sm ${runOfShowAnnotateMode
+                            className={`min-h-9 shrink-0 touch-manipulation rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition md:px-3 md:text-xs ${runOfShowAnnotateMode
                               ? "border-stone-400 bg-stone-100 text-stone-800"
                               : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50"
                               }`}
@@ -26007,7 +26015,7 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={clearRunOfShowAnnotations}
-                                className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 md:min-h-12 md:px-4 md:text-sm"
+                                className="min-h-9 shrink-0 touch-manipulation rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 md:px-3 md:text-xs"
                               >
                                 Clear
                               </button>
@@ -26015,7 +26023,7 @@ export default function Home() {
                                 type="button"
                                 onClick={undoLastRunOfShowAnnotation}
                                 disabled={runOfShowAnnotationStrokes.length === 0}
-                                className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 md:min-h-12 md:px-4 md:text-sm"
+                                className="min-h-9 shrink-0 touch-manipulation rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[11px] font-semibold text-stone-600 transition enabled:hover:border-stone-300 enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40 md:px-3 md:text-xs"
                               >
                                 Undo
                               </button>
@@ -26026,7 +26034,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={resetRunOfShowDone}
-                        className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-transparent bg-transparent px-3 py-2.5 text-xs font-medium text-stone-500 transition hover:bg-stone-50 hover:text-stone-700 md:min-h-12 md:px-4 md:text-sm"
+                        className="min-h-9 shrink-0 touch-manipulation rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-[11px] font-medium text-stone-500 transition hover:bg-stone-50 hover:text-stone-700 md:px-3 md:text-xs"
                       >
                         Reset progress
                       </button>
