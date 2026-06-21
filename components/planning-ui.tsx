@@ -713,46 +713,51 @@ export function AppHeader({
   }
 
   return (
-    <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
+    <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-4 shadow-[var(--cm-shadow-card)] sm:p-5">
       {accountMenu ? (
         <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">{accountMenu}</div>
       ) : null}
-      <div className="relative mx-auto w-full max-w-[220px]">
-        <Image
-          src={appSettings.logoUrl || "/branding/showflow-logo.svg"}
-          alt={appSettings.companyName}
-          width={2000}
-          height={2000}
-          priority
-          sizes="220px"
-          className="h-auto w-full object-contain"
-        />
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className={`min-w-0 flex-1 ${accountMenu ? "pr-10 sm:pr-0" : ""}`.trim()}>
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-stone-950">{screenTitle}</h1>
+            {saveLabel ? (
+              <p
+                className={`shrink-0 pt-1 text-right text-[11px] font-medium leading-snug tracking-tight ${saveTone}`}
+                aria-live="polite"
+              >
+                {saveLabel}
+              </p>
+            ) : null}
+          </div>
+          {weddingDetails.couple ? (
+            <>
+              <p className="mt-3 text-sm font-medium text-stone-800">
+                {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
+              </p>
+              <p className="mt-1 text-sm text-stone-600">
+                Wedding Date: {formatEventDateForDisplay(weddingDetails.date, weddingDetails.date || "TBD")}
+              </p>
+              <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
+            </>
+          ) : null}
+        </div>
+        <div
+          className={`w-[180px] shrink-0 self-start sm:w-[200px] md:w-[220px] ${
+            accountMenu ? "sm:mr-12" : ""
+          }`.trim()}
+        >
+          <Image
+            src={appSettings.logoUrl || "/branding/showflow-logo.svg"}
+            alt={appSettings.companyName}
+            width={2000}
+            height={500}
+            priority
+            sizes="(max-width: 640px) 180px, (max-width: 768px) 200px, 220px"
+            className="h-auto w-full object-contain"
+          />
+        </div>
       </div>
-      <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">
-        {appSettings.companyName}
-      </p>
-      <div className="mt-3 flex min-w-0 items-start justify-between gap-3">
-        <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-stone-950">{screenTitle}</h1>
-        {saveLabel ? (
-          <p
-            className={`shrink-0 pt-1 text-right text-[11px] font-medium leading-snug tracking-tight ${saveTone}`}
-            aria-live="polite"
-          >
-            {saveLabel}
-          </p>
-        ) : null}
-      </div>
-      {weddingDetails.couple ? (
-        <>
-          <p className="mt-4 text-sm font-medium text-stone-800">
-            {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
-          </p>
-          <p className="mt-1 text-sm text-stone-600">
-            Wedding Date: {formatEventDateForDisplay(weddingDetails.date, weddingDetails.date || "TBD")}
-          </p>
-          <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
-        </>
-      ) : null}
     </header>
   );
 }

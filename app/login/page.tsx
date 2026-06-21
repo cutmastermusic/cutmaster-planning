@@ -43,7 +43,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             src="/branding/showflow-logo.svg"
             alt="ShowFlow"
             width={2000}
-            height={2000}
+            height={500}
             priority
             className="h-auto w-full object-contain"
           />
