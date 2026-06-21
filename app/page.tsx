@@ -72,6 +72,7 @@ import {
   cmAppShellClass,
   EventHomeNav,
   EventNavSegmented,
+  GlobalApplicationHeader,
   InsightStack,
   PersistEcho,
   PersistMobileChip,
@@ -15847,6 +15848,15 @@ export default function Home() {
 
   return (
     <div className={`${cmAppShellClass}${isCoupleEditorialShell ? " cm-app-shell--couple-editorial" : ""}`}>
+      {!isCoupleEditorialShell ? (
+        <GlobalApplicationHeader
+          appSettings={{
+            ...appSettings,
+            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-logo.svg",
+          }}
+          accountMenu={accountMenu}
+        />
+      ) : null}
       <div
         className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 sm:px-6 ${
           hideCoupleDashboardAppHeader ? "pt-3 sm:pt-4" : "pt-6"

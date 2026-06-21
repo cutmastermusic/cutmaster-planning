@@ -32,6 +32,11 @@ type AppHeaderProps = {
   showScreenTitle?: boolean;
 };
 
+type GlobalApplicationHeaderProps = {
+  appSettings: AppSettings;
+  accountMenu?: ReactNode;
+};
+
 type BottomNavProps = {
   items: Array<{ screen: Screen; label: string }>;
   activeScreen: Screen;
@@ -713,40 +718,38 @@ export function AppHeader({
   }
 
   return (
-    <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-4 shadow-[var(--cm-shadow-card)] sm:p-5">
-      {accountMenu ? (
-        <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">{accountMenu}</div>
+    <header className="relative rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-5 shadow-[var(--cm-shadow-card)]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-stone-950">{screenTitle}</h1>
+        {saveLabel ? (
+          <p
+            className={`shrink-0 pt-1 text-right text-[11px] font-medium leading-snug tracking-tight ${saveTone}`}
+            aria-live="polite"
+          >
+            {saveLabel}
+          </p>
+        ) : null}
+      </div>
+      {weddingDetails.couple ? (
+        <>
+          <p className="mt-4 text-sm font-medium text-stone-800">
+            {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
+          </p>
+          <p className="mt-1 text-sm text-stone-600">
+            Wedding Date: {formatEventDateForDisplay(weddingDetails.date, weddingDetails.date || "TBD")}
+          </p>
+          <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
+        </>
       ) : null}
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className={`min-w-0 flex-1 ${accountMenu ? "pr-10 sm:pr-0" : ""}`.trim()}>
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-stone-950">{screenTitle}</h1>
-            {saveLabel ? (
-              <p
-                className={`shrink-0 pt-1 text-right text-[11px] font-medium leading-snug tracking-tight ${saveTone}`}
-                aria-live="polite"
-              >
-                {saveLabel}
-              </p>
-            ) : null}
-          </div>
-          {weddingDetails.couple ? (
-            <>
-              <p className="mt-3 text-sm font-medium text-stone-800">
-                {appSettings.coupleWelcomeMessage}, {weddingDetails.couple}
-              </p>
-              <p className="mt-1 text-sm text-stone-600">
-                Wedding Date: {formatEventDateForDisplay(weddingDetails.date, weddingDetails.date || "TBD")}
-              </p>
-              <p className="mt-1 text-sm text-stone-600">{weddingDetails.venue}</p>
-            </>
-          ) : null}
-        </div>
-        <div
-          className={`w-[180px] shrink-0 self-start sm:w-[200px] md:w-[220px] ${
-            accountMenu ? "sm:mr-12" : ""
-          }`.trim()}
-        >
+    </header>
+  );
+}
+
+export function GlobalApplicationHeader({ appSettings, accountMenu }: GlobalApplicationHeaderProps) {
+  return (
+    <header className="no-print border-b border-stone-200 bg-[#f8f6f2]">
+      <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-6">
+        <div className="w-[180px] shrink-0 sm:w-[200px] md:w-[220px]">
           <Image
             src={appSettings.logoUrl || "/branding/showflow-logo.svg"}
             alt={appSettings.companyName}
@@ -757,6 +760,7 @@ export function AppHeader({
             className="h-auto w-full object-contain"
           />
         </div>
+        {accountMenu ? <div className="shrink-0">{accountMenu}</div> : <div className="h-10 w-10" aria-hidden />}
       </div>
     </header>
   );
