@@ -1536,6 +1536,33 @@ function TeamCueNotes({
   );
 }
 
+function RunOfShowDoneScribbleOverlay() {
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute inset-x-3 top-1/2 z-[1] h-12 -translate-y-1/2 opacity-65 mix-blend-multiply sm:inset-x-5 sm:h-14 md:h-16"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 18"
+    >
+      <path
+        d="M1 9.5 C 10 5.5, 18 13.5, 27 8.5 S 44 5.5, 53 9.5 S 70 13.5, 79 8.5 S 92 5, 99 9"
+        fill="none"
+        stroke="rgb(120 113 108 / 0.5)"
+        strokeLinecap="round"
+        strokeWidth="2.8"
+      />
+      <path
+        d="M2 12.5 C 12 8, 20 15, 30 10.5 S 47 7.5, 56 11 S 73 15, 82 10.5 S 93 7, 99 11.5"
+        fill="none"
+        stroke="rgb(87 83 78 / 0.32)"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function isGrandEntranceShowBookScript(script: Pick<DjScriptEntry, "title">): boolean {
   const normalizedTitle = (script.title ?? "")
     .trim()
@@ -26159,7 +26186,7 @@ export default function Home() {
                               runOfShowUpNextMeta.banner === "upNext" &&
                               runOfShowUpNextMeta.upNextKey === doneKey;
                             const rowSurface = done
-                              ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-10"
+                              ? "relative overflow-hidden rounded-2xl bg-stone-200/80 px-3 py-8 ring-1 ring-inset ring-stone-300/90 shadow-[inset_4px_0_0_0_rgb(120_113_108/0.45)] sm:px-4 sm:py-10"
                               : isUpNext
                                 ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                                 : "py-8 sm:py-9 md:py-10";
@@ -26170,6 +26197,7 @@ export default function Home() {
                                 {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                 className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                               >
+                                {done ? <RunOfShowDoneScribbleOverlay /> : null}
                                 <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
                                     type="button"
@@ -26350,7 +26378,7 @@ export default function Home() {
                                     const isToast = isToastTimelineItem(item.title);
                                     const isFormalDance = isFormalDanceTimelineItem(item);
                                     const rowSurface = done
-                                      ? "rounded-2xl bg-stone-100/95 px-3 py-8 ring-1 ring-inset ring-stone-200/80 sm:px-4 sm:py-9 md:py-10"
+                                      ? "relative overflow-hidden rounded-2xl bg-stone-200/80 px-3 py-8 ring-1 ring-inset ring-stone-300/90 shadow-[inset_4px_0_0_0_rgb(120_113_108/0.45)] sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
                                         ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                                         : "py-8 sm:py-9 md:py-10";
@@ -26361,6 +26389,7 @@ export default function Home() {
                                         {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                         className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                                       >
+                                        {done ? <RunOfShowDoneScribbleOverlay /> : null}
                                         <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
                                             type="button"
