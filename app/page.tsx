@@ -3190,9 +3190,10 @@ function migrateLegacyBrandSettings(settings: Partial<AppSettings>): Partial<App
     !next.logoUrl ||
     next.logoUrl === legacyLogoPath ||
     next.logoUrl === "/showflow-horizontal.svg" ||
-    next.logoUrl === "/branding/showflow-horizontal-logo.svg"
+    next.logoUrl === "/branding/showflow-horizontal-logo.svg" ||
+    next.logoUrl === "/branding/showflow-logo.svg"
   ) {
-    next.logoUrl = "/branding/showflow-logo.svg";
+    next.logoUrl = "/branding/showflow-app-logo.svg";
   }
   if (!next.prepSheetFooterText || next.prepSheetFooterText.startsWith(`Prepared by ${legacyCompanyName}`)) {
     next.prepSheetFooterText = "Powered by Cutmaster Music. Confirm final cues with your planner and DJ.";
@@ -7905,12 +7906,12 @@ export default function Home() {
   }, [activePlanningChapterId, hasHydrated, runOfShowOverlayActive]);
 
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
-  /** Same resolution as {@link AppHeader} — ShowFlow default is the approved horizontal wordmark. */
+  /** Product UI uses the ShowFlow app logo; marketing surfaces use the tagline logo directly. */
   const resolvedDocLogoSrc = useMemo(() => {
     const raw = appSettings.logoUrl?.trim() ?? "";
-    if (!raw) return "/branding/showflow-logo.svg";
+    if (!raw) return "/branding/showflow-app-logo.svg";
     if (raw.startsWith("/") || raw.startsWith("http") || raw.startsWith("data:")) return raw;
-    return "/branding/showflow-logo.svg";
+    return "/branding/showflow-app-logo.svg";
   }, [appSettings.logoUrl]);
   const coupleDisplayName = eventSettings.coupleNames || weddingDetails.couple;
   const eventDateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
@@ -7990,10 +7991,10 @@ export default function Home() {
   const runOfShowHeaderBrand = useMemo(
     () => ({
       companyName: appSettings.companyName?.trim() || "ShowFlow",
-      logoSrc: resolvedDocLogoSrc,
+      logoSrc: "/branding/showflow-app-logo.svg",
       brandAccentColor: DEFAULT_RUN_OF_SHOW_BRAND_ACCENT,
     }),
-    [appSettings.companyName, resolvedDocLogoSrc],
+    [appSettings.companyName],
   );
 
   const parsedWeddingDate = eventDateRaw && eventDateRaw !== "TBD" ? new Date(eventDateRaw) : null;
@@ -15819,6 +15820,13 @@ export default function Home() {
   if (!hasHydrated) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
+        <GlobalApplicationHeader
+          appSettings={{
+            ...appSettings,
+            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
+          }}
+          accountMenu={accountMenu}
+        />
         <main className="mx-auto w-full max-w-md overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
           <AppHeader
             screenTitle={headerScreenTitle}
@@ -15827,7 +15835,7 @@ export default function Home() {
             appSettings={{
               ...appSettings,
               coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
-              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-logo.svg",
+              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
             }}
             accountMenu={accountMenu}
           />
@@ -15852,7 +15860,7 @@ export default function Home() {
         <GlobalApplicationHeader
           appSettings={{
             ...appSettings,
-            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-logo.svg",
+            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
           }}
           accountMenu={accountMenu}
         />
@@ -15876,7 +15884,7 @@ export default function Home() {
           appSettings={{
             ...appSettings,
             coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
-            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-logo.svg",
+            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
           }}
           accountMenu={accountMenu}
           variant={isCoupleEditorialShell ? "coupleEditorial" : "default"}

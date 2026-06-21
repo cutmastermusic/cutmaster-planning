@@ -751,7 +751,7 @@ export function GlobalApplicationHeader({ appSettings, accountMenu }: GlobalAppl
       <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-6">
         <div className="w-[180px] shrink-0 sm:w-[200px] md:w-[220px]">
           <Image
-            src={appSettings.logoUrl || "/branding/showflow-logo.svg"}
+            src={appSettings.logoUrl || "/branding/showflow-app-logo.svg"}
             alt={appSettings.companyName}
             width={2000}
             height={500}

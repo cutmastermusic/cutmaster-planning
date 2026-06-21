@@ -21,10 +21,15 @@ const editorialSerif = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "ShowFlow",
   description: "Event-day planning and run of show workspace.",
+  manifest: "/site.webmanifest",
   icons: {
-    icon: "/branding/showflow-logo.svg",
-    shortcut: "/branding/showflow-logo.svg",
-    apple: "/branding/showflow-logo.svg",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
