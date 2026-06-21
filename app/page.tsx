@@ -3431,6 +3431,7 @@ export default function Home() {
   const [runOfShowUserExpandedWhileCompleteIds, setRunOfShowUserExpandedWhileCompleteIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [runOfShowCompletedDrawerOpen, setRunOfShowCompletedDrawerOpen] = useState(false);
   /** All-done section/phase pinned expanded for this Run Of Show session only (most recent only; not persisted). */
   const [runOfShowSessionExpandedCompletePhaseId, setRunOfShowSessionExpandedCompletePhaseId] =
     useState<string | null>(null);
@@ -13760,6 +13761,65 @@ export default function Home() {
     }));
   }, [ceremonyTimelineItems]);
 
+  const runOfShowCompletedDrawerRows = useMemo(() => {
+    const rows: { key: string; time: string; title: string; section: "Ceremony" | "Reception" }[] = [];
+    if (ceremonyServicesEnabled) {
+      ceremonyTimelineRows.forEach((row) => {
+        const key = `c:${row.id}`;
+        if (!runOfShowDoneKeys.has(key)) return;
+        rows.push({
+          key,
+          time: row.order.trim() || "—",
+          title: row.moment,
+          section: "Ceremony",
+        });
+      });
+    }
+    if (sectionReceptionTimelineEnabled) {
+      mergedTimelineItems.forEach((item) => {
+        const key = `r:${item.id}`;
+        if (!runOfShowDoneKeys.has(key)) return;
+        rows.push({
+          key,
+          time: item.time?.trim() || "—",
+          title: item.title?.trim() || "Untitled moment",
+          section: "Reception",
+        });
+      });
+    }
+    return rows;
+  }, [
+    ceremonyServicesEnabled,
+    ceremonyTimelineRows,
+    sectionReceptionTimelineEnabled,
+    mergedTimelineItems,
+    runOfShowDoneKeys,
+  ]);
+
+  const runOfShowCompletedCount = runOfShowCompletedDrawerRows.length;
+
+  useEffect(() => {
+    if (runOfShowCompletedCount === 0 && runOfShowCompletedDrawerOpen) {
+      setRunOfShowCompletedDrawerOpen(false);
+    }
+  }, [runOfShowCompletedCount, runOfShowCompletedDrawerOpen]);
+
+  const runOfShowUnfinishedCeremonyRows = useMemo(
+    () => ceremonyTimelineRows.filter((row) => !runOfShowDoneKeys.has(`c:${row.id}`)),
+    [ceremonyTimelineRows, runOfShowDoneKeys],
+  );
+
+  const runOfShowActiveReceptionPhaseGroups = useMemo(
+    () =>
+      runOfShowReceptionPhaseGroups
+        .map((phase) => ({
+          ...phase,
+          items: phase.items.filter((item) => !runOfShowDoneKeys.has(`r:${item.id}`)),
+        }))
+        .filter((phase) => phase.items.length > 0),
+    [runOfShowReceptionPhaseGroups, runOfShowDoneKeys],
+  );
+
   const parsePlaylistSongLine = useCallback((line: string) => {
     const raw = line.trim();
     if (!raw) return { song: "", artist: "" };
@@ -14606,6 +14666,7 @@ export default function Home() {
     setRunOfShowCardNoteEditor(null);
     setRunOfShowCardNoteEditorDraft("");
     setRunOfShowCardNoteEditorSavedValue("");
+    setRunOfShowCompletedDrawerOpen(false);
     setRunOfShowSessionExpandedCompletePhaseId(null);
     runOfShowAllDoneSectionIdsRef.current = new Set();
     runOfShowAllDoneBaselineCapturedRef.current = false;
@@ -26062,7 +26123,66 @@ export default function Home() {
                 className="relative z-0 mx-auto w-full max-w-5xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl"
                 data-run-of-show-inner=""
               >
-                {ceremonyServicesEnabled ? (
+                {runOfShowCompletedCount > 0 ? (
+                  <section className="mb-6 rounded-2xl border border-stone-200 bg-stone-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                    <button
+                      type="button"
+                      className="flex min-h-[3.25rem] w-full touch-manipulation items-center gap-3 px-3.5 py-2.5 text-left transition hover:bg-stone-100/70 sm:min-h-14 sm:px-4"
+                      aria-expanded={runOfShowCompletedDrawerOpen}
+                      onClick={() => setRunOfShowCompletedDrawerOpen((open) => !open)}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                        ✓
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold leading-tight text-stone-800 sm:text-base">
+                          Completed
+                        </span>
+                        <span className="block text-[11px] font-medium leading-snug text-stone-500 sm:text-xs">
+                          {runOfShowCompletedCount}{" "}
+                          {runOfShowCompletedCount === 1 ? "moment" : "moments"} done
+                        </span>
+                      </span>
+                      <span
+                        className="shrink-0 text-lg leading-none text-stone-500"
+                        aria-hidden
+                      >
+                        {runOfShowCompletedDrawerOpen ? "▾" : "▸"}
+                      </span>
+                    </button>
+                    {runOfShowCompletedDrawerOpen ? (
+                      <div className="space-y-1 border-t border-stone-200 px-2.5 py-2 sm:px-3">
+                        {runOfShowCompletedDrawerRows.map((row) => (
+                          <button
+                            key={`ros-completed-${row.key}`}
+                            type="button"
+                            data-run-of-show-key={row.key}
+                            className="flex min-h-[2.75rem] w-full touch-manipulation items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left opacity-80 transition hover:bg-white active:scale-[0.995] sm:min-h-12 sm:gap-3 sm:px-3"
+                            aria-pressed="true"
+                            aria-label={`Mark ${row.title} as not done`}
+                            onClick={() => toggleRunOfShowDoneKey(row.key)}
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-700/25 bg-emerald-50 text-sm font-semibold leading-none text-emerald-700">
+                              ✓
+                            </span>
+                            <span className="w-14 shrink-0 font-mono text-xs font-medium tabular-nums text-stone-500 sm:w-16 sm:text-sm">
+                              {row.time}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-700 sm:text-[15px]">
+                              {row.title}
+                            </span>
+                            <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:inline">
+                              {row.section}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {ceremonyServicesEnabled &&
+                (ceremonyTimelineRows.length === 0 || runOfShowUnfinishedCeremonyRows.length > 0) ? (
                   <section className="mb-14 sm:mb-16">
                     <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       Ceremony
@@ -26100,67 +26220,9 @@ export default function Home() {
                     <div className="mt-10 space-y-0 divide-y divide-stone-200 border-t border-stone-200">
                       {ceremonyTimelineRows.length === 0 ? (
                         <p className="py-8 text-base text-stone-600">No ceremony moments in this packet.</p>
-                      ) : runOfShowCeremonyAllMomentsDone &&
-                        !runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) &&
-                        runOfShowSessionExpandedCompletePhaseId !== RUN_OF_SHOW_CEREMONY_SECTION_ID ? (
-                        <button
-                          type="button"
-                          onClick={() => markRunOfShowSectionUserExpanded(RUN_OF_SHOW_CEREMONY_SECTION_ID)}
-                          className="group flex w-full min-h-[3.5rem] touch-manipulation items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-4 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80 md:min-h-14 md:gap-4 md:px-5 md:py-4"
-                          aria-expanded="false"
-                        >
-                          <span
-                            className="mt-0.5 shrink-0 text-xl leading-none text-stone-400 transition group-hover:text-stone-600 md:text-2xl"
-                            aria-hidden
-                          >
-                            ▸
-                          </span>
-                          <span className="shrink-0 text-lg text-stone-500 md:text-xl" aria-hidden>
-                            ✓
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
-                              Summary · list hidden
-                            </p>
-                            <p className="mt-1 text-sm font-semibold leading-snug text-stone-900 md:text-base">
-                              Ceremony <span className="font-medium text-stone-600">complete</span>
-                              <span className="font-normal text-stone-400"> · </span>
-                              <span className="font-medium text-stone-600">
-                                {ceremonyTimelineRows.length}{" "}
-                                {ceremonyTimelineRows.length === 1 ? "moment" : "moments"}
-                              </span>
-                            </p>
-                            <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                              Tap to show the full ceremony moment list
-                            </p>
-                          </div>
-                        </button>
                       ) : (
                         <>
-                          {runOfShowCeremonyAllMomentsDone &&
-                            (runOfShowUserExpandedWhileCompleteIds.has(RUN_OF_SHOW_CEREMONY_SECTION_ID) ||
-                              runOfShowSessionExpandedCompletePhaseId === RUN_OF_SHOW_CEREMONY_SECTION_ID) ? (
-                            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                              <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                  Full list visible
-                                </p>
-                                <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                  Ceremony moments · all marked done
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  collapseRunOfShowCompletedSection(RUN_OF_SHOW_CEREMONY_SECTION_ID)
-                                }
-                                className="shrink-0 touch-manipulation rounded-lg border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 md:min-h-11 md:px-4 md:text-sm"
-                              >
-                                Collapse list
-                              </button>
-                            </div>
-                          ) : null}
-                          {ceremonyTimelineRows.map((row) => {
+                          {runOfShowUnfinishedCeremonyRows.map((row) => {
                             const doneKey = `c:${row.id}`;
                             const done = runOfShowDoneKeys.has(doneKey);
                             const isUpNext =
@@ -26275,7 +26337,8 @@ export default function Home() {
                   </section>
                 ) : null}
 
-                {sectionReceptionTimelineEnabled ? (
+                {sectionReceptionTimelineEnabled &&
+                (mergedTimelineItems.length === 0 || runOfShowActiveReceptionPhaseGroups.length > 0) ? (
                   <section className="mb-14 sm:mb-16">
                     <h3 className="border-b border-stone-200 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-600 md:text-sm md:tracking-[0.16em]">
                       {eventPrepReceptionHeading}
@@ -26284,74 +26347,11 @@ export default function Home() {
                       {mergedTimelineItems.length === 0 ? (
                         <p className="py-8 text-base text-stone-600">No reception moments in this packet.</p>
                       ) : (
-                        runOfShowReceptionPhaseGroups.map((phase) => {
-                          const phaseCount = phase.items.length;
-                          const phaseAllDone =
-                            phaseCount > 0 &&
-                            phase.items.every((row) => runOfShowDoneKeys.has(`r:${row.id}`));
-                          const phaseCollapsed =
-                            phaseAllDone &&
-                            !runOfShowUserExpandedWhileCompleteIds.has(phase.id) &&
-                            runOfShowSessionExpandedCompletePhaseId !== phase.id;
+                        runOfShowActiveReceptionPhaseGroups.map((phase) => {
                           return (
                             <div key={phase.id} className="contents">
-                              {phaseCollapsed ? (
-                                <button
-                                  type="button"
-                                  onClick={() => markRunOfShowSectionUserExpanded(phase.id)}
-                                  className="group flex w-full min-h-[3.5rem] touch-manipulation items-start gap-3 rounded-xl border border-dashed border-stone-300/90 bg-white px-4 py-4 text-left text-stone-800 shadow-[inset_3px_0_0_0_rgb(120_113_108/0.35)] transition-colors duration-150 hover:border-stone-400/90 hover:bg-stone-50/80 md:min-h-14 md:gap-4 md:px-5 md:py-4"
-                                  aria-expanded="false"
-                                >
-                                  <span
-                                    className="mt-0.5 shrink-0 text-xl leading-none text-stone-400 transition group-hover:text-stone-600 md:text-2xl"
-                                    aria-hidden
-                                  >
-                                    ▸
-                                  </span>
-                                  <span className="shrink-0 text-lg text-stone-500 md:text-xl" aria-hidden>
-                                    ✓
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 md:text-xs">
-                                      Summary · list hidden
-                                    </p>
-                                    <p className="mt-1 text-sm font-semibold leading-snug text-stone-900 md:text-base">
-                                      {phase.category}{" "}
-                                      <span className="font-medium text-stone-600">complete</span>
-                                      <span className="font-normal text-stone-400"> · </span>
-                                      <span className="font-medium text-stone-600">
-                                        {phaseCount} {phaseCount === 1 ? "moment" : "moments"}
-                                      </span>
-                                    </p>
-                                    <p className="mt-1.5 text-[11px] font-medium leading-snug text-stone-500">
-                                      Tap to show every moment in this block
-                                    </p>
-                                  </div>
-                                </button>
-                              ) : (
-                                <>
-                                  {phaseAllDone &&
-                                    (runOfShowUserExpandedWhileCompleteIds.has(phase.id) ||
-                                      runOfShowSessionExpandedCompletePhaseId === phase.id) ? (
-                                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-300/80 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                                      <div className="min-w-0">
-                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                          Full list visible
-                                        </p>
-                                        <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                                          {phase.category} moments · all marked done
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => collapseRunOfShowCompletedSection(phase.id)}
-                                        className="shrink-0 touch-manipulation rounded-lg border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs font-semibold text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 md:min-h-11 md:px-4 md:text-sm"
-                                      >
-                                        Collapse list
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                  {phase.items.map((item) => {
+                              <>
+                                {phase.items.map((item) => {
                                     const doneKey = `r:${item.id}`;
                                     const done = runOfShowDoneKeys.has(doneKey);
                                     const isUpNext =
@@ -26551,9 +26551,8 @@ export default function Home() {
                                         </div>
                                       </article>
                                     );
-                                  })}
-                                </>
-                              )}
+                                })}
+                              </>
                             </div>
                           );
                         })
