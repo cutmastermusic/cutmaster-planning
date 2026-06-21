@@ -721,11 +721,11 @@ export function AppHeader({
         <Image
           src={appSettings.logoUrl || "/branding/showflow-horizontal-logo.svg"}
           alt={appSettings.companyName}
-          width={440}
-          height={140}
+          width={2000}
+          height={2000}
           priority
-          sizes="(max-width: 640px) 220px, 260px"
-          className="h-auto w-full object-contain brightness-0"
+          sizes="220px"
+          className="h-auto w-full object-contain"
         />
       </div>
       <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">

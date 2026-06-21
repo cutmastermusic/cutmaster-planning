@@ -1457,7 +1457,6 @@ select.cm-select-dark {
   min-width: 0;
 }
 
-/* Homepage logo is light-on-dark; brightness(0) yields a crisp black mark on white (screen + print). */
 .doc-header-logo-img {
   display: block;
   height: 56px;
@@ -1466,7 +1465,6 @@ select.cm-select-dark {
   flex-shrink: 0;
   object-fit: contain;
   object-position: left center;
-  filter: brightness(0);
 }
 
 .doc-header-brand-tagline {
@@ -1980,7 +1978,6 @@ select.cm-select-dark {
   }
 
   .doc-header-logo-img {
-    filter: brightness(0) !important;
     height: 52pt !important;
     max-width: 260pt !important;
     print-color-adjust: exact;

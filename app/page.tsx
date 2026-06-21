@@ -26056,7 +26056,7 @@ export default function Home() {
                       <img
                         src={runOfShowHeaderBrand.logoSrc}
                         alt=""
-                        className="hidden h-5 w-auto max-w-[112px] object-contain object-right brightness-0 sm:block md:h-6 md:max-w-[128px]"
+                        className="hidden h-5 w-auto max-w-[112px] object-contain object-right sm:block md:h-6 md:max-w-[128px]"
                       />
                       <p className="hidden max-w-full truncate text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block">
                         {runOfShowHeaderBrand.companyName}
