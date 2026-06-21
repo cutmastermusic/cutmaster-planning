@@ -716,14 +716,14 @@ export const initialTemplates: TimelineTemplate[] = rawInitialTemplates.map((tpl
 }));
 
 export const defaultAppSettings: AppSettings = {
-  companyName: "Cutmaster Music",
-  appName: "Cutmaster Planning",
-  logoUrl: "/cmm-logo-white.png",
-  brandColor: "#000000",
-  accentColor: "#00D4FF",
+  companyName: "ShowFlow",
+  appName: "ShowFlow",
+  logoUrl: "/branding/showflow-horizontal-logo.svg",
+  brandColor: "#111827",
+  accentColor: "#C7F36B",
   defaultEventTimezone: "America/Denver",
   defaultEventType: "Wedding",
-  prepSheetFooterText: "Prepared by Cutmaster Music. Confirm final cues with your planner and DJ.",
+  prepSheetFooterText: "Powered by Cutmaster Music. Confirm final cues with your planner and DJ.",
   publicGuestRequestMessage:
     "For Alex & Jordan's celebration. The couple and DJ review all requests.",
   coupleWelcomeMessage: "Welcome back",

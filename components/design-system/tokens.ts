@@ -1,5 +1,5 @@
 /**
- * Cutmaster Planning design-system tokens.
+ * ShowFlow design-system tokens.
  *
  * Phase 1A only: these semantic class maps are a future-facing foundation for
  * Admin/DJ standardization. Do not migrate screen styling here yet; existing UI

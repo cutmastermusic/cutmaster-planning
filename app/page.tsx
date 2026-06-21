@@ -3173,6 +3173,31 @@ const EVENT_NOTE_CATEGORIES = [
   "Internal",
 ] as const;
 
+function migrateLegacyBrandSettings(settings: Partial<AppSettings>): Partial<AppSettings> {
+  const next = { ...settings };
+  const legacyCompanyName = ["Cutmaster", "Music"].join(" ");
+  const legacyPlanningName = ["Cutmaster", "Planning"].join(" ");
+  const legacyPlannerName = ["Cutmaster", "Planner"].join(" ");
+  const legacyLogoPath = ["/cmm", "logo-white.png"].join("-");
+  if (!next.companyName || next.companyName === legacyCompanyName) {
+    next.companyName = "ShowFlow";
+  }
+  if (!next.appName || next.appName === legacyPlanningName || next.appName === legacyPlannerName) {
+    next.appName = "ShowFlow";
+  }
+  if (
+    !next.logoUrl ||
+    next.logoUrl === legacyLogoPath ||
+    next.logoUrl === "/showflow-horizontal.svg"
+  ) {
+    next.logoUrl = "/branding/showflow-horizontal-logo.svg";
+  }
+  if (!next.prepSheetFooterText || next.prepSheetFooterText.startsWith(`Prepared by ${legacyCompanyName}`)) {
+    next.prepSheetFooterText = "Powered by Cutmaster Music. Confirm final cues with your planner and DJ.";
+  }
+  return next;
+}
+
 export default function Home() {
   const timelineComposerRef = useRef<HTMLDivElement | null>(null);
   const timelineStreamRef = useRef<HTMLDivElement | null>(null);
@@ -7878,12 +7903,12 @@ export default function Home() {
   }, [activePlanningChapterId, hasHydrated, runOfShowOverlayActive]);
 
   const eventDisplayName = eventSettings.eventName || weddingDetails.couple;
-  /** Same resolution as {@link AppHeader} — Cutmaster default is `/cmm-logo-white.png` (light artwork). */
+  /** Same resolution as {@link AppHeader} — ShowFlow default is the approved horizontal wordmark. */
   const resolvedDocLogoSrc = useMemo(() => {
     const raw = appSettings.logoUrl?.trim() ?? "";
-    if (!raw) return "/cmm-logo-white.png";
+    if (!raw) return "/branding/showflow-horizontal-logo.svg";
     if (raw.startsWith("/") || raw.startsWith("http") || raw.startsWith("data:")) return raw;
-    return "/cmm-logo-white.png";
+    return "/branding/showflow-horizontal-logo.svg";
   }, [appSettings.logoUrl]);
   const coupleDisplayName = eventSettings.coupleNames || weddingDetails.couple;
   const eventDateRaw = (eventSettings.weddingDate || weddingDetails.date || "").trim();
@@ -7962,7 +7987,7 @@ export default function Home() {
   /** White-label: drive from `appSettings` today; later replace with tenant brand config object. */
   const runOfShowHeaderBrand = useMemo(
     () => ({
-      companyName: appSettings.companyName?.trim() || "Cutmaster Music",
+      companyName: appSettings.companyName?.trim() || "ShowFlow",
       logoSrc: resolvedDocLogoSrc,
       brandAccentColor: DEFAULT_RUN_OF_SHOW_BRAND_ACCENT,
     }),
@@ -11139,7 +11164,7 @@ export default function Home() {
       if (!raw) {
         if (rawGlobal) {
           const parsedGlobal = JSON.parse(rawGlobal) as Partial<AppSettings>;
-          setAppSettings((prev) => ({ ...prev, ...parsedGlobal }));
+          setAppSettings((prev) => ({ ...prev, ...migrateLegacyBrandSettings(parsedGlobal) }));
         }
         window.setTimeout(() => setHasHydrated(true), 0);
         return;
@@ -11320,7 +11345,7 @@ export default function Home() {
         };
       }
       const mergedGlobal = parsedGlobal ?? parsed.appSettings;
-      if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...mergedGlobal }));
+      if (mergedGlobal) setAppSettings((prev) => ({ ...prev, ...migrateLegacyBrandSettings(mergedGlobal) }));
 
       const storedActiveId = parsed.activeEventId?.trim() || "";
       const activeForPlanning =
@@ -12058,7 +12083,7 @@ export default function Home() {
       const anchor = document.createElement("a");
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
       anchor.href = url;
-      anchor.download = `cutmaster-planning-backup-${stamp}.json`;
+      anchor.download = `showflow-backup-${stamp}.json`;
       anchor.click();
       window.URL.revokeObjectURL(url);
       setBackupStatus({ kind: "success", message: "Backup exported successfully." });
@@ -12216,7 +12241,7 @@ export default function Home() {
       });
     setActivities(Array.isArray(payload.activities) ? payload.activities : []);
     setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
-    setAppSettings({ ...defaultAppSettings, ...payload.appSettings });
+    setAppSettings({ ...defaultAppSettings, ...migrateLegacyBrandSettings(payload.appSettings ?? {}) });
 
     const backupAppState = payload.appState;
     setAppMode(backupAppState.appMode === "events" || backupAppState.appMode === "event" ? backupAppState.appMode : "events");
@@ -15800,7 +15825,7 @@ export default function Home() {
             appSettings={{
               ...appSettings,
               coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
-              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
+              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-horizontal-logo.svg",
             }}
             accountMenu={accountMenu}
           />
@@ -15840,7 +15865,7 @@ export default function Home() {
           appSettings={{
             ...appSettings,
             coupleWelcomeMessage: effectiveCoupleWelcomeMessage,
-            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/cmm-logo-white.png",
+            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-horizontal-logo.svg",
           }}
           accountMenu={accountMenu}
           variant={isCoupleEditorialShell ? "coupleEditorial" : "default"}
@@ -17236,7 +17261,7 @@ export default function Home() {
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-stone-600">
                     {canManageEvents
-                      ? "Create your first event to start planning a full Cutmaster workflow."
+                      ? "Create your first event to start planning a full ShowFlow workflow."
                       : "Ask an admin to assign you to an event from People & Vendors."}
                   </p>
                   {canManageEvents && (
@@ -22878,7 +22903,7 @@ export default function Home() {
             <PremiumCard variant={isCoupleView ? "default" : "accent"}>
               <SectionTitle>App access</SectionTitle>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                Who can sign in to this event in Cutmaster Planning. Invites are simulated locally in this prototype.
+                Who can sign in to this event in ShowFlow. Invites are simulated locally in this prototype.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded-xl border border-stone-200 bg-stone-50/95 px-3 py-2.5 text-stone-700">

@@ -10,7 +10,6 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { CutmasterHeadphoneIcon } from "@/components/icons/cutmaster-headphone-icon";
 
 type CouplePortalAccountMenuProps = {
   coupleDisplayName: string;
@@ -248,7 +247,9 @@ export function CouplePortalAccountMenu({
             onClick={() => setOpen((prev) => !prev)}
             className="cm-couple-portal-account-trigger"
           >
-            <CutmasterHeadphoneIcon className="cm-couple-portal-account-icon" />
+            <span className="cm-couple-portal-account-icon inline-flex items-center justify-center text-[10px] font-semibold">
+              SF
+            </span>
           </button>
         </div>
       </div>

@@ -1,9 +1,10 @@
 {
-  "name": "cutmaster-planning",
+  "name": "showflow",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "prisma generate && next dev --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint"

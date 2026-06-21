@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { MagicLinkLoginForm } from "@/components/auth/magic-link-login-form";
 import { PremiumCard, SectionTitle } from "@/components/planning-ui";
@@ -37,7 +38,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-col justify-center px-5 py-16 sm:px-6">
       <PremiumCard variant="accent">
-        <SectionTitle>Sign in to Cutmaster Planning</SectionTitle>
+        <div className="mx-auto mb-4 w-full max-w-[220px]">
+          <Image
+            src="/branding/showflow-horizontal-logo.svg"
+            alt="ShowFlow"
+            width={440}
+            height={140}
+            priority
+            className="h-auto w-full object-contain"
+          />
+        </div>
+        <SectionTitle>Sign in to ShowFlow</SectionTitle>
 
         {authError === "auth_callback_failed" ? (
           <p className="mt-2 text-xs text-red-700">
