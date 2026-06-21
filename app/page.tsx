@@ -15829,12 +15829,12 @@ export default function Home() {
             accountMenu={accountMenu}
           />
         ) : null}
-        <main className="mx-auto w-full max-w-md overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
+        <main className="mx-auto w-full max-w-lg overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
           {authSession.isCouplePortalSession ? (
-            <div className="mx-auto mb-5 w-full max-w-[180px]" aria-label="ShowFlow">
+            <div className="mx-auto mb-6 w-full max-w-[340px]" aria-label="ShowFlow">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/branding/showflow-logo.svg"
+                src="/branding/showflow-app-logo.svg"
                 alt="ShowFlow"
                 width={2000}
                 height={500}

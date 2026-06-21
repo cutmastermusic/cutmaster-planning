@@ -38,7 +38,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-col justify-center px-5 py-16 sm:px-6">
       <PremiumCard variant="accent">
-        <div className="mx-auto mb-4 w-full max-w-[220px]">
+        <div className="mx-auto mb-6 w-full max-w-[340px]">
           <Image
             src="/branding/showflow-logo.svg"
             alt="ShowFlow"

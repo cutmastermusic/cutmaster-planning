@@ -47,10 +47,10 @@ export function NoEventAccessState({
 
   return (
     <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
-      <div className="mx-auto mb-5 w-full max-w-[180px]" aria-label="ShowFlow">
+      <div className="mx-auto mb-6 w-full max-w-[340px]" aria-label="ShowFlow">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/branding/showflow-logo.svg"
+          src="/branding/showflow-app-logo.svg"
           alt="ShowFlow"
           width={2000}
           height={500}
