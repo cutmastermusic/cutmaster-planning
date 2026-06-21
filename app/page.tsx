@@ -1536,33 +1536,6 @@ function TeamCueNotes({
   );
 }
 
-function RunOfShowDoneScribbleOverlay() {
-  return (
-    <svg
-      aria-hidden
-      className="pointer-events-none absolute inset-x-3 top-1/2 z-[1] h-12 -translate-y-1/2 opacity-65 mix-blend-multiply sm:inset-x-5 sm:h-14 md:h-16"
-      focusable="false"
-      preserveAspectRatio="none"
-      viewBox="0 0 100 18"
-    >
-      <path
-        d="M1 9.5 C 10 5.5, 18 13.5, 27 8.5 S 44 5.5, 53 9.5 S 70 13.5, 79 8.5 S 92 5, 99 9"
-        fill="none"
-        stroke="rgb(120 113 108 / 0.5)"
-        strokeLinecap="round"
-        strokeWidth="2.8"
-      />
-      <path
-        d="M2 12.5 C 12 8, 20 15, 30 10.5 S 47 7.5, 56 11 S 73 15, 82 10.5 S 93 7, 99 11.5"
-        fill="none"
-        stroke="rgb(87 83 78 / 0.32)"
-        strokeLinecap="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
 function isGrandEntranceShowBookScript(script: Pick<DjScriptEntry, "title">): boolean {
   const normalizedTitle = (script.title ?? "")
     .trim()
@@ -26186,7 +26159,7 @@ export default function Home() {
                               runOfShowUpNextMeta.banner === "upNext" &&
                               runOfShowUpNextMeta.upNextKey === doneKey;
                             const rowSurface = done
-                              ? "relative overflow-hidden rounded-2xl bg-stone-200/80 px-3 py-8 ring-1 ring-inset ring-stone-300/90 shadow-[inset_4px_0_0_0_rgb(120_113_108/0.45)] sm:px-4 sm:py-10"
+                              ? "rounded-2xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-8 opacity-65 ring-1 ring-inset ring-white/70 sm:px-4 sm:py-10"
                               : isUpNext
                                 ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                                 : "py-8 sm:py-9 md:py-10";
@@ -26197,12 +26170,11 @@ export default function Home() {
                                 {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                 className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                               >
-                                {done ? <RunOfShowDoneScribbleOverlay /> : null}
                                 <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
                                     type="button"
                                     className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
-                                      ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                      ? "border-emerald-700/30 bg-emerald-50/60 hover:border-emerald-700/40 hover:bg-emerald-50/80"
                                       : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
                                       }`}
                                     aria-pressed={done}
@@ -26210,7 +26182,7 @@ export default function Home() {
                                     onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                   >
                                     {done ? (
-                                      <span className="text-xl font-semibold leading-none text-stone-600" aria-hidden>
+                                      <span className="text-xl font-semibold leading-none text-emerald-700" aria-hidden>
                                         ✓
                                       </span>
                                     ) : (
@@ -26234,9 +26206,9 @@ export default function Home() {
                                     {row.order.trim() ? row.order : "—"}
                                   </p>
                                   <h4
-                                    className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
-                                      ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                      : "text-stone-950"
+                                    className={`mt-3 text-xl leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
+                                      ? "font-medium text-stone-700"
+                                      : "font-semibold text-stone-950"
                                       }`}
                                   >
                                     {row.moment}
@@ -26378,7 +26350,7 @@ export default function Home() {
                                     const isToast = isToastTimelineItem(item.title);
                                     const isFormalDance = isFormalDanceTimelineItem(item);
                                     const rowSurface = done
-                                      ? "relative overflow-hidden rounded-2xl bg-stone-200/80 px-3 py-8 ring-1 ring-inset ring-stone-300/90 shadow-[inset_4px_0_0_0_rgb(120_113_108/0.45)] sm:px-4 sm:py-9 md:py-10"
+                                      ? "rounded-2xl border border-stone-200 border-l-4 border-l-stone-300 bg-stone-100/80 px-3 py-8 opacity-65 ring-1 ring-inset ring-white/70 sm:px-4 sm:py-9 md:py-10"
                                       : isUpNext
                                         ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                                         : "py-8 sm:py-9 md:py-10";
@@ -26389,12 +26361,11 @@ export default function Home() {
                                         {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                         className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                                       >
-                                        {done ? <RunOfShowDoneScribbleOverlay /> : null}
                                         <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
                                             type="button"
                                             className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border shadow-none transition active:scale-[0.98] md:h-14 md:w-14 ${done
-                                              ? "border-stone-300/90 bg-stone-200/40 hover:border-stone-400 hover:bg-stone-200/60"
+                                              ? "border-emerald-700/30 bg-emerald-50/60 hover:border-emerald-700/40 hover:bg-emerald-50/80"
                                               : "border-stone-300 bg-stone-50 text-stone-800 hover:border-stone-400 hover:bg-white"
                                               }`}
                                             aria-pressed={done}
@@ -26405,7 +26376,7 @@ export default function Home() {
                                           >
                                             {done ? (
                                               <span
-                                                className="text-xl font-semibold leading-none text-stone-600"
+                                                className="text-xl font-semibold leading-none text-emerald-700"
                                                 aria-hidden
                                               >
                                                 ✓
@@ -26431,9 +26402,9 @@ export default function Home() {
                                             {item.time?.trim() ? item.time.trim() : "—"}
                                           </p>
                                           <h4
-                                            className={`mt-3 text-xl font-semibold leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
-                                              ? "text-stone-600 line-through decoration-stone-400 decoration-[1.5px]"
-                                              : "text-stone-950"
+                                            className={`mt-3 text-xl leading-snug tracking-tight sm:text-2xl md:text-[1.75rem] lg:text-[2rem] ${done
+                                              ? "font-medium text-stone-700"
+                                              : "font-semibold text-stone-950"
                                               }`}
                                           >
                                             {item.title}
