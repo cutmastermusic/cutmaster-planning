@@ -719,7 +719,7 @@ export function AppHeader({
       ) : null}
       <div className="relative mx-auto w-full max-w-[220px]">
         <Image
-          src={appSettings.logoUrl || "/branding/showflow-horizontal-logo.svg"}
+          src={appSettings.logoUrl || "/branding/showflow-logo.svg"}
           alt={appSettings.companyName}
           width={2000}
           height={2000}

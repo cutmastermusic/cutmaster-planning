@@ -718,7 +718,7 @@ export const initialTemplates: TimelineTemplate[] = rawInitialTemplates.map((tpl
 export const defaultAppSettings: AppSettings = {
   companyName: "ShowFlow",
   appName: "ShowFlow",
-  logoUrl: "/branding/showflow-horizontal-logo.svg",
+  logoUrl: "/branding/showflow-logo.svg",
   brandColor: "#111827",
   accentColor: "#C7F36B",
   defaultEventTimezone: "America/Denver",

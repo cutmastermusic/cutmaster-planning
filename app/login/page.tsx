@@ -40,7 +40,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <PremiumCard variant="accent">
         <div className="mx-auto mb-4 w-full max-w-[220px]">
           <Image
-            src="/branding/showflow-horizontal-logo.svg"
+            src="/branding/showflow-logo.svg"
             alt="ShowFlow"
             width={2000}
             height={2000}

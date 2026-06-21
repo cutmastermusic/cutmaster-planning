@@ -22,9 +22,9 @@ export const metadata: Metadata = {
   title: "ShowFlow",
   description: "Event-day planning and run of show workspace.",
   icons: {
-    icon: "/branding/showflow-horizontal-logo.svg",
-    shortcut: "/branding/showflow-horizontal-logo.svg",
-    apple: "/branding/showflow-horizontal-logo.svg",
+    icon: "/branding/showflow-logo.svg",
+    shortcut: "/branding/showflow-logo.svg",
+    apple: "/branding/showflow-logo.svg",
   },
 };
 
