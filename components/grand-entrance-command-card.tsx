@@ -53,7 +53,7 @@ export function GrandEntranceCommandCard({
   showOperationalSections,
   onOpenScriptModal,
 }: GrandEntranceCommandCardProps) {
-  const lineup = getWeddingPartyLineupPreviewContent(lineupRaw, undefined);
+  const lineup = getWeddingPartyLineupPreviewContent(lineupRaw, Number.MAX_SAFE_INTEGER);
   const mcScript = detail.script.trim();
   const coupleScript = detail.coupleEntranceScript.trim();
   const coupleAnnouncement = detail.coupleEntrance.trim();
