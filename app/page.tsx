@@ -15809,7 +15809,7 @@ export default function Home() {
   const showAccountMenu =
     authSession.loaded &&
     (Boolean(authSession.email) || (authStage === "app" && Boolean(currentRole)));
-  const accountMenu = showAccountMenu && !isCoupleEditorialShell ? (
+  const accountMenu = showAccountMenu && !isCoupleEditorialShell && !authSession.isCouplePortalSession ? (
     <AccountMenu
       email={authSession.email}
       roleLabel={accountRoleLabel}
@@ -15820,14 +15820,28 @@ export default function Home() {
   if (!hasHydrated) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
-        <GlobalApplicationHeader
-          appSettings={{
-            ...appSettings,
-            logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
-          }}
-          accountMenu={accountMenu}
-        />
+        {!authSession.isCouplePortalSession ? (
+          <GlobalApplicationHeader
+            appSettings={{
+              ...appSettings,
+              logoUrl: appSettings.logoUrl.startsWith("/") ? appSettings.logoUrl : "/branding/showflow-app-logo.svg",
+            }}
+            accountMenu={accountMenu}
+          />
+        ) : null}
         <main className="mx-auto w-full max-w-md overflow-x-hidden px-5 pb-32 pt-6 sm:px-6">
+          {authSession.isCouplePortalSession ? (
+            <div className="mx-auto mb-5 w-full max-w-[180px]" aria-label="ShowFlow">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/branding/showflow-logo.svg"
+                alt="ShowFlow"
+                width={2000}
+                height={500}
+                className="h-auto w-full object-contain"
+              />
+            </div>
+          ) : null}
           <AppHeader
             screenTitle={headerScreenTitle}
             weddingDetails={headerWeddingDetails}

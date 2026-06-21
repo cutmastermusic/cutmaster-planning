@@ -47,6 +47,16 @@ export function NoEventAccessState({
 
   return (
     <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
+      <div className="mx-auto mb-5 w-full max-w-[180px]" aria-label="ShowFlow">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/branding/showflow-logo.svg"
+          alt="ShowFlow"
+          width={2000}
+          height={500}
+          className="h-auto w-full object-contain"
+        />
+      </div>
       <PremiumCard variant="accent">
         <SectionTitle>{copy.title}</SectionTitle>
         <p className="mt-2 text-xs leading-relaxed text-stone-600">{copy.message}</p>
@@ -60,6 +70,9 @@ export function NoEventAccessState({
           </PrimaryButton>
         ) : null}
       </PremiumCard>
+      <p className="mt-4 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-stone-400">
+        Powered by Cutmaster Music
+      </p>
     </section>
   );
 }
