@@ -3437,8 +3437,8 @@ export default function Home() {
   const runOfShowAllDoneSectionIdsRef = useRef<Set<string>>(new Set());
   const runOfShowAllDoneBaselineCapturedRef = useRef(false);
   const runOfShowScrollRef = useRef<HTMLElement | null>(null);
-  /** Set when marking a moment done; consumed after DOM updates to scroll to the next up-next row. */
-  const runOfShowScrollAfterDoneRef = useRef(false);
+  /** Stable row key to scroll to after marking a moment done; computed before done-state changes. */
+  const runOfShowScrollAfterDoneTargetKeyRef = useRef<string | null>(null);
   /** Set when marking a moment done; allows session pin only after explicit toggle, not hydration. */
   const runOfShowPinCompletedPhaseAfterToggleRef = useRef(false);
   const runOfShowSyncRequestIdRef = useRef(0);
@@ -14609,6 +14609,7 @@ export default function Home() {
     setRunOfShowSessionExpandedCompletePhaseId(null);
     runOfShowAllDoneSectionIdsRef.current = new Set();
     runOfShowAllDoneBaselineCapturedRef.current = false;
+    runOfShowScrollAfterDoneTargetKeyRef.current = null;
     runOfShowPinCompletedPhaseAfterToggleRef.current = false;
     closeGrandEntranceDetailEditor();
     runOfShowAnnotationInProgressRef.current = null;
@@ -14631,15 +14632,29 @@ export default function Home() {
     });
   }, []);
 
+  const scrollRunOfShowToKey = useCallback((key: string) => {
+    if (typeof document === "undefined") return;
+    const root = runOfShowScrollRef.current;
+    const target = [...(root?.querySelectorAll<HTMLElement>("[data-run-of-show-key]") ?? [])].find(
+      (node) => node.dataset.runOfShowKey === key,
+    );
+    if (!target) return;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }, []);
+
   useLayoutEffect(() => {
-    if (!runOfShowOverlayActive || !runOfShowScrollAfterDoneRef.current) return;
-    if (runOfShowUpNextMeta.banner !== "upNext") {
-      runOfShowScrollAfterDoneRef.current = false;
-      return;
-    }
-    runOfShowScrollAfterDoneRef.current = false;
-    scrollRunOfShowToUpNext();
-  }, [runOfShowOverlayActive, runOfShowUpNextMeta, scrollRunOfShowToUpNext]);
+    if (!runOfShowOverlayActive || !runOfShowScrollAfterDoneTargetKeyRef.current) return;
+    const targetKey = runOfShowScrollAfterDoneTargetKeyRef.current;
+    runOfShowScrollAfterDoneTargetKeyRef.current = null;
+    scrollRunOfShowToKey(targetKey);
+  }, [runOfShowOverlayActive, runOfShowDoneKeys, scrollRunOfShowToKey]);
 
   const persistRunOfShowSectionUi = useCallback(
     (expandedWhileComplete: Set<string>) => {
@@ -15258,11 +15273,31 @@ export default function Home() {
     setRunOfShowAnnotationStrokes((prev) => (prev.length === 0 ? prev : prev.slice(0, -1)));
   }, []);
 
+  const getRunOfShowScrollTargetAfterDone = useCallback(
+    (completedKey: string) => {
+      const completedIndex = runOfShowOrderedSteps.findIndex((step) => step.key === completedKey);
+      if (completedIndex === -1) return null;
+
+      const isUnfinishedAfterToggle = (key: string) =>
+        key !== completedKey && !runOfShowDoneKeys.has(key);
+      const nextUnfinished = runOfShowOrderedSteps
+        .slice(completedIndex + 1)
+        .find((step) => isUnfinishedAfterToggle(step.key));
+      if (nextUnfinished) return nextUnfinished.key;
+
+      const previousUnfinished = [...runOfShowOrderedSteps.slice(0, completedIndex)]
+        .reverse()
+        .find((step) => isUnfinishedAfterToggle(step.key));
+      return previousUnfinished?.key ?? null;
+    },
+    [runOfShowOrderedSteps, runOfShowDoneKeys],
+  );
+
   const toggleRunOfShowDoneKey = useCallback(
     (key: string) => {
       const wasDone = runOfShowDoneKeys.has(key);
       if (!wasDone) {
-        runOfShowScrollAfterDoneRef.current = true;
+        runOfShowScrollAfterDoneTargetKeyRef.current = getRunOfShowScrollTargetAfterDone(key);
         runOfShowPinCompletedPhaseAfterToggleRef.current = true;
       }
       if (key.startsWith("c:")) {
@@ -15283,7 +15318,13 @@ export default function Home() {
         void finishRunOfShowFlagsPersist(nextMain, ceremonyTimelineItems);
       }
     },
-    [timelineItems, ceremonyTimelineItems, finishRunOfShowFlagsPersist, runOfShowDoneKeys],
+    [
+      timelineItems,
+      ceremonyTimelineItems,
+      finishRunOfShowFlagsPersist,
+      runOfShowDoneKeys,
+      getRunOfShowScrollTargetAfterDone,
+    ],
   );
 
   const markRunOfShowSectionUserExpanded = useCallback(
@@ -26125,6 +26166,7 @@ export default function Home() {
                             return (
                               <article
                                 key={`ros-ceremony-${row.id}`}
+                                data-run-of-show-key={doneKey}
                                 {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                 className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                               >
@@ -26315,6 +26357,7 @@ export default function Home() {
                                     return (
                                       <article
                                         key={`ros-recv-${item.id}`}
+                                        data-run-of-show-key={doneKey}
                                         {...(isUpNext && !done ? { "data-run-of-show-up-next": "" } : {})}
                                         className={`flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:gap-6 ${rowSurface}`}
                                       >
