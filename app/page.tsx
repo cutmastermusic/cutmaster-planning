@@ -785,6 +785,7 @@ type RunOfShowTimelineFlagsPersistResult =
 
 type SpotifyPlaylistPreviewApiResponse =
   | ({ ok: true } & SpotifyPlaylistPreview)
+  | { ok: true; data: SpotifyPlaylistPreview }
   | {
       ok: false;
       code: string;
@@ -818,15 +819,9 @@ function isSpotifyPlaylistPreviewTrack(value: unknown): value is SpotifyPlaylist
   );
 }
 
-function isSpotifyPlaylistPreviewApiResponse(value: unknown): value is SpotifyPlaylistPreviewApiResponse {
+function isSpotifyPlaylistPreview(value: unknown): value is SpotifyPlaylistPreview {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<SpotifyPlaylistPreviewApiResponse>;
-
-  if (candidate.ok === false) {
-    return typeof candidate.message === "string";
-  }
-
-  if (candidate.ok !== true) return false;
+  const candidate = value as Partial<SpotifyPlaylistPreview>;
   return (
     typeof candidate.playlistId === "string" &&
     typeof candidate.playlistName === "string" &&
@@ -837,6 +832,24 @@ function isSpotifyPlaylistPreviewApiResponse(value: unknown): value is SpotifyPl
     Array.isArray(candidate.tracks) &&
     candidate.tracks.every(isSpotifyPlaylistPreviewTrack)
   );
+}
+
+function isSpotifyPlaylistPreviewApiResponse(value: unknown): value is SpotifyPlaylistPreviewApiResponse {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SpotifyPlaylistPreviewApiResponse>;
+
+  if (candidate.ok === false) {
+    return typeof candidate.message === "string";
+  }
+
+  if (candidate.ok !== true) return false;
+  return isSpotifyPlaylistPreview(candidate) || isSpotifyPlaylistPreview((candidate as { data?: unknown }).data);
+}
+
+function spotifyPlaylistPreviewDataFromResponse(
+  response: Extract<SpotifyPlaylistPreviewApiResponse, { ok: true }>,
+): SpotifyPlaylistPreview {
+  return "data" in response ? response.data : response;
 }
 
 function countEventSongs(
@@ -12536,6 +12549,7 @@ export default function Home() {
     try {
       const response = await fetch(`/api/music/playlist/preview?url=${encodeURIComponent(url)}`);
       const body: unknown = await response.json();
+      console.log("[spotify-playlist-preview] API response JSON", body);
 
       if (!isSpotifyPlaylistPreviewApiResponse(body)) {
         throw new Error("Unexpected Spotify playlist preview response.");
@@ -12557,17 +12571,10 @@ export default function Home() {
         return;
       }
 
+      const previewData = spotifyPlaylistPreviewDataFromResponse(body);
       setSpotifyPlaylistPreviewState({
         status: "success",
-        data: {
-          playlistId: body.playlistId,
-          playlistName: body.playlistName,
-          sourceUrl: body.sourceUrl,
-          totalTrackCount: body.totalTrackCount,
-          tracks: body.tracks,
-          skippedCount: body.skippedCount,
-          previewLimit: body.previewLimit,
-        },
+        data: previewData,
       });
       setSpotifyPlaylistImportResult(null);
     } catch (error) {

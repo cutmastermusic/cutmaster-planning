@@ -46,6 +46,13 @@ export async function GET(request: Request): Promise<NextResponse<SpotifyPlaylis
     );
   }
 
+  console.info("[music-playlist-preview] Spotify playlist preview success", {
+    playlistName: result.data.playlistName,
+    totalTracks: result.data.totalTrackCount,
+    validTracks: result.data.tracks.length,
+    skippedCount: result.data.skippedCount,
+  });
+
   return NextResponse.json({
     ok: true,
     ...result.data,
