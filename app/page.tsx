@@ -12542,9 +12542,17 @@ export default function Home() {
       }
 
       if (!body.ok) {
+        const message =
+          body.code === "invalid_url"
+            ? "Please paste a valid Spotify playlist link."
+            : body.code === "missing_credentials"
+              ? "Spotify credentials are not configured correctly."
+              : body.code === "playlist_unavailable"
+                ? "Playlist may be private or unavailable."
+                : body.message || "ShowFlow could not preview this playlist.";
         setSpotifyPlaylistPreviewState({
           status: body.code === "invalid_url" ? "invalid" : "error",
-          message: body.message || "ShowFlow could not preview this playlist.",
+          message,
         });
         return;
       }

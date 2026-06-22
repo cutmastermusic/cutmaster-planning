@@ -8,7 +8,15 @@ type CachedToken = {
   expiresAtMs: number;
 };
 
+const SPOTIFY_TOKEN_DEBUG_BODY_LIMIT = 800;
 let cachedToken: CachedToken | null = null;
+
+function spotifyDebugErrorBody(errorBody: string | undefined): string | undefined {
+  if (!errorBody) return undefined;
+  return errorBody.length > SPOTIFY_TOKEN_DEBUG_BODY_LIMIT
+    ? `${errorBody.slice(0, SPOTIFY_TOKEN_DEBUG_BODY_LIMIT)}…`
+    : errorBody;
+}
 
 function readSpotifyCredentials(): { clientId: string; clientSecret: string } | null {
   const clientId = process.env.SPOTIFY_CLIENT_ID?.trim();
@@ -63,6 +71,16 @@ export async function getSpotifyAccessToken(): Promise<
   }
 
   if (!response.ok) {
+    let errorBody: string | undefined;
+    try {
+      errorBody = await response.text();
+    } catch {
+      errorBody = undefined;
+    }
+    console.error("[spotify-token] token request failed", {
+      status: response.status,
+      errorBody: spotifyDebugErrorBody(errorBody),
+    });
     return {
       ok: false,
       code: response.status === 401 || response.status === 403 ? "missing_credentials" : "api_error",
@@ -97,7 +115,7 @@ export async function getSpotifyAccessToken(): Promise<
 export async function spotifyApiGet<T>(
   pathOrUrl: string,
   accessToken: string,
-): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+): Promise<{ ok: true; data: T; status: number } | { ok: false; status: number; errorBody?: string }> {
   const url = pathOrUrl.startsWith("https://")
     ? pathOrUrl
     : `https://api.spotify.com/v1${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
@@ -113,8 +131,14 @@ export async function spotifyApiGet<T>(
   }
 
   if (!response.ok) {
-    return { ok: false, status: response.status };
+    let errorBody: string | undefined;
+    try {
+      errorBody = await response.text();
+    } catch {
+      errorBody = undefined;
+    }
+    return { ok: false, status: response.status, errorBody };
   }
 
-  return { ok: true, data: (await response.json()) as T };
+  return { ok: true, data: (await response.json()) as T, status: response.status };
 }

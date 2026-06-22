@@ -17,6 +17,16 @@ type SpotifyPlaylistPreviewApiResponse =
 export async function GET(request: Request): Promise<NextResponse<SpotifyPlaylistPreviewApiResponse>> {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url") ?? "";
+  console.info("[music-playlist-preview] request received", {
+    hasUrl: Boolean(url.trim()),
+    urlLength: url.length,
+    urlPreview: url.slice(0, 160),
+  });
+  console.info("[music-playlist-preview] Spotify env availability", {
+    hasSpotifyClientId: Boolean(process.env.SPOTIFY_CLIENT_ID?.trim()),
+    hasSpotifyClientSecret: Boolean(process.env.SPOTIFY_CLIENT_SECRET?.trim()),
+    vercelEnv: process.env.VERCEL_ENV ?? "local",
+  });
 
   const result = await fetchPublicSpotifyPlaylistPreview(url);
 

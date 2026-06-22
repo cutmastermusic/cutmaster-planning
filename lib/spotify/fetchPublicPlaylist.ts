@@ -10,6 +10,7 @@ import type { FetchPublicSpotifyPlaylistResult, SpotifyPlaylistTrackPreview } fr
 export { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 
 const SPOTIFY_PLAYLIST_PREVIEW_LIMIT = 100;
+const SPOTIFY_DEBUG_BODY_LIMIT = 800;
 
 type SpotifyImage = {
   url?: string;
@@ -49,6 +50,13 @@ function canonicalPlaylistUrl(playlistId: string): string {
   return `https://open.spotify.com/playlist/${playlistId}`;
 }
 
+function spotifyDebugErrorBody(errorBody: string | undefined): string | undefined {
+  if (!errorBody) return undefined;
+  return errorBody.length > SPOTIFY_DEBUG_BODY_LIMIT
+    ? `${errorBody.slice(0, SPOTIFY_DEBUG_BODY_LIMIT)}…`
+    : errorBody;
+}
+
 function normalizeTrack(item: SpotifyPlaylistTrackItem): SpotifyPlaylistTrackPreview | null {
   const track = item.track;
   if (!track || track.is_local || (track.type && track.type !== "track")) return null;
@@ -83,20 +91,31 @@ export async function fetchPublicSpotifyPlaylistPreview(
 ): Promise<FetchPublicSpotifyPlaylistResult> {
   const trimmed = inputUrl.trim();
   const playlistId = parseSpotifyPlaylistId(trimmed);
+  console.info("[spotify-playlist-preview] parsed playlist id", {
+    playlistId,
+    inputLength: trimmed.length,
+  });
   if (!playlistId) {
     return {
       ok: false,
       code: "invalid_url",
-      message: "Enter a valid Spotify playlist URL (open.spotify.com/playlist/… or spotify:playlist:…).",
+      message: "Please paste a valid Spotify playlist link.",
     };
   }
 
   const tokenResult = await getSpotifyAccessToken();
+  console.info("[spotify-playlist-preview] Spotify token result", {
+    ok: tokenResult.ok,
+    code: tokenResult.ok ? undefined : tokenResult.code,
+  });
   if (!tokenResult.ok) {
     return {
       ok: false,
       code: tokenResult.code === "missing_credentials" ? "missing_credentials" : "api_error",
-      message: tokenResult.message,
+      message:
+        tokenResult.code === "missing_credentials"
+          ? "Spotify credentials are not configured correctly."
+          : tokenResult.message,
     };
   }
 
@@ -111,13 +130,30 @@ export async function fetchPublicSpotifyPlaylistPreview(
     `/playlists/${playlistId}?fields=id,name,tracks(total)`,
     accessToken,
   );
+  console.info("[spotify-playlist-preview] playlist metadata fetch response", {
+    playlistId,
+    status: metaResult.status,
+    ok: metaResult.ok,
+  });
 
   if (!metaResult.ok) {
+    console.error("[spotify-playlist-preview] playlist metadata fetch error body", {
+      playlistId,
+      status: metaResult.status,
+      errorBody: spotifyDebugErrorBody(metaResult.errorBody),
+    });
+    if (metaResult.status === 401) {
+      return {
+        ok: false,
+        code: "missing_credentials",
+        message: "Spotify credentials are not configured correctly.",
+      };
+    }
     if (metaResult.status === 404 || metaResult.status === 403) {
       return {
         ok: false,
         code: "playlist_unavailable",
-        message: "Spotify could not load this playlist. Make sure it is public and try again.",
+        message: "Playlist may be private or unavailable.",
       };
     }
     return {
@@ -141,13 +177,31 @@ export async function fetchPublicSpotifyPlaylistPreview(
   while (nextUrl && inspectedCount < SPOTIFY_PLAYLIST_PREVIEW_LIMIT) {
     const pagePath: string = nextUrl;
     const pageResult = await spotifyApiGet<SpotifyPlaylistTracksPage>(pagePath, accessToken);
+    console.info("[spotify-playlist-preview] playlist tracks fetch response", {
+      playlistId,
+      status: pageResult.status,
+      ok: pageResult.ok,
+      inspectedCount,
+    });
 
     if (!pageResult.ok) {
+      console.error("[spotify-playlist-preview] playlist tracks fetch error body", {
+        playlistId,
+        status: pageResult.status,
+        errorBody: spotifyDebugErrorBody(pageResult.errorBody),
+      });
+      if (pageResult.status === 401) {
+        return {
+          ok: false,
+          code: "missing_credentials",
+          message: "Spotify credentials are not configured correctly.",
+        };
+      }
       if (pageResult.status === 404 || pageResult.status === 403) {
         return {
           ok: false,
           code: "playlist_unavailable",
-          message: "Spotify could not load this playlist. Make sure it is public and try again.",
+          message: "Playlist may be private or unavailable.",
         };
       }
       return {
