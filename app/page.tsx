@@ -26083,12 +26083,9 @@ export default function Home() {
                     White-label: this block is the Run Of Show brand slot — replace `runOfShowHeaderBrand`
                     (or source from tenant config) so logo, companyName, and brandAccentColor stay swappable.
                   */}
-                  <div className="flex w-full items-center justify-between gap-3 md:justify-end">
-                    <p className="text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-stone-400 md:hidden">
-                      {runOfShowHeaderBrand.companyName}
-                    </p>
+                  <div className="flex w-full items-center justify-end gap-3">
                     <div
-                      className="ml-auto flex max-w-[11rem] items-center justify-end gap-2 border-l border-stone-200 pl-3 md:max-w-[12rem]"
+                      className="ml-auto flex max-w-[11rem] items-center justify-end border-l border-stone-200 pl-4 md:max-w-[12rem]"
                       style={{
                         borderLeftColor: `${runOfShowHeaderBrand.brandAccentColor}33`,
                       }}
@@ -26099,9 +26096,6 @@ export default function Home() {
                         alt=""
                         className="hidden h-5 w-auto max-w-[112px] object-contain object-right sm:block md:h-6 md:max-w-[128px]"
                       />
-                      <p className="hidden max-w-full truncate text-right text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:block">
-                        {runOfShowHeaderBrand.companyName}
-                      </p>
                     </div>
                   </div>
                   <div className="flex min-w-0 w-full flex-col gap-1.5 md:w-auto md:flex-none md:items-end">
