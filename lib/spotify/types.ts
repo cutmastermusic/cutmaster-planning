@@ -1,15 +1,21 @@
 export type SpotifyPlaylistTrackPreview = {
-  spotifyTrackId: string;
+  spotifyId: string;
   title: string;
   artist: string;
+  album: string;
+  albumArt: string | null;
+  albumArtSmall: string | null;
+  source: "spotify-playlist";
 };
 
 export type SpotifyPlaylistPreview = {
   playlistId: string;
   playlistName: string;
   sourceUrl: string;
+  totalTrackCount: number;
   tracks: SpotifyPlaylistTrackPreview[];
-  totalFetched: number;
+  skippedCount: number;
+  previewLimit: number;
 };
 
 export type SpotifyFetchErrorCode =

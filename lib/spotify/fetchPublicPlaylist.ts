@@ -1,20 +1,28 @@
 /**
  * Server-only: fetch public Spotify playlist track previews.
  * Import only from server actions or other server-side code.
- *
- * Note: Client credentials cannot read arbitrary public playlists under current
- * Spotify dev-mode policy. User OAuth will be required for reliable import.
  */
 
 import { getSpotifyAccessToken, spotifyApiGet } from "@/lib/spotify/clientCredentials";
-import { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 import { parseSpotifyPlaylistId } from "@/lib/spotify/parsePlaylistUrl";
 import type { FetchPublicSpotifyPlaylistResult, SpotifyPlaylistTrackPreview } from "@/lib/spotify/types";
 
 export { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 
+const SPOTIFY_PLAYLIST_PREVIEW_LIMIT = 100;
+
+type SpotifyImage = {
+  url?: string;
+  height?: number | null;
+  width?: number | null;
+};
+
 type SpotifyPlaylistMeta = {
+  id?: string;
   name?: string;
+  tracks?: {
+    total?: number;
+  };
 };
 
 type SpotifyPlaylistTrackItem = {
@@ -22,13 +30,19 @@ type SpotifyPlaylistTrackItem = {
     id?: string;
     name?: string;
     type?: string;
+    is_local?: boolean;
     artists?: Array<{ name?: string }>;
+    album?: {
+      name?: string;
+      images?: SpotifyImage[];
+    };
   } | null;
 };
 
 type SpotifyPlaylistTracksPage = {
   items?: SpotifyPlaylistTrackItem[];
   next?: string | null;
+  total?: number;
 };
 
 function canonicalPlaylistUrl(playlistId: string): string {
@@ -37,18 +51,27 @@ function canonicalPlaylistUrl(playlistId: string): string {
 
 function normalizeTrack(item: SpotifyPlaylistTrackItem): SpotifyPlaylistTrackPreview | null {
   const track = item.track;
-  if (!track || track.type === "episode") return null;
+  if (!track || track.is_local || (track.type && track.type !== "track")) return null;
 
-  const spotifyTrackId = track.id?.trim();
+  const spotifyId = track.id?.trim();
   const title = track.name?.trim();
-  if (!spotifyTrackId || !title) return null;
+  if (!spotifyId || !title) return null;
 
   const artistNames = (track.artists ?? [])
     .map((a) => a.name?.trim())
     .filter((name): name is string => Boolean(name));
   const artist = artistNames.length > 0 ? artistNames.join(", ") : "Unknown Artist";
+  const images = track.album?.images ?? [];
 
-  return { spotifyTrackId, title, artist };
+  return {
+    spotifyId,
+    title,
+    artist,
+    album: track.album?.name?.trim() ?? "",
+    albumArt: images[0]?.url ?? null,
+    albumArtSmall: images[images.length - 1]?.url ?? null,
+    source: "spotify-playlist",
+  };
 }
 
 /**
@@ -85,7 +108,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
       : canonicalPlaylistUrl(playlistId);
 
   const metaResult = await spotifyApiGet<SpotifyPlaylistMeta>(
-    `/playlists/${playlistId}?fields=name`,
+    `/playlists/${playlistId}?fields=id,name,tracks(total)`,
     accessToken,
   );
 
@@ -94,7 +117,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
       return {
         ok: false,
         code: "playlist_unavailable",
-        message: SPOTIFY_IMPORT_SIGN_IN_MESSAGE,
+        message: "Spotify could not load this playlist. Make sure it is public and try again.",
       };
     }
     return {
@@ -105,10 +128,17 @@ export async function fetchPublicSpotifyPlaylistPreview(
   }
 
   const playlistName = metaResult.data.name?.trim() || "Spotify playlist";
+  let totalTrackCount = metaResult.data.tracks?.total ?? 0;
   const tracks: SpotifyPlaylistTrackPreview[] = [];
-  let nextUrl: string | null = `/playlists/${playlistId}/tracks?limit=100`;
+  let inspectedCount = 0;
+  const pageParams = new URLSearchParams({
+    limit: String(Math.min(SPOTIFY_PLAYLIST_PREVIEW_LIMIT, 100)),
+    fields:
+      "items(track(id,name,type,is_local,artists(name),album(name,images(url,height,width)))),next,total",
+  });
+  let nextUrl: string | null = `/playlists/${playlistId}/tracks?${pageParams.toString()}`;
 
-  while (nextUrl) {
+  while (nextUrl && inspectedCount < SPOTIFY_PLAYLIST_PREVIEW_LIMIT) {
     const pagePath: string = nextUrl;
     const pageResult = await spotifyApiGet<SpotifyPlaylistTracksPage>(pagePath, accessToken);
 
@@ -117,7 +147,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
         return {
           ok: false,
           code: "playlist_unavailable",
-          message: SPOTIFY_IMPORT_SIGN_IN_MESSAGE,
+          message: "Spotify could not load this playlist. Make sure it is public and try again.",
         };
       }
       return {
@@ -127,7 +157,14 @@ export async function fetchPublicSpotifyPlaylistPreview(
       };
     }
 
-    for (const item of pageResult.data.items ?? []) {
+    if (totalTrackCount === 0 && typeof pageResult.data.total === "number") {
+      totalTrackCount = pageResult.data.total;
+    }
+
+    const items = pageResult.data.items ?? [];
+    for (const item of items) {
+      if (inspectedCount >= SPOTIFY_PLAYLIST_PREVIEW_LIMIT) break;
+      inspectedCount += 1;
       const normalized = normalizeTrack(item);
       if (normalized) tracks.push(normalized);
     }
@@ -135,13 +172,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
     nextUrl = pageResult.data.next ?? null;
   }
 
-  if (tracks.length === 0) {
-    return {
-      ok: false,
-      code: "empty_playlist",
-      message: "This playlist has no importable tracks.",
-    };
-  }
+  const effectiveTotal = totalTrackCount || inspectedCount;
 
   return {
     ok: true,
@@ -149,8 +180,10 @@ export async function fetchPublicSpotifyPlaylistPreview(
       playlistId,
       playlistName,
       sourceUrl,
+      totalTrackCount: effectiveTotal,
       tracks,
-      totalFetched: tracks.length,
+      skippedCount: Math.max(0, effectiveTotal - tracks.length),
+      previewLimit: SPOTIFY_PLAYLIST_PREVIEW_LIMIT,
     },
   };
 }
