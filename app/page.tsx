@@ -136,7 +136,6 @@ import {
   timelineCategories,
 } from "@/data/planningMockData";
 import { MUSIC_GENRE_ERA_OPTIONS, MUSIC_GENRE_ERA_OTHER_CHIP } from "@/data/musicGenreEraOptions";
-import { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 import {
   MUSIC_TASTE_BEHAVIOR_OPTIONS,
   MUSIC_TASTE_CROWD_OPTIONS,
@@ -209,6 +208,7 @@ import type {
   PlaylistBucketId,
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
+import type { SpotifyPlaylistPreview } from "@/lib/spotify/types";
 import {
   DEFAULT_EVENT_TEAM_VENDOR_ROLE,
   VENDOR_TYPES_ORDERED,
@@ -688,12 +688,6 @@ function musicPlaylistLinkHost(url: string): string {
   }
 }
 
-const SPOTIFY_IMPORT_TARGET_LABELS: Record<SongListType, string> = {
-  mustPlay: "Must Play",
-  playIfPossible: "Play If Possible",
-  doNotPlay: "Do Not Play",
-};
-
 /** Bypass hydration / empty-data guards for explicit user actions. */
 type DbPersistGuardOptions = {
   force?: boolean;
@@ -745,6 +739,56 @@ type RunOfShowTimelineFlagsPersistResult =
   | { ok: true }
   | { ok: true; skipped: true }
   | { ok: false };
+
+type SpotifyPlaylistPreviewApiResponse =
+  | ({ ok: true } & SpotifyPlaylistPreview)
+  | {
+      ok: false;
+      code: string;
+      message: string;
+    };
+
+type SpotifyPlaylistPreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "invalid"; message: string }
+  | { status: "error"; message: string }
+  | { status: "success"; data: SpotifyPlaylistPreview };
+
+function isSpotifyPlaylistPreviewTrack(value: unknown): value is SpotifyPlaylistPreview["tracks"][number] {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<Record<keyof SpotifyPlaylistPreview["tracks"][number], unknown>>;
+  return (
+    typeof candidate.spotifyId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.artist === "string" &&
+    typeof candidate.album === "string" &&
+    (typeof candidate.albumArt === "string" || candidate.albumArt === null) &&
+    (typeof candidate.albumArtSmall === "string" || candidate.albumArtSmall === null) &&
+    candidate.source === "spotify-playlist"
+  );
+}
+
+function isSpotifyPlaylistPreviewApiResponse(value: unknown): value is SpotifyPlaylistPreviewApiResponse {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SpotifyPlaylistPreviewApiResponse>;
+
+  if (candidate.ok === false) {
+    return typeof candidate.message === "string";
+  }
+
+  if (candidate.ok !== true) return false;
+  return (
+    typeof candidate.playlistId === "string" &&
+    typeof candidate.playlistName === "string" &&
+    typeof candidate.sourceUrl === "string" &&
+    typeof candidate.totalTrackCount === "number" &&
+    typeof candidate.skippedCount === "number" &&
+    typeof candidate.previewLimit === "number" &&
+    Array.isArray(candidate.tracks) &&
+    candidate.tracks.every(isSpotifyPlaylistPreviewTrack)
+  );
+}
 
 function countEventSongs(
   evt: Pick<EventRecord, "mustPlaySongs" | "doNotPlaySongs" | "playIfPossibleSongs">,
@@ -3340,7 +3384,8 @@ export default function Home() {
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
   const [spotifyImportUrl, setSpotifyImportUrl] = useState("");
-  const [spotifyImportTarget, setSpotifyImportTarget] = useState<SongListType>("mustPlay");
+  const [spotifyPlaylistPreviewState, setSpotifyPlaylistPreviewState] =
+    useState<SpotifyPlaylistPreviewState>({ status: "idle" });
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -12423,6 +12468,55 @@ export default function Home() {
     markMusicHubTasteDirty();
   };
 
+  const previewSpotifyPlaylist = async () => {
+    const url = spotifyImportUrl.trim();
+    if (!url) {
+      setSpotifyPlaylistPreviewState({
+        status: "invalid",
+        message: "Paste a Spotify playlist URL or URI to preview.",
+      });
+      return;
+    }
+
+    setSpotifyPlaylistPreviewState({ status: "loading" });
+
+    try {
+      const response = await fetch(`/api/music/playlist/preview?url=${encodeURIComponent(url)}`);
+      const body: unknown = await response.json();
+
+      if (!isSpotifyPlaylistPreviewApiResponse(body)) {
+        throw new Error("Unexpected Spotify playlist preview response.");
+      }
+
+      if (!body.ok) {
+        setSpotifyPlaylistPreviewState({
+          status: body.code === "invalid_url" ? "invalid" : "error",
+          message: body.message || "ShowFlow could not preview this playlist.",
+        });
+        return;
+      }
+
+      setSpotifyPlaylistPreviewState({
+        status: "success",
+        data: {
+          playlistId: body.playlistId,
+          playlistName: body.playlistName,
+          sourceUrl: body.sourceUrl,
+          totalTrackCount: body.totalTrackCount,
+          tracks: body.tracks,
+          skippedCount: body.skippedCount,
+          previewLimit: body.previewLimit,
+        },
+      });
+    } catch (error) {
+      console.error("[spotify-playlist-preview] failed", error);
+      setSpotifyPlaylistPreviewState({
+        status: "error",
+        message: "ShowFlow could not preview this playlist. Try again in a moment.",
+      });
+    }
+  };
+
   const toggleGenreEraChip = useCallback(
     (label: string) => {
       setMusicGenreEraSelections((prev) =>
@@ -19336,61 +19430,142 @@ export default function Home() {
               )}
             </PremiumCard>
 
-            {!isCoupleView ? (
             <PremiumCard
               id="music-hub-spotify-import"
-              className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
+              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[18]" : ""}`}
+              style={isCoupleView ? { order: 3 } : undefined}
             >
-              <SectionTitle className="text-stone-950">Spotify playlist import</SectionTitle>
-              <p className="mt-1 text-sm leading-snug text-stone-600">
-                Import songs from a Spotify playlist into Must Play, Play If Possible, or Do Not Play.
+              <SectionTitle className="text-stone-950">Bring Your Music With You</SectionTitle>
+              <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                Paste a Spotify playlist and preview what ShowFlow can read. Importing songs comes next.
               </p>
-              <div
-                className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3"
-                role="status"
-              >
-                <p className="text-sm font-semibold text-amber-950">Coming soon</p>
-                <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
-                  {SPOTIFY_IMPORT_SIGN_IN_MESSAGE}
-                </p>
-              </div>
-              <div className="mt-4 space-y-3 opacity-60">
+              <div className="mt-4 space-y-3">
                 <TextInput
                   id="spotify-import-url"
-                  label="Spotify playlist URL"
+                  label="Spotify playlist URL or URI"
                   value={spotifyImportUrl}
-                  onChange={setSpotifyImportUrl}
-                  placeholder="https://open.spotify.com/playlist/…"
-                  disabled
+                  onChange={(value) => {
+                    setSpotifyImportUrl(value);
+                    setSpotifyPlaylistPreviewState({ status: "idle" });
+                  }}
+                  placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..."
+                  disabled={spotifyPlaylistPreviewState.status === "loading"}
                 />
-                <div>
-                  <label htmlFor="spotify-import-target" className={lightUiFormLabelClass}>
-                    Import target
-                  </label>
-                  <select
-                    id="spotify-import-target"
-                    value={spotifyImportTarget}
-                    disabled
-                    onChange={(event) => setSpotifyImportTarget(event.target.value as SongListType)}
-                    className={`${lightUiSelectClass} mt-1.5`}
-                  >
-                    {(Object.keys(SPOTIFY_IMPORT_TARGET_LABELS) as SongListType[]).map((key) => (
-                      <option key={key} value={key}>
-                        {SPOTIFY_IMPORT_TARGET_LABELS[key]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <PrimaryButton
                   type="button"
-                  disabled
-                  className="w-full border border-stone-300 bg-stone-100 py-2.5 text-sm font-semibold text-stone-500 shadow-none disabled:opacity-100"
+                  onClick={previewSpotifyPlaylist}
+                  disabled={spotifyPlaylistPreviewState.status === "loading"}
+                  className="w-full border border-[#1E1E1E] bg-[#1E1E1E] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-wait disabled:opacity-65"
                 >
-                  Preview playlist — coming soon
+                  {spotifyPlaylistPreviewState.status === "loading" ? "Previewing..." : "Preview playlist"}
                 </PrimaryButton>
               </div>
+
+              {spotifyPlaylistPreviewState.status === "invalid" ||
+              spotifyPlaylistPreviewState.status === "error" ? (
+                <div
+                  className={`mt-4 rounded-xl border px-4 py-3 ${
+                    spotifyPlaylistPreviewState.status === "invalid"
+                      ? "border-amber-200 bg-amber-50/90 text-amber-950"
+                      : "border-rose-200 bg-rose-50/90 text-rose-950"
+                  }`}
+                  role="status"
+                >
+                  <p className="text-sm font-semibold">
+                    {spotifyPlaylistPreviewState.status === "invalid" ? "Check the playlist link" : "Preview unavailable"}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed opacity-90">
+                    {spotifyPlaylistPreviewState.message}
+                  </p>
+                </div>
+              ) : null}
+
+              {spotifyPlaylistPreviewState.status === "success" ? (
+                <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                        Playlist preview
+                      </p>
+                      <h3 className="mt-1 truncate text-base font-semibold text-stone-950">
+                        {spotifyPlaylistPreviewState.data.playlistName}
+                      </h3>
+                    </div>
+                    <PrimaryButton
+                      type="button"
+                      disabled
+                      className="min-h-9 shrink-0 rounded-xl border border-stone-300 bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-500 shadow-none disabled:opacity-100"
+                    >
+                      Import songs — coming next
+                    </PrimaryButton>
+                  </div>
+
+                  <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                        Total tracks
+                      </dt>
+                      <dd className="mt-0.5 font-semibold text-stone-950">
+                        {spotifyPlaylistPreviewState.data.totalTrackCount}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                        Previewed
+                      </dt>
+                      <dd className="mt-0.5 font-semibold text-stone-950">
+                        {spotifyPlaylistPreviewState.data.tracks.length}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                        Skipped
+                      </dt>
+                      <dd className="mt-0.5 font-semibold text-stone-950">
+                        {spotifyPlaylistPreviewState.data.skippedCount}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {spotifyPlaylistPreviewState.data.tracks.length === 0 ? (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950">
+                      <p className="text-sm font-semibold">No importable songs found</p>
+                      <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+                        ShowFlow found the playlist, but Spotify did not return importable track rows in the preview.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white">
+                      {spotifyPlaylistPreviewState.data.tracks.slice(0, 20).map((track) => (
+                        <div
+                          key={track.spotifyId}
+                          className="flex min-w-0 items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-b-0"
+                        >
+                          {track.albumArtSmall ?? track.albumArt ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={track.albumArtSmall ?? track.albumArt ?? ""}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-100" aria-hidden />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-stone-950">{track.title}</p>
+                            <p className="truncate text-xs text-stone-600">
+                              {track.artist}
+                              {track.album ? ` · ${track.album}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </PremiumCard>
-            ) : null}
 
             <PremiumCard
               id="music-hub-taste-profile"
