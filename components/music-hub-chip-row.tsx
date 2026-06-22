@@ -32,7 +32,7 @@ export function MusicHubChipRow({
               on
                 ? buttonVariant === "couple"
                   ? "border-[#2f4a3e] bg-[#2f4a3e] text-white shadow-sm"
-                  : "border-black bg-[#00D4FF] text-black shadow-none"
+                  : "border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E] shadow-none"
                 : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50"
             } disabled:cursor-not-allowed disabled:opacity-45`}
           >

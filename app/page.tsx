@@ -670,7 +670,7 @@ const MUSIC_HUB_BUCKET_SHELL: Record<PlaylistBucketId, string> = {
   dinner: "border border-stone-200 border-t-2 border-t-stone-600 bg-white shadow-none",
   openDancing: "border border-stone-200 border-t-[3px] border-t-[#7E52A0] bg-white shadow-none",
   afterparty: "border border-stone-200 border-t-2 border-t-stone-800 bg-white shadow-none",
-  custom: "border border-stone-200 border-t-2 border-t-emerald-700 bg-white shadow-none",
+  custom: "border border-stone-200 border-t-2 border-t-[#7F8F7A] bg-white shadow-none",
 };
 
 function musicHubScrollToSection(elementId: string) {
@@ -799,7 +799,7 @@ function MusicHubPrepSnapshot({
       shell:
         buttonVariant === "couple"
           ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/[0.06] hover:border-[#2f4a3e]/45 hover:bg-[#2f4a3e]/[0.09]"
-          : "border-[#00D4FF]/35 bg-[#00D4FF]/10 hover:border-[#00D4FF]/55 hover:bg-[#00D4FF]/15",
+          : "border-[#C79A5A]/45 bg-[#C79A5A]/10 hover:border-[#C79A5A]/65 hover:bg-[#C79A5A]/15",
     },
   ];
   if (showMustPlay) {
@@ -820,7 +820,7 @@ function MusicHubPrepSnapshot({
         shell:
           buttonVariant === "couple"
             ? "border-stone-300/80 bg-stone-50/90 hover:border-[#2f4a3e]/35 hover:bg-stone-100/80"
-            : "border-emerald-300/80 bg-emerald-50/90 hover:border-emerald-400 hover:bg-emerald-50",
+            : "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 hover:border-[#7F8F7A]/75 hover:bg-[#7F8F7A]/15",
       },
     );
   }
@@ -885,9 +885,9 @@ function MusicHubPrepSnapshot({
   );
 }
 
-/** Event Packet Options: on = solid cyan + dark text; off = white + readable gray + border */
+/** Event Packet Options: on = solid brass + dark text; off = white + readable gray + border */
 const EVENT_PACKET_SECTION_TOGGLE_ON =
-  "w-full border border-stone-900/20 bg-[#00D4FF] text-stone-950 shadow-none hover:brightness-[1.02]";
+  "w-full border border-[#C79A5A]/55 bg-[#C79A5A] text-[#1E1E1E] shadow-none hover:bg-[#d0a66b]";
 const EVENT_PACKET_SECTION_TOGGLE_OFF =
   "w-full border border-stone-300 bg-white text-stone-700 shadow-none hover:border-stone-400 hover:bg-stone-50 hover:text-stone-900";
 
@@ -910,7 +910,7 @@ function timelineReorderRowSurfaceClass(opts: {
     return `${base} ${zebra} z-10 scale-[1.02] border-stone-900 opacity-100 shadow-[0_14px_32px_rgba(15,23,42,0.14)] ring-1 ring-stone-900/10`;
   }
   if (opts.isDropTarget) {
-    return `${base} ${zebra} border-[#00D4FF] bg-[#00D4FF]/[0.06] shadow-[0_0_0_1px_rgba(0,212,255,0.35)] ring-2 ring-[#00D4FF]/75 ring-offset-2 ring-offset-white`;
+    return `${base} ${zebra} border-[#C79A5A] bg-[#C79A5A]/[0.08] shadow-[0_0_0_1px_rgba(199,154,90,0.35)] ring-2 ring-[#C79A5A]/70 ring-offset-2 ring-offset-white`;
   }
   if (opts.dragActive) {
     return `${base} ${zebra} border-stone-200 opacity-[0.88]`;
@@ -937,7 +937,7 @@ function TimelineDragGripDots({ emphasized = false }: { emphasized?: boolean }) 
 function TimelineDropTargetMarker() {
   return (
     <div className="mb-3 flex items-center gap-2 px-0.5" aria-hidden>
-      <div className="h-1 flex-1 rounded-full bg-[#00D4FF] shadow-[0_0_10px_rgba(0,212,255,0.35)]" />
+      <div className="h-1 flex-1 rounded-full bg-[#C79A5A] shadow-[0_0_10px_rgba(199,154,90,0.28)]" />
     </div>
   );
 }
@@ -980,7 +980,7 @@ function TimelinePhaseSectionHeader({
             type="button"
             onClick={onAdd}
             disabled={addDisabled}
-            className="min-h-10 w-auto shrink-0 rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:border-[#00D4FF]/45 hover:bg-stone-50 disabled:opacity-45 sm:min-h-9 sm:px-3.5 sm:py-2 sm:text-[11px]"
+            className="min-h-10 w-auto shrink-0 rounded-xl border border-stone-300 bg-white px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:border-[#C79A5A]/55 hover:bg-stone-50 disabled:opacity-45 sm:min-h-9 sm:px-3.5 sm:py-2 sm:text-[11px]"
           >
             {addLabel}
           </PrimaryButton>
@@ -1127,7 +1127,7 @@ function ReceptionTimelineMomentForm({
         onClick={() => setTimelineNeedsAttention((prev) => !prev)}
         disabled={!canEdit}
         className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${timelineNeedsAttention
-          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+          ? "border-[#C79A5A]/55 bg-[#C79A5A]/10 text-[#1E1E1E]"
           : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
           }`}
       >
@@ -1252,7 +1252,7 @@ function CeremonyTimelineMomentForm({
         onClick={() => setNeedsAttention((prev) => !prev)}
         disabled={!canEdit}
         className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none ${needsAttention
-          ? "border-cyan-500/50 bg-cyan-50 text-stone-900"
+          ? "border-[#C79A5A]/55 bg-[#C79A5A]/10 text-[#1E1E1E]"
           : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
           }`}
       >
@@ -1321,7 +1321,7 @@ function formatRunOfShowCoupleFirstNames(raw: string): string | null {
 }
 
 /** Run Of Show header accent (subtle chrome only); swap when white-label themes ship. */
-const DEFAULT_RUN_OF_SHOW_BRAND_ACCENT = "#00D4FF";
+const DEFAULT_RUN_OF_SHOW_BRAND_ACCENT = "#C79A5A";
 
 /** Run Of Show live view: collapse key for the ceremony moment list (not persisted planning data). */
 const RUN_OF_SHOW_CEREMONY_SECTION_ID = "ros:ceremony";
@@ -1585,7 +1585,7 @@ function TeamCueFormatSelector({
               aria-pressed={active}
               className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold shadow-none transition disabled:opacity-50 ${
                 active
-                  ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                  ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
                   : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
               }`}
             >
@@ -2413,7 +2413,7 @@ const PLANNING_ASSISTANT_SECTION_CARDS: PlanningAssistantSectionCard[] = [
 function PlanningAssistantStatusBadge({ status }: { status: PlanningAssistantStatus }) {
   const styles =
     status === "Complete"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "border-[#7F8F7A]/45 bg-[#7F8F7A]/10 text-[#4f5f4b]"
       : status === "In Progress"
         ? "border-amber-200 bg-amber-50 text-amber-800"
         : "border-stone-200 bg-stone-100 text-stone-600";
@@ -2927,7 +2927,7 @@ const TIMELINE_DRAG_HANDLE_EDITING_CLASS =
  * flashing into a stark form panel. Keeps drag/reorder unaffected.
  */
 const TIMELINE_CARD_EDITING_CLASS =
-  "!border-[#00D4FF]/28 !bg-[#00D4FF]/[0.025] ring-1 ring-[#00D4FF]/10 shadow-none";
+  "!border-[#C79A5A]/35 !bg-[#C79A5A]/[0.035] ring-1 ring-[#C79A5A]/15 shadow-none";
 
 function TimelineCardPositionIndicator({
   index,
@@ -6931,14 +6931,14 @@ export default function Home() {
   const eventStatusDashboardControl = useMemo(
     () =>
       canEditEventStatus ? (
-        <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-black/45 py-1 pl-3 pr-2 ring-1 ring-white/15">
+        <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-[#1E1E1E]/45 py-1 pl-3 pr-2 ring-1 ring-white/15">
           <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
             Status
           </span>
           <select
             value={activeEventStatus}
             onChange={(e) => void applyEventStatus(e.target.value as EventStatus)}
-            className="min-h-9 min-w-[8.5rem] max-w-[12rem] flex-1 cursor-pointer appearance-none rounded-lg bg-transparent text-[11px] font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/55 sm:text-xs"
+            className="min-h-9 min-w-[8.5rem] max-w-[12rem] flex-1 cursor-pointer appearance-none rounded-lg bg-transparent text-[11px] font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/55 sm:text-xs"
             aria-label="Event status"
           >
             {EVENT_STATUSES.map((status) => (
@@ -12470,7 +12470,7 @@ export default function Home() {
     if (role === "Admin") return "border border-stone-400 bg-stone-100 font-semibold text-stone-950";
     if (role === "DJ") return "border border-violet-400 bg-violet-50 font-semibold text-violet-950";
     if (role === "Planner") return "border border-sky-400 bg-sky-50 font-semibold text-sky-950";
-    return "border border-emerald-400 bg-emerald-50 font-semibold text-emerald-950";
+    return "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 font-semibold text-[#3f4d3d]";
   };
   const coupleRoleBadgeClass = (role: UserRole | TeamMemberRole | string) => {
     if (role === "Admin") return "border border-stone-300 bg-stone-100 font-semibold text-stone-800";
@@ -12566,7 +12566,7 @@ export default function Home() {
 
   const guestRequestStatusBadgeClass = (status: GuestRequestStatus) => {
     if (status === "Pending") return "bg-[#7E52A0]/18 text-violet-100";
-    if (status === "Approved") return "bg-emerald-500/20 text-emerald-100";
+    if (status === "Approved") return "bg-[#7F8F7A]/25 text-[#eaf0e6]";
     return "bg-[#6f5353]/45 text-[#f2dede]";
   };
 
@@ -13939,7 +13939,7 @@ export default function Home() {
           <span
             className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 ${
               attentionCount === 0
-                ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
+                ? "bg-[#7F8F7A]/10 text-[#3f4d3d] ring-[#7F8F7A]/35"
                 : "bg-amber-50 text-amber-950 ring-amber-200/90"
             }`}
           >
@@ -15934,8 +15934,8 @@ export default function Home() {
                     type="button"
                     onClick={() => switchPerspectiveRole(role)}
                     className={`rounded-lg px-2.5 py-1 text-[11px] ${rolePreview === role
-                      ? "border border-black bg-[#00D4FF] font-semibold text-black shadow-none"
-                      : "border border-stone-300 bg-white font-medium text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
+                      ? "border border-[#C79A5A]/65 bg-[#C79A5A] font-semibold text-[#1E1E1E] shadow-none"
+                      : "border border-[#E7E3DC] bg-white font-medium text-stone-900 shadow-none hover:border-[#C79A5A]/55 hover:bg-[#F7F5F1]"
                       }`}
                   >
                     {perspectiveRoleLabel(role)}
@@ -15957,7 +15957,7 @@ export default function Home() {
               >
                 Notifications
                 {unreadBadgeCount > 0 && (
-                  <span className="ml-1 rounded-full border border-black bg-[#00D4FF] px-1.5 py-0.5 text-[10px] font-bold text-black">
+                  <span className="ml-1 rounded-full border border-[#C79A5A]/65 bg-[#C79A5A] px-1.5 py-0.5 text-[10px] font-bold text-[#1E1E1E]">
                     {unreadBadgeCount}
                   </span>
                 )}
@@ -16264,8 +16264,8 @@ export default function Home() {
                           key={`settings-side-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
                           className={`w-full justify-start rounded-lg px-2.5 py-2 text-left text-[11px] font-medium ${activeGlobalSettingsSection === section
-                            ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
-                            : "bg-transparent text-stone-700 hover:bg-stone-100"
+                            ? "bg-[#C79A5A] text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b]"
+                            : "bg-transparent text-stone-700 hover:bg-[#F7F5F1]"
                             }`}
                         >
                           {section}
@@ -16283,8 +16283,8 @@ export default function Home() {
                           key={`settings-tab-${section}`}
                           onClick={() => setActiveGlobalSettingsSection(section)}
                           className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${activeGlobalSettingsSection === section
-                            ? "border-cyan-500/40 bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105"
-                            : "border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50"
+                            ? "border-[#C79A5A]/55 bg-[#C79A5A] text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b]"
+                            : "border-[#E7E3DC] bg-white text-stone-700 shadow-sm hover:bg-[#F7F5F1]"
                             }`}
                         >
                           {section}
@@ -16454,7 +16454,7 @@ export default function Home() {
                                         )
                                       }
                                       disabled={!canManageEvents}
-                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.required ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.required ? "bg-[#C79A5A] text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b]" : "border border-[#E7E3DC] bg-[#F7F5F1] text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
                                     >
                                       {question.required ? "Required" : "Optional"}
                                     </PrimaryButton>
@@ -16469,7 +16469,7 @@ export default function Home() {
                                         )
                                       }
                                       disabled={!canManageEvents}
-                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.showInLiveEventMode ? "bg-[#00D4FF] text-stone-950 shadow-sm hover:brightness-105" : "border border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
+                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold ${question.showInLiveEventMode ? "bg-[#C79A5A] text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b]" : "border border-[#E7E3DC] bg-[#F7F5F1] text-stone-700 shadow-sm hover:bg-stone-100"} disabled:opacity-50`}
                                     >
                                       {question.showInLiveEventMode ? "Shown in Event Document" : "Hidden in Event Document"}
                                     </PrimaryButton>
@@ -16656,7 +16656,7 @@ export default function Home() {
                                 <div className="min-w-0 flex-1 space-y-2">
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span className="text-sm font-semibold tracking-tight text-stone-950">{profile}</span>
-                                    <span className="rounded-full border border-cyan-500/35 bg-[#00D4FF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-950">
+                                    <span className="rounded-full border border-[#C79A5A]/55 bg-[#C79A5A] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1E1E1E]">
                                       {presets.length} moment{presets.length === 1 ? "" : "s"}
                                     </span>
                                     <span className="text-[11px] text-stone-500">
@@ -16855,7 +16855,7 @@ export default function Home() {
                                                 disabled={!canManageEvents}
                                                 className={
                                                   preset.defaultIncluded
-                                                    ? "rounded-lg bg-[#00D4FF] px-2.5 py-1.5 text-[11px] font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-50"
+                                                    ? "rounded-lg bg-[#C79A5A] px-2.5 py-1.5 text-[11px] font-semibold text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b] disabled:opacity-50"
                                                     : lightUiGhostButtonClass
                                                 }
                                               >
@@ -17047,7 +17047,7 @@ export default function Home() {
                       {teamFormStatus && (
                         <p
                           className={`rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
-                            ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                            ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                             : "border border-rose-300/80 bg-rose-50 text-rose-950"
                             }`}
                         >
@@ -17121,7 +17121,7 @@ export default function Home() {
                       </div>
                       <TextInput id="global-timezone" label="Default Event Timezone" value={appSettings.defaultEventTimezone} onChange={(value) => setAppSettings((prev) => ({ ...prev, defaultEventTimezone: value }))} disabled={!canManageEvents} />
                       <TextArea id="global-template-defaults" label="Global Template Defaults" value={appSettings.globalTemplateDefaults} onChange={(value) => setAppSettings((prev) => ({ ...prev, globalTemplateDefaults: value }))} rows={3} disabled={!canManageEvents} />
-                      <div className="rounded-xl border border-cyan-400/40 bg-cyan-50/90 p-3 text-xs font-medium leading-relaxed text-stone-800">
+                      <div className="rounded-xl border border-[#C79A5A]/45 bg-[#C79A5A]/10 p-3 text-xs font-medium leading-relaxed text-stone-800">
                         Backup recommended while this remains a frontend-only prototype.
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -17150,7 +17150,7 @@ export default function Home() {
                       {backupStatus && (
                         <p
                           className={`rounded-xl px-3 py-2 text-xs ${backupStatus.kind === "success"
-                            ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                            ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                             : "border border-rose-300/80 bg-rose-50 text-rose-950"
                             }`}
                         >
@@ -17189,7 +17189,7 @@ export default function Home() {
               {teamFormStatus && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
-                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                     : "border border-rose-300/80 bg-rose-50 text-rose-950"
                     }`}
                 >
@@ -17221,8 +17221,8 @@ export default function Home() {
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
-                          ? "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
-                          : "border border-stone-200 bg-stone-100 text-stone-600"
+                          ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/15 text-[#3f4d3d]"
+                          : "border border-[#E7E3DC] bg-[#F7F5F1] text-stone-600"
                           }`}
                       >
                         {member.isActive ? "Active" : "Inactive"}
@@ -17376,7 +17376,7 @@ export default function Home() {
                           type="checkbox"
                           checked={allEventsShowArchived}
                           onChange={(e) => setAllEventsShowArchived(e.target.checked)}
-                          className="h-4 w-4 rounded border-stone-300 text-[#00D4FF] focus:ring-[#00D4FF]/40"
+                          className="h-4 w-4 rounded border-stone-300 text-[#C79A5A] focus:ring-[#C79A5A]/40"
                         />
                         <span className="text-xs font-medium text-stone-800">Show archived</span>
                       </label>
@@ -17489,7 +17489,7 @@ export default function Home() {
                               coverPhotoDataUrl={cardCover}
                               showPersonalizeGuidance={false}
                             />
-                            <div className="absolute inset-0 bg-black/55" />
+                            <div className="absolute inset-0 bg-[#1E1E1E]/55" />
                             <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${eventStatusPillClassOnCover(cardStatus)}`}
@@ -17497,7 +17497,7 @@ export default function Home() {
                                 {cardStatus}
                               </span>
                               {viewerBadge ? (
-                                <span className="rounded-full bg-[#00D4FF]/28 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#00D4FF]/35">
+                                <span className="rounded-full bg-[#C79A5A]/30 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#C79A5A]/40">
                                   {viewerBadge}
                                 </span>
                               ) : null}
@@ -17509,7 +17509,7 @@ export default function Home() {
                               </p>
                               <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
                               {isActive ? (
-                                <span className="mt-2 inline-flex rounded-full bg-[#00D4FF]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#00D4FF]/40">
+                                <span className="mt-2 inline-flex rounded-full bg-[#C79A5A]/42 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#C79A5A]/45">
                                   Selected
                                 </span>
                               ) : null}
@@ -17528,7 +17528,7 @@ export default function Home() {
                               </div>
                               <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
                                 <div
-                                  className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-500"
+                                  className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-500"
                                   style={{ width: `${cardProgress}%` }}
                                 />
                               </div>
@@ -17743,7 +17743,7 @@ export default function Home() {
                   <SectionTitle className="text-stone-950">Events Needing Attention</SectionTitle>
                   <div className="mt-3 space-y-2">
                     {commandCenterAttentionEvents.map(({ evt, pendingGuestRequests, incompleteChecklistCount }) => (
-                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#00D4FF]/45 bg-[#00D4FF]/12 px-3 py-2.5 shadow-sm">
+                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-3 py-2.5 shadow-sm">
                         <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
                         <p className="mt-1 text-xs font-medium text-stone-700">
                           {pendingGuestRequests} pending guest requests · {incompleteChecklistCount} incomplete planning areas
@@ -17751,7 +17751,7 @@ export default function Home() {
                       </div>
                     ))}
                     {commandCenterAttentionEvents.length === 0 && (
-                      <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-950">
+                      <p className="rounded-xl border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 px-3 py-2.5 text-xs font-medium text-[#3f4d3d]">
                         No urgent attention items across your events.
                       </p>
                     )}
@@ -17853,7 +17853,7 @@ export default function Home() {
                       onRequestCoverPhoto={canEditEventCover ? openEventCoverSettings : undefined}
                       personalizeDisabled={!canEditEventCover}
                     />
-                    <div className="pointer-events-none absolute inset-0 z-[1] bg-black/45" />
+                    <div className="pointer-events-none absolute inset-0 z-[1] bg-[#1E1E1E]/45" />
                     <div className="relative z-[3] flex h-full flex-col justify-end p-5 sm:p-7 pointer-events-none">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">{primaryPartyShortLabel}</p>
                       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
@@ -17865,15 +17865,15 @@ export default function Home() {
                         <span className="inline-flex rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-100">
                           {layoutProfileForActiveEvent}
                         </span>
-                        <span className="inline-flex flex-col rounded-full border border-white/12 bg-black/35 px-2.5 py-1.5 text-left">
+                        <span className="inline-flex flex-col rounded-full border border-white/12 bg-[#1E1E1E]/35 px-2.5 py-1.5 text-left">
                           <span className="text-[9px] uppercase tracking-[0.12em] text-white/55">{eventDateGridLabel}</span>
                           <span className="text-[11px] text-zinc-100">{eventDateDisplay}</span>
                         </span>
-                        <span className="inline-flex max-w-full rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-zinc-200">
+                        <span className="inline-flex max-w-full rounded-full border border-white/12 bg-[#1E1E1E]/35 px-2.5 py-1 text-[11px] text-zinc-200">
                           {eventVenueDisplay}
                         </span>
                         {!isCoupleView && eventSettings.timelineReviewRequestedAt ? (
-                          <span className="inline-flex rounded-full border border-[#00D4FF]/35 bg-[#00D4FF]/15 px-2.5 py-1 text-[11px] font-semibold text-zinc-100">
+                          <span className="inline-flex rounded-full border border-[#C79A5A]/40 bg-[#C79A5A]/18 px-2.5 py-1 text-[11px] font-semibold text-zinc-100">
                             Timeline Review Requested
                           </span>
                         ) : null}
@@ -17881,9 +17881,9 @@ export default function Home() {
                       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4">
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-200">Planning progress</p>
-                          <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-black/45 ring-1 ring-white/10">
+                          <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-[#1E1E1E]/45 ring-1 ring-white/10">
                             <div
-                              className="h-full rounded-full bg-[#00D4FF] transition-[width] duration-700 ease-out"
+                              className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-700 ease-out"
                               style={{ width: `${completionPercent}%` }}
                             />
                           </div>
@@ -17917,7 +17917,7 @@ export default function Home() {
                       People &amp; Vendors contacts:{" "}
                       <span className="font-semibold text-stone-900">{vendors.length}</span>
                     </p>
-                    <div className="rounded-xl border border-[#00D4FF]/45 bg-white px-3 py-2.5 shadow-sm">
+                    <div className="rounded-xl border border-[#C79A5A]/45 bg-white px-3 py-2.5 shadow-sm">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5c4a12]">{eventCountdownLabel}</p>
                       <p className="mt-1 text-sm font-semibold text-stone-900">
                         {daysUntilWedding === null
@@ -17936,14 +17936,14 @@ export default function Home() {
                               type="button"
                               key={`next-${task.id}`}
                               onClick={() => navigateToChecklistTask(task.id)}
-                              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50"
+                              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#C79A5A]/50 hover:bg-stone-50"
                             >
                               <p className="font-semibold text-stone-900">{task.title}</p>
                               <p className="mt-1 text-stone-600">{task.description}</p>
                             </button>
                           ))
                         ) : (
-                          <p className="rounded-xl border border-emerald-300/90 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-950">
+                          <p className="rounded-xl border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 px-3 py-2 text-xs font-medium text-[#3f4d3d]">
                             Beautiful work. Your checklist is complete and event-ready.
                           </p>
                         )}
@@ -17977,7 +17977,7 @@ export default function Home() {
                   </div>
                 </PremiumCard>
                 {eventSettings.timelineReviewRequestedAt ? (
-                  <PremiumCard className="border-[#00D4FF]/45 bg-[#00D4FF]/10 shadow-sm">
+                  <PremiumCard className="border-[#C79A5A]/45 bg-[#C79A5A]/10 shadow-sm">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <SectionTitle className="text-stone-950">
@@ -18021,7 +18021,7 @@ export default function Home() {
                       </div>
                       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200 ring-1 ring-inset ring-stone-400/35">
                         <div
-                          className="h-full rounded-full bg-[#00D4FF]"
+                          className="h-full rounded-full bg-[#C79A5A]"
                           style={{
                             width: /\d+%$/.test(String(card.value)) ? String(card.value) : "100%",
                             opacity: /\d+%$/.test(String(card.value)) ? 1 : 0.35,
@@ -18038,7 +18038,7 @@ export default function Home() {
                 <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
                   <div className="flex items-center justify-between">
                     <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
-                    <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/22 px-2.5 py-1 text-xs font-semibold text-stone-950">
+                    <span className="rounded-full border border-[#C79A5A]/45 bg-[#C79A5A]/22 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
                       {completionPercent}%
                     </span>
                   </div>
@@ -18133,7 +18133,7 @@ export default function Home() {
                 <SectionTitle className="mb-1 font-semibold text-stone-700">
                   {staffDashboardSectionTitles.insightsIntro}
                 </SectionTitle>
-                <PremiumCard className="border-[#00D4FF]/45 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.08)]">
+                <PremiumCard className="border-[#C79A5A]/45 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.08)]">
                   <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.assistant}</SectionTitle>
                   <p className="mt-1 text-xs font-medium text-stone-600">{staffDashboardSectionTitles.assistantHint}</p>
                   <div className="mt-3">
@@ -18162,7 +18162,7 @@ export default function Home() {
                     <PrimaryButton
                       key={section}
                       onClick={() => setActiveScreen(section)}
-                      className="rounded-2xl border border-stone-300 bg-white px-4 py-4 text-left text-sm font-semibold text-stone-900 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[#00D4FF]/55 hover:bg-stone-50"
+                      className="rounded-2xl border border-stone-300 bg-white px-4 py-4 text-left text-sm font-semibold text-stone-900 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[#C79A5A]/55 hover:bg-stone-50"
                     >
                       {navLabel(section)}
                     </PrimaryButton>
@@ -18193,7 +18193,7 @@ export default function Home() {
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Reception Timeline")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#C79A5A]/45 hover:bg-stone-50 sm:col-span-2"
                     >
                       <span className="block text-sm font-semibold text-stone-900">Reception timeline</span>
                       <span className="mt-0.5 block text-[11px] font-normal text-stone-600">
@@ -18205,7 +18205,7 @@ export default function Home() {
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Notes")}
-                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#00D4FF]/45 hover:bg-stone-50 sm:col-span-2"
+                      className="min-h-[3.75rem] justify-start rounded-xl border border-stone-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#C79A5A]/45 hover:bg-stone-50 sm:col-span-2"
                     >
                       <span className="block text-sm font-semibold text-stone-900">Planning notes</span>
                       <span className="mt-0.5 block text-[11px] font-normal text-stone-600">
@@ -19015,7 +19015,7 @@ export default function Home() {
                 <div className="min-w-0">
                   <p
                     className={`text-[11px] uppercase tracking-[0.18em] ${
-                      isCoupleView ? "text-[#2f4a3e]/75" : "text-[#00D4FF]/75"
+                      isCoupleView ? "text-[#2f4a3e]/75" : "text-[#8a6938]"
                     }`}
                   >
                     {isCoupleView ? "Music" : "Music planning"}
@@ -19085,7 +19085,7 @@ export default function Home() {
             ) : null}
 
             {!canManageMusic && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+              <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view music, but editing is limited in this prototype.
                 </p>
@@ -19519,7 +19519,7 @@ export default function Home() {
                     className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "mustPlay"
                       ? isCoupleView
                         ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
-                        : "border-black bg-[#00D4FF] text-black"
+                        : "border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E]"
                       : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                   >
@@ -19529,7 +19529,9 @@ export default function Home() {
                     onClick={() => setNewSongListType("playIfPossible")}
                     disabled={!canManageMusic}
                     className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "playIfPossible"
-                      ? "border-emerald-700 bg-emerald-100 text-emerald-950"
+                      ? isCoupleView
+                        ? "border-emerald-700 bg-emerald-100 text-emerald-950"
+                        : "border-[#7F8F7A]/65 bg-[#7F8F7A]/15 text-[#3f4d3d]"
                       : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                   >
@@ -19552,7 +19554,7 @@ export default function Home() {
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${newSongHighPriority
                     ? isCoupleView
                       ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                      : "border-[#00D4FF] bg-[#00D4FF]/15 text-stone-900"
+                      : "border-[#C79A5A] bg-[#C79A5A]/15 text-[#1E1E1E]"
                     : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                     }`}
                 >
@@ -19609,7 +19611,7 @@ export default function Home() {
                       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
                         isCoupleView
                           ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                          : "border-[#00D4FF]/35 bg-[#00D4FF]/15 text-stone-900"
+                          : "border-[#C79A5A]/45 bg-[#C79A5A]/15 text-[#1E1E1E]"
                       }`}
                     >
                       {mustPlaySongs.length}
@@ -19652,7 +19654,7 @@ export default function Home() {
 
               {sectionMustPlayEnabled && (
                 <PremiumCard
-                  className={`border border-emerald-200/80 bg-white shadow-none ${isCoupleView ? "order-[32]" : ""}`}
+                  className={`${isCoupleView ? "order-[32] border-emerald-200/80" : "border-[#7F8F7A]/45"} border bg-white shadow-none`}
                   id="music-hub-play-if-possible"
                   style={isCoupleView ? { order: 9 } : undefined}
                 >
@@ -19667,7 +19669,13 @@ export default function Home() {
                           : "Nice-to-haves when the moment feels right—never a guarantee."}
                       </p>
                     </div>
-                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                        isCoupleView
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                          : "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
+                      }`}
+                    >
                       {playIfPossibleSongs.length}
                     </span>
                   </div>
@@ -19973,13 +19981,13 @@ export default function Home() {
                   </PrimaryButton>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/80 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.14em] text-emerald-800">Approved</p>
+                  <div className="rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-[#3f4d3d]">Approved</p>
                     {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
                       <div className="mt-2">
                         <SectionEmptyState
                           wrapWithCard={false}
-                          cardClassName="border-emerald-200/80 bg-white py-3"
+                          cardClassName="border-[#7F8F7A]/40 bg-white py-3"
                           title="No approvals yet"
                           description="Approved picks stay ready for the DJ."
                         />
@@ -20170,7 +20178,7 @@ export default function Home() {
                   <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
                 ) : null}
                 {!canEditTimeline && (
-                  <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                  <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                     <p className="text-xs font-medium text-amber-950">
                       {effectiveRole} role can view timeline, but editing is limited in this prototype.
                     </p>
@@ -20221,7 +20229,7 @@ export default function Home() {
               }}
             />
             {!canEditTimeline && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+              <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view ceremony timeline, but editing is limited in this prototype.
                 </p>
@@ -20677,7 +20685,7 @@ export default function Home() {
                             }
                             disabled={!canEditTimeline}
                             className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${cerNeedsMc
-                              ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                              ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
                               : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                               }`}
                           >
@@ -20747,7 +20755,7 @@ export default function Home() {
                       <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
                         <PremiumCard
                           variant="accent"
-                          className={`${premiumFormSectionCardClass} rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20`}
+                          className={`${premiumFormSectionCardClass} rounded-xl border border-[#C79A5A]/40 bg-[#C79A5A]/[0.06] shadow-none ring-1 ring-[#C79A5A]/20`}
                         >
                           <SectionTitle className="text-base">New ceremony moment</SectionTitle>
                           <p className="mt-1 text-xs text-stone-600">
@@ -20915,7 +20923,7 @@ export default function Home() {
                 }}
               />
               {!canEditTimeline && (
-                <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+                <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                   <p className="text-xs font-medium text-amber-950">
                     {effectiveRole} role can view timeline, but editing is limited in this prototype.
                   </p>
@@ -20994,7 +21002,7 @@ export default function Home() {
                                 if (preset) addReceptionPreset(preset);
                                 event.target.selectedIndex = 0;
                               }}
-                              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 disabled:opacity-45"
+                              className="mt-1.5 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30 disabled:opacity-45"
                             >
                               <option value="">Choose a moment…</option>
                               {mainTimelinePresetsForActiveEvent.map((preset) => (
@@ -21016,7 +21024,7 @@ export default function Home() {
               {showTimelinePresetOnboarding && (
                 <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
                   <div className="p-5 sm:p-6">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-700">Get started</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#8a6938]">Get started</p>
                     <h3 className="mt-2 text-lg font-semibold text-stone-950">Build your run of show</h3>
                     <p className="mt-2 text-sm leading-relaxed text-stone-600">
                       Load the suggested {layoutProfileForActiveEvent} timeline (editable), or create your first moment from
@@ -21030,7 +21038,7 @@ export default function Home() {
                           !canEditTimeline ||
                           !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded)
                         }
-                        className="min-h-12 w-full rounded-xl border border-black bg-[#00D4FF] px-4 py-3 text-sm font-semibold text-black shadow-none hover:brightness-105 disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
+                        className="min-h-12 w-full rounded-xl border border-[#C79A5A]/65 bg-[#C79A5A] px-4 py-3 text-sm font-semibold text-[#1E1E1E] shadow-none hover:bg-[#d0a66b] disabled:opacity-45 sm:w-auto sm:min-h-11 sm:py-2.5"
                       >
                         Apply suggested {layoutProfileForActiveEvent} timeline
                       </PrimaryButton>
@@ -21731,7 +21739,7 @@ export default function Home() {
                                       const next = event.target.value as TimelineCategory;
                                       patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow ?? null);
                                     }}
-                                    className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25 md:min-h-12 md:px-4 md:py-3 md:text-base"
+                                    className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30 md:min-h-12 md:px-4 md:py-3 md:text-base"
                                   >
                                     {timelineCategories.map((category) => (
                                       <option key={category} value={category}>
@@ -21801,7 +21809,7 @@ export default function Home() {
                                 }
                                 disabled={!canEditTimeline}
                                 className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${recvNeedsMc
-                                  ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                  ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
                                   : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                                   }`}
                               >
@@ -21829,7 +21837,7 @@ export default function Home() {
                                       }
                                       disabled={!canEditTimeline}
                                       className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${recvFadeEarly
-                                        ? "border-[#00D4FF] bg-[#00D4FF]/12 text-stone-900"
+                                        ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
                                         : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                                         }`}
                                     >
@@ -21910,7 +21918,7 @@ export default function Home() {
                         <div ref={timelineInlineInsertRef} className="-mt-0.5">
                           <PremiumCard
                             variant="accent"
-                            className="rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.05] shadow-none ring-1 ring-[#00D4FF]/20"
+                            className="rounded-xl border border-[#C79A5A]/40 bg-[#C79A5A]/[0.06] shadow-none ring-1 ring-[#C79A5A]/20"
                           >
                             <SectionTitle className="text-base">New moment</SectionTitle>
                             <p className="mt-1 text-xs text-stone-600">
@@ -22118,7 +22126,7 @@ export default function Home() {
                       logActivity("template_applied", `Applied template: ${template.name}`);
                       setActiveScreen("Timeline");
                     }}
-                    className="rounded-xl border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105"
+                    className="rounded-xl border border-[#C79A5A]/65 bg-[#C79A5A] px-3 py-2 text-xs font-semibold text-[#1E1E1E] shadow-none hover:bg-[#d0a66b]"
                   >
                     Apply Template
                   </PrimaryButton>
@@ -22180,7 +22188,7 @@ export default function Home() {
               }
             />
             {!canManageGuestRequests && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+              <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view guest requests, but management actions are limited.
                 </p>
@@ -22193,7 +22201,7 @@ export default function Home() {
                   <PrimaryButton
                     onClick={() => setGuestRequestView("admin")}
                     className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${guestRequestView === "admin"
-                      ? "border border-black bg-[#00D4FF] text-black"
+                      ? "border border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E]"
                       : "bg-transparent text-stone-600 hover:text-stone-900"
                       }`}
                   >
@@ -22202,7 +22210,7 @@ export default function Home() {
                   <PrimaryButton
                     onClick={() => setGuestRequestView("guest")}
                     className={`px-2.5 py-1.5 text-[11px] font-semibold shadow-none ${guestRequestView === "guest"
-                      ? "border border-black bg-[#00D4FF] text-black"
+                      ? "border border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E]"
                       : "bg-transparent text-stone-600 hover:text-stone-900"
                       }`}
                   >
@@ -22293,7 +22301,7 @@ export default function Home() {
                               <PrimaryButton
                                 onClick={() => setGuestRequestStatus(request.id, "Approved")}
                                 disabled={!canManageGuestRequests || request.status === "Approved"}
-                                className="flex-1 min-w-[6rem] rounded-lg border border-black bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-black shadow-none hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="flex-1 min-w-[6rem] rounded-lg border border-[#C79A5A]/65 bg-[#C79A5A] px-3 py-2 text-xs font-semibold text-[#1E1E1E] shadow-none hover:bg-[#d0a66b] disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Approve
                               </PrimaryButton>
@@ -22320,7 +22328,7 @@ export default function Home() {
                                   request.addedToMustPlay ||
                                   request.status === "Rejected"
                                 }
-                                className="flex-1 min-w-[8rem] rounded-lg border border-[#00D4FF] bg-[#00D4FF]/12 px-3 py-2 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-[#00D4FF]/22 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="flex-1 min-w-[8rem] rounded-lg border border-[#C79A5A] bg-[#C79A5A]/12 px-3 py-2 text-[11px] font-semibold text-[#1E1E1E] shadow-none hover:bg-[#C79A5A]/22 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 {request.addedToMustPlay ? "On Must Play" : "Add to Must Play"}
                               </PrimaryButton>
@@ -22350,7 +22358,7 @@ export default function Home() {
                   {effectiveGuestRequestMessage}
                 </p>
                 {guestSubmitBanner ? (
-                  <p className="mt-3 rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/12 px-3 py-2 text-xs font-medium text-stone-900">
+                  <p className="mt-3 rounded-xl border border-[#C79A5A]/40 bg-[#C79A5A]/12 px-3 py-2 text-xs font-medium text-[#1E1E1E]">
                     {guestSubmitBanner}
                   </p>
                 ) : null}
@@ -22414,7 +22422,7 @@ export default function Home() {
               }
             />
             {!canEditNotes && (
-              <PremiumCard className="border-[#00D4FF]/20 bg-amber-950/10">
+              <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
                   {effectiveRole} role can view notes, but editing is limited in this prototype.
                 </p>
@@ -22440,7 +22448,7 @@ export default function Home() {
               {noteFormStatus && !noteModalOpen && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${noteFormStatus.kind === "success"
-                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                     : "border border-rose-300/80 bg-rose-50 text-rose-950"
                     }`}
                 >
@@ -22452,7 +22460,7 @@ export default function Home() {
                   <div
                     key={`event-note-${note.id}`}
                     className={`rounded-xl border p-3 ${note.isPinned
-                      ? "border-cyan-300/80 bg-cyan-50/60"
+                      ? "border-[#C79A5A]/45 bg-[#C79A5A]/10"
                       : "border-stone-200 bg-stone-50"
                       }`}
                   >
@@ -22463,7 +22471,7 @@ export default function Home() {
                             {note.category || "General"}
                           </span>
                           {note.isPinned ? (
-                            <span className="rounded-full border border-cyan-400/80 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-950">
+                            <span className="rounded-full border border-[#C79A5A]/55 bg-[#C79A5A]/18 px-2 py-0.5 text-[10px] font-semibold text-[#1E1E1E]">
                               Pinned
                             </span>
                           ) : null}
@@ -22748,7 +22756,7 @@ export default function Home() {
               {vendorStatus && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${vendorStatus.kind === "success"
-                    ? "border border-emerald-500/40 bg-emerald-950/35 text-emerald-50"
+                    ? "border border-[#7F8F7A]/45 bg-[#7F8F7A]/20 text-[#f4f7f1]"
                     : "border border-rose-500/40 bg-rose-950/35 text-rose-50"
                     }`}
                 >
@@ -22773,7 +22781,7 @@ export default function Home() {
                     className={
                       isCoupleView
                         ? `w-full shrink-0 sm:w-auto sm:py-2 ${couplePortalPrimaryButtonClass}`
-                        : "w-full shrink-0 rounded-xl bg-[#00D4FF] px-3 py-2.5 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 sm:w-auto sm:py-2"
+                        : "w-full shrink-0 rounded-xl bg-[#1E1E1E] px-3 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#2a2a2a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/45 focus-visible:ring-offset-2 sm:w-auto sm:py-2"
                     }
                   >
                     {isCoupleView ? "Add vendor / contact" : "Add team member"}
@@ -22783,7 +22791,7 @@ export default function Home() {
               {teamFormStatus && (
                 <p
                   className={`mt-3 rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
-                    ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                    ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                     : "border border-rose-300/80 bg-rose-50 text-rose-950"
                     }`}
                 >
@@ -22859,7 +22867,7 @@ export default function Home() {
                         className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
                           ? isCoupleView
                             ? "border border-[#2f4a3e]/30 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                            : "border border-emerald-300/80 bg-emerald-100 text-emerald-950"
+                            : "border border-[#7F8F7A]/55 bg-[#7F8F7A]/15 text-[#3f4d3d]"
                           : "border border-stone-200 bg-stone-100 text-stone-600"
                           }`}
                       >
@@ -22991,7 +22999,7 @@ export default function Home() {
                         className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${collab.status === "Accepted"
                           ? isCoupleView
                             ? "border-[#2f4a3e]/30 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                            : "border-emerald-300 bg-emerald-50 text-emerald-950"
+                            : "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                           : isCoupleView
                             ? "border-stone-300 bg-stone-50 text-stone-700"
                             : "border-violet-300 bg-violet-50 text-violet-950"
@@ -23132,7 +23140,7 @@ export default function Home() {
                     className={
                       isCoupleView
                         ? `min-h-11 w-full px-5 py-2.5 text-sm sm:min-w-[12.5rem] sm:py-2.5 ${couplePortalPrimaryButtonClass}`
-                        : "min-h-11 w-full border border-black bg-[#00D4FF] px-5 py-2.5 text-sm font-semibold text-black shadow-none hover:brightness-105 sm:min-w-[12.5rem] sm:py-2.5"
+                        : "min-h-11 w-full border border-[#1E1E1E] bg-[#1E1E1E] px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2a2a2a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/45 focus-visible:ring-offset-2 sm:min-w-[12.5rem] sm:py-2.5"
                     }
                   >
                     Print / Save PDF
@@ -23372,7 +23380,7 @@ export default function Home() {
                       </PrimaryButton>
                     </div>
                     {copyStatus === "copied" ? (
-                      <p className="mt-2 text-[11px] text-emerald-400/95">Copied to clipboard.</p>
+                      <p className="mt-2 text-[11px] text-[#9fb198]">Copied to clipboard.</p>
                     ) : null}
                     {copyStatus === "error" ? (
                       <p className="mt-2 text-[11px] text-rose-300/95">Copy failed. Try again.</p>
@@ -23967,7 +23975,7 @@ export default function Home() {
                     coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
                     showPersonalizeGuidance={false}
                   />
-                  <div className="absolute inset-0 bg-black/45" />
+                  <div className="absolute inset-0 bg-[#1E1E1E]/45" />
                   <div className="absolute bottom-3 left-3 right-3">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/80">Preview</p>
                     <p className="mt-0.5 truncate text-sm font-medium text-white drop-shadow">
@@ -24129,7 +24137,7 @@ export default function Home() {
                           }))
                         }
                         className={`w-full ${enabled
-                          ? "rounded-xl bg-[#00D4FF] text-[11px] font-semibold leading-snug text-stone-950 shadow-sm hover:brightness-105 sm:text-xs"
+                          ? "rounded-xl bg-[#C79A5A] text-[11px] font-semibold leading-snug text-[#1E1E1E] shadow-sm hover:bg-[#d0a66b] sm:text-xs"
                           : `${lightUiSecondaryButtonClass} text-[11px] leading-snug sm:text-xs`
                           }`}
                       >
@@ -24413,7 +24421,7 @@ export default function Home() {
             <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
                 <SectionTitle>Planning Checklist</SectionTitle>
-                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-stone-900">
+                <span className="rounded-full bg-[#C79A5A]/20 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
                   {completionPercent}% complete
                 </span>
               </div>
@@ -24441,9 +24449,9 @@ export default function Home() {
                     ) : null}
                     <span
                       className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
-                        ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
+                        ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                         : task.status === "In Progress"
-                          ? "border border-[#00D4FF]/50 bg-[#00D4FF]/12 text-stone-900"
+                          ? "border border-[#C79A5A]/50 bg-[#C79A5A]/12 text-[#1E1E1E]"
                           : "border border-stone-300 bg-stone-100 text-stone-700"
                         }`}
                     >
@@ -24548,7 +24556,7 @@ export default function Home() {
                           },
                         }))
                       }
-                      className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none focus:border-[#00D4FF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/25"
+                      className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30"
                     >
                       {(["Not Started", "In Progress", "Complete"] as ChecklistStatus[]).map(
                         (status) => (
@@ -24627,7 +24635,7 @@ export default function Home() {
                 </div>
                 <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-200/80">
                   <div
-                    className={`h-full rounded-full transition-[width] duration-700 ease-out ${isCoupleView ? "bg-[#2f4a3e]" : "bg-[#00D4FF]"}`}
+                    className={`h-full rounded-full transition-[width] duration-700 ease-out ${isCoupleView ? "bg-[#2f4a3e]" : "bg-[#C79A5A]"}`}
                     style={{ width: `${completionPercent}%` }}
                   />
                 </div>
@@ -24704,7 +24712,7 @@ export default function Home() {
               <PremiumCard className={premiumFormSectionCardClass}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <SectionTitle className="text-stone-950">Next steps</SectionTitle>
-                  <span className="shrink-0 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
+                  <span className="shrink-0 rounded-full border border-[#C79A5A]/35 bg-[#C79A5A]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8a6938]">
                     {planningAssistantNextSteps.length > 0
                       ? `${planningAssistantNextSteps.length} to do`
                       : "All caught up"}
@@ -24758,7 +24766,7 @@ export default function Home() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm font-medium text-emerald-800">
+                  <p className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-3.5 py-3 text-sm font-medium text-[#3f4d3d]">
                     You’ve completed every planning step we track—nice work!
                   </p>
                 )}
@@ -24771,11 +24779,11 @@ export default function Home() {
                 </p>
 
                 {planningAssistantDetailsStillMissing.length === 0 ? (
-                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
-                    <span aria-hidden className="mt-0.5 text-sm font-semibold text-emerald-600">
+                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-3.5 py-3">
+                    <span aria-hidden className="mt-0.5 text-sm font-semibold text-[#7F8F7A]">
                       ✓
                     </span>
-                    <p className="text-sm font-medium leading-snug text-emerald-800">
+                    <p className="text-sm font-medium leading-snug text-[#3f4d3d]">
                       {planningAssistantNextSteps.length > 0
                         ? "Your visible next steps cover the main items right now."
                         : "Everything’s looking healthy — nothing needs your attention right now."}
@@ -25046,7 +25054,7 @@ export default function Home() {
             <PremiumCard variant="accent">
               <div className="flex items-center justify-between">
                 <SectionTitle>Notification Center</SectionTitle>
-                <span className="rounded-full bg-[#00D4FF]/20 px-2.5 py-1 text-xs font-semibold text-stone-900">
+                <span className="rounded-full bg-[#C79A5A]/20 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
                   {unreadBadgeCount} unread
                 </span>
               </div>
@@ -25112,7 +25120,7 @@ export default function Home() {
             </PremiumCard>
 
             {notifications.slice(0, 3).map((notice) => (
-              <PremiumCard key={`notice-${notice.id}`} className="border-[#00D4FF]/20">
+              <PremiumCard key={`notice-${notice.id}`} className="border-[#C79A5A]/25">
                 <p className="text-sm text-stone-900">
                   <span className="mr-1">{activityTypeIcon(notice.type)}</span>
                   {notice.summary}
@@ -25131,7 +25139,7 @@ export default function Home() {
                     {item.summary}
                   </p>
                   {item.unread && (
-                    <span className="rounded-full bg-[#00D4FF]/20 px-2 py-1 text-[10px] font-semibold text-stone-900">
+                    <span className="rounded-full bg-[#C79A5A]/20 px-2 py-1 text-[10px] font-semibold text-[#1E1E1E]">
                       New
                     </span>
                   )}
@@ -25197,7 +25205,7 @@ export default function Home() {
         <>
           <div
             onClick={() => setQuickActionsOpen(false)}
-            className={`fixed inset-0 z-40 bg-black/45 transition-opacity duration-200 lg:hidden ${quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            className={`fixed inset-0 z-40 bg-[#1E1E1E]/45 transition-opacity duration-200 lg:hidden ${quickActionsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
               }`}
           />
           <div className="fixed bottom-24 right-4 z-50 flex w-[calc(100%-2rem)] max-w-[260px] flex-col items-end gap-2 lg:hidden">
@@ -25214,7 +25222,7 @@ export default function Home() {
                     action.onClick();
                     setQuickActionsOpen(false);
                   }}
-                  className="w-full rounded-xl border border-white/15 bg-[#141419]/90 text-zinc-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)] hover:border-[#00D4FF]/35 hover:bg-[#191920]"
+                  className="w-full rounded-xl border border-white/15 bg-[#141419]/90 text-zinc-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)] hover:border-[#C79A5A]/45 hover:bg-[#191920]"
                 >
                   {action.label}
                 </PrimaryButton>
@@ -25233,7 +25241,7 @@ export default function Home() {
 
       {djScriptModalOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1E1E1E]/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
           role="dialog"
           aria-modal="true"
           aria-label="Add DJ script"
@@ -25297,7 +25305,7 @@ export default function Home() {
 
       {noteModalOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1E1E1E]/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
           role="dialog"
           aria-modal="true"
           aria-label={noteEditingId ? "Edit event note" : "Add event note"}
@@ -25332,7 +25340,7 @@ export default function Home() {
                     value={noteCategoryDraft}
                     disabled={!canEditNotes}
                     onChange={(event) => setNoteCategoryDraft(event.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                    className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-[#C79A5A]/70 focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/25 disabled:opacity-60"
                   >
                     {EVENT_NOTE_CATEGORIES.map((category) => (
                       <option key={`note-cat-${category}`} value={category} className="bg-white text-stone-900">
@@ -25362,7 +25370,7 @@ export default function Home() {
                   onClick={() => setNotePinnedDraft((prev) => !prev)}
                   disabled={!canEditNotes}
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${notePinnedDraft
-                    ? "border-cyan-400/90 bg-cyan-50 text-cyan-950 shadow-sm hover:bg-cyan-100/80"
+                    ? "border-[#C79A5A]/55 bg-[#C79A5A]/12 text-[#1E1E1E] shadow-sm hover:bg-[#C79A5A]/18"
                     : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
                     }`}
                 >
@@ -25371,7 +25379,7 @@ export default function Home() {
                 {noteFormStatus && (
                   <p
                     className={`rounded-xl px-3 py-2 text-xs ${noteFormStatus.kind === "success"
-                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                      ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                       : "border border-rose-300/80 bg-rose-50 text-rose-950"
                       }`}
                   >
@@ -25405,7 +25413,7 @@ export default function Home() {
 
       {teamModalOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1E1E1E]/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:items-stretch lg:justify-end lg:p-5 lg:pt-5 lg:pb-5"
           role="dialog"
           aria-modal="true"
           aria-label={
@@ -25478,7 +25486,7 @@ export default function Home() {
                     className={
                       isCoupleView
                         ? "mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-[#2f4a3e]/60 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/20 disabled:opacity-60"
-                        : "mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-cyan-500/70 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-60"
+                        : "mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-900 shadow-sm transition focus:border-[#C79A5A]/70 focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/25 disabled:opacity-60"
                     }
                   >
                     {eventTeamRoleGroupsForModal.map((group) => (
@@ -25585,7 +25593,7 @@ export default function Home() {
                   className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold ${teamActiveDraft
                     ? isCoupleView
                       ? "border-[#2f4a3e]/35 bg-[#2f4a3e]/10 text-[#2f4a3e] shadow-sm hover:bg-[#2f4a3e]/15"
-                      : "border-emerald-300/90 bg-emerald-50 text-emerald-950 shadow-sm hover:bg-emerald-100/80"
+                      : "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d] shadow-sm hover:bg-[#7F8F7A]/15"
                     : "border-stone-300 bg-stone-50 text-stone-700 shadow-sm hover:bg-stone-100"
                     }`}
                 >
@@ -25594,7 +25602,7 @@ export default function Home() {
                 {teamFormStatus && (
                   <p
                     className={`rounded-xl px-3 py-2 text-xs ${teamFormStatus.kind === "success"
-                      ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950"
+                      ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
                       : "border border-rose-300/80 bg-rose-50 text-rose-950"
                       }`}
                   >
@@ -25626,7 +25634,7 @@ export default function Home() {
                   className={
                     isCoupleView
                       ? `px-3 py-2 text-xs disabled:opacity-60 ${couplePortalPrimaryButtonClass}`
-                      : "rounded-xl bg-[#00D4FF] px-3 py-2 text-xs font-semibold text-stone-950 shadow-sm hover:brightness-105 disabled:opacity-60"
+                      : "rounded-xl bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#2a2a2a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/45 focus-visible:ring-offset-2 disabled:opacity-60"
                   }
                 >
                   {teamSaving
@@ -25644,7 +25652,7 @@ export default function Home() {
       )}
 
       {inviteModalOpen && !useRealEventInvites && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E1E1E]/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">Invite to app</SectionTitle>
@@ -25703,7 +25711,7 @@ export default function Home() {
 
 
       {templateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E1E1E]/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">
@@ -25934,7 +25942,7 @@ export default function Home() {
       )}
 
       {vendorModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1E1E1E]/55 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-5 sm:pt-5 sm:pb-5">
           <div className="flex w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 sm:max-h-[min(90vh,calc(100dvh-2rem))] sm:max-w-2xl">
             <div className="shrink-0 border-b border-stone-200 bg-white px-5 py-4">
               <div className="flex items-center justify-between gap-3">
@@ -26049,11 +26057,11 @@ export default function Home() {
                       ) : null}
                       {runOfShowUpNextMeta.banner === "upNext" ? (
                         <p
-                          className="inline-flex max-w-full items-center rounded-full border border-cyan-200/90 bg-cyan-50/90 px-2.5 py-1 text-[11px] font-semibold leading-snug text-cyan-950 sm:text-xs"
+                          className="inline-flex max-w-full items-center rounded-full border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-2.5 py-1 text-[11px] font-semibold leading-snug text-[#1E1E1E] sm:text-xs"
                           role="status"
                           aria-live="polite"
                         >
-                          <span className="shrink-0 uppercase tracking-[0.14em] text-cyan-900/75">
+                          <span className="shrink-0 uppercase tracking-[0.14em] text-[#8a6938]">
                             Next:
                           </span>
                           <span className="ml-1.5 min-w-0 truncate text-stone-900">
@@ -26063,7 +26071,7 @@ export default function Home() {
                           </span>
                         </p>
                       ) : runOfShowUpNextMeta.banner === "complete" ? (
-                        <p className="rounded-full border border-emerald-200/90 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-semibold leading-snug text-emerald-950 sm:text-xs">
+                        <p className="rounded-full border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-2.5 py-1 text-[11px] font-semibold leading-snug text-[#3f4d3d] sm:text-xs">
                           Run Of Show complete
                         </p>
                       ) : null}
@@ -26189,7 +26197,7 @@ export default function Home() {
                       aria-expanded={runOfShowCompletedDrawerOpen}
                       onClick={() => setRunOfShowCompletedDrawerOpen((open) => !open)}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 text-base font-semibold leading-none text-[#3f4d3d]">
                         ✓
                       </span>
                       <span className="min-w-0 flex-1">
@@ -26220,7 +26228,7 @@ export default function Home() {
                             aria-label={`Mark ${row.title} as not done`}
                             onClick={() => toggleRunOfShowDoneKey(row.key)}
                           >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-700/25 bg-emerald-50 text-sm font-semibold leading-none text-emerald-700">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#7F8F7A]/40 bg-[#7F8F7A]/10 text-sm font-semibold leading-none text-[#3f4d3d]">
                               ✓
                             </span>
                             <span className="w-14 shrink-0 font-mono text-xs font-medium tabular-nums text-stone-500 sm:w-16 sm:text-sm">
@@ -26300,7 +26308,7 @@ export default function Home() {
                                     aria-label="Mark moment as not done"
                                     onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                   >
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 text-base font-semibold leading-none text-[#3f4d3d]">
                                       ✓
                                     </span>
                                     <span className="shrink-0 font-mono text-sm font-medium tabular-nums text-stone-500 sm:text-base">
@@ -26342,7 +26350,7 @@ export default function Home() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   {isUpNext ? (
-                                    <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
+                                    <p className="mb-3 inline-block rounded-lg border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E1E1E] shadow-sm md:text-xs md:px-3.5 md:py-2">
                                       Up next
                                     </p>
                                   ) : null}
@@ -26429,7 +26437,7 @@ export default function Home() {
                                             aria-label="Mark moment as not done"
                                             onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                           >
-                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700/30 bg-emerald-50 text-base font-semibold leading-none text-emerald-700">
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 text-base font-semibold leading-none text-[#3f4d3d]">
                                               ✓
                                             </span>
                                             <span className="shrink-0 font-mono text-sm font-medium tabular-nums text-stone-500 sm:text-base">
@@ -26485,7 +26493,7 @@ export default function Home() {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                           {isUpNext ? (
-                                            <p className="mb-3 inline-block rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-950 shadow-sm md:text-xs md:px-3.5 md:py-2">
+                                            <p className="mb-3 inline-block rounded-lg border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E1E1E] shadow-sm md:text-xs md:px-3.5 md:py-2">
                                               Up next
                                             </p>
                                           ) : null}
@@ -26802,7 +26810,7 @@ export default function Home() {
 
             {runOfShowGrandEntranceScriptOpen && runOfShowGrandEntranceCueSheetHasContent ? (
               <div
-                className="no-print fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-4 sm:items-center sm:p-6"
+                className="no-print fixed inset-0 z-[80] flex items-end justify-center bg-[#1E1E1E]/55 p-4 sm:items-center sm:p-6"
                 role="presentation"
                 onClick={() => setRunOfShowGrandEntranceScriptOpen(false)}
               >
@@ -26916,7 +26924,7 @@ export default function Home() {
                 tabIndex={runOfShowUpNextRowInView ? -1 : 0}
                 aria-hidden={runOfShowUpNextRowInView}
                 aria-label={`Scroll to up next: ${runOfShowUpNextCueDetail.title}`}
-                className={`no-print fixed z-[8] flex min-h-[3.25rem] min-w-[11rem] max-w-[min(20rem,calc(100vw-2rem))] touch-manipulation flex-col justify-center rounded-2xl border border-cyan-200/90 bg-white px-4 py-3.5 text-left shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity md:min-h-[3.75rem] md:min-w-[12.5rem] md:px-5 md:py-4 ${runOfShowUpNextRowInView
+                className={`no-print fixed z-[8] flex min-h-[3.25rem] min-w-[11rem] max-w-[min(20rem,calc(100vw-2rem))] touch-manipulation flex-col justify-center rounded-2xl border border-[#C79A5A]/45 bg-white px-4 py-3.5 text-left shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-[opacity,transform] duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-opacity md:min-h-[3.75rem] md:min-w-[12.5rem] md:px-5 md:py-4 ${runOfShowUpNextRowInView
                   ? "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0"
                   : "translate-y-0 opacity-100"
                   }`}
@@ -26925,7 +26933,7 @@ export default function Home() {
                   right: "max(1rem, env(safe-area-inset-right, 0px))",
                 }}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-900/75 md:text-xs">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a6938] md:text-xs">
                   Up Next
                 </p>
                 <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-stone-950 md:text-base">
@@ -26943,7 +26951,7 @@ export default function Home() {
 
       {timelineImportOpen ? (
         <div
-          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-[#1E1E1E]/45 p-4 sm:items-center sm:p-6"
           role="presentation"
           onClick={closeTimelineImport}
         >
@@ -27150,7 +27158,7 @@ export default function Home() {
 
       {pendingTimelineDelete ? (
         <div
-          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 sm:items-center sm:p-6"
+          className="no-print fixed inset-0 z-[100] flex items-end justify-center bg-[#1E1E1E]/45 p-4 sm:items-center sm:p-6"
           role="presentation"
           onClick={() => setPendingTimelineDelete(null)}
         >

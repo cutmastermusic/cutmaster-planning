@@ -151,9 +151,9 @@ export function PremiumCard({
 }: PremiumCardProps) {
   const surface =
     variant === "accent"
-      ? "rounded-2xl border border-stone-200/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-cyan-500/10"
+      ? "rounded-2xl border border-stone-200/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-[#C79A5A]/10"
       : variant === "accentDashed"
-        ? "rounded-2xl border border-dashed border-stone-300/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-cyan-500/10"
+        ? "rounded-2xl border border-dashed border-stone-300/95 bg-gradient-to-b from-[var(--cm-surface)] to-[var(--cm-surface-muted)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)] ring-1 ring-[#C79A5A]/10"
         : "rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-surface)] p-[var(--cm-space-card-padding)] shadow-[var(--cm-shadow-card)]";
   return (
     <article {...rest} className={`${surface} transition-colors duration-150 ${className}`}>
@@ -204,7 +204,7 @@ export const workspaceSectionDashboardClass = "cm-workspace-section--dashboard";
 
 /** Secondary control on white / stone-50 cards (workspace, All Events, admin). */
 export const lightUiSecondaryButtonClass =
-  "rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-text-primary)] shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-[var(--cm-surface-muted)] active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/35 focus-visible:ring-offset-2";
+  "rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-2.5 text-xs font-semibold text-[var(--cm-text-primary)] shadow-sm transition-[transform,background-color,border-color,color,box-shadow] hover:bg-[var(--cm-surface-muted)] active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cm-admin-focus)] focus-visible:ring-offset-2";
 
 /** Brand primary on light surfaces: ShowFlow charcoal with brass focus. */
 export const lightUiCyanPrimaryButtonClass =
@@ -239,7 +239,7 @@ export const lightUiFormLabelClass =
 
 /** Shared field chrome for inputs and selects on light surfaces (TextInput, All Events filters). */
 export const lightUiTextControlClass =
-  "w-full min-h-11 touch-manipulation rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-3 text-sm text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-stone-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full min-h-11 touch-manipulation rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] px-3 py-3 text-sm text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-[var(--cm-admin-action-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cm-admin-focus)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Text/search input on light workspace cards; use below {@link lightUiFormLabelClass}. */
 export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:text-[var(--cm-text-subtle)]`;
@@ -250,7 +250,7 @@ export const lightUiInputClass = `mt-1.5 ${lightUiTextControlClass} placeholder:
  * one styled box keeps the full width/height tappable on first tap.
  */
 export const lightUiSelectClass =
-  "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] py-3.5 pl-3 pr-10 text-left text-base leading-snug text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-stone-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+  "cm-select-light mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-[var(--cm-radius-control)] border border-[var(--cm-border-strong)] bg-[var(--cm-surface)] py-3.5 pl-3 pr-10 text-left text-base leading-snug text-[var(--cm-text-primary)] shadow-sm transition-colors focus:border-[var(--cm-admin-action-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cm-admin-focus)] focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Caption under a section title on white / stone cards (vendors, admin). */
 export const lightUiSectionCaptionClass =
@@ -274,7 +274,7 @@ export const darkUiSecondaryOutlineButtonClass =
 
 /** Text field on dark zinc panels (Global Settings timeline rows, etc.). */
 export const darkUiInputClass =
-  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-400 transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
+  "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-400 transition-colors focus:border-[#C79A5A]/60 focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/35 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Micro label above fields on dark panels. */
 export const darkUiFieldLabelClass =
@@ -282,7 +282,7 @@ export const darkUiFieldLabelClass =
 
 /** `<select>` on dark zinc panels. */
 export const darkUiSelectClass =
-  "cm-select-dark mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-xl border border-zinc-600 bg-zinc-950 py-3.5 pl-3 pr-10 text-left text-base leading-snug text-zinc-100 shadow-inner transition-colors focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-0 disabled:opacity-60";
+  "cm-select-dark mt-1.5 box-border block w-full min-w-0 max-w-full min-h-12 cursor-pointer touch-manipulation appearance-none rounded-xl border border-zinc-600 bg-zinc-950 py-3.5 pl-3 pr-10 text-left text-base leading-snug text-zinc-100 shadow-inner transition-colors focus:border-[#C79A5A]/60 focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/35 focus:ring-offset-0 disabled:opacity-60";
 
 /** Compact secondary control on dark panel rows. */
 export const darkUiCompactGhostButtonClass =
@@ -537,7 +537,7 @@ export function SongCard({
   const shellClass = isMustPlay
     ? "rounded-xl border border-stone-200 border-l-[3px] border-l-[#7E52A0] bg-white p-3 shadow-none"
     : isPlayIfPossible
-      ? "rounded-xl border border-stone-200 border-l-[3px] border-l-emerald-600 bg-white p-3 shadow-none"
+      ? "rounded-xl border border-stone-200 border-l-[3px] border-l-[#7F8F7A] bg-white p-3 shadow-none"
       : isDoNotPlay
         ? "rounded-xl border border-stone-200 border-l-[3px] border-l-rose-500 bg-white p-3 shadow-none"
         : "rounded-xl border border-stone-200 bg-white p-3 shadow-none";
@@ -807,7 +807,7 @@ function BottomNavItem({
             ? "cm-couple-nav-item--active rounded-lg"
             : "cm-couple-nav-item--inactive rounded-lg"
           : isActive
-            ? "min-h-10 border border-stone-900 bg-[#00D4FF] font-semibold text-stone-950 shadow-none"
+            ? "min-h-10 border border-[#C79A5A]/65 bg-[#C79A5A] font-semibold text-[#1E1E1E] shadow-none"
             : "min-h-10 border border-stone-300 bg-white font-medium text-stone-900 hover:bg-stone-50"
       }`}
     >

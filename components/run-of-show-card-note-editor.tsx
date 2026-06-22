@@ -68,7 +68,7 @@ export function RunOfShowCardNoteEditor({
       aria-label={`Day-of scratch pad for ${cardLabel}`}
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-black/50 md:bg-black/45"
+        className="pointer-events-none absolute inset-0 bg-[#1E1E1E]/50 md:bg-[#1E1E1E]/45"
         aria-hidden
       />
       <div className="pointer-events-auto relative flex max-h-[min(84dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 md:h-full md:max-h-none md:max-w-xl md:rounded-3xl lg:max-w-2xl">

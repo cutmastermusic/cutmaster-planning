@@ -14,7 +14,7 @@ export function EventModalStatus({ status }: EventModalStatusProps) {
     <p
       className={`rounded-xl px-3 py-2 text-xs ${
         status.kind === "success"
-          ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+          ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
           : "border border-rose-200 bg-rose-50 text-rose-950"
       }`}
     >

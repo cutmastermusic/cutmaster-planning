@@ -67,7 +67,7 @@ function inviteStateLabel(state: EventInviteListState): string {
 function inviteStateBadgeClass(state: EventInviteListState): string {
   switch (state) {
     case "active":
-      return "border-emerald-300 bg-emerald-50 text-emerald-950";
+      return "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]";
     case "pending":
       return "border-violet-300 bg-violet-50 text-violet-950";
     case "expired":
@@ -197,7 +197,7 @@ function InvitePersonCard({
         <p
           className={`mt-3 text-xs leading-relaxed ${
             feedback.tone === "success"
-              ? "text-emerald-900"
+              ? "text-[#3f4d3d]"
               : feedback.tone === "warning"
                 ? "text-amber-900"
                 : "text-rose-900"
@@ -627,7 +627,7 @@ export function EventInviteAdminSection({
       )}
 
       {modalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#1E1E1E]/55 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/98 p-5 shadow-2xl shadow-stone-900/12">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle className="text-stone-950">Planning Portal access</SectionTitle>
@@ -648,7 +648,7 @@ export function EventInviteAdminSection({
               <div className="mt-4 space-y-3">
                 <p
                   className={`text-xs font-semibold ${
-                    successMessage.tone === "success" ? "text-emerald-900" : "text-amber-900"
+                    successMessage.tone === "success" ? "text-[#3f4d3d]" : "text-amber-900"
                   }`}
                 >
                   {successMessage.title}

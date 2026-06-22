@@ -18,7 +18,7 @@ export function EventModal({
       aria-modal="true"
       aria-labelledby="event-modal-title"
     >
-      <div className="pointer-events-none absolute inset-0 bg-black/55" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 bg-[#1E1E1E]/55" aria-hidden />
       <div className="pointer-events-auto relative flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] w-full max-w-md min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/98 shadow-2xl shadow-stone-900/12 cm-section-enter sm:max-h-[88vh] sm:max-w-2xl">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200/70 px-5 py-4">
           <h2 id="event-modal-title" className="text-lg font-semibold text-stone-950">

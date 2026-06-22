@@ -87,10 +87,10 @@ function PinnedEventNotesBlock({ notes }: { notes: EventNote[] }) {
         {visible.map((note) => (
           <li
             key={note.id}
-            className="rounded-xl border border-cyan-200/90 bg-cyan-50/50 px-3 py-3 sm:px-3.5 sm:py-3.5"
+            className="rounded-xl border border-[#C79A5A]/35 bg-[#C79A5A]/10 px-3 py-3 sm:px-3.5 sm:py-3.5"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-cyan-400/80 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-950">
+              <span className="rounded-full border border-[#C79A5A]/55 bg-[#C79A5A]/18 px-2 py-0.5 text-[10px] font-semibold text-[#1E1E1E]">
                 Pinned
               </span>
               {note.category?.trim() ? (
@@ -426,7 +426,7 @@ export function RunOfShowReferenceDrawer({
     >
       <button
         type="button"
-        className="pointer-events-auto absolute inset-0 bg-black/50 md:bg-black/45"
+        className="pointer-events-auto absolute inset-0 bg-[#1E1E1E]/50 md:bg-[#1E1E1E]/45"
         aria-label="Close quick reference"
         onClick={requestClose}
       />

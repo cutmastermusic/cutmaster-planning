@@ -53,9 +53,9 @@ export const warning = {
 
 export const success = {
   text: "text-[var(--cm-admin-success)]",
-  surface: "bg-emerald-50 text-emerald-950",
-  border: "border-emerald-300/90",
-  focus: "focus-visible:ring-emerald-400/35",
+  surface: "bg-[#7F8F7A]/10 text-[#3f4d3d]",
+  border: "border-[#7F8F7A]/55",
+  focus: "focus-visible:ring-[#7F8F7A]/35",
 } as const;
 
 export const info = {

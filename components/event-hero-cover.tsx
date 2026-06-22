@@ -44,7 +44,7 @@ export function EventHeroCover({
             disabled={personalizeDisabled || !onRequestCoverPhoto}
             onClick={() => onRequestCoverPhoto?.()}
             aria-label="Open cover and details"
-            className="max-w-sm cursor-pointer rounded-2xl border border-white/12 bg-black/20 px-4 py-3.5 text-center shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45)] backdrop-blur-[3px] transition hover:border-white/28 hover:bg-black/32 hover:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00D4FF]/80 disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-md sm:px-5 sm:py-4"
+            className="max-w-sm cursor-pointer rounded-2xl border border-white/12 bg-[#1E1E1E]/20 px-4 py-3.5 text-center shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45)] backdrop-blur-[3px] transition hover:border-white/28 hover:bg-[#1E1E1E]/32 hover:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C79A5A]/80 disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-md sm:px-5 sm:py-4"
           >
             <p className="text-[15px] font-semibold tracking-tight text-white sm:text-base">
               Personalize Your Event Space
