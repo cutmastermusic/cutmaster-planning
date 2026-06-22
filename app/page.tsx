@@ -490,6 +490,7 @@ import { RunOfShowLiveReference } from "@/components/run-of-show-live-reference"
 import { RunOfShowReferenceDrawer } from "@/components/run-of-show-reference-drawer";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
+import { SongSearchAutocomplete } from "@/components/song-search-autocomplete";
 import {
   appendRunOfShowStrokePoint,
   ensureRunOfShowAnnotationCanvas,
@@ -18461,6 +18462,13 @@ export default function Home() {
                     <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
                       <SectionTitle className="text-stone-950">Add a Song</SectionTitle>
                       <div className="mt-4 space-y-3">
+                        <SongSearchAutocomplete
+                          disabled={!canManageMusic}
+                          onSelect={(song) => {
+                            setNewSongTitle(song.title);
+                            setNewSongArtist(song.artist);
+                          }}
+                        />
                         <TextInput
                           id="song-title"
                           label="Song Title"
@@ -19488,6 +19496,13 @@ export default function Home() {
                   : "Add individual songs only if there are specific tracks we should know about. Most couples stop at playlists and genres."}
               </p>
               <div className="mt-4 space-y-3">
+                <SongSearchAutocomplete
+                  disabled={!canManageMusic}
+                  onSelect={(song) => {
+                    setNewSongTitle(song.title);
+                    setNewSongArtist(song.artist);
+                  }}
+                />
                 <TextInput
                   id="song-title"
                   label="Song title"
