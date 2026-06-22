@@ -208,7 +208,7 @@ import type {
   PlaylistBucketId,
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
-import type { SpotifyPlaylistPreview } from "@/lib/spotify/types";
+import type { SpotifyPlaylistPreview, SpotifyPlaylistTrackPreview } from "@/lib/spotify/types";
 import {
   DEFAULT_EVENT_TEAM_VENDOR_ROLE,
   VENDOR_TYPES_ORDERED,
@@ -688,6 +688,20 @@ function musicPlaylistLinkHost(url: string): string {
   }
 }
 
+const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
+  mustPlay: "Must Play",
+  playIfPossible: "If Possible",
+  doNotPlay: "Do Not Play",
+};
+
+function normalizedSongDuplicateText(value: string | null | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function songDuplicateFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
+  return `${normalizedSongDuplicateText(song.title)}|${normalizedSongDuplicateText(song.artist)}`;
+}
+
 /** Bypass hydration / empty-data guards for explicit user actions. */
 type DbPersistGuardOptions = {
   force?: boolean;
@@ -754,6 +768,12 @@ type SpotifyPlaylistPreviewState =
   | { status: "invalid"; message: string }
   | { status: "error"; message: string }
   | { status: "success"; data: SpotifyPlaylistPreview };
+
+type SpotifyPlaylistImportResult = {
+  addedCount: number;
+  duplicateCount: number;
+  target: SongListType;
+};
 
 function isSpotifyPlaylistPreviewTrack(value: unknown): value is SpotifyPlaylistPreview["tracks"][number] {
   if (!value || typeof value !== "object") return false;
@@ -3384,8 +3404,11 @@ export default function Home() {
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
   const [spotifyImportUrl, setSpotifyImportUrl] = useState("");
+  const [spotifyImportTarget, setSpotifyImportTarget] = useState<SongListType>("playIfPossible");
   const [spotifyPlaylistPreviewState, setSpotifyPlaylistPreviewState] =
     useState<SpotifyPlaylistPreviewState>({ status: "idle" });
+  const [spotifyPlaylistImportResult, setSpotifyPlaylistImportResult] =
+    useState<SpotifyPlaylistImportResult | null>(null);
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -12479,6 +12502,7 @@ export default function Home() {
     }
 
     setSpotifyPlaylistPreviewState({ status: "loading" });
+    setSpotifyPlaylistImportResult(null);
 
     try {
       const response = await fetch(`/api/music/playlist/preview?url=${encodeURIComponent(url)}`);
@@ -12508,6 +12532,7 @@ export default function Home() {
           previewLimit: body.previewLimit,
         },
       });
+      setSpotifyPlaylistImportResult(null);
     } catch (error) {
       console.error("[spotify-playlist-preview] failed", error);
       setSpotifyPlaylistPreviewState({
@@ -12515,6 +12540,67 @@ export default function Home() {
         message: "ShowFlow could not preview this playlist. Try again in a moment.",
       });
     }
+  };
+
+  const importSpotifyPlaylistTracks = () => {
+    if (spotifyPlaylistPreviewState.status !== "success") return;
+
+    const existingSongs = [
+      ...mustPlaySongs,
+      ...playIfPossibleSongs,
+      ...doNotPlaySongs,
+    ];
+    const seenSpotifyIds = new Set(
+      existingSongs
+        .map((song) => song.spotifyId?.trim())
+        .filter((spotifyId): spotifyId is string => Boolean(spotifyId)),
+    );
+    const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
+    const importedSongs: SongEntry[] = [];
+    let duplicateCount = 0;
+
+    spotifyPlaylistPreviewState.data.tracks.forEach((track: SpotifyPlaylistTrackPreview, index) => {
+      const spotifyId = track.spotifyId.trim();
+      const fingerprint = songDuplicateFingerprint(track);
+      if (seenSpotifyIds.has(spotifyId) || seenFingerprints.has(fingerprint)) {
+        duplicateCount += 1;
+        return;
+      }
+
+      seenSpotifyIds.add(spotifyId);
+      seenFingerprints.add(fingerprint);
+      importedSongs.push({
+        id: `spotify-playlist-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        title: track.title,
+        artist: track.artist || undefined,
+        album: track.album || undefined,
+        albumArt: track.albumArt ?? undefined,
+        albumArtSmall: track.albumArtSmall ?? undefined,
+        spotifyId,
+        source: "spotify-playlist",
+        highPriority: false,
+      });
+    });
+
+    if (importedSongs.length > 0) {
+      if (spotifyImportTarget === "mustPlay") {
+        setMustPlaySongs((prev) => [...importedSongs, ...prev]);
+      } else if (spotifyImportTarget === "playIfPossible") {
+        setPlayIfPossibleSongs((prev) => [...importedSongs, ...prev]);
+      } else {
+        setDoNotPlaySongs((prev) => [...importedSongs, ...prev]);
+      }
+      logActivity(
+        "song_added",
+        `Imported ${importedSongs.length} Spotify playlist song${importedSongs.length === 1 ? "" : "s"}`,
+      );
+    }
+
+    setSpotifyPlaylistImportResult({
+      addedCount: importedSongs.length,
+      duplicateCount,
+      target: spotifyImportTarget,
+    });
   };
 
   const toggleGenreEraChip = useCallback(
@@ -19447,6 +19533,7 @@ export default function Home() {
                   onChange={(value) => {
                     setSpotifyImportUrl(value);
                     setSpotifyPlaylistPreviewState({ status: "idle" });
+                    setSpotifyPlaylistImportResult(null);
                   }}
                   placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..."
                   disabled={spotifyPlaylistPreviewState.status === "loading"}
@@ -19491,13 +19578,36 @@ export default function Home() {
                         {spotifyPlaylistPreviewState.data.playlistName}
                       </h3>
                     </div>
-                    <PrimaryButton
-                      type="button"
-                      disabled
-                      className="min-h-9 shrink-0 rounded-xl border border-stone-300 bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-500 shadow-none disabled:opacity-100"
-                    >
-                      Import songs — coming next
-                    </PrimaryButton>
+                    <div className="grid gap-2 sm:min-w-[16rem] sm:grid-cols-[1fr_auto]">
+                      <label className="block min-w-0">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                          Import to
+                        </span>
+                        <select
+                          value={spotifyImportTarget}
+                          disabled={!canManageMusic || spotifyPlaylistPreviewState.data.tracks.length === 0}
+                          onChange={(event) => {
+                            setSpotifyImportTarget(event.target.value as SongListType);
+                            setSpotifyPlaylistImportResult(null);
+                          }}
+                          className={`${lightUiSelectClass} mt-1 min-h-9 py-1.5 text-xs`}
+                        >
+                          {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
+                            <option key={key} value={key}>
+                              {SPOTIFY_IMPORT_DESTINATION_LABELS[key]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <PrimaryButton
+                        type="button"
+                        onClick={importSpotifyPlaylistTracks}
+                        disabled={!canManageMusic || spotifyPlaylistPreviewState.data.tracks.length === 0}
+                        className="self-end rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Import Songs
+                      </PrimaryButton>
+                    </div>
                   </div>
 
                   <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
@@ -19526,6 +19636,21 @@ export default function Home() {
                       </dd>
                     </div>
                   </dl>
+
+                  {spotifyPlaylistImportResult ? (
+                    <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
+                      <p className="text-sm font-semibold">
+                        {spotifyPlaylistImportResult.addedCount} song{spotifyPlaylistImportResult.addedCount === 1 ? "" : "s"} added to{" "}
+                        {SPOTIFY_IMPORT_DESTINATION_LABELS[spotifyPlaylistImportResult.target]}
+                      </p>
+                      {spotifyPlaylistImportResult.duplicateCount > 0 ? (
+                        <p className="mt-1 text-sm leading-relaxed">
+                          {spotifyPlaylistImportResult.duplicateCount} duplicate{" "}
+                          {spotifyPlaylistImportResult.duplicateCount === 1 ? "song was" : "songs were"} skipped.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {spotifyPlaylistPreviewState.data.tracks.length === 0 ? (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950">
