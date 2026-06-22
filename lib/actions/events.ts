@@ -651,6 +651,7 @@ export async function replaceEventSongs(
     album?: string | null;
     albumArt?: string | null;
     albumArtSmall?: string | null;
+    previewUrl?: string | null;
     highPriority?: boolean;
     order: number;
   }>,
@@ -675,6 +676,7 @@ export async function replaceEventSongs(
       album: song.album,
       albumArt: song.albumArt,
       albumArtSmall: song.albumArtSmall,
+      previewUrl: song.previewUrl,
       highPriority: song.highPriority ?? false,
       order: song.order,
     })),

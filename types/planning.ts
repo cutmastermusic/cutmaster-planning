@@ -63,6 +63,7 @@ export type SongEntry = {
   album?: string;
   albumArt?: string;
   albumArtSmall?: string;
+  previewUrl?: string;
   highPriority: boolean;
 };
 

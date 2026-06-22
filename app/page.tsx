@@ -490,8 +490,7 @@ import { RunOfShowLiveReference } from "@/components/run-of-show-live-reference"
 import { RunOfShowReferenceDrawer } from "@/components/run-of-show-reference-drawer";
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
-import { SongSearchAutocomplete } from "@/components/song-search-autocomplete";
-import type { SpotifyTrackSearchResult } from "@/lib/spotify/types";
+import { SongSearchAutocomplete, type SongSearchSelection } from "@/components/song-search-autocomplete";
 import {
   appendRunOfShowStrokePoint,
   ensureRunOfShowAnnotationCanvas,
@@ -3313,7 +3312,7 @@ export default function Home() {
   const [doNotPlaySongs, setDoNotPlaySongs] = useState<SongEntry[]>(initialDoNotPlaySongs);
   const [newSongTitle, setNewSongTitle] = useState("");
   const [newSongArtist, setNewSongArtist] = useState("");
-  const [selectedSpotifySong, setSelectedSpotifySong] = useState<SpotifyTrackSearchResult | null>(null);
+  const [selectedSpotifySong, setSelectedSpotifySong] = useState<SongSearchSelection | null>(null);
   const [newSongNotes, setNewSongNotes] = useState("");
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
@@ -4429,6 +4428,7 @@ export default function Home() {
             album: song.album,
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4444,6 +4444,7 @@ export default function Home() {
             album: song.album,
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4459,6 +4460,7 @@ export default function Home() {
             album: song.album,
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -10625,6 +10627,7 @@ export default function Home() {
                 album: song.album || undefined,
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
+                previewUrl: song.previewUrl || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -10642,6 +10645,7 @@ export default function Home() {
                 album: song.album || undefined,
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
+                previewUrl: song.previewUrl || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -10659,6 +10663,7 @@ export default function Home() {
                 album: song.album || undefined,
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
+                previewUrl: song.previewUrl || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -12349,6 +12354,7 @@ export default function Home() {
       album: selectedSpotifySong?.album || undefined,
       albumArt: selectedSpotifySong?.albumArt || undefined,
       albumArtSmall: selectedSpotifySong?.albumArtSmall || undefined,
+      previewUrl: selectedSpotifySong?.previewUrl || undefined,
       highPriority: newSongHighPriority,
     };
 

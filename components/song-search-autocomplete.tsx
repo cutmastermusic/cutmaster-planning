@@ -4,14 +4,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { SpotifyTrackSearchResult } from "@/lib/spotify/types";
 
+export type SongSearchSelection = SpotifyTrackSearchResult & {
+  previewUrl: string | null;
+};
+
 type SongSearchAutocompleteProps = {
   disabled?: boolean;
-  selectedSong?: SpotifyTrackSearchResult | null;
-  onSelect: (song: SpotifyTrackSearchResult) => void;
+  selectedSong?: SongSearchSelection | null;
+  onSelect: (song: SongSearchSelection) => void;
 };
 
 type MusicSearchApiResponse = {
   results: SpotifyTrackSearchResult[];
+};
+
+type MusicPreviewApiResponse = {
+  previewUrl: string | null;
 };
 
 function isSpotifyTrackSearchResult(value: unknown): value is SpotifyTrackSearchResult {
@@ -33,6 +41,30 @@ function isMusicSearchApiResponse(value: unknown): value is MusicSearchApiRespon
   return Array.isArray(results) && results.every(isSpotifyTrackSearchResult);
 }
 
+function isMusicPreviewApiResponse(value: unknown): value is MusicPreviewApiResponse {
+  if (!value || typeof value !== "object") return false;
+  const previewUrl = (value as { previewUrl?: unknown }).previewUrl;
+  return typeof previewUrl === "string" || previewUrl === null;
+}
+
+async function fetchPreviewUrl(title: string, artist: string): Promise<string | null> {
+  if (!title.trim() || !artist.trim()) return null;
+
+  try {
+    const params = new URLSearchParams({ title, artist });
+    const response = await fetch(`/api/music/preview?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const body: unknown = await response.json();
+    if (!isMusicPreviewApiResponse(body)) return null;
+
+    return body.previewUrl;
+  } catch (error) {
+    console.error("[song-search-autocomplete] preview lookup failed", error);
+    return null;
+  }
+}
+
 export function SongSearchAutocomplete({
   disabled = false,
   selectedSong,
@@ -40,7 +72,7 @@ export function SongSearchAutocomplete({
 }: SongSearchAutocompleteProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SpotifyTrackSearchResult[]>([]);
-  const [selected, setSelected] = useState<SpotifyTrackSearchResult | null>(null);
+  const [selected, setSelected] = useState<SongSearchSelection | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState(false);
@@ -132,9 +164,11 @@ export function SongSearchAutocomplete({
               key={result.spotifyId}
               type="button"
               disabled={disabled}
-              onClick={() => {
-                setSelected(result);
-                onSelect(result);
+              onClick={async () => {
+                const previewUrl = await fetchPreviewUrl(result.title, result.artist);
+                const selection = { ...result, previewUrl };
+                setSelected(selection);
+                onSelect(selection);
                 setResults([]);
               }}
               className="flex w-full min-w-0 touch-manipulation items-center gap-3 border-b border-stone-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"

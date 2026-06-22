@@ -141,6 +141,15 @@ function SongListRow({
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1 md:mt-0 md:justify-end">
+          {song.previewUrl ? (
+            <audio
+              controls
+              preload="none"
+              src={song.previewUrl}
+              className="h-8 max-w-[9.5rem] shrink-0"
+              aria-label={`Preview ${song.title}`}
+            />
+          ) : null}
           <button
             type="button"
             disabled={disabled}

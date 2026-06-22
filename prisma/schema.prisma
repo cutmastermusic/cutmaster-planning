@@ -233,6 +233,7 @@ model EventSong {
   album         String?
   albumArt      String?
   albumArtSmall String?
+  previewUrl    String?
 
   highPriority Boolean @default(false)
 
