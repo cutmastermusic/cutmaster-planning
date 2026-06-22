@@ -46,6 +46,10 @@ type SpotifyPlaylistTracksPage = {
   total?: number;
 };
 
+type SpotifyPlaylistTracksWrappedPage = {
+  tracks?: SpotifyPlaylistTracksPage;
+};
+
 function canonicalPlaylistUrl(playlistId: string): string {
   return `https://open.spotify.com/playlist/${playlistId}`;
 }
@@ -55,6 +59,23 @@ function spotifyDebugErrorBody(errorBody: string | undefined): string | undefine
   return errorBody.length > SPOTIFY_DEBUG_BODY_LIMIT
     ? `${errorBody.slice(0, SPOTIFY_DEBUG_BODY_LIMIT)}…`
     : errorBody;
+}
+
+function objectKeys(value: unknown): string[] {
+  return value && typeof value === "object" ? Object.keys(value).slice(0, 12) : [];
+}
+
+function extractTracksPage(data: SpotifyPlaylistTracksPage | SpotifyPlaylistTracksWrappedPage): SpotifyPlaylistTracksPage | null {
+  if (Array.isArray((data as SpotifyPlaylistTracksPage).items)) {
+    return data as SpotifyPlaylistTracksPage;
+  }
+
+  const wrappedTracks = (data as SpotifyPlaylistTracksWrappedPage).tracks;
+  if (wrappedTracks && Array.isArray(wrappedTracks.items)) {
+    return wrappedTracks;
+  }
+
+  return null;
 }
 
 function normalizeTrack(item: SpotifyPlaylistTrackItem): SpotifyPlaylistTrackPreview | null {
@@ -163,6 +184,14 @@ export async function fetchPublicSpotifyPlaylistPreview(
     };
   }
 
+  console.info("[spotify-playlist-preview] playlist metadata success summary", {
+    playlistId,
+    playlistName: metaResult.data.name ?? null,
+    totalTracks: metaResult.data.tracks?.total ?? null,
+    responseKeys: objectKeys(metaResult.data),
+    tracksKeys: objectKeys(metaResult.data.tracks),
+  });
+
   const playlistName = metaResult.data.name?.trim() || "Spotify playlist";
   let totalTrackCount = metaResult.data.tracks?.total ?? 0;
   const tracks: SpotifyPlaylistTrackPreview[] = [];
@@ -176,7 +205,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
 
   while (nextUrl && inspectedCount < SPOTIFY_PLAYLIST_PREVIEW_LIMIT) {
     const pagePath: string = nextUrl;
-    const pageResult = await spotifyApiGet<SpotifyPlaylistTracksPage>(pagePath, accessToken);
+    const pageResult = await spotifyApiGet<SpotifyPlaylistTracksPage | SpotifyPlaylistTracksWrappedPage>(pagePath, accessToken);
     console.info("[spotify-playlist-preview] playlist tracks fetch response", {
       playlistId,
       status: pageResult.status,
@@ -211,11 +240,32 @@ export async function fetchPublicSpotifyPlaylistPreview(
       };
     }
 
-    if (totalTrackCount === 0 && typeof pageResult.data.total === "number") {
-      totalTrackCount = pageResult.data.total;
+    const tracksPage = extractTracksPage(pageResult.data);
+    console.info("[spotify-playlist-preview] playlist tracks success summary", {
+      playlistId,
+      responseKeys: objectKeys(pageResult.data),
+      wrapperTracksKeys: objectKeys((pageResult.data as SpotifyPlaylistTracksWrappedPage).tracks),
+      itemsIsArray: Boolean(tracksPage),
+      itemsLength: tracksPage?.items?.length ?? null,
+      firstItemKeys: objectKeys(tracksPage?.items?.[0]),
+      firstTrackKeys: objectKeys(tracksPage?.items?.[0]?.track),
+      nextType: typeof tracksPage?.next,
+      total: tracksPage?.total ?? null,
+    });
+
+    if (!tracksPage) {
+      return {
+        ok: false,
+        code: "parser_error",
+        message: "Spotify returned an unexpected playlist tracks response.",
+      };
     }
 
-    const items = pageResult.data.items ?? [];
+    if (totalTrackCount === 0 && typeof tracksPage.total === "number") {
+      totalTrackCount = tracksPage.total;
+    }
+
+    const items = tracksPage.items ?? [];
     for (const item of items) {
       if (inspectedCount >= SPOTIFY_PLAYLIST_PREVIEW_LIMIT) break;
       inspectedCount += 1;
@@ -223,7 +273,7 @@ export async function fetchPublicSpotifyPlaylistPreview(
       if (normalized) tracks.push(normalized);
     }
 
-    nextUrl = pageResult.data.next ?? null;
+    nextUrl = tracksPage.next ?? null;
   }
 
   const effectiveTotal = totalTrackCount || inspectedCount;

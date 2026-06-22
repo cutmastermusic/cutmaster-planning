@@ -12563,7 +12563,9 @@ export default function Home() {
               ? "Spotify credentials are not configured correctly."
               : body.code === "playlist_unavailable"
                 ? "Playlist may be private or unavailable."
-                : body.message || "ShowFlow could not preview this playlist.";
+                : body.code === "parser_error"
+                  ? "Spotify returned playlist data ShowFlow could not read yet."
+                  : body.message || "ShowFlow could not preview this playlist.";
         setSpotifyPlaylistPreviewState({
           status: body.code === "invalid_url" ? "invalid" : "error",
           message,

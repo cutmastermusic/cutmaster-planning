@@ -23,6 +23,7 @@ export type SpotifyFetchErrorCode =
   | "invalid_url"
   | "playlist_unavailable"
   | "empty_playlist"
+  | "parser_error"
   | "api_error";
 
 export type FetchPublicSpotifyPlaylistResult =
