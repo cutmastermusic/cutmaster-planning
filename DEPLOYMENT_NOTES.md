@@ -60,6 +60,17 @@ Existing database variables remain required:
 - `DATABASE_URL`
 - `DIRECT_URL`
 
+## Spotify Music Enrichment
+
+Configure these server-only environment variables on **cutmaster-planning** only:
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `SPOTIFY_CLIENT_ID` | Yes, for Spotify search/import | Spotify app Client ID; server-side only |
+| `SPOTIFY_CLIENT_SECRET` | Yes, for Spotify search/import | Spotify app Client Secret; never expose to the browser |
+
+Spotify integration uses Client Credentials Flow. Couples and admins do not need to sign in to Spotify for server-side search.
+
 ### Supabase Dashboard → Authentication → URL configuration
 
 **Site URL:**

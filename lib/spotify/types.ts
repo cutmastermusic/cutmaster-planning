@@ -22,3 +22,18 @@ export type SpotifyFetchErrorCode =
 export type FetchPublicSpotifyPlaylistResult =
   | { ok: true; data: SpotifyPlaylistPreview }
   | { ok: false; code: SpotifyFetchErrorCode; message: string };
+
+export type SpotifyTrackSearchResult = {
+  spotifyId: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumArt: string | null;
+  albumArtSmall: string | null;
+};
+
+export type SpotifyTrackSearchErrorCode = "missing_credentials" | "api_error";
+
+export type SearchSpotifyTracksResult =
+  | { ok: true; data: SpotifyTrackSearchResult[] }
+  | { ok: false; code: SpotifyTrackSearchErrorCode; message: string };
