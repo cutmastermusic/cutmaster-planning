@@ -54,6 +54,14 @@ export type InviteStatus = "Pending" | "Accepted";
  */
 export type TeamCueFormat = "plain" | "bullets" | "numbered";
 
+export type EventSongSource =
+  | "manual"
+  | "spotify-search"
+  | "spotify-playlist"
+  | "guest-request"
+  | "timeline"
+  | "recommendation";
+
 export type SongEntry = {
   id: string;
   title: string;
@@ -64,6 +72,7 @@ export type SongEntry = {
   albumArt?: string;
   albumArtSmall?: string;
   previewUrl?: string;
+  source?: EventSongSource;
   highPriority: boolean;
 };
 

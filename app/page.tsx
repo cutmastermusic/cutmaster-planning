@@ -177,6 +177,7 @@ import type {
   EventStatus,
   EventSettings,
   EventRecord,
+  EventSongSource,
   GuestRequestEntry,
   GuestRequestStatus,
   ChecklistDueDate,
@@ -753,6 +754,20 @@ function countEventSongs(
     (evt.doNotPlaySongs?.length ?? 0) +
     (evt.playIfPossibleSongs?.length ?? 0)
   );
+}
+
+function normalizeEventSongSource(source: string | null | undefined): EventSongSource | undefined {
+  switch (source) {
+    case "manual":
+    case "spotify-search":
+    case "spotify-playlist":
+    case "guest-request":
+    case "timeline":
+    case "recommendation":
+      return source;
+    default:
+      return undefined;
+  }
 }
 
 /** Demo seed timeline row ids (not Prisma cuids) — used to block accidental seed overwrites. */
@@ -4429,6 +4444,7 @@ export default function Home() {
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
             previewUrl: song.previewUrl,
+            source: song.source,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4445,6 +4461,7 @@ export default function Home() {
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
             previewUrl: song.previewUrl,
+            source: song.source,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4461,6 +4478,7 @@ export default function Home() {
             albumArt: song.albumArt,
             albumArtSmall: song.albumArtSmall,
             previewUrl: song.previewUrl,
+            source: song.source,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -10628,6 +10646,7 @@ export default function Home() {
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
                 previewUrl: song.previewUrl || undefined,
+                source: normalizeEventSongSource(song.source),
                 highPriority: song.highPriority,
               })),
           );
@@ -10646,6 +10665,7 @@ export default function Home() {
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
                 previewUrl: song.previewUrl || undefined,
+                source: normalizeEventSongSource(song.source),
                 highPriority: song.highPriority,
               })),
           );
@@ -10664,6 +10684,7 @@ export default function Home() {
                 albumArt: song.albumArt || undefined,
                 albumArtSmall: song.albumArtSmall || undefined,
                 previewUrl: song.previewUrl || undefined,
+                source: normalizeEventSongSource(song.source),
                 highPriority: song.highPriority,
               })),
           );
@@ -12355,6 +12376,7 @@ export default function Home() {
       albumArt: selectedSpotifySong?.albumArt || undefined,
       albumArtSmall: selectedSpotifySong?.albumArtSmall || undefined,
       previewUrl: selectedSpotifySong?.previewUrl || undefined,
+      source: selectedSpotifySong ? "spotify-search" : "manual",
       highPriority: newSongHighPriority,
     };
 
@@ -12553,6 +12575,7 @@ export default function Home() {
       title,
       artist: request.artist.trim() || undefined,
       notes: buildGuestRequestNotes(request),
+      source: "guest-request",
       highPriority: request.status === "Approved",
     };
     setMustPlaySongs((prev) => [entry, ...prev]);
@@ -12570,6 +12593,7 @@ export default function Home() {
       title,
       artist: request.artist.trim() || undefined,
       notes: buildGuestRequestNotes(request),
+      source: "guest-request",
       highPriority: true,
     };
     setDoNotPlaySongs((prev) => [entry, ...prev]);

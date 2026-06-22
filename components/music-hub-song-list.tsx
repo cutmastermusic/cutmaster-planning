@@ -110,6 +110,11 @@ function SongListRow({
                 Priority
               </span>
             ) : null}
+            {song.source === "spotify-search" ? (
+              <span className="shrink-0 rounded-full border border-[#C79A5A]/30 bg-[#C79A5A]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-600">
+                Imported from Spotify
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="mt-2 min-w-0 md:mt-0">

@@ -15,7 +15,7 @@ import {
   buildMusicHubPlanSnapshot,
   type EventMusicHubPlanSnapshot,
 } from "@/lib/musicHubPlan";
-import type { EventCeremonyPlanSnapshot } from "@/types/planning";
+import type { EventCeremonyPlanSnapshot, EventSongSource } from "@/types/planning";
 import { authorizeEventMutation, authorizeEventAccess, authorizePlatformMutation } from "@/lib/eventAccess/authorize";
 import { roleHasCapability } from "@/lib/eventAccess/capabilities";
 import { EventAccessError } from "@/lib/eventAccess/errors";
@@ -652,6 +652,7 @@ export async function replaceEventSongs(
     albumArt?: string | null;
     albumArtSmall?: string | null;
     previewUrl?: string | null;
+    source?: EventSongSource | null;
     highPriority?: boolean;
     order: number;
   }>,
@@ -677,6 +678,7 @@ export async function replaceEventSongs(
       albumArt: song.albumArt,
       albumArtSmall: song.albumArtSmall,
       previewUrl: song.previewUrl,
+      source: song.source,
       highPriority: song.highPriority ?? false,
       order: song.order,
     })),
