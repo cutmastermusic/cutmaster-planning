@@ -1499,7 +1499,7 @@ function TeamCueNotes({
                         aria-hidden
                         className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold leading-none transition ${
                           checked
-                            ? "border-stone-400 bg-stone-300/70 text-stone-700"
+                            ? "border-[#7F8F7A]/55 bg-[#7F8F7A]/15 text-[#3f4d3d]"
                             : "border-stone-400 bg-white text-transparent"
                         }`}
                       >
@@ -26325,7 +26325,7 @@ export default function Home() {
                               );
                             }
                             const rowSurface = isUpNext
-                              ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                              ? "rounded-2xl border border-[#C79A5A]/45 bg-[#C79A5A]/[0.035] px-3 py-8 shadow-[inset_4px_0_0_0_#C79A5A,0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                               : "py-8 sm:py-9 md:py-10";
                             return (
                               <article
@@ -26337,13 +26337,17 @@ export default function Home() {
                                 <div className="shrink-0 pt-0.5 sm:pt-1 md:pt-1.5">
                                   <button
                                     type="button"
-                                    className="flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-800 shadow-none transition hover:border-stone-400 hover:bg-white active:scale-[0.98] md:h-14 md:w-14"
+                                    className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border bg-stone-50 text-stone-800 shadow-none transition hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/35 md:h-14 md:w-14 ${
+                                      isUpNext ? "border-[#C79A5A]/70" : "border-stone-300 hover:border-stone-400"
+                                    }`}
                                     aria-pressed={done}
                                     aria-label={done ? "Mark moment as not done" : "Mark moment as done"}
                                     onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                   >
                                     <span
-                                      className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
+                                      className={`h-6 w-6 rounded-full border-2 md:h-7 md:w-7 md:border-[2.5px] ${
+                                        isUpNext ? "border-[#C79A5A]" : "border-stone-400"
+                                      }`}
                                       aria-hidden
                                     />
                                   </button>
@@ -26466,7 +26470,7 @@ export default function Home() {
                                     const isToast = isToastTimelineItem(item.title);
                                     const isFormalDance = isFormalDanceTimelineItem(item);
                                     const rowSurface = isUpNext
-                                      ? "rounded-2xl border border-stone-300/90 bg-white px-3 py-8 shadow-[inset_4px_0_0_0_var(--cm-cyan),0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
+                                      ? "rounded-2xl border border-[#C79A5A]/45 bg-[#C79A5A]/[0.035] px-3 py-8 shadow-[inset_4px_0_0_0_#C79A5A,0_1px_4px_rgba(15,23,42,0.06)] sm:px-4 sm:py-9 md:py-10"
                                       : "py-8 sm:py-9 md:py-10";
                                     return (
                                       <article
@@ -26478,7 +26482,9 @@ export default function Home() {
                                         <div className="shrink-0 pt-1 sm:pt-1.5 md:pt-2">
                                           <button
                                             type="button"
-                                            className="flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border border-stone-300 bg-stone-50 text-stone-800 shadow-none transition hover:border-stone-400 hover:bg-white active:scale-[0.98] md:h-14 md:w-14"
+                                            className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-2xl border bg-stone-50 text-stone-800 shadow-none transition hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/35 md:h-14 md:w-14 ${
+                                              isUpNext ? "border-[#C79A5A]/70" : "border-stone-300 hover:border-stone-400"
+                                            }`}
                                             aria-pressed={done}
                                             aria-label={
                                               done ? "Mark moment as not done" : "Mark moment as done"
@@ -26486,7 +26492,9 @@ export default function Home() {
                                             onClick={() => toggleRunOfShowDoneKey(doneKey)}
                                           >
                                             <span
-                                              className="h-6 w-6 rounded-full border-2 border-stone-400 md:h-7 md:w-7 md:border-[2.5px]"
+                                              className={`h-6 w-6 rounded-full border-2 md:h-7 md:w-7 md:border-[2.5px] ${
+                                                isUpNext ? "border-[#C79A5A]" : "border-stone-400"
+                                              }`}
                                               aria-hidden
                                             />
                                           </button>
