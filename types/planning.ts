@@ -59,6 +59,10 @@ export type SongEntry = {
   title: string;
   artist?: string;
   notes?: string;
+  spotifyId?: string;
+  album?: string;
+  albumArt?: string;
+  albumArtSmall?: string;
   highPriority: boolean;
 };
 

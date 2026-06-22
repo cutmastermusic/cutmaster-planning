@@ -647,6 +647,10 @@ export async function replaceEventSongs(
     title: string;
     artist?: string | null;
     notes?: string | null;
+    spotifyId?: string | null;
+    album?: string | null;
+    albumArt?: string | null;
+    albumArtSmall?: string | null;
     highPriority?: boolean;
     order: number;
   }>,
@@ -667,6 +671,10 @@ export async function replaceEventSongs(
       title: song.title,
       artist: song.artist,
       notes: song.notes,
+      spotifyId: song.spotifyId,
+      album: song.album,
+      albumArt: song.albumArt,
+      albumArtSmall: song.albumArtSmall,
       highPriority: song.highPriority ?? false,
       order: song.order,
     })),

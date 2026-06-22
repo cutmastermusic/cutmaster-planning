@@ -87,6 +87,7 @@ function SongListRow({
 
   const notesText = song.notes?.trim() ?? "";
   const showLongNotes = notesText.length > 72;
+  const albumArtSrc = song.albumArtSmall ?? song.albumArt;
 
   return (
     <>
@@ -96,7 +97,14 @@ function SongListRow({
             Song
           </p>
           <div className="flex min-w-0 items-start gap-2">
-            <p className="min-w-0 truncate text-sm font-medium text-stone-900">{song.title}</p>
+            {albumArtSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={albumArtSrc} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" loading="lazy" />
+            ) : null}
+            <div className="min-w-0">
+              <p className="min-w-0 truncate text-sm font-medium text-stone-900">{song.title}</p>
+              {song.album ? <p className="truncate text-[11px] text-stone-500">{song.album}</p> : null}
+            </div>
             {song.highPriority ? (
               <span className="shrink-0 rounded-full border border-stone-300 bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-700">
                 Priority

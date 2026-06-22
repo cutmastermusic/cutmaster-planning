@@ -491,6 +491,7 @@ import { RunOfShowReferenceDrawer } from "@/components/run-of-show-reference-dra
 import { RunOfShowCardNote } from "@/components/run-of-show-card-note";
 import { RunOfShowCardNoteEditor } from "@/components/run-of-show-card-note-editor";
 import { SongSearchAutocomplete } from "@/components/song-search-autocomplete";
+import type { SpotifyTrackSearchResult } from "@/lib/spotify/types";
 import {
   appendRunOfShowStrokePoint,
   ensureRunOfShowAnnotationCanvas,
@@ -3312,6 +3313,7 @@ export default function Home() {
   const [doNotPlaySongs, setDoNotPlaySongs] = useState<SongEntry[]>(initialDoNotPlaySongs);
   const [newSongTitle, setNewSongTitle] = useState("");
   const [newSongArtist, setNewSongArtist] = useState("");
+  const [selectedSpotifySong, setSelectedSpotifySong] = useState<SpotifyTrackSearchResult | null>(null);
   const [newSongNotes, setNewSongNotes] = useState("");
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
@@ -4423,6 +4425,10 @@ export default function Home() {
             title: song.title,
             artist: song.artist,
             notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4434,6 +4440,10 @@ export default function Home() {
             title: song.title,
             artist: song.artist,
             notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -4445,6 +4455,10 @@ export default function Home() {
             title: song.title,
             artist: song.artist,
             notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
             highPriority: song.highPriority,
             order: index,
           })),
@@ -10607,6 +10621,10 @@ export default function Home() {
                 title: song.title,
                 artist: song.artist || "",
                 notes: song.notes || "",
+                spotifyId: song.spotifyId || undefined,
+                album: song.album || undefined,
+                albumArt: song.albumArt || undefined,
+                albumArtSmall: song.albumArtSmall || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -10620,6 +10638,10 @@ export default function Home() {
                 title: song.title,
                 artist: song.artist || "",
                 notes: song.notes || "",
+                spotifyId: song.spotifyId || undefined,
+                album: song.album || undefined,
+                albumArt: song.albumArt || undefined,
+                albumArtSmall: song.albumArtSmall || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -10633,6 +10655,10 @@ export default function Home() {
                 title: song.title,
                 artist: song.artist || "",
                 notes: song.notes || "",
+                spotifyId: song.spotifyId || undefined,
+                album: song.album || undefined,
+                albumArt: song.albumArt || undefined,
+                albumArtSmall: song.albumArtSmall || undefined,
                 highPriority: song.highPriority,
               })),
           );
@@ -12319,6 +12345,10 @@ export default function Home() {
       title: cleanedTitle,
       artist: newSongArtist.trim() || undefined,
       notes: newSongNotes.trim() || undefined,
+      spotifyId: selectedSpotifySong?.spotifyId,
+      album: selectedSpotifySong?.album || undefined,
+      albumArt: selectedSpotifySong?.albumArt || undefined,
+      albumArtSmall: selectedSpotifySong?.albumArtSmall || undefined,
       highPriority: newSongHighPriority,
     };
 
@@ -12333,6 +12363,7 @@ export default function Home() {
 
     setNewSongTitle("");
     setNewSongArtist("");
+    setSelectedSpotifySong(null);
     setNewSongNotes("");
     setNewSongHighPriority(false);
   };
@@ -18464,7 +18495,9 @@ export default function Home() {
                       <div className="mt-4 space-y-3">
                         <SongSearchAutocomplete
                           disabled={!canManageMusic}
+                          selectedSong={selectedSpotifySong}
                           onSelect={(song) => {
+                            setSelectedSpotifySong(song);
                             setNewSongTitle(song.title);
                             setNewSongArtist(song.artist);
                           }}
@@ -18473,7 +18506,10 @@ export default function Home() {
                           id="song-title"
                           label="Song Title"
                           value={newSongTitle}
-                          onChange={setNewSongTitle}
+                          onChange={(value) => {
+                            setSelectedSpotifySong(null);
+                            setNewSongTitle(value);
+                          }}
                           placeholder="e.g. Crazy in Love"
                           disabled={!canManageMusic}
                         />
@@ -18481,7 +18517,10 @@ export default function Home() {
                           id="song-artist"
                           label="Artist (optional)"
                           value={newSongArtist}
-                          onChange={setNewSongArtist}
+                          onChange={(value) => {
+                            setSelectedSpotifySong(null);
+                            setNewSongArtist(value);
+                          }}
                           placeholder="e.g. Beyonce"
                           disabled={!canManageMusic}
                         />
@@ -19498,7 +19537,9 @@ export default function Home() {
               <div className="mt-4 space-y-3">
                 <SongSearchAutocomplete
                   disabled={!canManageMusic}
+                  selectedSong={selectedSpotifySong}
                   onSelect={(song) => {
+                    setSelectedSpotifySong(song);
                     setNewSongTitle(song.title);
                     setNewSongArtist(song.artist);
                   }}
@@ -19507,7 +19548,10 @@ export default function Home() {
                   id="song-title"
                   label="Song title"
                   value={newSongTitle}
-                  onChange={setNewSongTitle}
+                  onChange={(value) => {
+                    setSelectedSpotifySong(null);
+                    setNewSongTitle(value);
+                  }}
                   placeholder="e.g. Crazy in Love"
                   disabled={!canManageMusic}
                 />
@@ -19515,7 +19559,10 @@ export default function Home() {
                   id="song-artist"
                   label="Artist (optional)"
                   value={newSongArtist}
-                  onChange={setNewSongArtist}
+                  onChange={(value) => {
+                    setSelectedSpotifySong(null);
+                    setNewSongArtist(value);
+                  }}
                   placeholder="e.g. Beyonce"
                   disabled={!canManageMusic}
                 />

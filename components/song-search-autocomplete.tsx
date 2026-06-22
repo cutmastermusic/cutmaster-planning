@@ -6,6 +6,7 @@ import type { SpotifyTrackSearchResult } from "@/lib/spotify/types";
 
 type SongSearchAutocompleteProps = {
   disabled?: boolean;
+  selectedSong?: SpotifyTrackSearchResult | null;
   onSelect: (song: SpotifyTrackSearchResult) => void;
 };
 
@@ -32,7 +33,11 @@ function isMusicSearchApiResponse(value: unknown): value is MusicSearchApiRespon
   return Array.isArray(results) && results.every(isSpotifyTrackSearchResult);
 }
 
-export function SongSearchAutocomplete({ disabled = false, onSelect }: SongSearchAutocompleteProps) {
+export function SongSearchAutocomplete({
+  disabled = false,
+  selectedSong,
+  onSelect,
+}: SongSearchAutocompleteProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SpotifyTrackSearchResult[]>([]);
   const [selected, setSelected] = useState<SpotifyTrackSearchResult | null>(null);
@@ -42,6 +47,7 @@ export function SongSearchAutocomplete({ disabled = false, onSelect }: SongSearc
   const requestIdRef = useRef(0);
   const trimmedQuery = query.trim();
   const showEmpty = searched && !loading && !error && trimmedQuery.length >= 2 && results.length === 0;
+  const selectedForDisplay = selectedSong === undefined ? selected : selectedSong;
 
   useEffect(() => {
     if (disabled) {
@@ -156,14 +162,19 @@ export function SongSearchAutocomplete({ disabled = false, onSelect }: SongSearc
         </div>
       ) : null}
 
-      {selected ? (
+      {selectedForDisplay ? (
         <div className="mt-2 flex min-w-0 items-center gap-2 rounded-lg border border-[#7F8F7A]/40 bg-white px-2.5 py-2">
-          {selected.albumArtSmall ? (
+          {selectedForDisplay.albumArtSmall ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={selected.albumArtSmall} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" loading="lazy" />
+            <img
+              src={selectedForDisplay.albumArtSmall}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-md object-cover"
+              loading="lazy"
+            />
           ) : null}
           <p className="min-w-0 truncate text-[11px] font-medium text-stone-700">
-            Selected from Spotify: <span className="font-semibold text-stone-900">{selected.title}</span>
+            Selected from Spotify: <span className="font-semibold text-stone-900">{selectedForDisplay.title}</span>
           </p>
         </div>
       ) : null}
