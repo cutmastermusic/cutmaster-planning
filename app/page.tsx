@@ -62,6 +62,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type FocusEvent,
   type ReactNode,
 } from "react";
@@ -690,8 +691,8 @@ function musicPlaylistLinkHost(url: string): string {
 
 const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
   mustPlay: "Must Play",
-  playIfPossible: "If Possible",
-  doNotPlay: "Do Not Play",
+  playIfPossible: "Open Dancing",
+  doNotPlay: "Songs to Avoid",
 };
 
 function normalizedSongDuplicateText(value: string | null | undefined): string {
@@ -700,6 +701,34 @@ function normalizedSongDuplicateText(value: string | null | undefined): string {
 
 function songDuplicateFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
   return `${normalizedSongDuplicateText(song.title)}|${normalizedSongDuplicateText(song.artist)}`;
+}
+
+function calculateSpotifyPlaylistImportStats(
+  tracks: SpotifyPlaylistTrackPreview[],
+  existingSongs: SongEntry[],
+): { duplicateCount: number; importableCount: number } {
+  const seenSpotifyIds = new Set(
+    existingSongs
+      .map((song) => song.spotifyId?.trim())
+      .filter((spotifyId): spotifyId is string => Boolean(spotifyId)),
+  );
+  const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
+  let duplicateCount = 0;
+  let importableCount = 0;
+
+  tracks.forEach((track) => {
+    const spotifyId = track.spotifyId.trim();
+    const fingerprint = songDuplicateFingerprint(track);
+    if (seenSpotifyIds.has(spotifyId) || seenFingerprints.has(fingerprint)) {
+      duplicateCount += 1;
+      return;
+    }
+    seenSpotifyIds.add(spotifyId);
+    seenFingerprints.add(fingerprint);
+    importableCount += 1;
+  });
+
+  return { duplicateCount, importableCount };
 }
 
 /** Bypass hydration / empty-data guards for explicit user actions. */
@@ -874,7 +903,7 @@ function MusicHubPrepSnapshot({
   }> = [
     {
       id: "music-hub-playlist-links",
-      label: "Playlist links",
+      label: "Reference links",
       count: playlistCount,
       shell:
         buttonVariant === "couple"
@@ -12601,7 +12630,352 @@ export default function Home() {
       duplicateCount,
       target: spotifyImportTarget,
     });
+    setSpotifyPlaylistPreviewState({ status: "idle" });
+    setSpotifyImportUrl("");
   };
+
+  const renderSpotifyPlaylistImportCard = ({
+    className = "",
+    style,
+  }: {
+    className?: string;
+    style?: CSSProperties;
+  }) => {
+    const existingSongs = [...mustPlaySongs, ...playIfPossibleSongs, ...doNotPlaySongs];
+    const previewStats =
+      spotifyPlaylistPreviewState.status === "success"
+        ? calculateSpotifyPlaylistImportStats(spotifyPlaylistPreviewState.data.tracks, existingSongs)
+        : null;
+
+    return (
+      <PremiumCard
+        id="music-hub-spotify-import"
+        className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
+        style={style}
+      >
+        <SectionTitle className="text-stone-950">Bring Your Music With You</SectionTitle>
+        <p className="mt-1 text-sm leading-relaxed text-stone-600">
+          Already have a Spotify playlist? Paste the link below and ShowFlow will import your songs automatically.
+        </p>
+        <div className="mt-4 space-y-3">
+          <TextInput
+            id="spotify-import-url"
+            label="Spotify Playlist URL"
+            value={spotifyImportUrl}
+            onChange={(value) => {
+              setSpotifyImportUrl(value);
+              setSpotifyPlaylistPreviewState({ status: "idle" });
+              setSpotifyPlaylistImportResult(null);
+            }}
+            placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..."
+            disabled={spotifyPlaylistPreviewState.status === "loading"}
+          />
+          <PrimaryButton
+            type="button"
+            onClick={previewSpotifyPlaylist}
+            disabled={spotifyPlaylistPreviewState.status === "loading"}
+            className="w-full border border-[#1E1E1E] bg-[#1E1E1E] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-wait disabled:opacity-65"
+          >
+            {spotifyPlaylistPreviewState.status === "loading" ? "Analyzing..." : "Analyze Playlist"}
+          </PrimaryButton>
+        </div>
+
+        {spotifyPlaylistImportResult ? (
+          <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
+            <p className="text-sm font-semibold">
+              {spotifyPlaylistImportResult.addedCount} song{spotifyPlaylistImportResult.addedCount === 1 ? "" : "s"} added to{" "}
+              {SPOTIFY_IMPORT_DESTINATION_LABELS[spotifyPlaylistImportResult.target]}
+            </p>
+            {spotifyPlaylistImportResult.duplicateCount > 0 ? (
+              <p className="mt-1 text-sm leading-relaxed">
+                {spotifyPlaylistImportResult.duplicateCount} duplicate{" "}
+                {spotifyPlaylistImportResult.duplicateCount === 1 ? "song was" : "songs were"} skipped.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {spotifyPlaylistPreviewState.status === "invalid" ||
+        spotifyPlaylistPreviewState.status === "error" ? (
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 ${
+              spotifyPlaylistPreviewState.status === "invalid"
+                ? "border-amber-200 bg-amber-50/90 text-amber-950"
+                : "border-rose-200 bg-rose-50/90 text-rose-950"
+            }`}
+            role="status"
+          >
+            <p className="text-sm font-semibold">
+              {spotifyPlaylistPreviewState.status === "invalid" ? "Check the playlist link" : "Preview unavailable"}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed opacity-90">
+              {spotifyPlaylistPreviewState.message}
+            </p>
+          </div>
+        ) : null}
+
+        {spotifyPlaylistPreviewState.status === "success" ? (
+          <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Playlist analysis
+                </p>
+                <h3 className="mt-1 truncate text-base font-semibold text-stone-950">
+                  {spotifyPlaylistPreviewState.data.playlistName}
+                </h3>
+              </div>
+              <div className="grid gap-2 sm:min-w-[16rem] sm:grid-cols-[1fr_auto]">
+                <label className="block min-w-0">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                    Import to
+                  </span>
+                  <select
+                    value={spotifyImportTarget}
+                    disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
+                    onChange={(event) => {
+                      setSpotifyImportTarget(event.target.value as SongListType);
+                      setSpotifyPlaylistImportResult(null);
+                    }}
+                    className={`${lightUiSelectClass} mt-1 min-h-9 py-1.5 text-xs`}
+                  >
+                    {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
+                      <option key={key} value={key}>
+                        {SPOTIFY_IMPORT_DESTINATION_LABELS[key]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <PrimaryButton
+                  type="button"
+                  onClick={importSpotifyPlaylistTracks}
+                  disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
+                  className="self-end rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Import Songs
+                </PrimaryButton>
+              </div>
+            </div>
+
+            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Songs found
+                </dt>
+                <dd className="mt-0.5 font-semibold text-stone-950">
+                  {spotifyPlaylistPreviewState.data.tracks.length}
+                </dd>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Duplicates
+                </dt>
+                <dd className="mt-0.5 font-semibold text-stone-950">
+                  {previewStats?.duplicateCount ?? 0}
+                </dd>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Songs to import
+                </dt>
+                <dd className="mt-0.5 font-semibold text-stone-950">
+                  {previewStats?.importableCount ?? 0}
+                </dd>
+              </div>
+            </dl>
+
+            {spotifyPlaylistPreviewState.data.tracks.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950">
+                <p className="text-sm font-semibold">No importable songs found</p>
+                <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+                  ShowFlow found the playlist, but Spotify did not return importable track rows in the preview.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white">
+                {spotifyPlaylistPreviewState.data.tracks.slice(0, 20).map((track) => (
+                  <div
+                    key={track.spotifyId}
+                    className="flex min-w-0 items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-b-0"
+                  >
+                    {track.albumArtSmall ?? track.albumArt ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={track.albumArtSmall ?? track.albumArt ?? ""}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-100" aria-hidden />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-stone-950">{track.title}</p>
+                      <p className="truncate text-xs text-stone-600">
+                        {track.artist}
+                        {track.album ? ` · ${track.album}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </PremiumCard>
+    );
+  };
+
+  const renderReferencePlaylistLinksCard = ({
+    className = "",
+    style,
+    buttonVariant = "default",
+  }: {
+    className?: string;
+    style?: CSSProperties;
+    buttonVariant?: "default" | "couple";
+  }) => (
+    <PremiumCard
+      id="music-hub-playlist-links"
+      className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
+      style={style}
+    >
+      <SectionTitle className="text-stone-950">Reference Playlist Links</SectionTitle>
+      <p className="mt-1 text-sm leading-relaxed text-stone-600">
+        Paste playlists you want your DJ to reference without importing songs into ShowFlow.
+      </p>
+      {!isCoupleView ? (
+        <p className="mt-2 text-xs text-stone-500">
+          Saved to this event in the cloud for couples and staff to access from any device.
+        </p>
+      ) : null}
+      <div className="mt-4 space-y-3">
+        <TextInput
+          id="music-new-playlist-url"
+          label="Playlist URL"
+          value={musicNewPlaylistUrl}
+          onChange={setMusicNewPlaylistUrl}
+          placeholder="Spotify, Apple Music, YouTube, or another playlist link"
+          disabled={!canManageMusic}
+        />
+        <TextInput
+          id="music-new-playlist-label"
+          label="Label (optional)"
+          value={musicNewPlaylistLabel}
+          onChange={setMusicNewPlaylistLabel}
+          placeholder="e.g. Cocktail hour ideas"
+          disabled={!canManageMusic}
+        />
+        <TextArea
+          id="music-new-playlist-notes"
+          label="Notes (optional)"
+          value={musicNewPlaylistNotes}
+          onChange={setMusicNewPlaylistNotes}
+          rows={2}
+          placeholder="Anything your DJ should know about this reference list..."
+          disabled={!canManageMusic}
+        />
+        <PrimaryButton
+          type="button"
+          onClick={addMusicPlaylistLink}
+          disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
+          className={
+            buttonVariant === "couple"
+              ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
+              : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
+          }
+        >
+          Save reference link
+        </PrimaryButton>
+      </div>
+      {musicPlaylistLinks.length > 0 ? (
+        <ul className="mt-5 space-y-3">
+          {musicPlaylistLinks.map((link) => {
+            const linkLabel = link.label?.trim() || "Playlist";
+            const linkHost = musicPlaylistLinkHost(link.url);
+            const linkNotesPreview = link.notes?.trim();
+            return (
+              <li key={link.id}>
+                <details className="group rounded-xl border border-stone-200 bg-stone-50/90 open:bg-white">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
+                      <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
+                      {linkNotesPreview ? (
+                        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">
+                          {linkNotesPreview}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 group-open:hidden">
+                        Tap to edit
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <span className="text-[11px] font-medium text-stone-400 transition-transform group-open:rotate-180">
+                        ▼
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          removeMusicPlaylistLink(link.id);
+                        }}
+                        disabled={!canManageMusic}
+                        className="text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </summary>
+                  <div className="border-t border-stone-200 px-3 pb-4 pt-3 sm:px-4">
+                    <TextInput
+                      id={`pl-url-${link.id}`}
+                      label="URL"
+                      value={link.url}
+                      onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
+                      disabled={!canManageMusic}
+                    />
+                    <div className="mt-3">
+                      <TextInput
+                        id={`pl-label-${link.id}`}
+                        label="Label (optional)"
+                        value={link.label ?? ""}
+                        onChange={(v) =>
+                          updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })
+                        }
+                        disabled={!canManageMusic}
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <TextArea
+                        id={`pl-notes-${link.id}`}
+                        label="Notes (optional)"
+                        value={link.notes ?? ""}
+                        onChange={(v) =>
+                          updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })
+                        }
+                        rows={2}
+                        disabled={!canManageMusic}
+                      />
+                    </div>
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="mt-4">
+          <SectionEmptyState
+            wrapWithCard={false}
+            title="No reference links yet"
+            description="Paste Spotify, Apple Music, YouTube, or other playlists your DJ should reference without importing."
+            buttonVariant={buttonVariant}
+          />
+        </div>
+      )}
+    </PremiumCard>
+  );
 
   const toggleGenreEraChip = useCallback(
     (label: string) => {
@@ -18472,13 +18846,13 @@ export default function Home() {
                 isCoupleView
                   ? undefined
                   : {
-                    label: "Add playlist link",
+                    label: "Analyze playlist",
                     onClick: () => {
-                      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
+                      document.getElementById("music-hub-spotify-import")?.scrollIntoView({
                         behavior: "smooth",
                         block: "start",
                       });
-                      window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
+                      window.setTimeout(() => document.getElementById("spotify-import-url")?.focus(), 250);
                     },
                     disabled: !canManageMusic,
                   }
@@ -18567,136 +18941,14 @@ export default function Home() {
 
                 {coupleMusicHubScreen === "songLists" ? (
                   <>
-                <PremiumCard
-                  id="music-hub-playlist-links"
-                  className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
-                >
-                  <SectionTitle className="text-stone-950">Playlist Links</SectionTitle>
-                  <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                    Already have playlists? Share them here and we’ll use them as part of your music planning.
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <TextInput
-                      id="music-new-playlist-url"
-                      label="Playlist URL"
-                      value={musicNewPlaylistUrl}
-                      onChange={setMusicNewPlaylistUrl}
-                      placeholder="https://open.spotify.com/playlist/… or Apple Music / YouTube link"
-                      disabled={!canManageMusic}
-                    />
-                    <TextInput
-                      id="music-new-playlist-label"
-                      label="Label (optional)"
-                      value={musicNewPlaylistLabel}
-                      onChange={setMusicNewPlaylistLabel}
-                      placeholder="e.g. Cocktail hour ideas"
-                      disabled={!canManageMusic}
-                    />
-                    <TextArea
-                      id="music-new-playlist-notes"
-                      label="Notes (optional)"
-                      value={musicNewPlaylistNotes}
-                      onChange={setMusicNewPlaylistNotes}
-                      rows={2}
-                      placeholder="Anything your DJ should know about this list…"
-                      disabled={!canManageMusic}
-                    />
-                    <PrimaryButton
-                      type="button"
-                      onClick={addMusicPlaylistLink}
-                      disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
-                      className={`w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`}
-                    >
-                      Add Playlist Link
-                    </PrimaryButton>
-                  </div>
-                  {musicPlaylistLinks.length > 0 ? (
-                    <ul className="mt-5 space-y-3">
-                      {musicPlaylistLinks.map((link) => {
-                        const linkLabel = link.label?.trim() || "Playlist";
-                        const linkHost = musicPlaylistLinkHost(link.url);
-                        const linkNotesPreview = link.notes?.trim();
-                        return (
-                          <li key={link.id}>
-                            <details className="group rounded-xl border border-stone-200 bg-stone-50/90 open:bg-white">
-                              <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
-                                  <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
-                                  {linkNotesPreview ? (
-                                    <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">
-                                      {linkNotesPreview}
-                                    </p>
-                                  ) : null}
-                                  <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 group-open:hidden">
-                                    Tap to edit
-                                  </p>
-                                </div>
-                                <div className="flex shrink-0 flex-col items-end gap-2">
-                                  <span className="text-[11px] font-medium text-stone-400 transition-transform group-open:rotate-180">
-                                    ▼
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      removeMusicPlaylistLink(link.id);
-                                    }}
-                                    disabled={!canManageMusic}
-                                    className="text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </summary>
-                              <div className="border-t border-stone-200 px-3 pb-4 pt-3 sm:px-4">
-                                <TextInput
-                                  id={`pl-url-${link.id}`}
-                                  label="URL"
-                                  value={link.url}
-                                  onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
-                                  disabled={!canManageMusic}
-                                />
-                                <div className="mt-3">
-                                  <TextInput
-                                    id={`pl-label-${link.id}`}
-                                    label="Label (optional)"
-                                    value={link.label ?? ""}
-                                    onChange={(v) =>
-                                      updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })
-                                    }
-                                    disabled={!canManageMusic}
-                                  />
-                                </div>
-                                <div className="mt-3">
-                                  <TextArea
-                                    id={`pl-notes-${link.id}`}
-                                    label="Notes (optional)"
-                                    value={link.notes ?? ""}
-                                    onChange={(v) =>
-                                      updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })
-                                    }
-                                    rows={2}
-                                    disabled={!canManageMusic}
-                                  />
-                                </div>
-                              </div>
-                            </details>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="mt-4">
-                      <SectionEmptyState
-                        wrapWithCard={false}
-                        title="No playlist links yet"
-                        description="Paste a Spotify, Apple Music, or YouTube link in the field above."
-                        buttonVariant="couple"
-                      />
-                    </div>
-                  )}
-                </PremiumCard>
+                {renderSpotifyPlaylistImportCard({
+                  className: "border-[#2f4a3e]/20 bg-white shadow-sm ring-1 ring-[#2f4a3e]/10",
+                })}
+
+                {renderReferencePlaylistLinksCard({
+                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                  buttonVariant: "couple",
+                })}
 
                 {sectionMustPlayEnabled ? (
                   <PremiumCard variant="accent" id="music-hub-must-play">
@@ -19297,23 +19549,23 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => {
-                      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
+                      document.getElementById("music-hub-spotify-import")?.scrollIntoView({
                         behavior: "smooth",
                         block: "start",
                       });
-                      window.setTimeout(() => document.getElementById("music-new-playlist-url")?.focus(), 250);
+                      window.setTimeout(() => document.getElementById("spotify-import-url")?.focus(), 250);
                     }}
                     disabled={!canManageMusic}
                     className="flex min-h-[11rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     <span>
-                      <span className="block text-base font-semibold text-stone-950">I already have playlists</span>
+                      <span className="block text-base font-semibold text-stone-950">I already have a Spotify playlist</span>
                       <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                        Share Spotify, Apple Music, YouTube, or other playlist links with your DJ.
+                        Paste a Spotify playlist and let ShowFlow import songs for you.
                       </span>
                     </span>
                     <span className={`mt-4 inline-flex ${couplePortalPrimaryButtonClass}`}>
-                      Add Playlist Link
+                      Analyze Playlist
                     </span>
                   </button>
                   <button
@@ -19361,336 +19613,16 @@ export default function Home() {
               />
             ) : null}
 
-            <PremiumCard
-              id="music-hub-playlist-links"
-              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[10]" : ""}`}
-              style={isCoupleView ? { order: 3 } : undefined}
-            >
-              <SectionTitle className="text-stone-950">Playlist Links</SectionTitle>
-              <p className="mt-1 text-sm leading-snug text-stone-600">
-                {isCoupleView
-                  ? "Already have playlists? Share them here and we’ll use them as part of your music planning."
-                  : "Share Spotify, Apple Music, YouTube, or other playlist links so your DJ can understand your music taste."}
-              </p>
-              {isCoupleView ? null : (
-                <p className="mt-2 text-xs text-stone-500">
-                  Saved to this event in the cloud for couples and staff to access from any device.
-                </p>
-              )}
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="music-new-playlist-url"
-                  label="Playlist URL"
-                  value={musicNewPlaylistUrl}
-                  onChange={setMusicNewPlaylistUrl}
-                  placeholder="https://open.spotify.com/playlist/… or Apple Music / YouTube link"
-                  disabled={!canManageMusic}
-                />
-                <TextInput
-                  id="music-new-playlist-label"
-                  label="Label (optional)"
-                  value={musicNewPlaylistLabel}
-                  onChange={setMusicNewPlaylistLabel}
-                  placeholder="e.g. Cocktail hour ideas"
-                  disabled={!canManageMusic}
-                />
-                <TextArea
-                  id="music-new-playlist-notes"
-                  label="Notes (optional)"
-                  value={musicNewPlaylistNotes}
-                  onChange={setMusicNewPlaylistNotes}
-                  rows={2}
-                  placeholder="Anything your DJ should know about this list…"
-                  disabled={!canManageMusic}
-                />
-                <PrimaryButton
-                  type="button"
-                  onClick={addMusicPlaylistLink}
-                  disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
-                  className={
-                    isCoupleView
-                      ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
-                      : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
-                  }
-                >
-                  Save playlist link
-                </PrimaryButton>
-              </div>
-              {musicPlaylistLinks.length > 0 ? (
-                <ul className="mt-5 space-y-3">
-                  {musicPlaylistLinks.map((link) => {
-                    const linkLabel = link.label?.trim() || "Playlist";
-                    const linkHost = musicPlaylistLinkHost(link.url);
-                    const linkNotesPreview = link.notes?.trim();
-                    return (
-                      <li key={link.id}>
-                        <details className="group rounded-xl border border-stone-200 bg-stone-50/90 open:bg-white">
-                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
-                              <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
-                              {linkNotesPreview ? (
-                                <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">
-                                  {linkNotesPreview}
-                                </p>
-                              ) : null}
-                              <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 group-open:hidden">
-                                Tap to edit
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-2">
-                              <span className="text-[11px] font-medium text-stone-400 transition-transform group-open:rotate-180">
-                                ▼
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  removeMusicPlaylistLink(link.id);
-                                }}
-                                disabled={!canManageMusic}
-                                className="text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </summary>
-                          <div className="border-t border-stone-200 px-3 pb-4 pt-3 sm:px-4">
-                            <TextInput
-                              id={`pl-url-${link.id}`}
-                              label="URL"
-                              value={link.url}
-                              onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
-                              disabled={!canManageMusic}
-                            />
-                            <div className="mt-3">
-                              <TextInput
-                                id={`pl-label-${link.id}`}
-                                label="Label (optional)"
-                                value={link.label ?? ""}
-                                onChange={(v) =>
-                                  updateMusicPlaylistLink(link.id, { label: v.trim() || undefined })
-                                }
-                                disabled={!canManageMusic}
-                              />
-                            </div>
-                            <div className="mt-3">
-                              <TextArea
-                                id={`pl-notes-${link.id}`}
-                                label="Notes (optional)"
-                                value={link.notes ?? ""}
-                                onChange={(v) =>
-                                  updateMusicPlaylistLink(link.id, { notes: v.trim() || undefined })
-                                }
-                                rows={2}
-                                disabled={!canManageMusic}
-                              />
-                            </div>
-                            {!isCoupleView ? (
-                              <div
-                                className="mt-3 rounded-lg border border-dashed border-stone-300/80 bg-stone-50/80 px-3 py-2.5"
-                                aria-label="Imported tracks placeholder"
-                              >
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                  Imported tracks
-                                </p>
-                                <p className="mt-1 text-[11px] leading-relaxed text-stone-600">
-                                  Track import is coming later. For now, your DJ uses this link to listen and prep manually.
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </details>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="mt-4">
-                  <SectionEmptyState
-                    wrapWithCard={false}
-                    title="No playlist links yet"
-                    description="Paste a Spotify, Apple Music, or YouTube link in the field above—your DJ uses it to read your taste."
-                  />
-                </div>
-              )}
-            </PremiumCard>
+            {renderSpotifyPlaylistImportCard({
+              className: isCoupleView ? "order-[10]" : "",
+              style: isCoupleView ? { order: 3 } : undefined,
+            })}
 
-            <PremiumCard
-              id="music-hub-spotify-import"
-              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[18]" : ""}`}
-              style={isCoupleView ? { order: 3 } : undefined}
-            >
-              <SectionTitle className="text-stone-950">Bring Your Music With You</SectionTitle>
-              <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                Paste a Spotify playlist and preview what ShowFlow can read. Importing songs comes next.
-              </p>
-              <div className="mt-4 space-y-3">
-                <TextInput
-                  id="spotify-import-url"
-                  label="Spotify playlist URL or URI"
-                  value={spotifyImportUrl}
-                  onChange={(value) => {
-                    setSpotifyImportUrl(value);
-                    setSpotifyPlaylistPreviewState({ status: "idle" });
-                    setSpotifyPlaylistImportResult(null);
-                  }}
-                  placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..."
-                  disabled={spotifyPlaylistPreviewState.status === "loading"}
-                />
-                <PrimaryButton
-                  type="button"
-                  onClick={previewSpotifyPlaylist}
-                  disabled={spotifyPlaylistPreviewState.status === "loading"}
-                  className="w-full border border-[#1E1E1E] bg-[#1E1E1E] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-wait disabled:opacity-65"
-                >
-                  {spotifyPlaylistPreviewState.status === "loading" ? "Previewing..." : "Preview playlist"}
-                </PrimaryButton>
-              </div>
-
-              {spotifyPlaylistPreviewState.status === "invalid" ||
-              spotifyPlaylistPreviewState.status === "error" ? (
-                <div
-                  className={`mt-4 rounded-xl border px-4 py-3 ${
-                    spotifyPlaylistPreviewState.status === "invalid"
-                      ? "border-amber-200 bg-amber-50/90 text-amber-950"
-                      : "border-rose-200 bg-rose-50/90 text-rose-950"
-                  }`}
-                  role="status"
-                >
-                  <p className="text-sm font-semibold">
-                    {spotifyPlaylistPreviewState.status === "invalid" ? "Check the playlist link" : "Preview unavailable"}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed opacity-90">
-                    {spotifyPlaylistPreviewState.message}
-                  </p>
-                </div>
-              ) : null}
-
-              {spotifyPlaylistPreviewState.status === "success" ? (
-                <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        Playlist preview
-                      </p>
-                      <h3 className="mt-1 truncate text-base font-semibold text-stone-950">
-                        {spotifyPlaylistPreviewState.data.playlistName}
-                      </h3>
-                    </div>
-                    <div className="grid gap-2 sm:min-w-[16rem] sm:grid-cols-[1fr_auto]">
-                      <label className="block min-w-0">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                          Import to
-                        </span>
-                        <select
-                          value={spotifyImportTarget}
-                          disabled={!canManageMusic || spotifyPlaylistPreviewState.data.tracks.length === 0}
-                          onChange={(event) => {
-                            setSpotifyImportTarget(event.target.value as SongListType);
-                            setSpotifyPlaylistImportResult(null);
-                          }}
-                          className={`${lightUiSelectClass} mt-1 min-h-9 py-1.5 text-xs`}
-                        >
-                          {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
-                            <option key={key} value={key}>
-                              {SPOTIFY_IMPORT_DESTINATION_LABELS[key]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <PrimaryButton
-                        type="button"
-                        onClick={importSpotifyPlaylistTracks}
-                        disabled={!canManageMusic || spotifyPlaylistPreviewState.data.tracks.length === 0}
-                        className="self-end rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Import Songs
-                      </PrimaryButton>
-                    </div>
-                  </div>
-
-                  <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        Total tracks
-                      </dt>
-                      <dd className="mt-0.5 font-semibold text-stone-950">
-                        {spotifyPlaylistPreviewState.data.totalTrackCount}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        Previewed
-                      </dt>
-                      <dd className="mt-0.5 font-semibold text-stone-950">
-                        {spotifyPlaylistPreviewState.data.tracks.length}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        Skipped
-                      </dt>
-                      <dd className="mt-0.5 font-semibold text-stone-950">
-                        {spotifyPlaylistPreviewState.data.skippedCount}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  {spotifyPlaylistImportResult ? (
-                    <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
-                      <p className="text-sm font-semibold">
-                        {spotifyPlaylistImportResult.addedCount} song{spotifyPlaylistImportResult.addedCount === 1 ? "" : "s"} added to{" "}
-                        {SPOTIFY_IMPORT_DESTINATION_LABELS[spotifyPlaylistImportResult.target]}
-                      </p>
-                      {spotifyPlaylistImportResult.duplicateCount > 0 ? (
-                        <p className="mt-1 text-sm leading-relaxed">
-                          {spotifyPlaylistImportResult.duplicateCount} duplicate{" "}
-                          {spotifyPlaylistImportResult.duplicateCount === 1 ? "song was" : "songs were"} skipped.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {spotifyPlaylistPreviewState.data.tracks.length === 0 ? (
-                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950">
-                      <p className="text-sm font-semibold">No importable songs found</p>
-                      <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
-                        ShowFlow found the playlist, but Spotify did not return importable track rows in the preview.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white">
-                      {spotifyPlaylistPreviewState.data.tracks.slice(0, 20).map((track) => (
-                        <div
-                          key={track.spotifyId}
-                          className="flex min-w-0 items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-b-0"
-                        >
-                          {track.albumArtSmall ?? track.albumArt ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={track.albumArtSmall ?? track.albumArt ?? ""}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-100" aria-hidden />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-stone-950">{track.title}</p>
-                            <p className="truncate text-xs text-stone-600">
-                              {track.artist}
-                              {track.album ? ` · ${track.album}` : ""}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </PremiumCard>
+            {renderReferencePlaylistLinksCard({
+              className: isCoupleView ? "order-[18]" : "",
+              style: isCoupleView ? { order: 4 } : undefined,
+              buttonVariant: isCoupleView ? "couple" : "default",
+            })}
 
             <PremiumCard
               id="music-hub-taste-profile"
