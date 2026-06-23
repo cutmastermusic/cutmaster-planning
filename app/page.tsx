@@ -12547,9 +12547,8 @@ export default function Home() {
     setSpotifyPlaylistImportResult(null);
 
     try {
-      const response = await fetch(`/api/music/playlist/preview?url=${encodeURIComponent(url)}`);
+      const response = await fetch(`/api/spotify/playlists/preview?url=${encodeURIComponent(url)}`);
       const body: unknown = await response.json();
-      console.log("[spotify-playlist-preview] API response JSON", body);
 
       if (!isSpotifyPlaylistPreviewApiResponse(body)) {
         throw new Error("Unexpected Spotify playlist preview response.");
@@ -12559,13 +12558,17 @@ export default function Home() {
         const message =
           body.code === "invalid_url"
             ? "Please paste a valid Spotify playlist link."
-            : body.code === "missing_credentials"
-              ? "Spotify credentials are not configured correctly."
-              : body.code === "playlist_unavailable"
-                ? "Playlist may be private or unavailable."
-                : body.code === "parser_error"
-                  ? "Spotify returned playlist data ShowFlow could not read yet."
-                  : body.message || "ShowFlow could not preview this playlist.";
+            : body.code === "auth_required"
+              ? "Sign in to ShowFlow before connecting Spotify."
+              : body.code === "spotify_not_connected"
+                ? "Connect Spotify to analyze and import playlists."
+                : body.code === "refresh_failed" || body.code === "missing_credentials"
+                  ? "Reconnect Spotify and try again."
+                  : body.code === "playlist_unavailable"
+                    ? "Playlist may be private or unavailable."
+                    : body.code === "parser_error"
+                      ? "Spotify returned playlist data ShowFlow could not read yet."
+                      : body.message || "ShowFlow could not preview this playlist.";
         setSpotifyPlaylistPreviewState({
           status: body.code === "invalid_url" ? "invalid" : "error",
           message,
