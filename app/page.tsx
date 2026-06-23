@@ -694,7 +694,7 @@ function musicPlaylistLinkHost(url: string): string {
 
 const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
   mustPlay: "Must Play",
-  playIfPossible: "Open Dancing",
+  playIfPossible: "Dance Floor Favorites",
   doNotPlay: "Songs to Avoid",
 };
 
@@ -1039,7 +1039,7 @@ function MusicHubPrepSnapshot({
       },
       {
         id: "music-hub-play-if-possible",
-        label: "Play if possible",
+        label: "Dance floor favorites",
         count: playIfPossibleCount,
         shell:
           buttonVariant === "couple"
@@ -12883,6 +12883,250 @@ export default function Home() {
     setPasteSongListOpen(false);
   };
 
+  const musicHubHeroPhoto = resolveCoupleWelcomePhotoDisplay({
+    coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
+    coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
+    defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
+  });
+  const musicHubHeroImageSrc = musicHubHeroPhoto.displayUrl?.trim();
+  const musicAnySongListExpanded =
+    musicExpandedSongLists.mustPlay ||
+    musicExpandedSongLists.playIfPossible ||
+    musicExpandedSongLists.doNotPlay;
+
+  const musicHubSongCountLabel = (count: number) =>
+    `${count} song${count === 1 ? "" : "s"} added`;
+
+  const openMusicHubSongList = (listType: SongListType) => {
+    if (isCoupleView) {
+      setCoupleMusicHubScreen("songLists");
+    }
+    setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: true }));
+    if (
+      (listType === "mustPlay" && mustPlaySongs.length === 0) ||
+      (listType === "playIfPossible" && playIfPossibleSongs.length === 0) ||
+      (listType === "doNotPlay" && doNotPlaySongs.length === 0)
+    ) {
+      setNewSongListType(listType);
+      setMusicAddSongOpen(true);
+    }
+    window.setTimeout(() => {
+      document.getElementById(
+        listType === "mustPlay"
+          ? "music-hub-must-play"
+          : listType === "playIfPossible"
+            ? "music-hub-play-if-possible"
+            : "music-hub-do-not-play",
+      )?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  };
+
+  const openMusicHubSpotifyPlaylists = () => {
+    if (isCoupleView) {
+      setCoupleMusicHubScreen("songLists");
+    }
+    setMusicPlaylistLinksOpen(true);
+    window.setTimeout(() => {
+      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 50);
+  };
+
+  const openMusicHubImportSongs = () => {
+    if (isCoupleView) {
+      setCoupleMusicHubScreen("songLists");
+    }
+    setPasteSongListOpen(true);
+    window.setTimeout(() => {
+      document.getElementById("music-hub-paste-song-list")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      document.getElementById("paste-song-list-text")?.focus();
+    }, 50);
+  };
+
+  const openMusicHubGuestRequests = () => {
+    if (isCoupleView) {
+      setCoupleMusicHubScreen("songLists");
+    }
+    window.setTimeout(() => {
+      const guestCard = document.getElementById("music-hub-guest-requests");
+      if (guestCard) {
+        guestCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      setActiveScreen("Guest Requests");
+    }, 50);
+  };
+
+  const renderMusicHubHero = () => (
+    <section className="relative overflow-hidden rounded-[2rem] border border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-sm">
+      {musicHubHeroImageSrc ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={musicHubHeroImageSrc}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1f2724]/82 via-[#1f2724]/58 to-[#7F8F7A]/42" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(247,245,241,0.22),transparent_34%)]" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.30),transparent_36%),linear-gradient(135deg,#f7f5f1,#ece6dc_48%,#dfe7dc)]" />
+      )}
+      <div className={`relative px-5 py-8 sm:px-8 sm:py-10 lg:px-10 ${musicHubHeroImageSrc ? "text-white" : "text-[#1f2724]"}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${musicHubHeroImageSrc ? "text-white/75" : "text-[#2f4a3e]/75"}`}>
+          Music Hub
+        </p>
+        <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+          Your music. Your moment.
+        </h1>
+        <p className={`mt-2 max-w-xl text-lg font-medium ${musicHubHeroImageSrc ? "text-white/92" : "text-[#2f4a3e]"}`}>
+          Let’s build the soundtrack to your best day ever.
+        </p>
+        <p className={`mt-4 max-w-2xl text-sm leading-relaxed sm:text-base ${musicHubHeroImageSrc ? "text-white/82" : "text-stone-700"}`}>
+          Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.
+        </p>
+      </div>
+    </section>
+  );
+
+  const renderMusicHubActionCard = ({
+    eyebrow,
+    title,
+    description,
+    countLabel,
+    ctaLabel,
+    icon,
+    accentClass,
+    onClick,
+    disabled = false,
+  }: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    countLabel?: string;
+    ctaLabel: string;
+    icon: string;
+    accentClass: string;
+    onClick: () => void;
+    disabled?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`group flex min-h-[12rem] flex-col justify-between rounded-[1.5rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 ${accentClass}`}
+    >
+      <span>
+        <span className="flex items-start justify-between gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+            {eyebrow}
+          </span>
+          <span className="grid h-9 w-9 place-items-center rounded-full border border-white/70 bg-white/75 text-sm font-semibold text-[#2f4a3e] shadow-sm">
+            {icon}
+          </span>
+        </span>
+        <span className="mt-4 block text-lg font-semibold tracking-tight text-stone-950">
+          {title}
+        </span>
+        <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+          {description}
+        </span>
+      </span>
+      <span className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        {countLabel ? (
+          <span className="rounded-full border border-white/80 bg-white/75 px-3 py-1 text-[11px] font-semibold text-stone-700">
+            {countLabel}
+          </span>
+        ) : (
+          <span aria-hidden />
+        )}
+        <span className="rounded-full bg-[#2f4a3e] px-3 py-1.5 text-[12px] font-semibold text-white transition group-hover:bg-[#263d33]">
+          {ctaLabel}
+        </span>
+      </span>
+    </button>
+  );
+
+  const renderMusicHubActionCards = () => (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {renderMusicHubActionCard({
+          eyebrow: "Music list",
+          title: "Must Play Songs",
+          description: "The songs you absolutely want to hear.",
+          countLabel: musicHubSongCountLabel(mustPlaySongs.length),
+          ctaLabel: mustPlaySongs.length === 0 ? "Add Songs" : "Edit List",
+          icon: "01",
+          accentClass: "border-rose-100 bg-rose-50/80 hover:border-rose-200",
+          onClick: () => openMusicHubSongList("mustPlay"),
+          disabled: !canManageMusic && mustPlaySongs.length === 0,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Music list",
+          title: "Dance Floor Favorites",
+          description: "Songs that keep everyone moving all night long.",
+          countLabel: musicHubSongCountLabel(playIfPossibleSongs.length),
+          ctaLabel: playIfPossibleSongs.length === 0 ? "Add Songs" : "Edit List",
+          icon: "02",
+          accentClass: "border-emerald-100 bg-emerald-50/80 hover:border-emerald-200",
+          onClick: () => openMusicHubSongList("playIfPossible"),
+          disabled: !canManageMusic && playIfPossibleSongs.length === 0,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Music list",
+          title: "Songs to Avoid",
+          description: "Songs or artists you don’t want to hear.",
+          countLabel: musicHubSongCountLabel(doNotPlaySongs.length),
+          ctaLabel: doNotPlaySongs.length === 0 ? "Add Songs" : "Edit List",
+          icon: "03",
+          accentClass: "border-stone-200 bg-stone-50/90 hover:border-stone-300",
+          onClick: () => openMusicHubSongList("doNotPlay"),
+          disabled: !canManageMusic && doNotPlaySongs.length === 0,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Playlist links",
+          title: "Your Spotify Playlists",
+          description: "Share playlists that capture your style and vibe.",
+          countLabel: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"} added`,
+          ctaLabel: "Add Playlist",
+          icon: "04",
+          accentClass: "border-[#2f4a3e]/15 bg-[#2f4a3e]/[0.06] hover:border-[#2f4a3e]/30",
+          onClick: openMusicHubSpotifyPlaylists,
+          disabled: !canManageMusic && musicPlaylistLinks.length === 0,
+        })}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {renderMusicHubActionCard({
+          eyebrow: "Quick action",
+          title: "Import Songs",
+          description: "Paste songs from Spotify, Apple Music, Notes, or Excel and we’ll organize them for you.",
+          ctaLabel: "Import Songs",
+          icon: "IN",
+          accentClass: "min-h-[10rem] border-amber-100 bg-amber-50/80 hover:border-amber-200",
+          onClick: openMusicHubImportSongs,
+          disabled: !canManageMusic,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Guest input",
+          title: "Guest Requests",
+          description: "See and manage song requests from your guests.",
+          ctaLabel: "View Requests",
+          countLabel: `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
+          icon: "GR",
+          accentClass: "min-h-[10rem] border-violet-100 bg-violet-50/80 hover:border-violet-200",
+          onClick: openMusicHubGuestRequests,
+          disabled: !sectionGuestRequestsEnabled,
+        })}
+      </div>
+    </div>
+  );
+
   const toggleMusicListExpanded = (listType: SongListType) => {
     setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: !prev[listType] }));
   };
@@ -12915,6 +13159,8 @@ export default function Home() {
     buttonVariant?: "default" | "couple";
   }) => {
     const isExpanded = musicExpandedSongLists[listType];
+    if (!isExpanded) return null;
+
     const actionButtonClass =
       buttonVariant === "couple"
         ? couplePortalSecondaryButtonClass
@@ -12947,29 +13193,27 @@ export default function Home() {
             {isExpanded ? "Close List" : "Edit List"}
           </PrimaryButton>
         </div>
-        {isExpanded ? (
-          songs.length === 0 ? (
-            <div className="mt-4">
-              <SectionEmptyState
-                wrapWithCard={false}
-                title={emptyTitle}
-                description={emptyDescription}
-                buttonVariant={buttonVariant}
-                primaryAction={emptyPrimaryAction}
-              />
-            </div>
-          ) : (
-            <MusicHubSongList
-              songs={songs}
-              listType={listType}
-              onTogglePriority={togglePriority}
-              onRemove={removeSong}
-              onUpdateSong={updateSong}
-              disabled={!canManageMusic}
+        {songs.length === 0 ? (
+          <div className="mt-4">
+            <SectionEmptyState
+              wrapWithCard={false}
+              title={emptyTitle}
+              description={emptyDescription}
               buttonVariant={buttonVariant}
+              primaryAction={emptyPrimaryAction}
             />
-          )
-        ) : null}
+          </div>
+        ) : (
+          <MusicHubSongList
+            songs={songs}
+            listType={listType}
+            onTogglePriority={togglePriority}
+            onRemove={removeSong}
+            onUpdateSong={updateSong}
+            disabled={!canManageMusic}
+            buttonVariant={buttonVariant}
+          />
+        )}
       </PremiumCard>
     );
   };
@@ -13049,7 +13293,7 @@ export default function Home() {
           </div>
         </div>
           </>
-        ) : (
+        ) : pasteSongListImportResult ? null : (
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-stone-700">Need to import a list of songs?</p>
             <PrimaryButton
@@ -13171,7 +13415,7 @@ export default function Home() {
         <PrimaryButton
           type="button"
           onClick={() => setMusicPlaylistLinksOpen((prev) => !prev)}
-          disabled={!canManageMusic}
+          disabled={!canManageMusic && musicPlaylistLinks.length === 0}
           className={
             buttonVariant === "couple"
               ? `w-full sm:w-auto ${couplePortalSecondaryButtonClass}`
@@ -19196,6 +19440,9 @@ export default function Home() {
               buttonVariant={isCoupleView ? "couple" : "default"}
             />
 
+            {renderMusicHubHero()}
+            {renderMusicHubActionCards()}
+
             {isCoupleView ? (
               <>
                 {coupleMusicHubScreen === "landing" ? (
@@ -19204,7 +19451,7 @@ export default function Home() {
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music</p>
-                          <SectionTitle className="mt-1">🎶 The Soundtrack to Your Wedding</SectionTitle>
+                          <SectionTitle className="mt-1">The Soundtrack to Your Wedding</SectionTitle>
                         </div>
                         <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
                       </div>
@@ -19226,7 +19473,7 @@ export default function Home() {
                           <span className="mb-3 inline-flex rounded-full border border-[#2f4a3e]/25 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]">
                             Recommended first
                           </span>
-                          <span className="block text-lg font-semibold text-stone-950">🎧 Music Profile</span>
+                          <span className="block text-lg font-semibold text-stone-950">Music Profile</span>
                           <span className="mt-3 block text-sm leading-relaxed text-stone-600">
                             Help us understand your guests, your style, and the kind of dance floor you’re imagining.
                           </span>
@@ -19243,12 +19490,12 @@ export default function Home() {
                         className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/30 hover:bg-stone-50/80"
                       >
                         <span>
-                          <span className="block text-lg font-semibold text-stone-950">❤️ Song Lists</span>
+                          <span className="block text-lg font-semibold text-stone-950">Song Lists</span>
                           <span className="mt-3 block text-sm leading-relaxed text-stone-600">
                             Already know some songs?
                           </span>
                           <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                            Build your Must Play List, Open Dancing playlist, and Songs to Avoid.
+                            Build your Must Play Songs, Dance Floor Favorites, and Songs to Avoid.
                           </span>
                           <span className="mt-2 block text-sm leading-relaxed text-stone-600">
                             Go at your own pace.
@@ -19286,7 +19533,7 @@ export default function Home() {
                           <SectionTitle className="text-stone-950">+ Add Song</SectionTitle>
                           {!musicAddSongOpen ? (
                             <p className="mt-1 text-sm text-stone-600">
-                              Add one song to Must Play, Open Dancing, or Songs to Avoid.
+                              Add one song to Must Play, Dance Floor Favorites, or Songs to Avoid.
                             </p>
                           ) : null}
                         </div>
@@ -19379,7 +19626,7 @@ export default function Home() {
                               ) : null}
                               <span className="flex items-center gap-2 pr-7">
                                 <span className="text-lg leading-none">💃</span>
-                                <span className="text-sm font-semibold">Open Dancing</span>
+                                <span className="text-sm font-semibold">Dance Floor Favorites</span>
                               </span>
                             </button>
                             <button
@@ -19442,12 +19689,13 @@ export default function Home() {
                           {newSongListType === "mustPlay"
                             ? "Add to Must Play"
                             : newSongListType === "playIfPossible"
-                              ? "Add to Open Dancing"
+                              ? "Add to Dance Floor Favorites"
                               : "Add to Songs to Avoid"}
                         </PrimaryButton>
                       </div>
                       ) : null}
                     </div>
+                    {musicAnySongListExpanded ? (
                     <div className="order-1 mt-4 border-b border-stone-200/80 pb-5">
                       <SectionTitle className="text-stone-950">Your Music Lists</SectionTitle>
                       <div className="mt-4 space-y-5">
@@ -19465,10 +19713,10 @@ export default function Home() {
                         {renderMusicListSummaryCard({
                           listType: "playIfPossible",
                           id: "music-hub-play-if-possible",
-                          title: "Open Dancing",
+                          title: "Dance Floor Favorites",
                           description: "Favorites you would love to hear if the dance floor is ready for them.",
                           songs: playIfPossibleSongs,
-                          emptyTitle: "No open dancing songs yet",
+                          emptyTitle: "No dance floor favorites yet",
                           emptyDescription: "Add favorites you would love to hear if the dance floor is ready for them.",
                           className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
                           buttonVariant: "couple",
@@ -19486,20 +19734,25 @@ export default function Home() {
                         })}
                       </div>
                     </div>
+                    ) : null}
                   </PremiumCard>
                 ) : null}
 
-                {renderPasteSongListImportCard({
-                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
-                })}
+                {pasteSongListOpen || pasteSongListPreviewState.status !== "idle" || pasteSongListImportResult ? (
+                  renderPasteSongListImportCard({
+                    className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                  })
+                ) : null}
 
-                {renderReferencePlaylistLinksCard({
-                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
-                  buttonVariant: "couple",
-                })}
+                {musicPlaylistLinksOpen ? (
+                  renderReferencePlaylistLinksCard({
+                    className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                    buttonVariant: "couple",
+                  })
+                ) : null}
 
                 {sectionGuestRequestsEnabled ? (
-                  <PremiumCard>
+                  <PremiumCard id="music-hub-guest-requests">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <SectionTitle>Guest Requests</SectionTitle>
@@ -19624,7 +19877,7 @@ export default function Home() {
                   id="music-hub-taste-profile"
                   className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
                 >
-                  <SectionTitle className="text-stone-950">Open Dancing</SectionTitle>
+                  <SectionTitle className="text-stone-950">Dance Floor Favorites</SectionTitle>
                   <p className="mt-1 text-sm leading-relaxed text-stone-600">
                     Tell us about the kind of dance floor you’re hoping for.
                   </p>
@@ -19840,33 +20093,6 @@ export default function Home() {
             ) : (
               <>
 
-            <PremiumCard
-              variant="accent"
-              className={isCoupleView ? "order-[1]" : ""}
-              style={isCoupleView ? { order: 1 } : undefined}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p
-                    className={`text-[11px] uppercase tracking-[0.18em] ${
-                      isCoupleView ? "text-[#2f4a3e]/75" : "text-[#8a6938]"
-                    }`}
-                  >
-                    {isCoupleView ? "Music" : "Music planning"}
-                  </p>
-                  <SectionTitle className="mt-1">
-                    {isCoupleView ? "The Soundtrack to Your Wedding" : "Music Hub"}
-                  </SectionTitle>
-                </div>
-                <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                {isCoupleView
-                  ? "Music is one of the things your guests will remember most. Let’s build a soundtrack that feels like you."
-                  : "Build the soundtrack for your event, from must-play songs to guest requests."}
-              </p>
-            </PremiumCard>
-
             {!canManageMusic && (
               <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
@@ -19875,25 +20101,13 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            {!isCoupleView ? (
-              <MusicHubPrepSnapshot
-                playlistCount={musicPlaylistLinks.length}
-                mustPlayCount={mustPlaySongs.length}
-                playIfPossibleCount={playIfPossibleSongs.length}
-                doNotPlayCount={doNotPlaySongs.length}
-                showMustPlay={sectionMustPlayEnabled}
-                showDoNotPlay={sectionDoNotPlayEnabled}
-                buttonVariant="default"
-              />
-            ) : null}
-
             <PremiumCard
               id="music-hub-taste-profile"
               className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[30]" : ""}`}
               style={isCoupleView ? { order: 7 } : undefined}
             >
               <SectionTitle className="text-stone-950">
-                {isCoupleView ? "Open Dancing" : "Music taste profile"}
+                {isCoupleView ? "Dance Floor Favorites" : "Music taste profile"}
               </SectionTitle>
               <p className="mt-1 text-sm leading-relaxed text-stone-600">
                 {isCoupleView
@@ -20046,7 +20260,7 @@ export default function Home() {
               ) : null}
             </PremiumCard>
 
-            {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
+            {musicAnySongListExpanded && (sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
               <div
                 className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}
                 style={isCoupleView ? { order: 4 } : undefined}
@@ -20062,6 +20276,7 @@ export default function Home() {
               </div>
             )}
 
+            {musicAnySongListExpanded ? (
             <div className={isCoupleView ? "contents" : "space-y-5"}>
               {sectionMustPlayEnabled && (
                 renderMusicListSummaryCard({
@@ -20098,12 +20313,12 @@ export default function Home() {
                 renderMusicListSummaryCard({
                   listType: "playIfPossible",
                   id: "music-hub-play-if-possible",
-                  title: isCoupleView ? "Songs If They Fit" : "Play if possible",
+                  title: "Dance Floor Favorites",
                   description: isCoupleView
                     ? "Songs and artists that would feel good if the room is ready for them."
                     : "Nice-to-haves when the moment feels right—never a guarantee.",
                   songs: playIfPossibleSongs,
-                  emptyTitle: "No “play if possible” yet",
+                  emptyTitle: "No dance floor favorites yet",
                   emptyDescription: "Optional—add a few if specific songs would make you smile.",
                   emptyPrimaryAction: {
                     label: "Add from box above",
@@ -20154,6 +20369,7 @@ export default function Home() {
                 })
               )}
             </div>
+            ) : null}
 
             <PremiumCard
               id="music-hub-quick-add"
@@ -20168,7 +20384,7 @@ export default function Home() {
                   {!musicAddSongOpen ? (
                     <p className="mt-1 text-sm text-stone-600">
                       {isCoupleView
-                        ? "Add one song to Must Play, Open Dancing, or Songs to Avoid."
+                        ? "Add one song to Must Play, Dance Floor Favorites, or Songs to Avoid."
                         : "Add individual songs only if there are specific tracks we should know about."}
                     </p>
                   ) : null}
@@ -20255,7 +20471,7 @@ export default function Home() {
                         : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                         }`}
                     >
-                      Play if possible
+                      Dance Floor Favorites
                     </PrimaryButton>
                     <PrimaryButton
                       onClick={() => setNewSongListType("doNotPlay")}
@@ -20295,16 +20511,20 @@ export default function Home() {
               ) : null}
             </PremiumCard>
 
-            {renderPasteSongListImportCard({
-              className: isCoupleView ? "order-[41]" : "",
-              style: isCoupleView ? { order: 13 } : undefined,
-            })}
+            {pasteSongListOpen || pasteSongListPreviewState.status !== "idle" || pasteSongListImportResult ? (
+              renderPasteSongListImportCard({
+                className: isCoupleView ? "order-[41]" : "",
+                style: isCoupleView ? { order: 13 } : undefined,
+              })
+            ) : null}
 
-            {renderReferencePlaylistLinksCard({
-              className: isCoupleView ? "order-[42]" : "",
-              style: isCoupleView ? { order: 14 } : undefined,
-              buttonVariant: isCoupleView ? "couple" : "default",
-            })}
+            {musicPlaylistLinksOpen ? (
+              renderReferencePlaylistLinksCard({
+                className: isCoupleView ? "order-[42]" : "",
+                style: isCoupleView ? { order: 14 } : undefined,
+                buttonVariant: isCoupleView ? "couple" : "default",
+              })
+            ) : null}
 
             {sectionPlaylistsEnabled && (
               <details
@@ -20495,6 +20715,7 @@ export default function Home() {
 
             {sectionGuestRequestsEnabled ? (
               <PremiumCard
+                id="music-hub-guest-requests"
                 className={isCoupleView ? "order-[50]" : ""}
                 style={isCoupleView ? { order: 13 } : undefined}
               >
