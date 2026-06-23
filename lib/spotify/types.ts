@@ -18,6 +18,17 @@ export type SpotifyPlaylistPreview = {
   previewLimit: number;
 };
 
+export type SpotifyPlaylistPreviewDebug = {
+  playlistId: string | null;
+  metadataStatus: number | null;
+  tracksStatus: number | null;
+  metadataBodyPreview: string | null;
+  tracksBodyPreview: string | null;
+  parserDecisionPath: string[];
+  finalErrorCode: SpotifyFetchErrorCode | null;
+  normalizedTrackCount: number | null;
+};
+
 export type SpotifyFetchErrorCode =
   | "missing_credentials"
   | "invalid_url"
@@ -27,8 +38,8 @@ export type SpotifyFetchErrorCode =
   | "api_error";
 
 export type FetchPublicSpotifyPlaylistResult =
-  | { ok: true; data: SpotifyPlaylistPreview }
-  | { ok: false; code: SpotifyFetchErrorCode; message: string };
+  | { ok: true; data: SpotifyPlaylistPreview; debug?: SpotifyPlaylistPreviewDebug }
+  | { ok: false; code: SpotifyFetchErrorCode; message: string; debug?: SpotifyPlaylistPreviewDebug };
 
 export type SpotifyTrackSearchResult = {
   spotifyId: string;

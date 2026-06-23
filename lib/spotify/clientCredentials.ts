@@ -115,7 +115,10 @@ export async function getSpotifyAccessToken(): Promise<
 export async function spotifyApiGet<T>(
   pathOrUrl: string,
   accessToken: string,
-): Promise<{ ok: true; data: T; status: number } | { ok: false; status: number; errorBody?: string }> {
+): Promise<
+  | { ok: true; data: T; status: number; bodyPreview?: string }
+  | { ok: false; status: number; errorBody?: string; bodyPreview?: string }
+> {
   const url = pathOrUrl.startsWith("https://")
     ? pathOrUrl
     : `https://api.spotify.com/v1${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
@@ -130,15 +133,21 @@ export async function spotifyApiGet<T>(
     return { ok: false, status: 0 };
   }
 
+  let responseText: string | undefined;
+  try {
+    responseText = await response.text();
+  } catch {
+    responseText = undefined;
+  }
+  const bodyPreview = spotifyDebugErrorBody(responseText);
+
   if (!response.ok) {
-    let errorBody: string | undefined;
-    try {
-      errorBody = await response.text();
-    } catch {
-      errorBody = undefined;
-    }
-    return { ok: false, status: response.status, errorBody };
+    return { ok: false, status: response.status, errorBody: responseText, bodyPreview };
   }
 
-  return { ok: true, data: (await response.json()) as T, status: response.status };
+  try {
+    return { ok: true, data: JSON.parse(responseText ?? "null") as T, status: response.status, bodyPreview };
+  } catch {
+    return { ok: false, status: response.status, errorBody: responseText, bodyPreview };
+  }
 }

@@ -5,7 +5,13 @@
 
 import { getSpotifyAccessToken, spotifyApiGet } from "@/lib/spotify/clientCredentials";
 import { parseSpotifyPlaylistId } from "@/lib/spotify/parsePlaylistUrl";
-import type { FetchPublicSpotifyPlaylistResult, SpotifyPlaylistTrackPreview } from "@/lib/spotify/types";
+import type {
+  FetchPublicSpotifyPlaylistResult,
+  SpotifyFetchErrorCode,
+  SpotifyPlaylistPreview,
+  SpotifyPlaylistPreviewDebug,
+  SpotifyPlaylistTrackPreview,
+} from "@/lib/spotify/types";
 
 export { SPOTIFY_IMPORT_SIGN_IN_MESSAGE } from "@/lib/spotify/constants";
 
@@ -78,6 +84,51 @@ function extractTracksPage(data: SpotifyPlaylistTracksPage | SpotifyPlaylistTrac
   return null;
 }
 
+function createPlaylistPreviewDebug(): SpotifyPlaylistPreviewDebug {
+  return {
+    playlistId: null,
+    metadataStatus: null,
+    tracksStatus: null,
+    metadataBodyPreview: null,
+    tracksBodyPreview: null,
+    parserDecisionPath: [],
+    finalErrorCode: null,
+    normalizedTrackCount: null,
+  };
+}
+
+function withDebugFailure(
+  code: SpotifyFetchErrorCode,
+  message: string,
+  debug: SpotifyPlaylistPreviewDebug | undefined,
+): FetchPublicSpotifyPlaylistResult {
+  if (debug) {
+    debug.finalErrorCode = code;
+    debug.normalizedTrackCount = null;
+  }
+  return {
+    ok: false,
+    code,
+    message,
+    ...(debug ? { debug } : {}),
+  };
+}
+
+function withDebugSuccess(
+  data: SpotifyPlaylistPreview,
+  debug: SpotifyPlaylistPreviewDebug | undefined,
+): FetchPublicSpotifyPlaylistResult {
+  if (debug) {
+    debug.finalErrorCode = null;
+    debug.normalizedTrackCount = data.tracks.length;
+  }
+  return {
+    ok: true,
+    data,
+    ...(debug ? { debug } : {}),
+  };
+}
+
 function normalizeTrack(item: SpotifyPlaylistTrackItem): SpotifyPlaylistTrackPreview | null {
   const track = item.track;
   if (!track || track.is_local || (track.type && track.type !== "track")) return null;
@@ -109,20 +160,25 @@ function normalizeTrack(item: SpotifyPlaylistTrackItem): SpotifyPlaylistTrackPre
  */
 export async function fetchPublicSpotifyPlaylistPreview(
   inputUrl: string,
+  options?: { debug?: boolean },
 ): Promise<FetchPublicSpotifyPlaylistResult> {
+  const debug = options?.debug ? createPlaylistPreviewDebug() : undefined;
+  const recordDecision = (decision: string) => {
+    debug?.parserDecisionPath.push(decision);
+  };
   const trimmed = inputUrl.trim();
+  recordDecision(trimmed ? "received_url" : "missing_url");
   const playlistId = parseSpotifyPlaylistId(trimmed);
+  if (debug) debug.playlistId = playlistId;
   console.info("[spotify-playlist-preview] parsed playlist id", {
     playlistId,
     inputLength: trimmed.length,
   });
   if (!playlistId) {
-    return {
-      ok: false,
-      code: "invalid_url",
-      message: "Please paste a valid Spotify playlist link.",
-    };
+    recordDecision("invalid_playlist_url");
+    return withDebugFailure("invalid_url", "Please paste a valid Spotify playlist link.", debug);
   }
+  recordDecision("parsed_playlist_id");
 
   const tokenResult = await getSpotifyAccessToken();
   console.info("[spotify-playlist-preview] Spotify token result", {
@@ -130,15 +186,17 @@ export async function fetchPublicSpotifyPlaylistPreview(
     code: tokenResult.ok ? undefined : tokenResult.code,
   });
   if (!tokenResult.ok) {
-    return {
-      ok: false,
-      code: tokenResult.code === "missing_credentials" ? "missing_credentials" : "api_error",
-      message:
-        tokenResult.code === "missing_credentials"
-          ? "Spotify credentials are not configured correctly."
-          : tokenResult.message,
-    };
+    const code = tokenResult.code === "missing_credentials" ? "missing_credentials" : "api_error";
+    recordDecision(`token_failed:${tokenResult.code}`);
+    return withDebugFailure(
+      code,
+      tokenResult.code === "missing_credentials"
+        ? "Spotify credentials are not configured correctly."
+        : tokenResult.message,
+      debug,
+    );
   }
+  recordDecision("token_ok");
 
   const accessToken = tokenResult.token;
   const sourceUrl = trimmed.startsWith("spotify:")
@@ -156,6 +214,12 @@ export async function fetchPublicSpotifyPlaylistPreview(
     status: metaResult.status,
     ok: metaResult.ok,
   });
+  if (debug) {
+    debug.metadataStatus = metaResult.status;
+    debug.metadataBodyPreview = metaResult.ok
+      ? (metaResult.bodyPreview ?? null)
+      : (metaResult.bodyPreview ?? spotifyDebugErrorBody(metaResult.errorBody) ?? null);
+  }
 
   if (!metaResult.ok) {
     console.error("[spotify-playlist-preview] playlist metadata fetch error body", {
@@ -164,25 +228,47 @@ export async function fetchPublicSpotifyPlaylistPreview(
       errorBody: spotifyDebugErrorBody(metaResult.errorBody),
     });
     if (metaResult.status === 401) {
-      return {
-        ok: false,
-        code: "missing_credentials",
-        message: "Spotify credentials are not configured correctly.",
-      };
+      recordDecision("metadata_401_credentials");
+      return withDebugFailure(
+        "missing_credentials",
+        "Spotify credentials are not configured correctly.",
+        debug,
+      );
     }
     if (metaResult.status === 404 || metaResult.status === 403) {
-      return {
-        ok: false,
-        code: "playlist_unavailable",
-        message: "Playlist may be private or unavailable.",
-      };
+      recordDecision(`metadata_unavailable:${metaResult.status}`);
+      return withDebugFailure(
+        "playlist_unavailable",
+        "Playlist may be private or unavailable.",
+        debug,
+      );
     }
-    return {
-      ok: false,
-      code: "api_error",
-      message: "Spotify could not load this playlist. Try again in a moment.",
-    };
+    if (metaResult.status === 200) {
+      recordDecision("metadata_malformed_json");
+      return withDebugFailure(
+        "parser_error",
+        "Spotify returned an unexpected playlist metadata response.",
+        debug,
+      );
+    }
+    recordDecision(`metadata_api_error:${metaResult.status}`);
+    return withDebugFailure(
+      "api_error",
+      "Spotify could not load this playlist. Try again in a moment.",
+      debug,
+    );
   }
+  recordDecision("metadata_ok");
+
+  if (!metaResult.data || typeof metaResult.data !== "object") {
+    recordDecision("metadata_shape:unrecognized");
+    return withDebugFailure(
+      "parser_error",
+      "Spotify returned an unexpected playlist metadata response.",
+      debug,
+    );
+  }
+  recordDecision("metadata_shape:object");
 
   console.info("[spotify-playlist-preview] playlist metadata success summary", {
     playlistId,
@@ -212,6 +298,12 @@ export async function fetchPublicSpotifyPlaylistPreview(
       ok: pageResult.ok,
       inspectedCount,
     });
+    if (debug && debug.tracksStatus === null) {
+      debug.tracksStatus = pageResult.status;
+      debug.tracksBodyPreview = pageResult.ok
+        ? (pageResult.bodyPreview ?? null)
+        : (pageResult.bodyPreview ?? spotifyDebugErrorBody(pageResult.errorBody) ?? null);
+    }
 
     if (!pageResult.ok) {
       console.error("[spotify-playlist-preview] playlist tracks fetch error body", {
@@ -220,27 +312,45 @@ export async function fetchPublicSpotifyPlaylistPreview(
         errorBody: spotifyDebugErrorBody(pageResult.errorBody),
       });
       if (pageResult.status === 401) {
-        return {
-          ok: false,
-          code: "missing_credentials",
-          message: "Spotify credentials are not configured correctly.",
-        };
+        recordDecision("tracks_401_credentials");
+        return withDebugFailure(
+          "missing_credentials",
+          "Spotify credentials are not configured correctly.",
+          debug,
+        );
       }
       if (pageResult.status === 404 || pageResult.status === 403) {
-        return {
-          ok: false,
-          code: "playlist_unavailable",
-          message: "Playlist may be private or unavailable.",
-        };
+        recordDecision(`tracks_unavailable:${pageResult.status}`);
+        return withDebugFailure(
+          "playlist_unavailable",
+          "Playlist may be private or unavailable.",
+          debug,
+        );
       }
-      return {
-        ok: false,
-        code: "api_error",
-        message: "Spotify could not load playlist tracks. Try again in a moment.",
-      };
+      if (pageResult.status === 200) {
+        recordDecision("tracks_malformed_json");
+        return withDebugFailure(
+          "parser_error",
+          "Spotify returned an unexpected playlist tracks response.",
+          debug,
+        );
+      }
+      recordDecision(`tracks_api_error:${pageResult.status}`);
+      return withDebugFailure(
+        "api_error",
+        "Spotify could not load playlist tracks. Try again in a moment.",
+        debug,
+      );
     }
 
     const tracksPage = extractTracksPage(pageResult.data);
+    if (Array.isArray((pageResult.data as SpotifyPlaylistTracksPage).items)) {
+      recordDecision("tracks_shape:top_level_items");
+    } else if (Array.isArray((pageResult.data as SpotifyPlaylistTracksWrappedPage).tracks?.items)) {
+      recordDecision("tracks_shape:nested_tracks_items");
+    } else {
+      recordDecision("tracks_shape:unrecognized");
+    }
     console.info("[spotify-playlist-preview] playlist tracks success summary", {
       playlistId,
       responseKeys: objectKeys(pageResult.data),
@@ -254,11 +364,11 @@ export async function fetchPublicSpotifyPlaylistPreview(
     });
 
     if (!tracksPage) {
-      return {
-        ok: false,
-        code: "parser_error",
-        message: "Spotify returned an unexpected playlist tracks response.",
-      };
+      return withDebugFailure(
+        "parser_error",
+        "Spotify returned an unexpected playlist tracks response.",
+        debug,
+      );
     }
 
     if (totalTrackCount === 0 && typeof tracksPage.total === "number") {
@@ -277,10 +387,11 @@ export async function fetchPublicSpotifyPlaylistPreview(
   }
 
   const effectiveTotal = totalTrackCount || inspectedCount;
+  recordDecision(`normalized_tracks:${tracks.length}`);
+  recordDecision("success");
 
-  return {
-    ok: true,
-    data: {
+  return withDebugSuccess(
+    {
       playlistId,
       playlistName,
       sourceUrl,
@@ -289,5 +400,6 @@ export async function fetchPublicSpotifyPlaylistPreview(
       skippedCount: Math.max(0, effectiveTotal - tracks.length),
       previewLimit: SPOTIFY_PLAYLIST_PREVIEW_LIMIT,
     },
-  };
+    debug,
+  );
 }
