@@ -13082,11 +13082,9 @@ export default function Home() {
     }, 50);
   };
 
-  const openMusicHubProfile = (initialStep?: MusicJourneyStep) => {
+  const openMusicJourneyInline = (initialStep: MusicJourneyStep = "dance") => {
     if (!isCoupleView) return;
-    setMusicJourneyStep(initialStep ?? (musicJourneyLooksComplete ? "complete" : "welcome"));
-    setCoupleMusicHubScreen("profile");
-    scrollToMusicHubSection("music-hub-taste-profile");
+    setMusicJourneyStep(initialStep);
   };
 
   const openMusicHubSongList = (listType: SongListType) => {
@@ -13181,15 +13179,19 @@ export default function Home() {
     musicGenreEraSelections.length > 0 ||
     Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim()) ||
     Boolean((musicVibeDetail.crowdNotes ?? "").trim());
-  const musicJourneyLooksComplete =
-    musicJourneyCompleted ||
-    musicJourneyStep === "complete" ||
-    (musicTasteProfile.danceFloorStyles.length > 0 &&
+  const musicJourneyInlineActive = musicJourneyCurrentIndex >= 0;
+  const musicJourneyInferredComplete =
+    musicTasteProfile.danceFloorStyles.length > 0 &&
       musicGenreEraSelections.length > 0 &&
       musicTasteProfile.crowdPreferences.length > 0 &&
       (musicTasteProfile.musicBehavior.length > 0 ||
         (musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0 ||
-        Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim())));
+        Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim()));
+  const musicJourneyLooksComplete =
+    musicJourneyCompleted ||
+    musicJourneyStep === "complete" ||
+    (!musicJourneyInlineActive && musicJourneyInferredComplete);
+  const musicJourneyCardComplete = musicJourneyLooksComplete && !musicJourneyInlineActive;
 
   const setMusicJourneyMultiValue = (
     field: MusicJourneyMultiField,
@@ -13383,33 +13385,42 @@ export default function Home() {
       <div className="relative grid gap-6 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-[#b08a45]/25 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a6933]">
-            {musicJourneyLooksComplete ? "Unlocked" : "Start here"}
+            {musicJourneyCardComplete ? "Unlocked" : musicJourneyInlineActive ? "Finding your sound" : "Start here"}
           </span>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#214637] sm:text-4xl">
-            {musicJourneyLooksComplete ? "Your Music Style" : "Find Your Sound"}
+            {musicJourneyCardComplete ? "Your Music Style" : "Find Your Sound"}
           </h2>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-700">
-            {musicJourneyLooksComplete
+            {musicJourneyCardComplete
               ? "Your style is ready. Use it as the north star while you build the soundtrack to your celebration."
               : "Before we start building your soundtrack, let’s learn a little about your musical style."}
           </p>
-          {!musicJourneyLooksComplete ? (
+          {!musicJourneyCardComplete ? (
             <p className="mt-4 inline-flex rounded-full bg-white/75 px-3 py-1.5 text-sm font-semibold text-[#2f4a3e]">
               ⏱ Most couples finish in about 2 minutes.
             </p>
           ) : null}
           <div className="mt-6">
-            <PrimaryButton
-              type="button"
-              onClick={() => openMusicHubProfile(musicJourneyLooksComplete ? "dance" : "welcome")}
-              className={couplePortalPrimaryButtonClass}
-            >
-              {musicJourneyLooksComplete ? "Edit Music Style" : "Start Music Journey"}
-            </PrimaryButton>
+            {musicJourneyInlineActive ? (
+              <p className="text-sm font-semibold text-[#2f4a3e]">
+                Answer each step on the right. Your choices save as you go.
+              </p>
+            ) : (
+              <PrimaryButton
+                type="button"
+                onClick={() => openMusicJourneyInline("dance")}
+                className={couplePortalPrimaryButtonClass}
+              >
+                {musicJourneyCardComplete ? "Edit Music Style" : "Start Music Journey"}
+              </PrimaryButton>
+            )}
           </div>
         </div>
+        {musicJourneyInlineActive ? (
+          renderMusicJourneyInlinePanel()
+        ) : (
         <div className="rounded-[1.75rem] border border-white/80 bg-white/75 p-4 shadow-sm">
-          {musicJourneyLooksComplete || musicJourneyHasStyle ? (
+          {musicJourneyCardComplete ? (
             renderMusicJourneySummary(true)
           ) : (
             <div className="space-y-3">
@@ -13421,6 +13432,7 @@ export default function Home() {
             </div>
           )}
         </div>
+        )}
       </div>
     </PremiumCard>
   );
@@ -13745,6 +13757,161 @@ export default function Home() {
           ) : (
             <p className="text-sm text-stone-600">A blank canvas. Let’s find your sound.</p>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMusicJourneyInlinePanel = () => {
+    if (!musicJourneyCurrentStep) return null;
+    const artistKind = musicJourneyCurrentStep.id === "avoidArtists" ? "avoid" : "love";
+    const isArtistStep = musicJourneyCurrentStep.kind === "artists";
+    const artists = artistKind === "love" ? musicJourneyLovedArtists : musicJourneyAvoidArtists;
+
+    return (
+      <div className="rounded-[1.75rem] border border-white/80 bg-white/85 p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
+            Step {musicJourneyCurrentIndex + 1} of {MUSIC_JOURNEY_ORDER.length}
+          </span>
+          <span className="text-[11px] font-semibold tabular-nums text-stone-500">{musicJourneyProgress}%</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-200">
+          <div
+            className="h-full rounded-full bg-[#2f4a3e] transition-all"
+            style={{ width: `${musicJourneyProgress}%` }}
+          />
+        </div>
+        <div className="mt-5">
+          <h3 className="text-xl font-semibold tracking-tight text-[#214637]">
+            {musicJourneyCurrentStep.title}
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-stone-600">{musicJourneyCurrentStep.helper}</p>
+        </div>
+        {isArtistStep ? (
+          <div className="mt-4 space-y-3">
+            <TextInput
+              id={`music-journey-inline-${artistKind}-artist`}
+              label={artistKind === "love" ? "Artist name" : "Artist or group to avoid"}
+              value={musicJourneyArtistDraft}
+              onChange={setMusicJourneyArtistDraft}
+              placeholder={artistKind === "love" ? "e.g. Beyonce" : "e.g. Chicken Dance"}
+              disabled={!canManageMusic}
+            />
+            <PrimaryButton
+              type="button"
+              onClick={() => addMusicJourneyArtist(artistKind)}
+              disabled={!canManageMusic || !musicJourneyArtistDraft.trim()}
+              className={`w-full py-2 text-sm sm:w-auto ${couplePortalSecondaryButtonClass}`}
+            >
+              Add {artistKind === "love" ? "Artist" : "Avoid"}
+            </PrimaryButton>
+            {artists.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {artists.map((artist) => (
+                  <span
+                    key={`inline-${artistKind}-${artist}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#2f4a3e]/20 bg-[#2f4a3e]/10 px-3 py-1.5 text-sm font-semibold text-[#2f4a3e]"
+                  >
+                    {artist}
+                    <button
+                      type="button"
+                      onClick={() => removeMusicJourneyArtist(artistKind, artist)}
+                      disabled={!canManageMusic}
+                      className="text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
+                      aria-label={`Remove ${artist}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-stone-500">No names added yet. You can skip this step.</p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 grid max-h-[18rem] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            {(musicJourneyCurrentStep.options ?? []).map((option) => {
+              const value = musicJourneyOptionValue(option);
+              const selected = isMusicJourneyOptionSelected(musicJourneyCurrentStep, option);
+              const multiProfileCount =
+                musicJourneyCurrentStep.field === "danceFloorStyles"
+                  ? musicTasteProfile.danceFloorStyles.length
+                  : musicJourneyCurrentStep.field === "crowdPreferences"
+                    ? musicTasteProfile.crowdPreferences.length
+                    : 0;
+              const disabled =
+                !canManageMusic ||
+                (musicJourneyCurrentStep.kind === "multi" &&
+                  musicJourneyCurrentStep.limit !== undefined &&
+                  !selected &&
+                  (musicJourneyCurrentStep.field === "danceFloorStyles" ||
+                    musicJourneyCurrentStep.field === "crowdPreferences") &&
+                  multiProfileCount >= musicJourneyCurrentStep.limit);
+              return (
+                <button
+                  key={`inline-${musicJourneyCurrentStep.id}-${option.label}`}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (musicJourneyCurrentStep.kind === "multi" && musicJourneyCurrentStep.field) {
+                      setMusicJourneyMultiValue(
+                        musicJourneyCurrentStep.field as MusicJourneyMultiField,
+                        value,
+                        musicJourneyCurrentStep.limit,
+                      );
+                      return;
+                    }
+                    if (musicJourneyCurrentStep.kind === "single" && musicJourneyCurrentStep.field) {
+                      setMusicJourneySingleValue(
+                        musicJourneyCurrentStep.field as MusicJourneySingleField,
+                        value,
+                      );
+                    }
+                  }}
+                  aria-pressed={selected}
+                  className={`rounded-2xl border px-3 py-3 text-left text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    selected
+                      ? "border-[#2f4a3e]/45 bg-[#2f4a3e]/10 text-[#214637] ring-2 ring-[#2f4a3e]/10"
+                      : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/25 hover:bg-[#f7f5f1]"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden>{option.icon ?? "♪"}</span>
+                    <span>{option.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <PrimaryButton
+            type="button"
+            onClick={goBackMusicJourney}
+            className={couplePortalSecondaryButtonClass}
+          >
+            Back
+          </PrimaryButton>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {isArtistStep ? (
+              <PrimaryButton
+                type="button"
+                onClick={advanceMusicJourney}
+                className={couplePortalTertiaryButtonClass}
+              >
+                Skip
+              </PrimaryButton>
+            ) : null}
+            <PrimaryButton
+              type="button"
+              onClick={advanceMusicJourney}
+              className={couplePortalPrimaryButtonClass}
+            >
+              Continue
+            </PrimaryButton>
+          </div>
         </div>
       </div>
     );
@@ -20192,12 +20359,12 @@ export default function Home() {
 
             {isCoupleView ? (
               <>
-                {coupleMusicHubScreen === "landing" ? null : (
+                {coupleMusicHubScreen === "songLists" ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music Hub</p>
                       <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">
-                        {coupleMusicHubScreen === "profile" ? "Find Your Sound" : "Song Lists"}
+                        Song Lists
                       </h2>
                     </div>
                     <PrimaryButton
@@ -20208,7 +20375,7 @@ export default function Home() {
                       Back to Music Hub
                     </PrimaryButton>
                   </div>
-                )}
+                ) : null}
 
                 {coupleMusicHubScreen === "songLists" ? (
                   <>
@@ -20558,29 +20725,6 @@ export default function Home() {
                   </>
                 ) : null}
 
-                {coupleMusicHubScreen === "profile" ? (
-                  <>
-                {renderMusicJourney()}
-                <PremiumCard className="border-[#2f4a3e]/18 bg-[#2f4a3e]/[0.04] shadow-sm">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <SectionTitle className="text-stone-950">Ready for song lists?</SectionTitle>
-                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-                        Next, let’s start adding the songs that will bring your celebration to life.
-                      </p>
-                    </div>
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => setCoupleMusicHubScreen("songLists")}
-                      className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
-                    >
-                      Continue to Song Lists
-                    </PrimaryButton>
-                  </div>
-                </PremiumCard>
-
-                  </>
-                ) : null}
               </>
             ) : (
               <>
