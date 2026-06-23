@@ -3,6 +3,7 @@
  * Tokens are decrypted only inside route handlers/server helpers and never sent to the browser.
  */
 import { prisma } from "@/lib/prisma";
+import type { SpotifyPlaylistPreviewDebugInfo } from "@/lib/spotify/playlistPreviewDebug";
 import { decryptSpotifyToken, encryptSpotifyToken } from "@/lib/spotify/tokenEncryption";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -82,6 +83,7 @@ async function refreshSpotifyAccessToken(refreshToken: string): Promise<
 
 export async function getConnectedSpotifyAccessToken(
   userId: string,
+  debug?: SpotifyPlaylistPreviewDebugInfo,
 ): Promise<SpotifyConnectionAccessTokenResult> {
   const connection = await prisma.spotifyConnection.findUnique({
     where: { userId },
@@ -96,6 +98,10 @@ export async function getConnectedSpotifyAccessToken(
       revokedAt: true,
     },
   });
+  if (debug) {
+    debug.hasSpotifyConnection = Boolean(connection && !connection.revokedAt);
+    debug.spotifyUserId = connection?.spotifyUserId ?? null;
+  }
 
   if (
     !connection ||
@@ -104,6 +110,9 @@ export async function getConnectedSpotifyAccessToken(
     !connection.refreshTokenEnc ||
     !connection.accessTokenExpiresAt
   ) {
+    if (debug) {
+      debug.finalErrorCode = "connect_spotify_required";
+    }
     return {
       ok: false,
       code: "spotify_not_connected",
@@ -111,7 +120,12 @@ export async function getConnectedSpotifyAccessToken(
     };
   }
 
-  if (connection.accessTokenExpiresAt.getTime() > Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS) {
+  const tokenExpired = connection.accessTokenExpiresAt.getTime() <= Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS;
+  if (debug) {
+    debug.tokenExpired = tokenExpired;
+  }
+
+  if (!tokenExpired) {
     return {
       ok: true,
       accessToken: decryptSpotifyToken(connection.accessTokenEnc),
@@ -121,6 +135,9 @@ export async function getConnectedSpotifyAccessToken(
     };
   }
 
+  if (debug) {
+    debug.tokenRefreshAttempted = true;
+  }
   const refreshResult = await refreshSpotifyAccessToken(decryptSpotifyToken(connection.refreshTokenEnc));
   if (!refreshResult.ok) {
     console.error("[spotify-connect] access token refresh failed", {
@@ -128,11 +145,17 @@ export async function getConnectedSpotifyAccessToken(
       spotifyUserId: connection.spotifyUserId,
       status: refreshResult.status ?? null,
     });
+    if (debug) {
+      debug.finalErrorCode = "spotify_reconnect_required";
+    }
     return {
       ok: false,
       code: "refresh_failed",
       message: "Spotify connection expired. Reconnect Spotify and try again.",
     };
+  }
+  if (debug) {
+    debug.tokenRefreshSucceeded = true;
   }
 
   const encryptedRefreshToken = refreshResult.refreshToken

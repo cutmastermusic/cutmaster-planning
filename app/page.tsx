@@ -12560,9 +12560,11 @@ export default function Home() {
             ? "Please paste a valid Spotify playlist link."
             : body.code === "auth_required"
               ? "Sign in to ShowFlow before connecting Spotify."
-              : body.code === "spotify_not_connected"
+              : body.code === "connect_spotify_required" || body.code === "spotify_not_connected"
                 ? "Connect Spotify to analyze and import playlists."
-                : body.code === "refresh_failed" || body.code === "missing_credentials"
+                : body.code === "spotify_reconnect_required" ||
+                    body.code === "refresh_failed" ||
+                    body.code === "missing_credentials"
                   ? "Reconnect Spotify and try again."
                   : body.code === "playlist_unavailable"
                     ? "Playlist may be private or unavailable."

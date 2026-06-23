@@ -3,6 +3,10 @@
  */
 import { spotifyApiGet } from "@/lib/spotify/clientCredentials";
 import { parseSpotifyPlaylistId } from "@/lib/spotify/parsePlaylistUrl";
+import {
+  recordSpotifyPreviewDecision,
+  type SpotifyPlaylistPreviewDebugInfo,
+} from "@/lib/spotify/playlistPreviewDebug";
 import type {
   FetchPublicSpotifyPlaylistResult,
   SpotifyPlaylistPreview,
@@ -80,19 +84,47 @@ function success(data: SpotifyPlaylistPreview): FetchPublicSpotifyPlaylistResult
 function failure(
   code: Exclude<FetchPublicSpotifyPlaylistResult, { ok: true }>["code"],
   message: string,
+  debug?: SpotifyPlaylistPreviewDebugInfo,
 ): FetchPublicSpotifyPlaylistResult {
+  if (debug) {
+    debug.finalErrorCode = code;
+    debug.normalizedTrackCount = null;
+  }
   return { ok: false, code, message };
+}
+
+function failureFromStatus(params: {
+  status: number;
+  unavailableMessage: string;
+  apiMessage: string;
+  debug?: SpotifyPlaylistPreviewDebugInfo;
+}): FetchPublicSpotifyPlaylistResult {
+  if (params.status === 401) {
+    return failure("missing_credentials", "Reconnect Spotify and try again.", params.debug);
+  }
+  if (params.status === 403 || params.status === 404) {
+    return failure("playlist_unavailable", params.unavailableMessage, params.debug);
+  }
+  return failure("api_error", params.apiMessage, params.debug);
 }
 
 export async function fetchUserSpotifyPlaylistPreview(params: {
   inputUrl: string;
   accessToken: string;
+  debug?: SpotifyPlaylistPreviewDebugInfo;
 }): Promise<FetchPublicSpotifyPlaylistResult> {
+  const { debug } = params;
   const trimmed = params.inputUrl.trim();
+  recordSpotifyPreviewDecision(debug, trimmed ? "received_url" : "missing_url");
   const playlistId = parseSpotifyPlaylistId(trimmed);
-  if (!playlistId) {
-    return failure("invalid_url", "Please paste a valid Spotify playlist link.");
+  if (debug) {
+    debug.parsedPlaylistId = playlistId;
   }
+  if (!playlistId) {
+    recordSpotifyPreviewDecision(debug, "invalid_playlist_url");
+    return failure("invalid_url", "Please paste a valid Spotify playlist link.", debug);
+  }
+  recordSpotifyPreviewDecision(debug, "parsed_playlist_id");
 
   const sourceUrl = trimmed.startsWith("spotify:")
     ? canonicalPlaylistUrl(playlistId)
@@ -104,19 +136,26 @@ export async function fetchUserSpotifyPlaylistPreview(params: {
     `/playlists/${playlistId}?fields=id,name,tracks(total)`,
     params.accessToken,
   );
-  if (!metaResult.ok) {
-    if (metaResult.status === 401) {
-      return failure("missing_credentials", "Reconnect Spotify and try again.");
-    }
-    if (metaResult.status === 403 || metaResult.status === 404) {
-      return failure("playlist_unavailable", "Playlist may be private or unavailable to this Spotify account.");
-    }
-    return failure("api_error", "Spotify could not load this playlist. Try again in a moment.");
+  if (debug) {
+    debug.metadataStatus = metaResult.status;
+    debug.metadataBodyPreview = metaResult.bodyPreview ?? null;
   }
+  if (!metaResult.ok) {
+    recordSpotifyPreviewDecision(debug, `metadata_error:${metaResult.status}`);
+    return failureFromStatus({
+      status: metaResult.status,
+      unavailableMessage: "Playlist may be private or unavailable to this Spotify account.",
+      apiMessage: "Spotify could not load this playlist. Try again in a moment.",
+      debug,
+    });
+  }
+  recordSpotifyPreviewDecision(debug, "metadata_ok");
 
   if (!metaResult.data || typeof metaResult.data !== "object") {
-    return failure("parser_error", "Spotify returned an unexpected playlist metadata response.");
+    recordSpotifyPreviewDecision(debug, "metadata_shape:unrecognized");
+    return failure("parser_error", "Spotify returned an unexpected playlist metadata response.", debug);
   }
+  recordSpotifyPreviewDecision(debug, "metadata_shape:object");
 
   const playlistName = metaResult.data.name?.trim() || "Spotify playlist";
   let totalTrackCount = metaResult.data.tracks?.total ?? 0;
@@ -132,19 +171,25 @@ export async function fetchUserSpotifyPlaylistPreview(params: {
   while (nextUrl && inspectedCount < SPOTIFY_PLAYLIST_PREVIEW_LIMIT) {
     const pagePath: string = nextUrl;
     const pageResult = await spotifyApiGet<SpotifyPlaylistTracksPage>(pagePath, params.accessToken);
+    if (debug && debug.tracksStatus === null) {
+      debug.tracksStatus = pageResult.status;
+      debug.tracksBodyPreview = pageResult.bodyPreview ?? null;
+    }
     if (!pageResult.ok) {
-      if (pageResult.status === 401) {
-        return failure("missing_credentials", "Reconnect Spotify and try again.");
-      }
-      if (pageResult.status === 403 || pageResult.status === 404) {
-        return failure("playlist_unavailable", "Playlist may be private or unavailable to this Spotify account.");
-      }
-      return failure("api_error", "Spotify could not load playlist tracks. Try again in a moment.");
+      recordSpotifyPreviewDecision(debug, `tracks_error:${pageResult.status}`);
+      return failureFromStatus({
+        status: pageResult.status,
+        unavailableMessage: "Playlist may be private or unavailable to this Spotify account.",
+        apiMessage: "Spotify could not load playlist tracks. Try again in a moment.",
+        debug,
+      });
     }
 
     if (!pageResult.data || !Array.isArray(pageResult.data.items)) {
-      return failure("parser_error", "Spotify returned an unexpected playlist tracks response.");
+      recordSpotifyPreviewDecision(debug, "tracks_shape:unrecognized");
+      return failure("parser_error", "Spotify returned an unexpected playlist tracks response.", debug);
     }
+    recordSpotifyPreviewDecision(debug, "tracks_shape:top_level_items");
 
     if (totalTrackCount === 0 && typeof pageResult.data.total === "number") {
       totalTrackCount = pageResult.data.total;
@@ -161,6 +206,12 @@ export async function fetchUserSpotifyPlaylistPreview(params: {
   }
 
   const effectiveTotal = totalTrackCount || inspectedCount;
+  recordSpotifyPreviewDecision(debug, `normalized_tracks:${tracks.length}`);
+  recordSpotifyPreviewDecision(debug, "success");
+  if (debug) {
+    debug.finalErrorCode = null;
+    debug.normalizedTrackCount = tracks.length;
+  }
   return success({
     playlistId,
     playlistName,
