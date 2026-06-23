@@ -3729,8 +3729,6 @@ export default function Home() {
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
   const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
   const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
-  const [musicHubHeroImageOrientation, setMusicHubHeroImageOrientation] =
-    useState<"portrait" | "landscape" | "unknown">("unknown");
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
@@ -13073,10 +13071,6 @@ export default function Home() {
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
     musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
-  useEffect(() => {
-    setMusicHubHeroImageOrientation("unknown");
-  }, [musicHubHeroImageSrc]);
-  const musicHubHeroPhotoIsPortrait = musicHubHeroImageOrientation === "portrait";
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
@@ -13387,44 +13381,100 @@ export default function Home() {
             </div>
           ) : null}
         </div>
-        <div className={musicHubHeroPhotoIsPortrait ? "justify-self-center lg:justify-self-center" : "lg:justify-self-end"}>
-          <div className="rotate-[-0.45deg] rounded-[1.85rem] border border-white bg-white p-3 shadow-[0_18px_42px_-32px_rgba(47,74,62,0.62)]">
-            <div
-              className={`relative overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] ${
-                musicHubHeroPhotoIsPortrait
-                  ? "aspect-[3/4] max-h-[25rem] w-[18rem] sm:w-[20rem] lg:w-[21rem]"
-                  : "aspect-[4/3] max-h-[23rem] sm:aspect-[5/4] lg:w-[28rem]"
-              }`}
-            >
-              {musicHubHeroImageSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={musicHubHeroImageSrc}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-contain object-center"
-                  onLoad={(event) => {
-                    const img = event.currentTarget;
-                    setMusicHubHeroImageOrientation(
-                      img.naturalHeight > img.naturalWidth ? "portrait" : "landscape",
-                    );
-                  }}
-                  style={{
-                    filter: "sepia(0.04) saturate(1.03) contrast(0.96)",
-                  }}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center px-8 text-center">
-                  <div>
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#2f4a3e]/10 text-xl text-[#2f4a3e]">
-                      ♪
-                    </div>
-                    <p className="mt-3 text-sm font-semibold text-[#214637]">
-                      Your soundtrack starts here.
-                    </p>
-                  </div>
-                </div>
-              )}
+        <div className="lg:justify-self-end">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/72 p-5 shadow-[0_22px_60px_-45px_rgba(47,74,62,0.72)] ring-1 ring-[#2f4a3e]/10 backdrop-blur-sm">
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#b08a45]/15 blur-2xl" />
+            <div className="absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
+            <div className="absolute right-5 top-5 grid h-20 w-20 place-items-center rounded-full border border-[#2f4a3e]/10 bg-[#f7f5f1]/70">
+              <div className="grid h-10 w-10 place-items-center rounded-full border border-[#2f4a3e]/15 bg-white/70">
+                <span className="h-2 w-2 rounded-full bg-[#2f4a3e]/45" aria-hidden />
+              </div>
             </div>
+            <div className="relative">
+              <div className="flex items-center gap-3">
+                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
+                  {musicHubHeroImageSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={musicHubHeroImageSrc}
+                      alt=""
+                      className="h-full w-full object-cover object-center"
+                      style={{ filter: "sepia(0.03) saturate(1.04) contrast(0.97)" }}
+                    />
+                  ) : (
+                    <span className="text-xl text-[#2f4a3e]" aria-hidden>
+                      ♪
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#b08a45]">
+                    Soundtrack
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#214637]">
+                    {coupleDisplayName.trim() || "Your"} Soundtrack
+                  </h2>
+                </div>
+              </div>
+              <div className="mt-5 h-8 overflow-hidden rounded-full bg-[#f7f5f1]/85 px-3">
+                <div className="flex h-full items-center gap-1.5" aria-hidden>
+                  {[28, 44, 22, 52, 34, 18, 46, 30, 58, 24, 40, 20].map((height, index) => (
+                    <span
+                      key={`music-hub-wave-${index}`}
+                      className="w-1 rounded-full bg-[#2f4a3e]/35"
+                      style={{ height: `${height}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="mt-5 space-y-2.5">
+                {[
+                  {
+                    label: "Find Your Sound",
+                    detail: musicJourneyLooksComplete ? "Style ready" : "Start here",
+                    done: musicJourneyLooksComplete,
+                  },
+                  {
+                    label: "Must Play Songs",
+                    detail: `${mustPlaySongs.length} song${mustPlaySongs.length === 1 ? "" : "s"}`,
+                    done: mustPlaySongs.length > 0,
+                  },
+                  {
+                    label: "Dance Floor Favorites",
+                    detail: `${playIfPossibleSongs.length} song${playIfPossibleSongs.length === 1 ? "" : "s"}`,
+                    done: playIfPossibleSongs.length > 0,
+                  },
+                  {
+                    label: "Spotify Playlists",
+                    detail: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"}`,
+                    done: musicPlaylistLinks.length > 0,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f4a3e]/10 bg-white/72 px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
+                          item.done
+                            ? "bg-[#2f4a3e] text-white"
+                            : "bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                        }`}
+                        aria-hidden
+                      >
+                        {item.done ? "✓" : "♪"}
+                      </span>
+                      <span className="text-sm font-semibold text-stone-800">{item.label}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-stone-500">{item.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <span className="pointer-events-none absolute bottom-5 right-6 text-2xl text-[#b08a45]/35" aria-hidden>
+              ♫
+            </span>
           </div>
         </div>
       </div>
