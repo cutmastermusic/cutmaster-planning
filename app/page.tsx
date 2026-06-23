@@ -209,7 +209,11 @@ import type {
   PlaylistBucketId,
 } from "@/types/planning";
 import { PLAYLIST_BUCKET_IDS, PLAYLIST_BUCKET_LABELS } from "@/types/planning";
-import type { SpotifyPlaylistPreview, SpotifyPlaylistTrackPreview } from "@/lib/spotify/types";
+import type {
+  SpotifyPlaylistPreview,
+  SpotifyPlaylistTrackPreview,
+  SpotifyTrackSearchResult,
+} from "@/lib/spotify/types";
 import {
   DEFAULT_EVENT_TEAM_VENDOR_ROLE,
   VENDOR_TYPES_ORDERED,
@@ -701,12 +705,18 @@ type PastedSongPreviewRow = {
   artist: string;
   originalLine: string;
   ambiguous: boolean;
+  source: "text-import" | "spotify-search";
+  spotifyId?: string;
+  album?: string;
+  albumArt?: string | null;
+  albumArtSmall?: string | null;
 };
 
 type PasteSongListPreviewState =
   | { status: "idle" }
+  | { status: "loading" }
   | { status: "invalid"; message: string }
-  | { status: "success"; rows: PastedSongPreviewRow[] };
+  | { status: "success"; rows: PastedSongPreviewRow[]; unresolvedCount: number };
 
 type PasteSongListImportResult = {
   addedCount: number;
@@ -733,6 +743,13 @@ function wordCount(value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
+function isSpotifyTrackLinkLine(line: string): boolean {
+  const cleaned = stripSongListPrefix(line);
+  return /^spotify:track:/i.test(cleaned) ||
+    /^https?:\/\/open\.spotify\.com\/track\//i.test(cleaned) ||
+    /^open\.spotify\.com\/track\//i.test(cleaned);
+}
+
 function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow | null {
   const cleaned = stripSongListPrefix(line);
   if (!cleaned) return null;
@@ -745,6 +762,7 @@ function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow 
       artist: byMatch[2].trim(),
       originalLine: line,
       ambiguous: false,
+      source: "text-import",
     };
   }
 
@@ -756,6 +774,7 @@ function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow 
       artist: commaMatch[1].trim(),
       originalLine: line,
       ambiguous: false,
+      source: "text-import",
     };
   }
 
@@ -770,6 +789,7 @@ function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow 
       artist: leftLooksLikeArtist ? left : right,
       originalLine: line,
       ambiguous: true,
+      source: "text-import",
     };
   }
 
@@ -779,6 +799,7 @@ function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow 
     artist: "",
     originalLine: line,
     ambiguous: true,
+    source: "text-import",
   };
 }
 
@@ -787,6 +808,47 @@ function parsePastedSongList(value: string): PastedSongPreviewRow[] {
     .split(/\r?\n/)
     .map(parsePastedSongLine)
     .filter((row): row is PastedSongPreviewRow => Boolean(row && row.title.trim()));
+}
+
+type ResolveSpotifyTrackUrlResponse =
+  | {
+      ok: true;
+      tracks: Array<SpotifyTrackSearchResult & { source: "spotify-search" }>;
+      unresolvedUrls: string[];
+    }
+  | {
+      ok: false;
+      code: string;
+      message: string;
+    };
+
+function isResolvedSpotifyTrack(value: unknown): value is SpotifyTrackSearchResult & { source: "spotify-search" } {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SpotifyTrackSearchResult & { source: string }>;
+  return (
+    typeof candidate.spotifyId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.artist === "string" &&
+    typeof candidate.album === "string" &&
+    (typeof candidate.albumArt === "string" || candidate.albumArt === null) &&
+    (typeof candidate.albumArtSmall === "string" || candidate.albumArtSmall === null) &&
+    candidate.source === "spotify-search"
+  );
+}
+
+function isResolveSpotifyTrackUrlResponse(value: unknown): value is ResolveSpotifyTrackUrlResponse {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ResolveSpotifyTrackUrlResponse>;
+  if (candidate.ok === false) {
+    return typeof candidate.message === "string";
+  }
+  return (
+    candidate.ok === true &&
+    Array.isArray(candidate.tracks) &&
+    candidate.tracks.every(isResolvedSpotifyTrack) &&
+    Array.isArray(candidate.unresolvedUrls) &&
+    candidate.unresolvedUrls.every((url) => typeof url === "string")
+  );
 }
 
 function calculateSpotifyPlaylistImportStats(
@@ -12753,16 +12815,23 @@ export default function Home() {
     rows: PastedSongPreviewRow[],
     existingSongs: SongEntry[],
   ): { duplicateCount: number; importableCount: number } => {
+    const seenSpotifyIds = new Set(
+      existingSongs
+        .map((song) => song.spotifyId?.trim())
+        .filter((spotifyId): spotifyId is string => Boolean(spotifyId)),
+    );
     const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
     let duplicateCount = 0;
     let importableCount = 0;
 
     rows.forEach((row) => {
       const fingerprint = songDuplicateFingerprint(row);
-      if (seenFingerprints.has(fingerprint)) {
+      const spotifyId = row.spotifyId?.trim();
+      if ((spotifyId && seenSpotifyIds.has(spotifyId)) || seenFingerprints.has(fingerprint)) {
         duplicateCount += 1;
         return;
       }
+      if (spotifyId) seenSpotifyIds.add(spotifyId);
       seenFingerprints.add(fingerprint);
       importableCount += 1;
     });
@@ -12770,11 +12839,17 @@ export default function Home() {
     return { duplicateCount, importableCount };
   };
 
-  const previewPasteSongList = () => {
-    const rows = parsePastedSongList(pasteSongListText);
+  const previewPasteSongList = async () => {
+    const rawLines = pasteSongListText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const spotifyTrackUrlLines = rawLines.filter(isSpotifyTrackLinkLine);
+    const plainTextLines = rawLines.filter((line) => !isSpotifyTrackLinkLine(line));
+    const plainTextRows = parsePastedSongList(plainTextLines.join("\n"));
     setPasteSongListImportResult(null);
 
-    if (rows.length === 0) {
+    if (rawLines.length === 0) {
       setPasteSongListPreviewState({
         status: "invalid",
         message: "Paste at least one song line to preview.",
@@ -12782,7 +12857,68 @@ export default function Home() {
       return;
     }
 
-    setPasteSongListPreviewState({ status: "success", rows });
+    if (spotifyTrackUrlLines.length === 0) {
+      setPasteSongListPreviewState({
+        status: "success",
+        rows: plainTextRows,
+        unresolvedCount: 0,
+      });
+      return;
+    }
+
+    setPasteSongListPreviewState({ status: "loading" });
+    try {
+      const response = await fetch("/api/music/tracks/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: spotifyTrackUrlLines.map(stripSongListPrefix) }),
+      });
+      const body: unknown = await response.json();
+      if (!isResolveSpotifyTrackUrlResponse(body)) {
+        throw new Error("Unexpected Spotify track resolve response.");
+      }
+
+      if (!body.ok) {
+        setPasteSongListPreviewState({
+          status: "invalid",
+          message: body.message || "ShowFlow could not resolve these Spotify track links.",
+        });
+        return;
+      }
+
+      const resolvedRows: PastedSongPreviewRow[] = body.tracks.map((track, index) => ({
+        id: `spotify-track-url-${track.spotifyId}-${index}`,
+        title: track.title,
+        artist: track.artist,
+        originalLine: `spotify:track:${track.spotifyId}`,
+        ambiguous: false,
+        source: "spotify-search",
+        spotifyId: track.spotifyId,
+        album: track.album,
+        albumArt: track.albumArt,
+        albumArtSmall: track.albumArtSmall,
+      }));
+      const rows = [...resolvedRows, ...plainTextRows];
+      if (rows.length === 0) {
+        setPasteSongListPreviewState({
+          status: "invalid",
+          message: "ShowFlow could not resolve any Spotify track links.",
+        });
+        return;
+      }
+
+      setPasteSongListPreviewState({
+        status: "success",
+        rows,
+        unresolvedCount: body.unresolvedUrls.length,
+      });
+    } catch (error) {
+      console.error("[paste-song-list] Spotify track resolve failed", error);
+      setPasteSongListPreviewState({
+        status: "invalid",
+        message: "ShowFlow could not resolve these Spotify track links. Try again in a moment.",
+      });
+    }
   };
 
   const importPasteSongList = () => {
@@ -12793,23 +12929,34 @@ export default function Home() {
       ...playIfPossibleSongs,
       ...doNotPlaySongs,
     ];
+    const seenSpotifyIds = new Set(
+      existingSongs
+        .map((song) => song.spotifyId?.trim())
+        .filter((spotifyId): spotifyId is string => Boolean(spotifyId)),
+    );
     const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
     const importedSongs: SongEntry[] = [];
     let duplicateCount = 0;
 
     pasteSongListPreviewState.rows.forEach((row, index) => {
       const fingerprint = songDuplicateFingerprint(row);
-      if (seenFingerprints.has(fingerprint)) {
+      const spotifyId = row.spotifyId?.trim();
+      if ((spotifyId && seenSpotifyIds.has(spotifyId)) || seenFingerprints.has(fingerprint)) {
         duplicateCount += 1;
         return;
       }
 
+      if (spotifyId) seenSpotifyIds.add(spotifyId);
       seenFingerprints.add(fingerprint);
       importedSongs.push({
-        id: `text-import-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        id: `${row.source}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
         title: row.title,
         artist: row.artist || undefined,
-        source: "text-import",
+        spotifyId,
+        album: row.album || undefined,
+        albumArt: row.albumArt ?? undefined,
+        albumArtSmall: row.albumArtSmall ?? undefined,
+        source: row.source,
         highPriority: false,
       });
     });
@@ -13093,10 +13240,10 @@ export default function Home() {
             <PrimaryButton
               type="button"
               onClick={previewPasteSongList}
-              disabled={!canManageMusic}
+              disabled={!canManageMusic || pasteSongListPreviewState.status === "loading"}
               className="border border-[#1E1E1E] bg-[#1E1E1E] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Preview Songs
+              {pasteSongListPreviewState.status === "loading" ? "Resolving..." : "Preview Songs"}
             </PrimaryButton>
           </div>
         </div>
@@ -13125,6 +13272,15 @@ export default function Home() {
           </div>
         ) : null}
 
+        {pasteSongListPreviewState.status === "loading" ? (
+          <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-stone-700" role="status">
+            <p className="text-sm font-semibold">Resolving Spotify tracks...</p>
+            <p className="mt-1 text-sm leading-relaxed text-stone-600">
+              ShowFlow is matching pasted Spotify track links to song metadata.
+            </p>
+          </div>
+        ) : null}
+
         {pasteSongListPreviewState.status === "success" ? (
           <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -13138,6 +13294,11 @@ export default function Home() {
                 {previewStats && previewStats.duplicateCount > 0 ? (
                   <p className="mt-1 text-xs text-stone-600">
                     {previewStats.duplicateCount} duplicate{previewStats.duplicateCount === 1 ? "" : "s"} will be skipped.
+                  </p>
+                ) : null}
+                {pasteSongListPreviewState.unresolvedCount > 0 ? (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {pasteSongListPreviewState.unresolvedCount} Spotify link{pasteSongListPreviewState.unresolvedCount === 1 ? "" : "s"} could not be resolved.
                   </p>
                 ) : null}
               </div>
@@ -13155,17 +13316,31 @@ export default function Home() {
               {pasteSongListPreviewState.rows.slice(0, 30).map((row) => (
                 <div
                   key={row.id}
-                  className="grid gap-1 border-b border-stone-100 px-3 py-2.5 text-sm last:border-b-0 sm:grid-cols-[1.1fr_1fr]"
+                  className="flex min-w-0 items-center gap-3 border-b border-stone-100 px-3 py-2.5 text-sm last:border-b-0"
                 >
-                  <div className="min-w-0">
+                  {row.albumArtSmall ?? row.albumArt ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={row.albumArtSmall ?? row.albumArt ?? ""}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-100" aria-hidden />
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-stone-950">{row.title}</p>
                     {row.ambiguous ? (
                       <p className="mt-0.5 truncate text-[11px] text-stone-500">
                         Original: {row.originalLine.trim()}
                       </p>
                     ) : null}
+                    {row.album ? (
+                      <p className="mt-0.5 truncate text-[11px] text-stone-500">{row.album}</p>
+                    ) : null}
                   </div>
-                  <p className="min-w-0 truncate text-stone-600">
+                  <p className="min-w-0 max-w-[45%] truncate text-stone-600">
                     {row.artist || <span className="text-stone-400">Artist not found</span>}
                   </p>
                 </div>
