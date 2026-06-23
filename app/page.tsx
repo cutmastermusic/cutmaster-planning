@@ -353,7 +353,10 @@ import { CoupleScrollSafeTapSurface } from "@/components/couple-mobile-action-bu
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
-import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
+import {
+  coverPhotoTransformToImageStyle,
+  normalizeCoverPhotoTransform,
+} from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
 import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
 import {
@@ -13071,6 +13074,11 @@ export default function Home() {
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
     musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
+  const musicHubHeroPhotoTransform = normalizeCoverPhotoTransform(eventSettings.coverPhotoTransform);
+  const musicHubHeroImageStyle = musicHubHeroPhotoTransform
+    ? coverPhotoTransformToImageStyle(musicHubHeroPhotoTransform)
+    : undefined;
+  const musicHubHeroCaptionName = coupleDisplayName.trim();
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
@@ -13350,35 +13358,75 @@ export default function Home() {
   };
 
   const renderMusicHubHero = () => (
-    <section className="relative min-h-[25rem] overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
-      {musicHubHeroImageSrc ? (
-        <>
-          <WelcomePhotoHeroImage
-            src={musicHubHeroImageSrc}
-            transform={eventSettings.coverPhotoTransform}
-            stageClassName="absolute inset-0 overflow-hidden"
-            imageClassName="object-center"
-            visible
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#f7f5f1] via-[#f7f5f1]/90 to-[#f7f5f1]/12" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#f7f5f1]/42 via-transparent to-white/10" />
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.30),transparent_36%),linear-gradient(135deg,#f7f5f1,#ece6dc_48%,#dfe7dc)]" />
-      )}
-      <div className="relative flex min-h-[25rem] max-w-3xl flex-col justify-center px-5 py-10 text-[#1f2724] sm:px-8 lg:px-10">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2f4a3e]/75">
-          Music Hub
-        </p>
-        <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-[#214637] sm:text-5xl">
-          Your music. Your moment.
-        </h1>
-        <p className="mt-3 max-w-xl text-xl font-medium italic text-[#b08a45]">
-          Let’s build the soundtrack to your best day ever.
-        </p>
-        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-stone-700 sm:text-base">
-          Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.
-        </p>
+    <section className="relative overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.26),transparent_34%),linear-gradient(135deg,#f7f5f1,#efe8dc_50%,#dfe7dc)]" />
+      <div className="relative grid min-h-[25rem] gap-7 px-5 py-8 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-10 lg:py-10">
+        <div className="flex flex-col justify-center text-[#1f2724]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2f4a3e]/75">
+            Music Hub
+          </p>
+          <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-[#214637] sm:text-5xl">
+            Your music. Your moment.
+          </h1>
+          <p className="mt-3 max-w-xl text-xl font-medium italic text-[#b08a45]">
+            Let’s build the soundtrack to your best day ever.
+          </p>
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-stone-700 sm:text-base">
+            Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.
+          </p>
+          {isCoupleView ? (
+            <div className="mt-7">
+              <PrimaryButton
+                type="button"
+                onClick={() => openMusicJourneyInline("dance")}
+                className={couplePortalPrimaryButtonClass}
+              >
+                Start Music Journey
+              </PrimaryButton>
+              <p className="mt-3 text-sm font-semibold text-[#2f4a3e]">
+                ⏱ Most couples finish in about 2 minutes.
+              </p>
+            </div>
+          ) : null}
+        </div>
+        <div className="lg:justify-self-end">
+          <div className="rounded-[1.75rem] border border-white/80 bg-[#f7f5f1]/82 p-2 shadow-[0_22px_50px_-35px_rgba(47,74,62,0.75)]">
+            <div className="relative aspect-[4/3] max-h-[22rem] overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] sm:aspect-[5/4] lg:w-[27rem]">
+              {musicHubHeroImageSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={musicHubHeroImageSrc}
+                  alt=""
+                  className={`absolute inset-0 h-full w-full ${
+                    musicHubHeroImageStyle ? "" : "object-contain object-center"
+                  }`}
+                  style={{
+                    ...musicHubHeroImageStyle,
+                    filter: "sepia(0.04) saturate(1.03) contrast(0.96)",
+                  }}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center px-8 text-center">
+                  <div>
+                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#2f4a3e]/10 text-xl text-[#2f4a3e]">
+                      ♪
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-[#214637]">
+                      Your soundtrack starts here.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {musicHubHeroCaptionName ? (
+            <p className="mt-3 text-center text-xs font-medium leading-relaxed text-stone-500">
+              {musicHubHeroCaptionName}
+              <br />
+              The soundtrack to your best day.
+            </p>
+          ) : null}
+        </div>
       </div>
     </section>
   );
