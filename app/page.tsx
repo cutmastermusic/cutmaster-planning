@@ -3727,6 +3727,7 @@ export default function Home() {
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
+  const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
   const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
@@ -13083,7 +13084,7 @@ export default function Home() {
 
   const openMusicHubProfile = (initialStep?: MusicJourneyStep) => {
     if (!isCoupleView) return;
-    setMusicJourneyStep(initialStep ?? (musicJourneyHasStyle ? "complete" : "welcome"));
+    setMusicJourneyStep(initialStep ?? (musicJourneyLooksComplete ? "complete" : "welcome"));
     setCoupleMusicHubScreen("profile");
     scrollToMusicHubSection("music-hub-taste-profile");
   };
@@ -13180,6 +13181,15 @@ export default function Home() {
     musicGenreEraSelections.length > 0 ||
     Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim()) ||
     Boolean((musicVibeDetail.crowdNotes ?? "").trim());
+  const musicJourneyLooksComplete =
+    musicJourneyCompleted ||
+    musicJourneyStep === "complete" ||
+    (musicTasteProfile.danceFloorStyles.length > 0 &&
+      musicGenreEraSelections.length > 0 &&
+      musicTasteProfile.crowdPreferences.length > 0 &&
+      (musicTasteProfile.musicBehavior.length > 0 ||
+        (musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0 ||
+        Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim())));
 
   const setMusicJourneyMultiValue = (
     field: MusicJourneyMultiField,
@@ -13313,6 +13323,7 @@ export default function Home() {
       return;
     }
     if (currentIndex < 0 || currentIndex >= MUSIC_JOURNEY_ORDER.length - 1) {
+      setMusicJourneyCompleted(true);
       setMusicJourneyStep("complete");
       return;
     }
@@ -13366,42 +13377,52 @@ export default function Home() {
     </section>
   );
 
-  const renderMusicHubSectionIntro = () => (
-    <div className="pt-1">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
-        Build Your Soundtrack
-      </p>
-      <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#214637]">
-        Start wherever you’d like.
-      </h2>
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">
-        Add songs you love, share playlists, or simply give your DJ inspiration. We’ll take care of the rest.
-      </p>
-      {isCoupleView ? (
-        <div className="mt-5 max-w-2xl">
-          {musicJourneyHasStyle ? (
-            <div className="space-y-3">
-              {renderMusicJourneySummary(true)}
-              <button
-                type="button"
-                onClick={() => openMusicHubProfile("dance")}
-                className="inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
-              >
-                Edit Music Style
-              </button>
-            </div>
-          ) : (
-            <button
+  const renderMusicHubFindYourSoundCard = () => (
+    <PremiumCard className="relative overflow-hidden border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-[0_24px_70px_-46px_rgba(47,74,62,0.65)] ring-1 ring-[#2f4a3e]/10">
+      <div className="absolute right-6 top-6 hidden h-28 w-28 rounded-full bg-[#b08a45]/10 blur-2xl sm:block" />
+      <div className="relative grid gap-6 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+        <div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#b08a45]/25 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a6933]">
+            {musicJourneyLooksComplete ? "Unlocked" : "Start here"}
+          </span>
+          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#214637] sm:text-4xl">
+            {musicJourneyLooksComplete ? "Your Music Style" : "Find Your Sound"}
+          </h2>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-700">
+            {musicJourneyLooksComplete
+              ? "Your style is ready. Use it as the north star while you build the soundtrack to your celebration."
+              : "Before we start building your soundtrack, let’s learn a little about your musical style."}
+          </p>
+          {!musicJourneyLooksComplete ? (
+            <p className="mt-4 inline-flex rounded-full bg-white/75 px-3 py-1.5 text-sm font-semibold text-[#2f4a3e]">
+              ⏱ Most couples finish in about 2 minutes.
+            </p>
+          ) : null}
+          <div className="mt-6">
+            <PrimaryButton
               type="button"
-              onClick={() => openMusicHubProfile("welcome")}
-              className="inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
+              onClick={() => openMusicHubProfile(musicJourneyLooksComplete ? "dance" : "welcome")}
+              className={couplePortalPrimaryButtonClass}
             >
-              Find Your Sound
-            </button>
+              {musicJourneyLooksComplete ? "Edit Music Style" : "Start Music Journey"}
+            </PrimaryButton>
+          </div>
+        </div>
+        <div className="rounded-[1.75rem] border border-white/80 bg-white/75 p-4 shadow-sm">
+          {musicJourneyLooksComplete || musicJourneyHasStyle ? (
+            renderMusicJourneySummary(true)
+          ) : (
+            <div className="space-y-3">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-[#2f4a3e]/10 text-xl">♪</div>
+              <p className="text-lg font-semibold text-[#214637]">A quick style journey for your DJ.</p>
+              <p className="text-sm leading-relaxed text-stone-600">
+                We’ll ask about the dance floor, decades, genres, guests, and a few guardrails so the music feels like you.
+              </p>
+            </div>
           )}
         </div>
-      ) : null}
-    </div>
+      </div>
+    </PremiumCard>
   );
 
   const renderMusicHubActionCard = ({
@@ -13462,8 +13483,8 @@ export default function Home() {
     </button>
   );
 
-  const renderMusicHubActionCards = () => (
-    <div className="space-y-4">
+  const renderMusicHubActionCards = (muted = false) => (
+    <div className={`space-y-4 transition ${muted ? "opacity-75" : "opacity-100"}`}>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {renderMusicHubActionCard({
           eyebrow: "Music list",
@@ -13535,6 +13556,43 @@ export default function Home() {
       </div>
     </div>
   );
+
+  const renderMusicHubNextUpSection = () => {
+    const muted = isCoupleView && !musicJourneyLooksComplete;
+    return (
+      <section
+        className={`space-y-4 rounded-[1.75rem] border p-4 transition sm:p-5 ${
+          muted
+            ? "border-stone-200 bg-white/55"
+            : "border-[#2f4a3e]/15 bg-white shadow-[0_18px_55px_-45px_rgba(47,74,62,0.7)]"
+        }`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+              Next Up
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#214637]">
+              Build the perfect soundtrack.
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">
+              Once we understand your style, these tools will help you build the perfect soundtrack.
+            </p>
+          </div>
+          {muted ? (
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-stone-600">
+              🔒 Complete Find Your Sound first (recommended)
+            </span>
+          ) : (
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#2f4a3e]/20 bg-[#2f4a3e]/10 px-3 py-1.5 text-xs font-semibold text-[#2f4a3e]">
+              ✨ Ready for the next step
+            </span>
+          )}
+        </div>
+        {renderMusicHubActionCards(muted)}
+      </section>
+    );
+  };
 
   const isMusicJourneyOptionSelected = (step: MusicJourneyStepConfig, option: MusicJourneyOption) => {
     const value = musicJourneyOptionValue(option);
@@ -20129,8 +20187,8 @@ export default function Home() {
             />
 
             {renderMusicHubHero()}
-            {renderMusicHubSectionIntro()}
-            {renderMusicHubActionCards()}
+            {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
+            {renderMusicHubNextUpSection()}
 
             {isCoupleView ? (
               <>
