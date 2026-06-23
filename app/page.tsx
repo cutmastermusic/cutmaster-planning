@@ -12963,36 +12963,59 @@ export default function Home() {
   };
 
   const renderMusicHubHero = () => (
-    <section className="relative overflow-hidden rounded-[2rem] border border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-sm">
+    <section className="relative min-h-[25rem] overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
       {musicHubHeroImageSrc ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={musicHubHeroImageSrc}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1f2724]/82 via-[#1f2724]/58 to-[#7F8F7A]/42" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(247,245,241,0.22),transparent_34%)]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#f7f5f1] via-[#f7f5f1]/90 to-[#f7f5f1]/12" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#f7f5f1]/42 via-transparent to-white/10" />
         </>
       ) : (
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.30),transparent_36%),linear-gradient(135deg,#f7f5f1,#ece6dc_48%,#dfe7dc)]" />
       )}
-      <div className={`relative px-5 py-8 sm:px-8 sm:py-10 lg:px-10 ${musicHubHeroImageSrc ? "text-white" : "text-[#1f2724]"}`}>
-        <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${musicHubHeroImageSrc ? "text-white/75" : "text-[#2f4a3e]/75"}`}>
+      <div className="relative flex min-h-[25rem] max-w-3xl flex-col justify-center px-5 py-10 text-[#1f2724] sm:px-8 lg:px-10">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2f4a3e]/75">
           Music Hub
         </p>
-        <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-[#214637] sm:text-5xl">
           Your music. Your moment.
         </h1>
-        <p className={`mt-2 max-w-xl text-lg font-medium ${musicHubHeroImageSrc ? "text-white/92" : "text-[#2f4a3e]"}`}>
+        <p className="mt-3 max-w-xl text-xl font-medium italic text-[#b08a45]">
           Let’s build the soundtrack to your best day ever.
         </p>
-        <p className={`mt-4 max-w-2xl text-sm leading-relaxed sm:text-base ${musicHubHeroImageSrc ? "text-white/82" : "text-stone-700"}`}>
+        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-stone-700 sm:text-base">
           Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.
         </p>
       </div>
     </section>
+  );
+
+  const renderMusicHubSectionIntro = () => (
+    <div className="pt-1">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+        Build Your Soundtrack
+      </p>
+      <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#214637]">
+        Start wherever you’d like.
+      </h2>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-600">
+        Add songs you love, share playlists, or simply give your DJ inspiration. We’ll take care of the rest.
+      </p>
+      {isCoupleView ? (
+        <button
+          type="button"
+          onClick={() => setCoupleMusicHubScreen("profile")}
+          className="mt-4 inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
+        >
+          Not sure where to start? Try the Music Profile
+        </button>
+      ) : null}
+    </div>
   );
 
   const renderMusicHubActionCard = ({
@@ -13027,11 +13050,11 @@ export default function Home() {
           <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
             {eyebrow}
           </span>
-          <span className="grid h-9 w-9 place-items-center rounded-full border border-white/70 bg-white/75 text-sm font-semibold text-[#2f4a3e] shadow-sm">
+          <span className="grid h-10 w-10 place-items-center rounded-full border border-white/80 bg-white/80 text-base font-semibold text-[#2f4a3e] shadow-sm">
             {icon}
           </span>
         </span>
-        <span className="mt-4 block text-lg font-semibold tracking-tight text-stone-950">
+        <span className="mt-5 block text-lg font-semibold tracking-tight text-stone-950">
           {title}
         </span>
         <span className="mt-2 block text-sm leading-relaxed text-stone-600">
@@ -13046,7 +13069,7 @@ export default function Home() {
         ) : (
           <span aria-hidden />
         )}
-        <span className="rounded-full bg-[#2f4a3e] px-3 py-1.5 text-[12px] font-semibold text-white transition group-hover:bg-[#263d33]">
+        <span className="rounded-full bg-white/75 px-3 py-1.5 text-[12px] font-semibold text-[#2f4a3e] ring-1 ring-inset ring-[#2f4a3e]/10 transition group-hover:bg-[#2f4a3e] group-hover:text-white">
           {ctaLabel}
         </span>
       </span>
@@ -13061,9 +13084,9 @@ export default function Home() {
           title: "Must Play Songs",
           description: "The songs you absolutely want to hear.",
           countLabel: musicHubSongCountLabel(mustPlaySongs.length),
-          ctaLabel: mustPlaySongs.length === 0 ? "Add Songs" : "Edit List",
-          icon: "01",
-          accentClass: "border-rose-100 bg-rose-50/80 hover:border-rose-200",
+          ctaLabel: mustPlaySongs.length === 0 ? "Add Favorites" : "Edit List",
+          icon: "♪",
+          accentClass: "border-rose-100 bg-gradient-to-br from-rose-50 via-white to-rose-50/70 hover:border-rose-200",
           onClick: () => openMusicHubSongList("mustPlay"),
           disabled: !canManageMusic && mustPlaySongs.length === 0,
         })}
@@ -13072,9 +13095,9 @@ export default function Home() {
           title: "Dance Floor Favorites",
           description: "Songs that keep everyone moving all night long.",
           countLabel: musicHubSongCountLabel(playIfPossibleSongs.length),
-          ctaLabel: playIfPossibleSongs.length === 0 ? "Add Songs" : "Edit List",
-          icon: "02",
-          accentClass: "border-emerald-100 bg-emerald-50/80 hover:border-emerald-200",
+          ctaLabel: playIfPossibleSongs.length === 0 ? "Add Dance Songs" : "Edit List",
+          icon: "♬",
+          accentClass: "border-violet-100 bg-gradient-to-br from-violet-50 via-white to-emerald-50/80 hover:border-violet-200",
           onClick: () => openMusicHubSongList("playIfPossible"),
           disabled: !canManageMusic && playIfPossibleSongs.length === 0,
         })}
@@ -13083,9 +13106,9 @@ export default function Home() {
           title: "Songs to Avoid",
           description: "Songs or artists you don’t want to hear.",
           countLabel: musicHubSongCountLabel(doNotPlaySongs.length),
-          ctaLabel: doNotPlaySongs.length === 0 ? "Add Songs" : "Edit List",
-          icon: "03",
-          accentClass: "border-stone-200 bg-stone-50/90 hover:border-stone-300",
+          ctaLabel: doNotPlaySongs.length === 0 ? "Add Avoids" : "Edit List",
+          icon: "⊘",
+          accentClass: "border-orange-100 bg-gradient-to-br from-orange-50 via-white to-stone-50 hover:border-orange-200",
           onClick: () => openMusicHubSongList("doNotPlay"),
           disabled: !canManageMusic && doNotPlaySongs.length === 0,
         })}
@@ -13094,9 +13117,9 @@ export default function Home() {
           title: "Your Spotify Playlists",
           description: "Share playlists that capture your style and vibe.",
           countLabel: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"} added`,
-          ctaLabel: "Add Playlist",
-          icon: "04",
-          accentClass: "border-[#2f4a3e]/15 bg-[#2f4a3e]/[0.06] hover:border-[#2f4a3e]/30",
+          ctaLabel: musicPlaylistLinks.length === 0 ? "Add Playlist" : "Manage Playlists",
+          icon: "♩",
+          accentClass: "border-[#2f4a3e]/15 bg-gradient-to-br from-[#2f4a3e]/[0.08] via-white to-[#7F8F7A]/[0.12] hover:border-[#2f4a3e]/30",
           onClick: openMusicHubSpotifyPlaylists,
           disabled: !canManageMusic && musicPlaylistLinks.length === 0,
         })}
@@ -13107,8 +13130,8 @@ export default function Home() {
           title: "Import Songs",
           description: "Paste songs from Spotify, Apple Music, Notes, or Excel and we’ll organize them for you.",
           ctaLabel: "Import Songs",
-          icon: "IN",
-          accentClass: "min-h-[10rem] border-amber-100 bg-amber-50/80 hover:border-amber-200",
+          icon: "↧",
+          accentClass: "min-h-[10rem] border-amber-100 bg-gradient-to-br from-amber-50 via-white to-violet-50/50 hover:border-amber-200",
           onClick: openMusicHubImportSongs,
           disabled: !canManageMusic,
         })}
@@ -13118,8 +13141,8 @@ export default function Home() {
           description: "See and manage song requests from your guests.",
           ctaLabel: "View Requests",
           countLabel: `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
-          icon: "GR",
-          accentClass: "min-h-[10rem] border-violet-100 bg-violet-50/80 hover:border-violet-200",
+          icon: "★",
+          accentClass: "min-h-[10rem] border-violet-100 bg-gradient-to-br from-violet-50 via-white to-amber-50/60 hover:border-violet-200",
           onClick: openMusicHubGuestRequests,
           disabled: !sectionGuestRequestsEnabled,
         })}
@@ -19441,71 +19464,12 @@ export default function Home() {
             />
 
             {renderMusicHubHero()}
+            {renderMusicHubSectionIntro()}
             {renderMusicHubActionCards()}
 
             {isCoupleView ? (
               <>
-                {coupleMusicHubScreen === "landing" ? (
-                  <>
-                    <PremiumCard variant="accent">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music</p>
-                          <SectionTitle className="mt-1">The Soundtrack to Your Wedding</SectionTitle>
-                        </div>
-                        <PersistEcho persistFeedback={persistFeedback} className="pt-1" />
-                      </div>
-                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-                        Music is one of the things your guests will remember most.
-                      </p>
-                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
-                        Let’s build a soundtrack that feels like you.
-                      </p>
-                    </PremiumCard>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => setCoupleMusicHubScreen("profile")}
-                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-[#2f4a3e]/30 bg-[#2f4a3e]/[0.06] p-5 text-left shadow-sm ring-1 ring-[#2f4a3e]/10 transition hover:border-[#2f4a3e]/45 hover:bg-[#2f4a3e]/[0.09]"
-                      >
-                        <span>
-                          <span className="mb-3 inline-flex rounded-full border border-[#2f4a3e]/25 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]">
-                            Recommended first
-                          </span>
-                          <span className="block text-lg font-semibold text-stone-950">Music Profile</span>
-                          <span className="mt-3 block text-sm leading-relaxed text-stone-600">
-                            Help us understand your guests, your style, and the kind of dance floor you’re imagining.
-                          </span>
-                          <span className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                            Estimated time
-                          </span>
-                          <span className="mt-1 block text-sm font-semibold text-[#2f4a3e]">2–3 minutes</span>
-                        </span>
-                        <span className="mt-5 text-sm font-semibold text-[#2f4a3e]">Continue →</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCoupleMusicHubScreen("songLists")}
-                        className="flex min-h-[14rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-white p-5 text-left shadow-sm transition hover:border-[#2f4a3e]/30 hover:bg-stone-50/80"
-                      >
-                        <span>
-                          <span className="block text-lg font-semibold text-stone-950">Song Lists</span>
-                          <span className="mt-3 block text-sm leading-relaxed text-stone-600">
-                            Already know some songs?
-                          </span>
-                          <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                            Build your Must Play Songs, Dance Floor Favorites, and Songs to Avoid.
-                          </span>
-                          <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                            Go at your own pace.
-                          </span>
-                        </span>
-                        <span className="mt-5 text-sm font-semibold text-[#2f4a3e]">Continue →</span>
-                      </button>
-                    </div>
-                  </>
-                ) : (
+                {coupleMusicHubScreen === "landing" ? null : (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music Hub</p>
