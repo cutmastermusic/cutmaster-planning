@@ -353,10 +353,7 @@ import { CoupleScrollSafeTapSurface } from "@/components/couple-mobile-action-bu
 import { WelcomePhotoEditor } from "@/components/welcome-photo-editor";
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { prepareWelcomePhotoUploadFile } from "@/lib/welcomePhotoUpload";
-import {
-  coverPhotoTransformToImageStyle,
-  normalizeCoverPhotoTransform,
-} from "@/lib/coverPhotoTransform";
+import { normalizeCoverPhotoTransform } from "@/lib/coverPhotoTransform";
 import { coverPhotoFieldsFromDbRow, preloadCoverPhotoImage, withCoverPhotoCacheBust } from "@/lib/eventCoverPhoto";
 import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
 import {
@@ -13074,11 +13071,6 @@ export default function Home() {
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
     musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
-  const musicHubHeroPhotoTransform = normalizeCoverPhotoTransform(eventSettings.coverPhotoTransform);
-  const musicHubHeroImageStyle = musicHubHeroPhotoTransform
-    ? coverPhotoTransformToImageStyle(musicHubHeroPhotoTransform)
-    : undefined;
-  const musicHubHeroCaptionName = coupleDisplayName.trim();
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
@@ -13390,18 +13382,15 @@ export default function Home() {
           ) : null}
         </div>
         <div className="lg:justify-self-end">
-          <div className="rounded-[1.75rem] border border-white/80 bg-[#f7f5f1]/82 p-2 shadow-[0_22px_50px_-35px_rgba(47,74,62,0.75)]">
-            <div className="relative aspect-[4/3] max-h-[22rem] overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] sm:aspect-[5/4] lg:w-[27rem]">
+          <div className="rotate-[-0.45deg] rounded-[1.85rem] border border-white bg-white p-3 shadow-[0_18px_42px_-32px_rgba(47,74,62,0.62)]">
+            <div className="relative aspect-[4/3] max-h-[23rem] overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] sm:aspect-[5/4] lg:w-[28rem]">
               {musicHubHeroImageSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={musicHubHeroImageSrc}
                   alt=""
-                  className={`absolute inset-0 h-full w-full ${
-                    musicHubHeroImageStyle ? "" : "object-contain object-center"
-                  }`}
+                  className="absolute inset-0 h-full w-full object-contain object-center"
                   style={{
-                    ...musicHubHeroImageStyle,
                     filter: "sepia(0.04) saturate(1.03) contrast(0.96)",
                   }}
                 />
@@ -13419,13 +13408,6 @@ export default function Home() {
               )}
             </div>
           </div>
-          {musicHubHeroCaptionName ? (
-            <p className="mt-3 text-center text-xs font-medium leading-relaxed text-stone-500">
-              {musicHubHeroCaptionName}
-              <br />
-              The soundtrack to your best day.
-            </p>
-          ) : null}
         </div>
       </div>
     </section>
