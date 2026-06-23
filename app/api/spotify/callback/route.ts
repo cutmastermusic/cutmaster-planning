@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveRequestSiteOrigin } from "@/lib/auth/authConfig";
 import { requireShowFlowUser, ShowFlowAuthRequiredError } from "@/lib/auth/requireShowFlowUser";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   exchangeSpotifyAuthorizationCode,
@@ -26,9 +27,22 @@ type SpotifyCallbackFailureReason =
   | "profile_fetch_failed"
   | "showflow_user_missing"
   | "refresh_token_missing"
+  | "token_encryption_failed"
+  | "missing_encryption_key"
   | "prisma_upsert_failed"
+  | "spotify_token_exchange_failed"
+  | "spotify_profile_failed"
   | "unexpected_error"
   | "spotify_denied";
+
+type SpotifyCallbackReasonDetail = `prisma_${Lowercase<string>}` | "missing_env" | "invalid_env";
+
+type SafeErrorDetails = {
+  errorName: string;
+  errorMessage: string;
+  errorCode: string | null;
+  prismaErrorCode: string | null;
+};
 
 function sanitizeNextPath(next: string | undefined): string {
   if (!next) return "/";
@@ -48,11 +62,68 @@ function failureRedirect(
   nextPath: string,
   status: string,
   reason: SpotifyCallbackFailureReason,
+  reasonDetail?: SpotifyCallbackReasonDetail,
 ): NextResponse {
   const redirectUrl = new URL(sanitizeNextPath(nextPath), origin);
   redirectUrl.searchParams.set("spotify", status);
   redirectUrl.searchParams.set("reason", reason);
+  if (reasonDetail) {
+    redirectUrl.searchParams.set("reason_detail", reasonDetail);
+  }
   return NextResponse.redirect(redirectUrl);
+}
+
+function safeErrorDetails(error: unknown): SafeErrorDetails {
+  const record = error && typeof error === "object" ? (error as { code?: unknown }) : null;
+  return {
+    errorName: error instanceof Error ? error.name : typeof error,
+    errorMessage: error instanceof Error ? error.message : String(error),
+    errorCode: typeof record?.code === "string" ? record.code : null,
+    prismaErrorCode: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : null,
+  };
+}
+
+function mapUnexpectedCallbackError(error: unknown): {
+  reason: SpotifyCallbackFailureReason;
+  reasonDetail?: SpotifyCallbackReasonDetail;
+} {
+  const details = safeErrorDetails(error);
+
+  if (error instanceof ShowFlowAuthRequiredError) {
+    return { reason: "showflow_user_missing" };
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return {
+      reason: "prisma_upsert_failed",
+      reasonDetail: `prisma_${error.code.toLowerCase()}` as SpotifyCallbackReasonDetail,
+    };
+  }
+
+  if (details.errorMessage.includes("SPOTIFY_TOKEN_ENCRYPTION_KEY is required")) {
+    return { reason: "missing_encryption_key", reasonDetail: "missing_env" };
+  }
+
+  if (details.errorMessage.includes("SPOTIFY_TOKEN_ENCRYPTION_KEY must decode")) {
+    return { reason: "token_encryption_failed", reasonDetail: "invalid_env" };
+  }
+
+  if (
+    details.errorMessage.includes("Unsupported Spotify token encryption payload") ||
+    details.errorName === "OperationError"
+  ) {
+    return { reason: "token_encryption_failed" };
+  }
+
+  if (details.errorMessage.toLowerCase().includes("token exchange")) {
+    return { reason: "spotify_token_exchange_failed" };
+  }
+
+  if (details.errorMessage.toLowerCase().includes("profile")) {
+    return { reason: "spotify_profile_failed" };
+  }
+
+  return { reason: "unexpected_error" };
 }
 
 function clearSpotifyOAuthCookies(response: NextResponse): void {
@@ -82,8 +153,9 @@ function failAndClear(
   nextPath: string,
   status: string,
   reason: SpotifyCallbackFailureReason,
+  reasonDetail?: SpotifyCallbackReasonDetail,
 ): NextResponse {
-  const response = failureRedirect(origin, nextPath, status, reason);
+  const response = failureRedirect(origin, nextPath, status, reason, reasonDetail);
   clearSpotifyOAuthCookies(response);
   return response;
 }
@@ -145,7 +217,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         status: tokenResult.status ?? null,
         message: tokenResult.message,
       });
-      return failAndClear(origin, fallbackNext, "connect_failed", "token_exchange_failed");
+      return failAndClear(origin, fallbackNext, "connect_failed", "spotify_token_exchange_failed");
     }
 
     const profileResult = await fetchSpotifyProfile(tokenResult.accessToken);
@@ -154,7 +226,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         status: profileResult.status ?? null,
         message: profileResult.message,
       });
-      return failAndClear(origin, fallbackNext, "connect_failed", "profile_fetch_failed");
+      return failAndClear(origin, fallbackNext, "connect_failed", "spotify_profile_failed");
     }
 
     const existingConnection = await prisma.spotifyConnection.findUnique({
@@ -198,24 +270,38 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
       });
     } catch (error) {
+      const details = safeErrorDetails(error);
+      const mapped = mapUnexpectedCallbackError(error);
       console.error("[spotify-callback] Prisma upsert failed", {
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: details.errorName,
+        errorMessage: details.errorMessage,
+        errorCode: details.errorCode,
+        prismaErrorCode: details.prismaErrorCode,
       });
-      return failAndClear(origin, fallbackNext, "connect_failed", "prisma_upsert_failed");
+      return failAndClear(
+        origin,
+        fallbackNext,
+        "connect_failed",
+        mapped.reason === "token_encryption_failed" || mapped.reason === "missing_encryption_key"
+          ? mapped.reason
+          : "prisma_upsert_failed",
+        mapped.reasonDetail,
+      );
     }
 
     return redirectAndClear(origin, fallbackNext, "connected");
   } catch (error) {
-    if (error instanceof ShowFlowAuthRequiredError) {
-      console.error("[spotify-callback] ShowFlow user missing during callback");
-      return failAndClear(origin, fallbackNext, "connect_failed", "showflow_user_missing");
-    }
+    const details = safeErrorDetails(error);
+    const mapped = mapUnexpectedCallbackError(error);
 
     console.error("[spotify-callback] failed to complete Spotify connection", {
-      errorName: error instanceof Error ? error.name : typeof error,
-      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: details.errorName,
+      errorMessage: details.errorMessage,
+      errorCode: details.errorCode,
+      prismaErrorCode: details.prismaErrorCode,
+      mappedReason: mapped.reason,
+      reasonDetail: mapped.reasonDetail ?? null,
     });
-    return failAndClear(origin, fallbackNext, "connect_failed", "unexpected_error");
+    return failAndClear(origin, fallbackNext, "connect_failed", mapped.reason, mapped.reasonDetail);
   }
 }
