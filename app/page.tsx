@@ -13195,6 +13195,20 @@ export default function Home() {
     musicJourneyStep === "complete" ||
     (!musicJourneyInlineActive && musicJourneyInferredComplete);
   const musicJourneyCardComplete = musicJourneyLooksComplete && !musicJourneyInlineActive;
+  const musicHubHeroStyleComplete = musicJourneyHasStyle;
+  const musicHubHeroHasSoundtrackProgress =
+    musicHubHeroStyleComplete &&
+    (mustPlaySongs.length > 0 ||
+      playIfPossibleSongs.length > 0 ||
+      musicPlaylistLinks.length > 0);
+  const musicHubHeroHeadline = musicHubHeroStyleComplete
+    ? "Your soundtrack is taking shape."
+    : "Your music. Your moment.";
+  const musicHubHeroSupportingCopy = musicHubHeroHasSoundtrackProgress
+    ? "You’ve started building a soundtrack your DJ can use to understand your style."
+    : musicHubHeroStyleComplete
+      ? "Your music style is ready. Now add the songs and playlists that make the celebration feel like you."
+      : "Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.";
 
   const setMusicJourneyMultiValue = (
     field: MusicJourneyMultiField,
@@ -13358,13 +13372,13 @@ export default function Home() {
             Music Hub
           </p>
           <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-[#214637] sm:text-5xl">
-            Your music. Your moment.
+            {musicHubHeroHeadline}
           </h1>
           <p className="mt-3 max-w-xl text-xl font-medium italic text-[#b08a45]">
             Let’s build the soundtrack to your best day ever.
           </p>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-stone-700 sm:text-base">
-            Add songs you love, share playlists that inspire you, and help your DJ create an unforgettable celebration.
+            {musicHubHeroSupportingCopy}
           </p>
           {isCoupleView ? (
             <div className="mt-7">
@@ -13373,7 +13387,7 @@ export default function Home() {
                 onClick={() => openMusicJourneyInline("dance")}
                 className={couplePortalPrimaryButtonClass}
               >
-                Start Music Journey
+                {musicHubHeroStyleComplete ? "Edit Music Style" : "Start Music Journey"}
               </PrimaryButton>
               <p className="mt-3 text-sm font-semibold text-[#2f4a3e]">
                 ⏱ Most couples finish in about 2 minutes.
@@ -13385,11 +13399,6 @@ export default function Home() {
           <div className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/72 p-5 shadow-[0_22px_60px_-45px_rgba(47,74,62,0.72)] ring-1 ring-[#2f4a3e]/10 backdrop-blur-sm">
             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#b08a45]/15 blur-2xl" />
             <div className="absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
-            <div className="absolute right-5 top-5 grid h-20 w-20 place-items-center rounded-full border border-[#2f4a3e]/10 bg-[#f7f5f1]/70">
-              <div className="grid h-10 w-10 place-items-center rounded-full border border-[#2f4a3e]/15 bg-white/70">
-                <span className="h-2 w-2 rounded-full bg-[#2f4a3e]/45" aria-hidden />
-              </div>
-            </div>
             <div className="relative">
               <div className="flex items-center gap-3">
                 <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
@@ -13412,7 +13421,10 @@ export default function Home() {
                     Soundtrack
                   </p>
                   <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#214637]">
-                    {coupleDisplayName.trim() || "Your"} Soundtrack
+                    {coupleDisplayName.trim() || "Your Wedding"}
+                    <span className="block text-base font-medium text-[#2f4a3e]/80">
+                      Your Wedding Soundtrack
+                    </span>
                   </h2>
                 </div>
               </div>
@@ -13431,8 +13443,8 @@ export default function Home() {
                 {[
                   {
                     label: "Find Your Sound",
-                    detail: musicJourneyLooksComplete ? "Style ready" : "Start here",
-                    done: musicJourneyLooksComplete,
+                    detail: musicHubHeroStyleComplete ? "Style ready" : "Start here",
+                    done: musicHubHeroStyleComplete,
                   },
                   {
                     label: "Must Play Songs",
@@ -13459,11 +13471,11 @@ export default function Home() {
                         className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
                           item.done
                             ? "bg-[#2f4a3e] text-white"
-                            : "bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                            : "border border-[#2f4a3e]/20 bg-white/70 text-[#2f4a3e]/40"
                         }`}
                         aria-hidden
                       >
-                        {item.done ? "✓" : "♪"}
+                        {item.done ? "✓" : ""}
                       </span>
                       <span className="text-sm font-semibold text-stone-800">{item.label}</span>
                     </div>
