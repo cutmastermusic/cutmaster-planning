@@ -1018,7 +1018,7 @@ function MusicHubPrepSnapshot({
   }> = [
     {
       id: "music-hub-playlist-links",
-      label: "Reference links",
+      label: "Spotify playlists",
       count: playlistCount,
       shell:
         buttonVariant === "couple"
@@ -3538,6 +3538,7 @@ export default function Home() {
   const [selectedSpotifySong, setSelectedSpotifySong] = useState<SongSearchSelection | null>(null);
   const [newSongNotes, setNewSongNotes] = useState("");
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
+  const [musicAddSongOpen, setMusicAddSongOpen] = useState(false);
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
   const [coupleMusicHubScreen, setCoupleMusicHubScreen] = useState<CoupleMusicHubScreen>("landing");
@@ -3559,6 +3560,7 @@ export default function Home() {
     useState<PasteSongListPreviewState>({ status: "idle" });
   const [pasteSongListImportResult, setPasteSongListImportResult] =
     useState<PasteSongListImportResult | null>(null);
+  const [pasteSongListOpen, setPasteSongListOpen] = useState(false);
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -12804,7 +12806,7 @@ export default function Home() {
       setPasteSongListPreviewState({
         status: "invalid",
         message:
-          "Spotify pasted track links instead of song names. For now, paste a text list with song titles and artists, or use Reference Playlist Links to share the playlist with your DJ.",
+          "Spotify pasted track links instead of song names. For now, paste a text list with song titles and artists, or use Your Spotify Playlists to share the playlist with your DJ.",
       });
       return;
     }
@@ -12871,198 +12873,7 @@ export default function Home() {
     });
     setPasteSongListPreviewState({ status: "idle" });
     setPasteSongListText("");
-  };
-
-  const renderSpotifyPlaylistImportCard = ({
-    className = "",
-    style,
-  }: {
-    className?: string;
-    style?: CSSProperties;
-  }) => {
-    const existingSongs = [...mustPlaySongs, ...playIfPossibleSongs, ...doNotPlaySongs];
-    const previewStats =
-      spotifyPlaylistPreviewState.status === "success"
-        ? calculateSpotifyPlaylistImportStats(spotifyPlaylistPreviewState.data.tracks, existingSongs)
-        : null;
-
-    return (
-      <PremiumCard
-        id="music-hub-spotify-import"
-        className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
-        style={style}
-      >
-        <SectionTitle className="text-stone-950">Bring Your Music With You</SectionTitle>
-        <p className="mt-1 text-sm leading-relaxed text-stone-600">
-          Already have a Spotify playlist? Paste the link below and ShowFlow will import your songs automatically.
-        </p>
-        <div className="mt-4 space-y-3">
-          <TextInput
-            id="spotify-import-url"
-            label="Spotify Playlist URL"
-            value={spotifyImportUrl}
-            onChange={(value) => {
-              setSpotifyImportUrl(value);
-              setSpotifyPlaylistPreviewState({ status: "idle" });
-              setSpotifyPlaylistImportResult(null);
-            }}
-            placeholder="https://open.spotify.com/playlist/... or spotify:playlist:..."
-            disabled={spotifyPlaylistPreviewState.status === "loading"}
-          />
-          <PrimaryButton
-            type="button"
-            onClick={previewSpotifyPlaylist}
-            disabled={spotifyPlaylistPreviewState.status === "loading"}
-            className="w-full border border-[#1E1E1E] bg-[#1E1E1E] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-wait disabled:opacity-65"
-          >
-            {spotifyPlaylistPreviewState.status === "loading" ? "Analyzing..." : "Analyze Playlist"}
-          </PrimaryButton>
-        </div>
-
-        {spotifyPlaylistImportResult ? (
-          <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
-            <p className="text-sm font-semibold">
-              {spotifyPlaylistImportResult.addedCount} song{spotifyPlaylistImportResult.addedCount === 1 ? "" : "s"} added to{" "}
-              {SPOTIFY_IMPORT_DESTINATION_LABELS[spotifyPlaylistImportResult.target]}
-            </p>
-            {spotifyPlaylistImportResult.duplicateCount > 0 ? (
-              <p className="mt-1 text-sm leading-relaxed">
-                {spotifyPlaylistImportResult.duplicateCount} duplicate{" "}
-                {spotifyPlaylistImportResult.duplicateCount === 1 ? "song was" : "songs were"} skipped.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {spotifyPlaylistPreviewState.status === "invalid" ||
-        spotifyPlaylistPreviewState.status === "error" ? (
-          <div
-            className={`mt-4 rounded-xl border px-4 py-3 ${
-              spotifyPlaylistPreviewState.status === "invalid"
-                ? "border-amber-200 bg-amber-50/90 text-amber-950"
-                : "border-rose-200 bg-rose-50/90 text-rose-950"
-            }`}
-            role="status"
-          >
-            <p className="text-sm font-semibold">
-              {spotifyPlaylistPreviewState.status === "invalid" ? "Check the playlist link" : "Preview unavailable"}
-            </p>
-            <p className="mt-1 text-sm leading-relaxed opacity-90">
-              {spotifyPlaylistPreviewState.message}
-            </p>
-          </div>
-        ) : null}
-
-        {spotifyPlaylistPreviewState.status === "success" ? (
-          <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Playlist analysis
-                </p>
-                <h3 className="mt-1 truncate text-base font-semibold text-stone-950">
-                  {spotifyPlaylistPreviewState.data.playlistName}
-                </h3>
-              </div>
-              <div className="grid gap-2 sm:min-w-[16rem] sm:grid-cols-[1fr_auto]">
-                <label className="block min-w-0">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                    Import to
-                  </span>
-                  <select
-                    value={spotifyImportTarget}
-                    disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
-                    onChange={(event) => {
-                      setSpotifyImportTarget(event.target.value as SongListType);
-                      setSpotifyPlaylistImportResult(null);
-                    }}
-                    className={`${lightUiSelectClass} mt-1 min-h-9 py-1.5 text-xs`}
-                  >
-                    {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
-                      <option key={key} value={key}>
-                        {SPOTIFY_IMPORT_DESTINATION_LABELS[key]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <PrimaryButton
-                  type="button"
-                  onClick={importSpotifyPlaylistTracks}
-                  disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
-                  className="self-end rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Import Songs
-                </PrimaryButton>
-              </div>
-            </div>
-
-            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Songs found
-                </dt>
-                <dd className="mt-0.5 font-semibold text-stone-950">
-                  {spotifyPlaylistPreviewState.data.tracks.length}
-                </dd>
-              </div>
-              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Duplicates
-                </dt>
-                <dd className="mt-0.5 font-semibold text-stone-950">
-                  {previewStats?.duplicateCount ?? 0}
-                </dd>
-              </div>
-              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                  Songs to import
-                </dt>
-                <dd className="mt-0.5 font-semibold text-stone-950">
-                  {previewStats?.importableCount ?? 0}
-                </dd>
-              </div>
-            </dl>
-
-            {spotifyPlaylistPreviewState.data.tracks.length === 0 ? (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950">
-                <p className="text-sm font-semibold">No importable songs found</p>
-                <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
-                  ShowFlow found the playlist, but Spotify did not return importable track rows in the preview.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white">
-                {spotifyPlaylistPreviewState.data.tracks.slice(0, 20).map((track) => (
-                  <div
-                    key={track.spotifyId}
-                    className="flex min-w-0 items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-b-0"
-                  >
-                    {track.albumArtSmall ?? track.albumArt ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={track.albumArtSmall ?? track.albumArt ?? ""}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-100" aria-hidden />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-stone-950">{track.title}</p>
-                      <p className="truncate text-xs text-stone-600">
-                        {track.artist}
-                        {track.album ? ` · ${track.album}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
-      </PremiumCard>
-    );
+    setPasteSongListOpen(false);
   };
 
   const renderPasteSongListImportCard = ({
@@ -13084,7 +12895,10 @@ export default function Home() {
         className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
         style={style}
       >
-        <SectionTitle className="text-stone-950">Paste a Song List</SectionTitle>
+        <SectionTitle className="text-stone-950">Quick Import</SectionTitle>
+
+        {pasteSongListOpen ? (
+          <>
         <p className="mt-1 text-sm leading-relaxed text-stone-600">
           Copy songs from Spotify, Apple Music, Notes, or a spreadsheet and paste them here.
         </p>
@@ -13136,6 +12950,27 @@ export default function Home() {
             </PrimaryButton>
           </div>
         </div>
+          </>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-stone-700">Need to import a list of songs?</p>
+            <PrimaryButton
+              type="button"
+              onClick={() => {
+                setPasteSongListOpen(true);
+                window.setTimeout(() => document.getElementById("paste-song-list-text")?.focus(), 50);
+              }}
+              disabled={!canManageMusic}
+              className={
+                isCoupleView
+                  ? `w-full sm:w-auto ${couplePortalPrimaryButtonClass}`
+                  : "w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+              }
+            >
+              Import Songs
+            </PrimaryButton>
+          </div>
+        )}
 
         {pasteSongListImportResult ? (
           <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
@@ -13228,9 +13063,9 @@ export default function Home() {
       className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
       style={style}
     >
-      <SectionTitle className="text-stone-950">Reference Playlist Links</SectionTitle>
+      <SectionTitle className="text-stone-950">Your Spotify Playlists</SectionTitle>
       <p className="mt-1 text-sm leading-relaxed text-stone-600">
-        Paste playlists you want your DJ to reference without importing songs into ShowFlow.
+        Share playlists with your DJ. Your DJ can open these directly in Spotify while planning your event.
       </p>
       {!isCoupleView ? (
         <p className="mt-2 text-xs text-stone-500">
@@ -13240,10 +13075,10 @@ export default function Home() {
       <div className="mt-4 space-y-3">
         <TextInput
           id="music-new-playlist-url"
-          label="Playlist URL"
+          label="Spotify URL"
           value={musicNewPlaylistUrl}
           onChange={setMusicNewPlaylistUrl}
-          placeholder="Spotify, Apple Music, YouTube, or another playlist link"
+          placeholder="https://open.spotify.com/playlist/..."
           disabled={!canManageMusic}
         />
         <TextInput
@@ -13273,7 +13108,7 @@ export default function Home() {
               : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
           }
         >
-          Save reference link
+          Save playlist
         </PrimaryButton>
       </div>
       {musicPlaylistLinks.length > 0 ? (
@@ -13282,43 +13117,56 @@ export default function Home() {
             const linkLabel = link.label?.trim() || "Playlist";
             const linkHost = musicPlaylistLinkHost(link.url);
             const linkNotesPreview = link.notes?.trim();
+            const openUrl = /^https?:\/\//i.test(link.url.trim()) ? link.url.trim() : undefined;
             return (
-              <li key={link.id}>
-                <details className="group rounded-xl border border-stone-200 bg-stone-50/90 open:bg-white">
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
-                      <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
-                      {linkNotesPreview ? (
-                        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">
-                          {linkNotesPreview}
-                        </p>
-                      ) : null}
-                      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-stone-400 group-open:hidden">
-                        Tap to edit
+              <li
+                key={link.id}
+                className="rounded-2xl border border-stone-200 bg-stone-50/90 p-3 shadow-sm sm:p-4"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-stone-900">{linkLabel}</p>
+                    <p className="mt-0.5 truncate text-xs font-medium text-stone-600">{linkHost}</p>
+                    {linkNotesPreview ? (
+                      <p className="mt-2 line-clamp-2 text-[11px] leading-snug text-stone-500">
+                        {linkNotesPreview}
                       </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className="text-[11px] font-medium text-stone-400 transition-transform group-open:rotate-180">
-                        ▼
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          removeMusicPlaylistLink(link.id);
-                        }}
-                        disabled={!canManageMusic}
-                        className="text-[12px] font-medium text-rose-800 hover:underline disabled:opacity-40"
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {openUrl ? (
+                      <a
+                        href={openUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-[#1f2724] bg-[#1f2724] px-3 py-1.5 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531]"
                       >
-                        Remove
-                      </button>
-                    </div>
+                        Open in Spotify
+                      </a>
+                    ) : (
+                      <span className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-stone-400">
+                        Open in Spotify
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMusicPlaylistLink(link.id)}
+                      disabled={!canManageMusic}
+                      className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-900 hover:bg-rose-50 disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <details className="group mt-3 rounded-xl border border-stone-200 bg-white">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[12px] font-semibold text-stone-800 [&::-webkit-details-marker]:hidden">
+                    <span>Edit</span>
+                    <span className="text-[10px] text-stone-400 transition-transform group-open:rotate-180">▼</span>
                   </summary>
-                  <div className="border-t border-stone-200 px-3 pb-4 pt-3 sm:px-4">
+                  <div className="border-t border-stone-200 px-3 pb-4 pt-3">
                     <TextInput
                       id={`pl-url-${link.id}`}
-                      label="URL"
+                      label="Spotify URL"
                       value={link.url}
                       onChange={(v) => updateMusicPlaylistLink(link.id, { url: v })}
                       disabled={!canManageMusic}
@@ -13356,8 +13204,8 @@ export default function Home() {
         <div className="mt-4">
           <SectionEmptyState
             wrapWithCard={false}
-            title="No reference links yet"
-            description="Paste Spotify, Apple Music, YouTube, or other playlists your DJ should reference without importing."
+            title="No Spotify playlists yet"
+            description="Paste one or more Spotify playlists your DJ can open while planning your event."
             buttonVariant={buttonVariant}
           />
         </div>
@@ -19230,21 +19078,6 @@ export default function Home() {
               trail={["Music Hub"]}
               onBack={() => setActiveScreen("Dashboard")}
               buttonVariant={isCoupleView ? "couple" : "default"}
-              primaryAction={
-                isCoupleView
-                  ? undefined
-                  : {
-                    label: "Analyze playlist",
-                    onClick: () => {
-                      document.getElementById("music-hub-spotify-import")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                      window.setTimeout(() => document.getElementById("spotify-import-url")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  }
-              }
             />
 
             {isCoupleView ? (
@@ -19329,23 +19162,33 @@ export default function Home() {
 
                 {coupleMusicHubScreen === "songLists" ? (
                   <>
-                {renderSpotifyPlaylistImportCard({
-                  className: "border-[#2f4a3e]/20 bg-white shadow-sm ring-1 ring-[#2f4a3e]/10",
-                })}
-
-                {renderPasteSongListImportCard({
-                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
-                })}
-
-                {renderReferencePlaylistLinksCard({
-                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
-                  buttonVariant: "couple",
-                })}
-
                 {sectionMustPlayEnabled ? (
                   <PremiumCard variant="accent" id="music-hub-must-play">
                     <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
-                      <SectionTitle className="text-stone-950">Add a Song</SectionTitle>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <SectionTitle className="text-stone-950">+ Add Song</SectionTitle>
+                          {!musicAddSongOpen ? (
+                            <p className="mt-1 text-sm text-stone-600">
+                              Add one song to Must Play, Open Dancing, or Songs to Avoid.
+                            </p>
+                          ) : null}
+                        </div>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => {
+                            setMusicAddSongOpen((prev) => !prev);
+                            if (!musicAddSongOpen) {
+                              window.setTimeout(() => document.getElementById("song-title")?.focus(), 50);
+                            }
+                          }}
+                          disabled={!canManageMusic}
+                          className={`w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+                        >
+                          {musicAddSongOpen ? "Close" : "Add Song"}
+                        </PrimaryButton>
+                      </div>
+                      {musicAddSongOpen ? (
                       <div className="mt-4 space-y-3">
                         <SongSearchAutocomplete
                           disabled={!canManageMusic}
@@ -19488,6 +19331,7 @@ export default function Home() {
                               : "Add to Songs to Avoid"}
                         </PrimaryButton>
                       </div>
+                      ) : null}
                     </div>
                     <div className="mt-6 border-t border-stone-200/80 pt-5">
                       <SectionTitle className="text-stone-950">Your Music Lists</SectionTitle>
@@ -19565,6 +19409,16 @@ export default function Home() {
                     </div>
                   </PremiumCard>
                 ) : null}
+
+                {renderPasteSongListImportCard({
+                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                })}
+
+                {renderReferencePlaylistLinksCard({
+                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                  buttonVariant: "couple",
+                })}
+
                 {sectionGuestRequestsEnabled ? (
                   <PremiumCard>
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -19934,57 +19788,6 @@ export default function Home() {
               </p>
             </PremiumCard>
 
-            {isCoupleView ? (
-              <PremiumCard className="border-stone-200 bg-white shadow-sm" style={{ order: 2 }}>
-                <SectionTitle className="text-stone-950">Where would you like to start?</SectionTitle>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById("music-hub-spotify-import")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                      window.setTimeout(() => document.getElementById("spotify-import-url")?.focus(), 250);
-                    }}
-                    disabled={!canManageMusic}
-                    className="flex min-h-[11rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
-                  >
-                    <span>
-                      <span className="block text-base font-semibold text-stone-950">I already have a Spotify playlist</span>
-                      <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                        Paste a Spotify playlist and let ShowFlow import songs for you.
-                      </span>
-                    </span>
-                    <span className={`mt-4 inline-flex ${couplePortalPrimaryButtonClass}`}>
-                      Analyze Playlist
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById("music-hub-must-play")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }}
-                    disabled={!canManageMusic}
-                    className="flex min-h-[11rem] flex-col items-start justify-between rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-left shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
-                  >
-                    <span>
-                      <span className="block text-base font-semibold text-stone-950">I want to build it here</span>
-                      <span className="mt-2 block text-sm leading-relaxed text-stone-600">
-                        Add must-play songs, open dancing favorites, and songs to avoid.
-                      </span>
-                    </span>
-                    <span className={`mt-4 inline-flex ${couplePortalSecondaryButtonClass}`}>
-                      Start Adding Songs
-                    </span>
-                  </button>
-                </div>
-              </PremiumCard>
-            ) : null}
-
             {!canManageMusic && (
               <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                 <p className="text-xs font-medium text-amber-950">
@@ -20004,22 +19807,6 @@ export default function Home() {
                 buttonVariant="default"
               />
             ) : null}
-
-            {renderSpotifyPlaylistImportCard({
-              className: isCoupleView ? "order-[10]" : "",
-              style: isCoupleView ? { order: 3 } : undefined,
-            })}
-
-            {renderPasteSongListImportCard({
-              className: isCoupleView ? "order-[12]" : "",
-              style: isCoupleView ? { order: 4 } : undefined,
-            })}
-
-            {renderReferencePlaylistLinksCard({
-              className: isCoupleView ? "order-[18]" : "",
-              style: isCoupleView ? { order: 5 } : undefined,
-              buttonVariant: isCoupleView ? "couple" : "default",
-            })}
 
             <PremiumCard
               id="music-hub-taste-profile"
@@ -20185,14 +19972,38 @@ export default function Home() {
               className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}
               style={isCoupleView ? { order: 6 } : undefined}
             >
-              <SectionTitle className="text-stone-950">
-                {isCoupleView ? "Add Songs to Your Lists" : "Individual songs (optional)"}
-              </SectionTitle>
-              <p className="mt-1 text-sm text-stone-600">
-                {isCoupleView
-                  ? "Use this when a song belongs on your Must Play List, would be fun if it fits, or should be avoided."
-                  : "Add individual songs only if there are specific tracks we should know about. Most couples stop at playlists and genres."}
-              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <SectionTitle className="text-stone-950">
+                    {isCoupleView ? "+ Add Song" : "Individual songs (optional)"}
+                  </SectionTitle>
+                  {!musicAddSongOpen ? (
+                    <p className="mt-1 text-sm text-stone-600">
+                      {isCoupleView
+                        ? "Add one song to Must Play, Open Dancing, or Songs to Avoid."
+                        : "Add individual songs only if there are specific tracks we should know about."}
+                    </p>
+                  ) : null}
+                </div>
+                <PrimaryButton
+                  type="button"
+                  onClick={() => {
+                    setMusicAddSongOpen((prev) => !prev);
+                    if (!musicAddSongOpen) {
+                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 50);
+                    }
+                  }}
+                  disabled={!canManageMusic}
+                  className={
+                    isCoupleView
+                      ? `w-full sm:w-auto ${couplePortalSecondaryButtonClass}`
+                      : "w-full border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto"
+                  }
+                >
+                  {musicAddSongOpen ? "Close" : "Add Song"}
+                </PrimaryButton>
+              </div>
+              {musicAddSongOpen ? (
               <div className="mt-4 space-y-3">
                 <SongSearchAutocomplete
                   disabled={!canManageMusic}
@@ -20293,6 +20104,7 @@ export default function Home() {
                   Add Song
                 </PrimaryButton>
               </div>
+              ) : null}
             </PremiumCard>
 
             {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
@@ -20349,6 +20161,7 @@ export default function Home() {
                           label: "Add must-play song",
                           onClick: () => {
                             setNewSongListType("mustPlay");
+                            setMusicAddSongOpen(true);
                             document.getElementById("music-hub-quick-add")?.scrollIntoView({
                               behavior: "smooth",
                               block: "center",
@@ -20411,6 +20224,7 @@ export default function Home() {
                           label: "Add from box above",
                           onClick: () => {
                             setNewSongListType("playIfPossible");
+                            setMusicAddSongOpen(true);
                             document.getElementById("music-hub-quick-add")?.scrollIntoView({
                               behavior: "smooth",
                               block: "center",
@@ -20467,6 +20281,7 @@ export default function Home() {
                           label: "Add from quick add",
                           onClick: () => {
                             setNewSongListType("doNotPlay");
+                            setMusicAddSongOpen(true);
                             document.getElementById("music-hub-quick-add")?.scrollIntoView({
                               behavior: "smooth",
                               block: "center",
@@ -20491,6 +20306,17 @@ export default function Home() {
                 </PremiumCard>
               )}
             </div>
+
+            {renderPasteSongListImportCard({
+              className: isCoupleView ? "order-[41]" : "",
+              style: isCoupleView ? { order: 13 } : undefined,
+            })}
+
+            {renderReferencePlaylistLinksCard({
+              className: isCoupleView ? "order-[42]" : "",
+              style: isCoupleView ? { order: 14 } : undefined,
+              buttonVariant: isCoupleView ? "couple" : "default",
+            })}
 
             {sectionPlaylistsEnabled && (
               <details
