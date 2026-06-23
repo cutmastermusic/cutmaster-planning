@@ -634,6 +634,182 @@ const MUSIC_GENRE_ERA_ORDER = new Map(
 );
 
 type CoupleMusicHubScreen = "landing" | "profile" | "songLists";
+type MusicJourneyStep =
+  | "welcome"
+  | "dance"
+  | "decades"
+  | "genres"
+  | "guests"
+  | "adventure"
+  | "clean"
+  | "lineDances"
+  | "lovedArtists"
+  | "avoidArtists"
+  | "complete";
+
+type MusicJourneyMultiField = "danceFloorStyles" | "crowdPreferences" | "musicGenreEraSelections";
+type MusicJourneySingleField = "musicBehavior" | "lineDancesAndGroupSongs" | "cleanMusicPrefs";
+
+type MusicJourneyOption = {
+  label: string;
+  value?: string;
+  icon?: string;
+};
+
+type MusicJourneyStepConfig = {
+  id: MusicJourneyStep;
+  title: string;
+  helper: string;
+  kind: "multi" | "single" | "artists";
+  field?: MusicJourneyMultiField | MusicJourneySingleField;
+  limit?: number;
+  options?: MusicJourneyOption[];
+};
+
+const MUSIC_JOURNEY_ORDER: MusicJourneyStep[] = [
+  "dance",
+  "decades",
+  "genres",
+  "guests",
+  "adventure",
+  "clean",
+  "lineDances",
+  "lovedArtists",
+  "avoidArtists",
+];
+
+const MUSIC_JOURNEY_LOVED_ARTISTS_PREFIX = "Artists we love:";
+const MUSIC_JOURNEY_AVOID_ARTISTS_PREFIX = "Artists to avoid:";
+
+const MUSIC_JOURNEY_STEPS: MusicJourneyStepConfig[] = [
+  {
+    id: "dance",
+    title: "What kind of dance floor are you hoping for?",
+    helper: "Choose up to 3.",
+    kind: "multi",
+    field: "danceFloorStyles",
+    limit: 3,
+    options: [
+      { label: "High Energy", icon: "⚡" },
+      { label: "Singalongs", icon: "🎤" },
+      { label: "Club Vibes", icon: "🪩" },
+      { label: "Elegant", icon: "✨" },
+      { label: "Open Format", icon: "🎧" },
+      { label: "Nostalgic", icon: "📻" },
+      { label: "Festival Feel", icon: "🎪" },
+      { label: "Lounge", value: "Loungey", icon: "🍸" },
+      { label: "Classy Dinner Party", icon: "🥂" },
+      { label: "Party Heavy", icon: "🎉" },
+    ],
+  },
+  {
+    id: "decades",
+    title: "Which decades should we play?",
+    helper: "Choose as many as you’d like.",
+    kind: "multi",
+    field: "musicGenreEraSelections",
+    options: [
+      { label: "60s", value: "Oldies" },
+      { label: "70s" },
+      { label: "80s" },
+      { label: "90s" },
+      { label: "2000s" },
+      { label: "2010s" },
+      { label: "Current Hits", value: "Top 40" },
+    ],
+  },
+  {
+    id: "genres",
+    title: "Which genres fit your style?",
+    helper: "Choose as many as you’d like.",
+    kind: "multi",
+    field: "musicGenreEraSelections",
+    options: [
+      { label: "Pop", value: "Top 40" },
+      { label: "Hip-Hop" },
+      { label: "R&B" },
+      { label: "Rock" },
+      { label: "Country" },
+      { label: "Latin" },
+      { label: "EDM" },
+      { label: "Alternative" },
+      { label: "Indie" },
+      { label: "Funk" },
+      { label: "Motown" },
+      { label: "Disco" },
+      { label: "Reggae" },
+      { label: "Jazz" },
+      { label: "Big Band" },
+    ],
+  },
+  {
+    id: "guests",
+    title: "Tell us about your guests.",
+    helper: "Pick anything your DJ should understand about the room.",
+    kind: "multi",
+    field: "crowdPreferences",
+    options: [
+      { label: "Mixed Ages", icon: "👨‍👩‍👧" },
+      { label: "Younger Crowd", icon: "✨" },
+      { label: "Mostly Friends", value: "Younger Crowd", icon: "🤝" },
+      { label: "Mostly Family", value: "Family Friendly", icon: "🏡" },
+      { label: "College Crowd", icon: "🎓" },
+      { label: "Multicultural", icon: "🌎" },
+      { label: "Latin Friendly", icon: "💃" },
+      { label: "Country Friendly", icon: "🤠" },
+      { label: "Family Friendly", icon: "🫶" },
+      { label: "Corporate", value: "Family Friendly", icon: "🏢" },
+    ],
+  },
+  {
+    id: "adventure",
+    title: "How adventurous should your DJ be?",
+    helper: "Choose one.",
+    kind: "single",
+    field: "musicBehavior",
+    options: [
+      { label: "Keep it Mainstream", value: "Keep It Mainstream", icon: "🎯" },
+      { label: "Mix in Some Surprises", value: "Deep Cuts Welcome", icon: "✨" },
+      { label: "Surprise Us", icon: "🚀" },
+    ],
+  },
+  {
+    id: "clean",
+    title: "Explicit music?",
+    helper: "Choose one.",
+    kind: "single",
+    field: "cleanMusicPrefs",
+    options: [
+      { label: "Clean Music Preferred", icon: "🌿" },
+      { label: "Edited Versions Preferred", icon: "✂️" },
+      { label: "Explicit Music OK", icon: "✅" },
+    ],
+  },
+  {
+    id: "lineDances",
+    title: "Line dances?",
+    helper: "Choose one.",
+    kind: "single",
+    field: "lineDancesAndGroupSongs",
+    options: [
+      { label: "Love Them", value: "Yes to all", icon: "💃" },
+      { label: "A Few Are Fine", value: "Only if requested", icon: "👍" },
+      { label: "Skip Them", value: "No", icon: "🚫" },
+    ],
+  },
+  {
+    id: "lovedArtists",
+    title: "Any artists you absolutely love?",
+    helper: "Add a few names, or skip this for now.",
+    kind: "artists",
+  },
+  {
+    id: "avoidArtists",
+    title: "Any artists you’d rather avoid?",
+    helper: "Add a few names, or skip this for now.",
+    kind: "artists",
+  },
+];
 
 function isValidCoupleMusicHubScreen(value: unknown): value is CoupleMusicHubScreen {
   return value === "landing" || value === "profile" || value === "songLists";
@@ -3550,6 +3726,8 @@ export default function Home() {
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
+  const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
+  const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
@@ -12903,8 +13081,9 @@ export default function Home() {
     }, 50);
   };
 
-  const openMusicHubProfile = () => {
+  const openMusicHubProfile = (initialStep?: MusicJourneyStep) => {
     if (!isCoupleView) return;
+    setMusicJourneyStep(initialStep ?? (musicJourneyHasStyle ? "complete" : "welcome"));
     setCoupleMusicHubScreen("profile");
     scrollToMusicHubSection("music-hub-taste-profile");
   };
@@ -12955,6 +13134,205 @@ export default function Home() {
     }, 50);
   };
 
+  const musicJourneyCurrentIndex = MUSIC_JOURNEY_ORDER.indexOf(musicJourneyStep);
+  const musicJourneyCurrentStep = MUSIC_JOURNEY_STEPS.find((step) => step.id === musicJourneyStep) ?? null;
+  const musicJourneyProgress =
+    musicJourneyStep === "complete"
+      ? 100
+      : musicJourneyCurrentIndex >= 0
+        ? Math.round(((musicJourneyCurrentIndex + 1) / MUSIC_JOURNEY_ORDER.length) * 100)
+        : 0;
+
+  const musicJourneyOptionValue = (option: MusicJourneyOption) => option.value ?? option.label;
+
+  const extractMusicJourneyNoteItems = (source: string | undefined, prefix: string) => {
+    const line = (source ?? "")
+      .split("\n")
+      .map((row) => row.trim())
+      .find((row) => row.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!line) return [];
+    return line
+      .slice(prefix.length)
+      .split(",")
+      .map((row) => row.trim())
+      .filter(Boolean);
+  };
+
+  const replaceMusicJourneyNoteItems = (source: string | undefined, prefix: string, items: string[]) => {
+    const rest = (source ?? "")
+      .split("\n")
+      .map((row) => row.trim())
+      .filter((row) => row && !row.toLowerCase().startsWith(prefix.toLowerCase()));
+    return [...rest, ...(items.length > 0 ? [`${prefix} ${items.join(", ")}`] : [])].join("\n");
+  };
+
+  const musicJourneyLovedArtists = extractMusicJourneyNoteItems(
+    musicTasteProfile.danceFloorVibeNotes,
+    MUSIC_JOURNEY_LOVED_ARTISTS_PREFIX,
+  );
+  const musicJourneyAvoidArtists = extractMusicJourneyNoteItems(
+    musicVibeDetail.crowdNotes,
+    MUSIC_JOURNEY_AVOID_ARTISTS_PREFIX,
+  );
+
+  const musicJourneyHasStyle =
+    musicTasteProfileHasSelections(musicTasteProfile) ||
+    musicGenreEraSelections.length > 0 ||
+    Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim()) ||
+    Boolean((musicVibeDetail.crowdNotes ?? "").trim());
+
+  const setMusicJourneyMultiValue = (
+    field: MusicJourneyMultiField,
+    value: string,
+    limit?: number,
+  ) => {
+    if (!canManageMusic) return;
+    if (field === "musicGenreEraSelections") {
+      setMusicGenreEraSelections((prev) => {
+        if (prev.includes(value)) return prev.filter((item) => item !== value);
+        return [...prev, value];
+      });
+    } else {
+      setMusicTasteProfile((prev) => {
+        const normalized = normalizeMusicTasteProfile(prev);
+        const current = normalized[field];
+        const next = current.includes(value)
+          ? current.filter((item) => item !== value)
+          : limit && current.length >= limit
+            ? current
+            : [...current, value];
+        return { ...normalized, [field]: next };
+      });
+    }
+    markMusicHubTasteDirty();
+  };
+
+  const setMusicJourneySingleValue = (field: MusicJourneySingleField, value: string) => {
+    if (!canManageMusic) return;
+    if (field === "cleanMusicPrefs") {
+      setMusicVibeDetail((prev) => ({ ...prev, cleanMusicPrefs: value }));
+      setMusicTasteProfile((prev) => {
+        const normalized = normalizeMusicTasteProfile(prev);
+        const withoutClean = normalized.musicBehavior.filter(
+          (item) => item !== "Clean Music Preferred" && item !== "Explicit Music OK",
+        );
+        const nextBehavior =
+          value === "Clean Music Preferred" || value === "Explicit Music OK"
+            ? [...withoutClean, value]
+            : withoutClean;
+        return { ...normalized, musicBehavior: nextBehavior };
+      });
+    } else if (field === "musicBehavior") {
+      setMusicTasteProfile((prev) => {
+        const normalized = normalizeMusicTasteProfile(prev);
+        const exclusiveValues = ["Keep It Mainstream", "Deep Cuts Welcome", "Surprise Us"];
+        const nextBehavior = [
+          ...normalized.musicBehavior.filter((item) => !exclusiveValues.includes(item)),
+          value,
+        ];
+        return { ...normalized, musicBehavior: nextBehavior };
+      });
+    } else {
+      setMusicTasteProfile((prev) => ({
+        ...normalizeMusicTasteProfile(prev),
+        lineDancesAndGroupSongs: [value],
+      }));
+    }
+    markMusicHubTasteDirty();
+  };
+
+  const addMusicJourneyArtist = (kind: "love" | "avoid") => {
+    const nextArtist = musicJourneyArtistDraft.trim();
+    if (!nextArtist || !canManageMusic) return;
+    if (kind === "love") {
+      const next = [...musicJourneyLovedArtists, nextArtist].filter(
+        (artist, index, arr) =>
+          arr.findIndex((candidate) => candidate.toLowerCase() === artist.toLowerCase()) === index,
+      );
+      setMusicTasteProfile((prev) =>
+        updateMusicTasteProfileNotes(
+          prev,
+          replaceMusicJourneyNoteItems(
+            prev.danceFloorVibeNotes,
+            MUSIC_JOURNEY_LOVED_ARTISTS_PREFIX,
+            next,
+          ),
+        ),
+      );
+    } else {
+      const next = [...musicJourneyAvoidArtists, nextArtist].filter(
+        (artist, index, arr) =>
+          arr.findIndex((candidate) => candidate.toLowerCase() === artist.toLowerCase()) === index,
+      );
+      setMusicVibeDetail((prev) => ({
+        ...prev,
+        crowdNotes: replaceMusicJourneyNoteItems(
+          prev.crowdNotes,
+          MUSIC_JOURNEY_AVOID_ARTISTS_PREFIX,
+          next,
+        ),
+      }));
+    }
+    setMusicJourneyArtistDraft("");
+    markMusicHubTasteDirty();
+  };
+
+  const removeMusicJourneyArtist = (kind: "love" | "avoid", artist: string) => {
+    if (!canManageMusic) return;
+    if (kind === "love") {
+      const next = musicJourneyLovedArtists.filter((item) => item !== artist);
+      setMusicTasteProfile((prev) =>
+        updateMusicTasteProfileNotes(
+          prev,
+          replaceMusicJourneyNoteItems(
+            prev.danceFloorVibeNotes,
+            MUSIC_JOURNEY_LOVED_ARTISTS_PREFIX,
+            next,
+          ),
+        ),
+      );
+    } else {
+      const next = musicJourneyAvoidArtists.filter((item) => item !== artist);
+      setMusicVibeDetail((prev) => ({
+        ...prev,
+        crowdNotes: replaceMusicJourneyNoteItems(
+          prev.crowdNotes,
+          MUSIC_JOURNEY_AVOID_ARTISTS_PREFIX,
+          next,
+        ),
+      }));
+    }
+    markMusicHubTasteDirty();
+  };
+
+  const advanceMusicJourney = () => {
+    setMusicJourneyArtistDraft("");
+    const currentIndex = MUSIC_JOURNEY_ORDER.indexOf(musicJourneyStep);
+    if (musicJourneyStep === "welcome") {
+      setMusicJourneyStep("dance");
+      return;
+    }
+    if (currentIndex < 0 || currentIndex >= MUSIC_JOURNEY_ORDER.length - 1) {
+      setMusicJourneyStep("complete");
+      return;
+    }
+    setMusicJourneyStep(MUSIC_JOURNEY_ORDER[currentIndex + 1]);
+  };
+
+  const goBackMusicJourney = () => {
+    setMusicJourneyArtistDraft("");
+    const currentIndex = MUSIC_JOURNEY_ORDER.indexOf(musicJourneyStep);
+    if (musicJourneyStep === "complete") {
+      setMusicJourneyStep("avoidArtists");
+      return;
+    }
+    if (currentIndex <= 0) {
+      setMusicJourneyStep("welcome");
+      return;
+    }
+    setMusicJourneyStep(MUSIC_JOURNEY_ORDER[currentIndex - 1]);
+  };
+
   const renderMusicHubHero = () => (
     <section className="relative min-h-[25rem] overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
       {musicHubHeroImageSrc ? (
@@ -13000,13 +13378,28 @@ export default function Home() {
         Add songs you love, share playlists, or simply give your DJ inspiration. We’ll take care of the rest.
       </p>
       {isCoupleView ? (
-        <button
-          type="button"
-          onClick={openMusicHubProfile}
-          className="mt-4 inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
-        >
-          Not sure where to start? Try the Music Profile
-        </button>
+        <div className="mt-5 max-w-2xl">
+          {musicJourneyHasStyle ? (
+            <div className="space-y-3">
+              {renderMusicJourneySummary(true)}
+              <button
+                type="button"
+                onClick={() => openMusicHubProfile("dance")}
+                className="inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
+              >
+                Edit Music Style
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openMusicHubProfile("welcome")}
+              className="inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
+            >
+              Find Your Sound
+            </button>
+          )}
+        </div>
       ) : null}
     </div>
   );
@@ -13142,6 +13535,285 @@ export default function Home() {
       </div>
     </div>
   );
+
+  const isMusicJourneyOptionSelected = (step: MusicJourneyStepConfig, option: MusicJourneyOption) => {
+    const value = musicJourneyOptionValue(option);
+    if (step.field === "musicGenreEraSelections") return musicGenreEraSelections.includes(value);
+    if (step.field === "danceFloorStyles") return musicTasteProfile.danceFloorStyles.includes(value);
+    if (step.field === "crowdPreferences") return musicTasteProfile.crowdPreferences.includes(value);
+    if (step.field === "lineDancesAndGroupSongs") {
+      return (musicTasteProfile.lineDancesAndGroupSongs ?? []).includes(value);
+    }
+    if (step.field === "musicBehavior") return musicTasteProfile.musicBehavior.includes(value);
+    if (step.field === "cleanMusicPrefs") return musicVibeDetail.cleanMusicPrefs === value;
+    return false;
+  };
+
+  const renderMusicJourneyOptionGrid = (step: MusicJourneyStepConfig) => (
+    <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {(step.options ?? []).map((option) => {
+        const value = musicJourneyOptionValue(option);
+        const selected = isMusicJourneyOptionSelected(step, option);
+        const multiProfileCount =
+          step.field === "danceFloorStyles"
+            ? musicTasteProfile.danceFloorStyles.length
+            : step.field === "crowdPreferences"
+              ? musicTasteProfile.crowdPreferences.length
+              : 0;
+        const disabled =
+          !canManageMusic ||
+          (step.kind === "multi" &&
+            step.limit !== undefined &&
+            !selected &&
+            (step.field === "danceFloorStyles" || step.field === "crowdPreferences") &&
+            multiProfileCount >= step.limit);
+        return (
+          <button
+            key={`${step.id}-${option.label}`}
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              if (step.kind === "multi" && step.field) {
+                setMusicJourneyMultiValue(step.field as MusicJourneyMultiField, value, step.limit);
+                return;
+              }
+              if (step.kind === "single" && step.field) {
+                setMusicJourneySingleValue(step.field as MusicJourneySingleField, value);
+              }
+            }}
+            aria-pressed={selected}
+            className={`min-h-[5.5rem] rounded-[1.4rem] border px-4 py-4 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              selected
+                ? "border-[#2f4a3e]/45 bg-[#2f4a3e]/10 text-[#214637] ring-2 ring-[#2f4a3e]/10"
+                : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/25 hover:bg-[#f7f5f1]"
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#f7f5f1] text-lg">
+                {option.icon ?? "♪"}
+              </span>
+              <span className="text-base font-semibold">{option.label}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderMusicJourneyArtistsStep = (kind: "love" | "avoid") => {
+    const artists = kind === "love" ? musicJourneyLovedArtists : musicJourneyAvoidArtists;
+    return (
+      <div className="mt-8 space-y-4">
+        <div className="rounded-[1.4rem] border border-stone-200 bg-white p-4 shadow-sm">
+          <TextInput
+            id={`music-journey-${kind}-artist`}
+            label={kind === "love" ? "Artist name" : "Artist or group to avoid"}
+            value={musicJourneyArtistDraft}
+            onChange={setMusicJourneyArtistDraft}
+            placeholder={kind === "love" ? "e.g. Beyoncé" : "e.g. Chicken Dance"}
+            disabled={!canManageMusic}
+          />
+          <PrimaryButton
+            type="button"
+            onClick={() => addMusicJourneyArtist(kind)}
+            disabled={!canManageMusic || !musicJourneyArtistDraft.trim()}
+            className={`mt-3 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+          >
+            Add {kind === "love" ? "Artist" : "Avoid"}
+          </PrimaryButton>
+        </div>
+        {artists.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {artists.map((artist) => (
+              <span
+                key={`${kind}-${artist}`}
+                className="inline-flex items-center gap-2 rounded-full border border-[#2f4a3e]/20 bg-[#2f4a3e]/10 px-3 py-1.5 text-sm font-semibold text-[#2f4a3e]"
+              >
+                {artist}
+                <button
+                  type="button"
+                  onClick={() => removeMusicJourneyArtist(kind, artist)}
+                  disabled={!canManageMusic}
+                  className="text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
+                  aria-label={`Remove ${artist}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-stone-500">No names added yet. You can skip this step.</p>
+        )}
+      </div>
+    );
+  };
+
+  const renderMusicJourneySummary = (compact = false) => {
+    const summaryRows = [
+      { icon: "⚡", label: musicTasteProfile.danceFloorStyles.slice(0, 3).join(" • ") },
+      {
+        icon: "🎶",
+        label: musicGenreEraSelections
+          .filter((item) => ["Oldies", "70s", "80s", "90s", "2000s", "2010s", "Top 40"].includes(item))
+          .slice(0, 5)
+          .join(" • "),
+      },
+      {
+        icon: "🎧",
+        label: musicGenreEraSelections
+          .filter((item) => !["Oldies", "70s", "80s", "90s", "2000s", "2010s", "Top 40"].includes(item))
+          .slice(0, 5)
+          .join(" • "),
+      },
+      { icon: "👨‍👩‍👧", label: musicTasteProfile.crowdPreferences.slice(0, 3).join(" • ") },
+      { icon: "✨", label: musicTasteProfile.musicBehavior.slice(0, 3).join(" • ") },
+      { icon: "🌿", label: musicVibeDetail.cleanMusicPrefs?.trim() ?? "" },
+    ].filter((row) => row.label);
+
+    return (
+      <div className={`rounded-[1.5rem] border border-[#2f4a3e]/15 bg-white/85 shadow-sm ${compact ? "p-4" : "p-5"}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
+          Your Music Style
+        </p>
+        <div className={`mt-3 grid gap-2 ${compact ? "" : "sm:grid-cols-2"}`}>
+          {summaryRows.length > 0 ? (
+            summaryRows.map((row) => (
+              <div key={`${row.icon}-${row.label}`} className="flex items-center gap-2 text-sm font-semibold text-stone-800">
+                <span aria-hidden>{row.icon}</span>
+                <span>{row.label}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-stone-600">A blank canvas. Let’s find your sound.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMusicJourney = () => {
+    if (musicJourneyStep === "welcome") {
+      return (
+        <PremiumCard id="music-hub-taste-profile" className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80">
+          <div className="mx-auto max-w-3xl py-4 text-center sm:py-8">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#2f4a3e]/10 text-2xl">♪</div>
+            <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+              Find Your Sound
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#214637]">
+              Every celebration has its own soundtrack.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-stone-600">
+              Let’s learn a little about your style before we start building your music. Most couples finish this in about 2–3 minutes.
+            </p>
+            <PrimaryButton
+              type="button"
+              onClick={advanceMusicJourney}
+              disabled={!canManageMusic}
+              className={`mt-8 ${couplePortalPrimaryButtonClass}`}
+            >
+              Start
+            </PrimaryButton>
+          </div>
+        </PremiumCard>
+      );
+    }
+
+    if (musicJourneyStep === "complete") {
+      return (
+        <PremiumCard id="music-hub-taste-profile" className="border-[#2f4a3e]/18 bg-[#f7f5f1] shadow-sm ring-1 ring-[#2f4a3e]/10">
+          <div className="mx-auto max-w-3xl py-4 text-center sm:py-7">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#b08a45]/15 text-2xl">✨</div>
+            <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+              Your Sound Is Ready
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#214637]">
+              Perfect.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-stone-600">
+              Now let’s build the soundtrack to your best day.
+            </p>
+            <div className="mx-auto mt-6 max-w-2xl text-left">{renderMusicJourneySummary()}</div>
+            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+              <PrimaryButton
+                type="button"
+                onClick={() => setCoupleMusicHubScreen("landing")}
+                className={couplePortalPrimaryButtonClass}
+              >
+                Go to Music Hub
+              </PrimaryButton>
+              <PrimaryButton
+                type="button"
+                onClick={goBackMusicJourney}
+                className={couplePortalSecondaryButtonClass}
+              >
+                Edit Last Step
+              </PrimaryButton>
+            </div>
+          </div>
+        </PremiumCard>
+      );
+    }
+
+    if (!musicJourneyCurrentStep) return null;
+    const artistKind = musicJourneyCurrentStep.id === "avoidArtists" ? "avoid" : "love";
+
+    return (
+      <PremiumCard id="music-hub-taste-profile" className="border-stone-200 bg-[#fbfaf7] shadow-sm ring-1 ring-stone-200/80">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
+              Step {musicJourneyCurrentIndex + 1} of {MUSIC_JOURNEY_ORDER.length}
+            </span>
+            <span className="text-xs font-semibold tabular-nums text-stone-500">{musicJourneyProgress}%</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-200">
+            <div
+              className="h-full rounded-full bg-[#2f4a3e] transition-all"
+              style={{ width: `${musicJourneyProgress}%` }}
+            />
+          </div>
+          <div className="mt-8">
+            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#214637]">
+              {musicJourneyCurrentStep.title}
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-stone-600">{musicJourneyCurrentStep.helper}</p>
+          </div>
+          {musicJourneyCurrentStep.kind === "artists"
+            ? renderMusicJourneyArtistsStep(artistKind)
+            : renderMusicJourneyOptionGrid(musicJourneyCurrentStep)}
+          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <PrimaryButton
+              type="button"
+              onClick={goBackMusicJourney}
+              className={couplePortalSecondaryButtonClass}
+            >
+              Back
+            </PrimaryButton>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              {musicJourneyCurrentStep.kind === "artists" ? (
+                <PrimaryButton
+                  type="button"
+                  onClick={advanceMusicJourney}
+                  className={couplePortalTertiaryButtonClass}
+                >
+                  Skip
+                </PrimaryButton>
+              ) : null}
+              <PrimaryButton
+                type="button"
+                onClick={advanceMusicJourney}
+                className={couplePortalPrimaryButtonClass}
+              >
+                Continue
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      </PremiumCard>
+    );
+  };
 
   const toggleMusicListExpanded = (listType: SongListType) => {
     setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: !prev[listType] }));
@@ -15360,7 +16032,7 @@ export default function Home() {
       !firstIncompleteCoupleStoryChapter;
     const storyCompleteTitle = "Chapters 1–4 complete";
     const storyCompleteBody =
-      "Nice work on About You through Music Profile. Your Team and Final Review are next when you're ready.";
+      "Nice work on About You through Find Your Sound. Your Team and Final Review are next when you're ready.";
 
     type CoupleNextStepResult = {
       body: string;
@@ -19467,7 +20139,7 @@ export default function Home() {
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music Hub</p>
                       <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">
-                        {coupleMusicHubScreen === "profile" ? "Music Profile" : "Song Lists"}
+                        {coupleMusicHubScreen === "profile" ? "Find Your Sound" : "Song Lists"}
                       </h2>
                     </div>
                     <PrimaryButton
@@ -19830,206 +20502,11 @@ export default function Home() {
 
                 {coupleMusicHubScreen === "profile" ? (
                   <>
-                <PremiumCard
-                  id="music-hub-taste-profile"
-                  className="border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80"
-                >
-                  <SectionTitle className="text-stone-950">Dance Floor Favorites</SectionTitle>
-                  <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                    Tell us about the kind of dance floor you’re hoping for.
-                  </p>
-                  {(coupleMomentOpenDancingRef.guestCount ||
-                    coupleMomentOpenDancingRef.ageGroup ||
-                    coupleMomentOpenDancingRef.partyRating ||
-                    coupleMomentOpenDancingRef.guestRequestPolicy) ? (
-                    <dl className="mt-4 grid gap-3 rounded-xl border border-stone-200 bg-stone-50/70 px-4 py-4 sm:grid-cols-2">
-                      {coupleMomentOpenDancingRef.guestCount ? (
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                            Guest count
-                          </dt>
-                          <dd className="mt-1 text-sm font-medium text-stone-900">
-                            {coupleMomentOpenDancingRef.guestCount}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {coupleMomentOpenDancingRef.ageGroup ? (
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                            Age groups
-                          </dt>
-                          <dd className="mt-1 text-sm font-medium text-stone-900">
-                            {coupleMomentOpenDancingRef.ageGroup}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {coupleMomentOpenDancingRef.partyRating ? (
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                            Crowd energy
-                          </dt>
-                          <dd className="mt-1 text-sm font-medium text-stone-900">
-                            {coupleMomentOpenDancingRef.partyRating}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {coupleMomentOpenDancingRef.guestRequestPolicy ? (
-                        <div>
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                            Guest requests
-                          </dt>
-                          <dd className="mt-1 text-sm font-medium text-stone-900">
-                            {coupleMomentOpenDancingRef.guestRequestPolicy}
-                          </dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                  ) : null}
-                  <div className="mt-5 space-y-6">
-                    <div>
-                      <p className={lightUiFormLabelClass}>Dance floor style</p>
-                      <div className="mt-2.5">
-                        <MusicHubChipRow
-                          keyPrefix="taste-dance"
-                          options={MUSIC_TASTE_DANCE_FLOOR_OPTIONS}
-                          selected={musicTasteProfile.danceFloorStyles}
-                          disabled={!canManageMusic}
-                          onToggle={(label) => toggleMusicTasteChip("danceFloorStyles", label)}
-                          buttonVariant="couple"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className={lightUiFormLabelClass}>Crowd preferences</p>
-                      <div className="mt-2.5">
-                        <MusicHubChipRow
-                          keyPrefix="taste-crowd"
-                          options={MUSIC_TASTE_CROWD_OPTIONS}
-                          selected={musicTasteProfile.crowdPreferences}
-                          disabled={!canManageMusic}
-                          onToggle={(label) => toggleMusicTasteChip("crowdPreferences", label)}
-                          buttonVariant="couple"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className={lightUiFormLabelClass}>Music behavior</p>
-                      <div className="mt-2.5">
-                        <MusicHubChipRow
-                          keyPrefix="taste-behavior"
-                          options={MUSIC_TASTE_BEHAVIOR_OPTIONS}
-                          selected={musicTasteProfile.musicBehavior}
-                          disabled={!canManageMusic}
-                          onToggle={(label) => toggleMusicTasteChip("musicBehavior", label)}
-                          buttonVariant="couple"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className={lightUiFormLabelClass}>Line dances &amp; group songs</p>
-                      <div className="mt-2.5">
-                        <MusicHubChipRow
-                          keyPrefix="taste-line-dance"
-                          options={MUSIC_TASTE_LINE_DANCE_OPTIONS}
-                          selected={musicTasteProfile.lineDancesAndGroupSongs ?? []}
-                          disabled={!canManageMusic}
-                          onToggle={(label) => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
-                          buttonVariant="couple"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <p className={lightUiFormLabelClass}>Favorite genres</p>
-                      <div className="mt-2.5">
-                        <MusicHubChipRow
-                          keyPrefix="genre"
-                          options={MUSIC_GENRE_ERA_OPTIONS}
-                          selected={musicGenreEraSelections}
-                          disabled={!canManageMusic}
-                          onToggle={toggleGenreEraChip}
-                          buttonVariant="couple"
-                        />
-                      </div>
-                      {genreOtherSelected ? (
-                        <div className="mt-5 border-t border-stone-100 pt-5">
-                          <TextArea
-                            id="music-genre-other-styles"
-                            label="Other styles (describe)"
-                            value={musicVibeDetail.genres ?? ""}
-                            onChange={(value) => updateMusicHubVibeDetailField("genres", value)}
-                            rows={2}
-                            placeholder="e.g. Afrobeats, K-pop, classic rock deep cuts…"
-                            disabled={!canManageMusic}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="border-t border-stone-100 pt-6">
-                      <TextArea
-                        id="music-taste-dance-floor-vibe"
-                        label="Describe your ideal dance floor vibe (optional)"
-                        value={musicTasteProfile.danceFloorVibeNotes ?? ""}
-                        onChange={updateMusicHubTasteNotes}
-                        rows={3}
-                        placeholder="e.g. Big energy after dinner, singalongs guests know, then room for a few surprises…"
-                        disabled={!canManageMusic}
-                      />
-                    </div>
-                    {sectionMusicNotesEnabled ? (
-                      <div className="border-t border-stone-100 pt-6">
-                        <SectionTitle className="text-stone-950">More Dance Floor Direction</SectionTitle>
-                        <div className="mt-4 space-y-3">
-                          <TextArea
-                            id="music-hub-overall-vibe"
-                            label="Overall vibe"
-                            value={generalDjNotes}
-                            onChange={setGeneralDjNotes}
-                            rows={4}
-                            disabled={!canManageMusic}
-                            placeholder="Big-picture direction: nostalgic, sing-alongs, era mix…"
-                          />
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <TextArea
-                              id="music-hub-energy"
-                              label="Energy arc"
-                              value={musicVibeDetail.energy ?? ""}
-                              onChange={(value) => updateMusicHubVibeDetailField("energy", value)}
-                              rows={3}
-                              disabled={!canManageMusic}
-                              placeholder="Warm welcome → peak dance → softer landing…"
-                            />
-                            <TextArea
-                              id="music-hub-crowd"
-                              label="Crowd notes"
-                              value={musicVibeDetail.crowdNotes ?? ""}
-                              onChange={(value) => updateMusicHubVibeDetailField("crowdNotes", value)}
-                              rows={3}
-                              disabled={!canManageMusic}
-                              placeholder="Families, college friends, shy dancers up front…"
-                            />
-                            <TextArea
-                              id="music-hub-clean"
-                              label={
-                                layoutProfileForActiveEvent === "School Dance"
-                                  ? "Clean selections"
-                                  : "Clean / content preferences"
-                              }
-                              value={musicVibeDetail.cleanMusicPrefs ?? ""}
-                              onChange={(value) => updateMusicHubVibeDetailField("cleanMusicPrefs", value)}
-                              rows={3}
-                              disabled={!canManageMusic}
-                              placeholder="Radio edits, avoid explicit, requests handling…"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </PremiumCard>
+                {renderMusicJourney()}
                 <PremiumCard className="border-[#2f4a3e]/18 bg-[#2f4a3e]/[0.04] shadow-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <SectionTitle className="text-stone-950">Great — we know your style.</SectionTitle>
+                      <SectionTitle className="text-stone-950">Ready for song lists?</SectionTitle>
                       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
                         Next, let’s start adding the songs that will bring your celebration to life.
                       </p>
