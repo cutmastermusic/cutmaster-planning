@@ -13062,12 +13062,15 @@ export default function Home() {
     setPasteSongListOpen(false);
   };
 
-  const musicHubHeroPhoto = resolveCoupleWelcomePhotoDisplay({
-    coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
-    coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
-    defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
-  });
-  const musicHubHeroImageSrc = musicHubHeroPhoto.displayUrl?.trim();
+  const musicHubHeroPhoto = coverPhotoHydrationReady
+    ? resolveCoupleWelcomePhotoDisplay({
+        coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
+        coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
+        defaultWelcomePhotoDataUrl: undefined,
+      })
+    : { displayUrl: undefined, isEventSpecific: false };
+  const musicHubHeroImageSrc =
+    musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
@@ -13350,11 +13353,12 @@ export default function Home() {
     <section className="relative min-h-[25rem] overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
       {musicHubHeroImageSrc ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <WelcomePhotoHeroImage
             src={musicHubHeroImageSrc}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover object-[72%_center]"
+            transform={eventSettings.coverPhotoTransform}
+            stageClassName="absolute inset-0 overflow-hidden"
+            imageClassName="object-center"
+            visible
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#f7f5f1] via-[#f7f5f1]/90 to-[#f7f5f1]/12" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#f7f5f1]/42 via-transparent to-white/10" />
