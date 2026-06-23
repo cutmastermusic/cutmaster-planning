@@ -60,16 +60,26 @@ Existing database variables remain required:
 - `DATABASE_URL`
 - `DIRECT_URL`
 
-## Spotify Music Enrichment
+## Spotify Music Enrichment + Spotify Connect
 
 Configure these server-only environment variables on **cutmaster-planning** only:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `SPOTIFY_CLIENT_ID` | Yes, for Spotify search/import | Spotify app Client ID; server-side only |
-| `SPOTIFY_CLIENT_SECRET` | Yes, for Spotify search/import | Spotify app Client Secret; never expose to the browser |
+| `SPOTIFY_CLIENT_ID` | Yes, for Spotify search and Spotify Connect | Spotify app Client ID; server-side only |
+| `SPOTIFY_CLIENT_SECRET` | Yes, for Client Credentials search/metadata | Spotify app Client Secret; never expose to the browser |
+| `SPOTIFY_TOKEN_ENCRYPTION_KEY` | Yes, for Spotify Connect | 32-byte key used to encrypt Spotify user access/refresh tokens at rest. Generate with `openssl rand -base64 32` |
 
-Spotify integration uses Client Credentials Flow. Couples and admins do not need to sign in to Spotify for server-side search.
+Spotify search and metadata enrichment continue to use Client Credentials Flow. Playlist import/export requires Spotify Connect because playlist track access is user-authorized.
+
+### Spotify Developer Dashboard → Redirect URIs
+
+Add these exact redirect URIs to the Spotify app:
+
+- Local: `http://localhost:3000/api/spotify/callback`
+- Production: `https://cutmaster-planning.vercel.app/api/spotify/callback`
+
+Spotify redirect URIs must match exactly, including protocol, host, path, and trailing slash behavior. Avoid Vercel preview URLs unless each preview callback URL is explicitly added to the Spotify app.
 
 ### Supabase Dashboard → Authentication → URL configuration
 

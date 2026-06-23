@@ -41,8 +41,31 @@ model User {
   eventMembers           EventMember[]
   eventMembersInvited    EventMember[]       @relation("EventMemberInvitedBy")
   invitesCreated         EventInvite[]       @relation("InviteCreatedBy")
+  spotifyConnection      SpotifyConnection?
 
   @@index([platformRole])
+}
+
+model SpotifyConnection {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  spotifyUserId      String
+  spotifyDisplayName String?
+  scopes             String
+
+  accessTokenEnc       String?
+  refreshTokenEnc      String?
+  accessTokenExpiresAt DateTime?
+
+  connectedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  revokedAt   DateTime?
+
+  @@index([spotifyUserId])
+  @@index([revokedAt])
 }
 
 model CompanyTeamMember {
