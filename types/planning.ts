@@ -58,6 +58,7 @@ export type EventSongSource =
   | "manual"
   | "spotify-search"
   | "spotify-playlist"
+  | "text-import"
   | "guest-request"
   | "timeline"
   | "recommendation";

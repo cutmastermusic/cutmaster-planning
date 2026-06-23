@@ -695,12 +695,98 @@ const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
   doNotPlay: "Songs to Avoid",
 };
 
+type PastedSongPreviewRow = {
+  id: string;
+  title: string;
+  artist: string;
+  originalLine: string;
+  ambiguous: boolean;
+};
+
+type PasteSongListPreviewState =
+  | { status: "idle" }
+  | { status: "invalid"; message: string }
+  | { status: "success"; rows: PastedSongPreviewRow[] };
+
+type PasteSongListImportResult = {
+  addedCount: number;
+  duplicateCount: number;
+  target: SongListType;
+};
+
 function normalizedSongDuplicateText(value: string | null | undefined): string {
   return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function songDuplicateFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
   return `${normalizedSongDuplicateText(song.title)}|${normalizedSongDuplicateText(song.artist)}`;
+}
+
+function stripSongListPrefix(line: string): string {
+  return line
+    .trim()
+    .replace(/^\s*(?:[-*•‣▪]\s+|\d+[\.)]\s+)/, "")
+    .trim();
+}
+
+function wordCount(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function parsePastedSongLine(line: string, index: number): PastedSongPreviewRow | null {
+  const cleaned = stripSongListPrefix(line);
+  if (!cleaned) return null;
+
+  const byMatch = cleaned.match(/^(.+?)\s+by\s+(.+)$/i);
+  if (byMatch) {
+    return {
+      id: `paste-song-${index}`,
+      title: byMatch[1].trim(),
+      artist: byMatch[2].trim(),
+      originalLine: line,
+      ambiguous: false,
+    };
+  }
+
+  const commaMatch = cleaned.match(/^([^,]+),\s*(.+)$/);
+  if (commaMatch) {
+    return {
+      id: `paste-song-${index}`,
+      title: commaMatch[2].trim(),
+      artist: commaMatch[1].trim(),
+      originalLine: line,
+      ambiguous: false,
+    };
+  }
+
+  const dashMatch = cleaned.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dashMatch) {
+    const left = dashMatch[1].trim();
+    const right = dashMatch[2].trim();
+    const leftLooksLikeArtist = wordCount(left) <= 3 && wordCount(right) >= 4;
+    return {
+      id: `paste-song-${index}`,
+      title: leftLooksLikeArtist ? right : left,
+      artist: leftLooksLikeArtist ? left : right,
+      originalLine: line,
+      ambiguous: true,
+    };
+  }
+
+  return {
+    id: `paste-song-${index}`,
+    title: cleaned,
+    artist: "",
+    originalLine: line,
+    ambiguous: true,
+  };
+}
+
+function parsePastedSongList(value: string): PastedSongPreviewRow[] {
+  return value
+    .split(/\r?\n/)
+    .map(parsePastedSongLine)
+    .filter((row): row is PastedSongPreviewRow => Boolean(row && row.title.trim()));
 }
 
 function calculateSpotifyPlaylistImportStats(
@@ -867,6 +953,7 @@ function normalizeEventSongSource(source: string | null | undefined): EventSongS
     case "manual":
     case "spotify-search":
     case "spotify-playlist":
+    case "text-import":
     case "guest-request":
     case "timeline":
     case "recommendation":
@@ -3451,6 +3538,12 @@ export default function Home() {
     useState<SpotifyPlaylistPreviewState>({ status: "idle" });
   const [spotifyPlaylistImportResult, setSpotifyPlaylistImportResult] =
     useState<SpotifyPlaylistImportResult | null>(null);
+  const [pasteSongListText, setPasteSongListText] = useState("");
+  const [pasteSongListTarget, setPasteSongListTarget] = useState<SongListType>("playIfPossible");
+  const [pasteSongListPreviewState, setPasteSongListPreviewState] =
+    useState<PasteSongListPreviewState>({ status: "idle" });
+  const [pasteSongListImportResult, setPasteSongListImportResult] =
+    useState<PasteSongListImportResult | null>(null);
   const [guestRequestView, setGuestRequestView] = useState<"admin" | "guest">("admin");
   const [guestRequests, setGuestRequests] = useState<GuestRequestEntry[]>(initialGuestRequests);
   const [guestFormName, setGuestFormName] = useState("");
@@ -12656,6 +12749,94 @@ export default function Home() {
     setSpotifyImportUrl("");
   };
 
+  const calculatePasteSongListImportStats = (
+    rows: PastedSongPreviewRow[],
+    existingSongs: SongEntry[],
+  ): { duplicateCount: number; importableCount: number } => {
+    const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
+    let duplicateCount = 0;
+    let importableCount = 0;
+
+    rows.forEach((row) => {
+      const fingerprint = songDuplicateFingerprint(row);
+      if (seenFingerprints.has(fingerprint)) {
+        duplicateCount += 1;
+        return;
+      }
+      seenFingerprints.add(fingerprint);
+      importableCount += 1;
+    });
+
+    return { duplicateCount, importableCount };
+  };
+
+  const previewPasteSongList = () => {
+    const rows = parsePastedSongList(pasteSongListText);
+    setPasteSongListImportResult(null);
+
+    if (rows.length === 0) {
+      setPasteSongListPreviewState({
+        status: "invalid",
+        message: "Paste at least one song line to preview.",
+      });
+      return;
+    }
+
+    setPasteSongListPreviewState({ status: "success", rows });
+  };
+
+  const importPasteSongList = () => {
+    if (pasteSongListPreviewState.status !== "success") return;
+
+    const existingSongs = [
+      ...mustPlaySongs,
+      ...playIfPossibleSongs,
+      ...doNotPlaySongs,
+    ];
+    const seenFingerprints = new Set(existingSongs.map(songDuplicateFingerprint));
+    const importedSongs: SongEntry[] = [];
+    let duplicateCount = 0;
+
+    pasteSongListPreviewState.rows.forEach((row, index) => {
+      const fingerprint = songDuplicateFingerprint(row);
+      if (seenFingerprints.has(fingerprint)) {
+        duplicateCount += 1;
+        return;
+      }
+
+      seenFingerprints.add(fingerprint);
+      importedSongs.push({
+        id: `text-import-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        title: row.title,
+        artist: row.artist || undefined,
+        source: "text-import",
+        highPriority: false,
+      });
+    });
+
+    if (importedSongs.length > 0) {
+      if (pasteSongListTarget === "mustPlay") {
+        setMustPlaySongs((prev) => [...importedSongs, ...prev]);
+      } else if (pasteSongListTarget === "playIfPossible") {
+        setPlayIfPossibleSongs((prev) => [...importedSongs, ...prev]);
+      } else {
+        setDoNotPlaySongs((prev) => [...importedSongs, ...prev]);
+      }
+      logActivity(
+        "song_added",
+        `Imported ${importedSongs.length} pasted song${importedSongs.length === 1 ? "" : "s"}`,
+      );
+    }
+
+    setPasteSongListImportResult({
+      addedCount: importedSongs.length,
+      duplicateCount,
+      target: pasteSongListTarget,
+    });
+    setPasteSongListPreviewState({ status: "idle" });
+    setPasteSongListText("");
+  };
+
   const renderSpotifyPlaylistImportCard = ({
     className = "",
     style,
@@ -12842,6 +13023,154 @@ export default function Home() {
                 ))}
               </div>
             )}
+          </div>
+        ) : null}
+      </PremiumCard>
+    );
+  };
+
+  const renderPasteSongListImportCard = ({
+    className = "",
+    style,
+  }: {
+    className?: string;
+    style?: CSSProperties;
+  }) => {
+    const existingSongs = [...mustPlaySongs, ...playIfPossibleSongs, ...doNotPlaySongs];
+    const previewStats =
+      pasteSongListPreviewState.status === "success"
+        ? calculatePasteSongListImportStats(pasteSongListPreviewState.rows, existingSongs)
+        : null;
+
+    return (
+      <PremiumCard
+        id="music-hub-paste-song-list"
+        className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
+        style={style}
+      >
+        <SectionTitle className="text-stone-950">Paste a Song List</SectionTitle>
+        <p className="mt-1 text-sm leading-relaxed text-stone-600">
+          Copy songs from Spotify, Apple Music, Notes, or a spreadsheet and paste them here.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <TextArea
+            id="paste-song-list-text"
+            label="Song list"
+            value={pasteSongListText}
+            onChange={(value) => {
+              setPasteSongListText(value);
+              setPasteSongListPreviewState({ status: "idle" });
+              setPasteSongListImportResult(null);
+            }}
+            placeholder={`Mr. Brightside - The Killers\nCrazy in Love by Beyoncé\nWhitney Houston, I Wanna Dance With Somebody`}
+            rows={6}
+            disabled={!canManageMusic}
+          />
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label className="block min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                Destination
+              </span>
+              <select
+                value={pasteSongListTarget}
+                disabled={!canManageMusic}
+                onChange={(event) => {
+                  setPasteSongListTarget(event.target.value as SongListType);
+                  setPasteSongListImportResult(null);
+                }}
+                className={`${lightUiSelectClass} mt-1 min-h-10 py-2 text-sm`}
+              >
+                {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
+                  <option key={key} value={key}>
+                    {SPOTIFY_IMPORT_DESTINATION_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <PrimaryButton
+              type="button"
+              onClick={previewPasteSongList}
+              disabled={!canManageMusic}
+              className="border border-[#1E1E1E] bg-[#1E1E1E] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Preview Songs
+            </PrimaryButton>
+          </div>
+        </div>
+
+        {pasteSongListImportResult ? (
+          <div className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-4 py-3 text-[#3f4d3d]">
+            <p className="text-sm font-semibold">
+              {pasteSongListImportResult.addedCount} song{pasteSongListImportResult.addedCount === 1 ? "" : "s"} added to{" "}
+              {SPOTIFY_IMPORT_DESTINATION_LABELS[pasteSongListImportResult.target]}
+            </p>
+            {pasteSongListImportResult.duplicateCount > 0 ? (
+              <p className="mt-1 text-sm leading-relaxed">
+                {pasteSongListImportResult.duplicateCount} duplicate{" "}
+                {pasteSongListImportResult.duplicateCount === 1 ? "song was" : "songs were"} skipped.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pasteSongListPreviewState.status === "invalid" ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-amber-950" role="status">
+            <p className="text-sm font-semibold">Nothing to preview yet</p>
+            <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+              {pasteSongListPreviewState.message}
+            </p>
+          </div>
+        ) : null}
+
+        {pasteSongListPreviewState.status === "success" ? (
+          <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Paste preview
+                </p>
+                <p className="mt-1 text-sm font-semibold text-stone-950">
+                  {pasteSongListPreviewState.rows.length} row{pasteSongListPreviewState.rows.length === 1 ? "" : "s"} parsed
+                </p>
+                {previewStats && previewStats.duplicateCount > 0 ? (
+                  <p className="mt-1 text-xs text-stone-600">
+                    {previewStats.duplicateCount} duplicate{previewStats.duplicateCount === 1 ? "" : "s"} will be skipped.
+                  </p>
+                ) : null}
+              </div>
+              <PrimaryButton
+                type="button"
+                onClick={importPasteSongList}
+                disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
+                className="rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Import Songs
+              </PrimaryButton>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white">
+              {pasteSongListPreviewState.rows.slice(0, 30).map((row) => (
+                <div
+                  key={row.id}
+                  className="grid gap-1 border-b border-stone-100 px-3 py-2.5 text-sm last:border-b-0 sm:grid-cols-[1.1fr_1fr]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-stone-950">{row.title}</p>
+                    {row.ambiguous ? (
+                      <p className="mt-0.5 truncate text-[11px] text-stone-500">
+                        Original: {row.originalLine.trim()}
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="min-w-0 truncate text-stone-600">
+                    {row.artist || <span className="text-stone-400">Artist not found</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </PremiumCard>
@@ -18967,6 +19296,10 @@ export default function Home() {
                   className: "border-[#2f4a3e]/20 bg-white shadow-sm ring-1 ring-[#2f4a3e]/10",
                 })}
 
+                {renderPasteSongListImportCard({
+                  className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
+                })}
+
                 {renderReferencePlaylistLinksCard({
                   className: "border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80",
                   buttonVariant: "couple",
@@ -19640,9 +19973,14 @@ export default function Home() {
               style: isCoupleView ? { order: 3 } : undefined,
             })}
 
+            {renderPasteSongListImportCard({
+              className: isCoupleView ? "order-[12]" : "",
+              style: isCoupleView ? { order: 4 } : undefined,
+            })}
+
             {renderReferencePlaylistLinksCard({
               className: isCoupleView ? "order-[18]" : "",
-              style: isCoupleView ? { order: 4 } : undefined,
+              style: isCoupleView ? { order: 5 } : undefined,
               buttonVariant: isCoupleView ? "couple" : "default",
             })}
 
