@@ -12897,28 +12897,26 @@ export default function Home() {
   const musicHubSongCountLabel = (count: number) =>
     `${count} song${count === 1 ? "" : "s"} added`;
 
+  const scrollToMusicHubSection = (id: string, block: ScrollLogicalPosition = "start") => {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block });
+    }, 50);
+  };
+
+  const openMusicHubProfile = () => {
+    if (!isCoupleView) return;
+    setCoupleMusicHubScreen("profile");
+    scrollToMusicHubSection("music-hub-taste-profile");
+  };
+
   const openMusicHubSongList = (listType: SongListType) => {
     if (isCoupleView) {
       setCoupleMusicHubScreen("songLists");
     }
     setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: true }));
-    if (
-      (listType === "mustPlay" && mustPlaySongs.length === 0) ||
-      (listType === "playIfPossible" && playIfPossibleSongs.length === 0) ||
-      (listType === "doNotPlay" && doNotPlaySongs.length === 0)
-    ) {
-      setNewSongListType(listType);
-      setMusicAddSongOpen(true);
-    }
-    window.setTimeout(() => {
-      document.getElementById(
-        listType === "mustPlay"
-          ? "music-hub-must-play"
-          : listType === "playIfPossible"
-            ? "music-hub-play-if-possible"
-            : "music-hub-do-not-play",
-      )?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
+    setNewSongListType(listType);
+    setMusicAddSongOpen(true);
+    scrollToMusicHubSection("music-hub-song-lists-workspace");
   };
 
   const openMusicHubSpotifyPlaylists = () => {
@@ -12926,12 +12924,7 @@ export default function Home() {
       setCoupleMusicHubScreen("songLists");
     }
     setMusicPlaylistLinksOpen(true);
-    window.setTimeout(() => {
-      document.getElementById("music-hub-playlist-links")?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }, 50);
+    scrollToMusicHubSection("music-hub-playlist-links", "center");
   };
 
   const openMusicHubImportSongs = () => {
@@ -13009,7 +13002,7 @@ export default function Home() {
       {isCoupleView ? (
         <button
           type="button"
-          onClick={() => setCoupleMusicHubScreen("profile")}
+          onClick={openMusicHubProfile}
           className="mt-4 inline-flex items-center rounded-full border border-[#2f4a3e]/20 bg-white/75 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm transition hover:border-[#2f4a3e]/35 hover:bg-white"
         >
           Not sure where to start? Try the Music Profile
