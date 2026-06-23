@@ -3539,6 +3539,11 @@ export default function Home() {
   const [newSongNotes, setNewSongNotes] = useState("");
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [musicAddSongOpen, setMusicAddSongOpen] = useState(false);
+  const [musicExpandedSongLists, setMusicExpandedSongLists] = useState<Record<SongListType, boolean>>({
+    mustPlay: false,
+    playIfPossible: false,
+    doNotPlay: false,
+  });
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
   const [coupleMusicHubScreen, setCoupleMusicHubScreen] = useState<CoupleMusicHubScreen>("landing");
@@ -3548,6 +3553,7 @@ export default function Home() {
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
+  const [musicPlaylistLinksOpen, setMusicPlaylistLinksOpen] = useState(false);
   const [spotifyImportUrl, setSpotifyImportUrl] = useState("");
   const [spotifyImportTarget, setSpotifyImportTarget] = useState<SongListType>("playIfPossible");
   const [spotifyPlaylistPreviewState, setSpotifyPlaylistPreviewState] =
@@ -12614,6 +12620,7 @@ export default function Home() {
     setSelectedSpotifySong(null);
     setNewSongNotes("");
     setNewSongHighPriority(false);
+    setMusicAddSongOpen(false);
   };
 
   const addMusicPlaylistLink = () => {
@@ -12876,6 +12883,97 @@ export default function Home() {
     setPasteSongListOpen(false);
   };
 
+  const toggleMusicListExpanded = (listType: SongListType) => {
+    setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: !prev[listType] }));
+  };
+
+  const renderMusicListSummaryCard = ({
+    listType,
+    id,
+    title,
+    description,
+    songs,
+    emptyTitle,
+    emptyDescription,
+    emptyPrimaryAction,
+    className = "",
+    style,
+    variant = "default",
+    buttonVariant = "default",
+  }: {
+    listType: SongListType;
+    id: string;
+    title: string;
+    description: string;
+    songs: SongEntry[];
+    emptyTitle: string;
+    emptyDescription: string;
+    emptyPrimaryAction?: { label: string; onClick: () => void; disabled?: boolean };
+    className?: string;
+    style?: CSSProperties;
+    variant?: "default" | "accent" | "accentDashed";
+    buttonVariant?: "default" | "couple";
+  }) => {
+    const isExpanded = musicExpandedSongLists[listType];
+    const actionButtonClass =
+      buttonVariant === "couple"
+        ? couplePortalSecondaryButtonClass
+        : "border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50";
+
+    return (
+      <PremiumCard id={id} variant={variant} className={className} style={style}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <SectionTitle className="text-stone-950">{title}</SectionTitle>
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
+                  buttonVariant === "couple"
+                    ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                    : "border-stone-300 bg-stone-100 text-stone-900"
+                }`}
+              >
+                {songs.length} song{songs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-stone-600">{description}</p>
+          </div>
+          <PrimaryButton
+            type="button"
+            onClick={() => toggleMusicListExpanded(listType)}
+            disabled={!canManageMusic && songs.length === 0}
+            className={`w-full sm:w-auto ${actionButtonClass}`}
+          >
+            {isExpanded ? "Close List" : "Edit List"}
+          </PrimaryButton>
+        </div>
+        {isExpanded ? (
+          songs.length === 0 ? (
+            <div className="mt-4">
+              <SectionEmptyState
+                wrapWithCard={false}
+                title={emptyTitle}
+                description={emptyDescription}
+                buttonVariant={buttonVariant}
+                primaryAction={emptyPrimaryAction}
+              />
+            </div>
+          ) : (
+            <MusicHubSongList
+              songs={songs}
+              listType={listType}
+              onTogglePriority={togglePriority}
+              onRemove={removeSong}
+              onUpdateSong={updateSong}
+              disabled={!canManageMusic}
+              buttonVariant={buttonVariant}
+            />
+          )
+        ) : null}
+      </PremiumCard>
+    );
+  };
+
   const renderPasteSongListImportCard = ({
     className = "",
     style,
@@ -13063,54 +13161,72 @@ export default function Home() {
       className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${className}`}
       style={style}
     >
-      <SectionTitle className="text-stone-950">Your Spotify Playlists</SectionTitle>
-      <p className="mt-1 text-sm leading-relaxed text-stone-600">
-        Share playlists with your DJ. Your DJ can open these directly in Spotify while planning your event.
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <SectionTitle className="text-stone-950">Your Spotify Playlists</SectionTitle>
+          <p className="mt-1 text-sm leading-relaxed text-stone-600">
+            Share playlists with your DJ. Your DJ can open these directly in Spotify while planning your event.
+          </p>
+        </div>
+        <PrimaryButton
+          type="button"
+          onClick={() => setMusicPlaylistLinksOpen((prev) => !prev)}
+          disabled={!canManageMusic}
+          className={
+            buttonVariant === "couple"
+              ? `w-full sm:w-auto ${couplePortalSecondaryButtonClass}`
+              : "w-full border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto"
+          }
+        >
+          {musicPlaylistLinksOpen ? "Close" : "Manage Playlists"}
+        </PrimaryButton>
+      </div>
       {!isCoupleView ? (
         <p className="mt-2 text-xs text-stone-500">
           Saved to this event in the cloud for couples and staff to access from any device.
         </p>
       ) : null}
-      <div className="mt-4 space-y-3">
-        <TextInput
-          id="music-new-playlist-url"
-          label="Spotify URL"
-          value={musicNewPlaylistUrl}
-          onChange={setMusicNewPlaylistUrl}
-          placeholder="https://open.spotify.com/playlist/..."
-          disabled={!canManageMusic}
-        />
-        <TextInput
-          id="music-new-playlist-label"
-          label="Label (optional)"
-          value={musicNewPlaylistLabel}
-          onChange={setMusicNewPlaylistLabel}
-          placeholder="e.g. Cocktail hour ideas"
-          disabled={!canManageMusic}
-        />
-        <TextArea
-          id="music-new-playlist-notes"
-          label="Notes (optional)"
-          value={musicNewPlaylistNotes}
-          onChange={setMusicNewPlaylistNotes}
-          rows={2}
-          placeholder="Anything your DJ should know about this reference list..."
-          disabled={!canManageMusic}
-        />
-        <PrimaryButton
-          type="button"
-          onClick={addMusicPlaylistLink}
-          disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
-          className={
-            buttonVariant === "couple"
-              ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
-              : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
-          }
-        >
-          Save playlist
-        </PrimaryButton>
-      </div>
+      {musicPlaylistLinksOpen ? (
+        <div className="mt-4 space-y-3 rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+          <TextInput
+            id="music-new-playlist-url"
+            label="Spotify URL"
+            value={musicNewPlaylistUrl}
+            onChange={setMusicNewPlaylistUrl}
+            placeholder="https://open.spotify.com/playlist/..."
+            disabled={!canManageMusic}
+          />
+          <TextInput
+            id="music-new-playlist-label"
+            label="Label (optional)"
+            value={musicNewPlaylistLabel}
+            onChange={setMusicNewPlaylistLabel}
+            placeholder="e.g. Cocktail hour ideas"
+            disabled={!canManageMusic}
+          />
+          <TextArea
+            id="music-new-playlist-notes"
+            label="Notes (optional)"
+            value={musicNewPlaylistNotes}
+            onChange={setMusicNewPlaylistNotes}
+            rows={2}
+            placeholder="Anything your DJ should know about this reference list..."
+            disabled={!canManageMusic}
+          />
+          <PrimaryButton
+            type="button"
+            onClick={addMusicPlaylistLink}
+            disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
+            className={
+              buttonVariant === "couple"
+                ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
+                : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
+            }
+          >
+            Save playlist
+          </PrimaryButton>
+        </div>
+      ) : null}
       {musicPlaylistLinks.length > 0 ? (
         <ul className="mt-5 space-y-3">
           {musicPlaylistLinks.map((link) => {
@@ -19163,8 +19279,8 @@ export default function Home() {
                 {coupleMusicHubScreen === "songLists" ? (
                   <>
                 {sectionMustPlayEnabled ? (
-                  <PremiumCard variant="accent" id="music-hub-must-play">
-                    <div className="mt-4 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
+                  <PremiumCard variant="accent" id="music-hub-song-lists-workspace" className="flex flex-col">
+                    <div className="order-2 mt-6 rounded-2xl border border-stone-200 bg-white/85 p-4 shadow-sm">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <SectionTitle className="text-stone-950">+ Add Song</SectionTitle>
@@ -19318,7 +19434,6 @@ export default function Home() {
                             addSong();
                             if (shouldResetComposer) {
                               setMusicSongNoteExpanded(false);
-                              window.setTimeout(() => document.getElementById("song-title")?.focus(), 50);
                             }
                           }}
                           disabled={!canManageMusic}
@@ -19333,78 +19448,42 @@ export default function Home() {
                       </div>
                       ) : null}
                     </div>
-                    <div className="mt-6 border-t border-stone-200/80 pt-5">
+                    <div className="order-1 mt-4 border-b border-stone-200/80 pb-5">
                       <SectionTitle className="text-stone-950">Your Music Lists</SectionTitle>
                       <div className="mt-4 space-y-5">
-                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
-                          <SectionTitle className="text-stone-950">Must Play List</SectionTitle>
-                          {mustPlaySongs.length === 0 ? (
-                            <div className="mt-3">
-                              <SectionEmptyState
-                                wrapWithCard={false}
-                                title="No songs yet."
-                                description="Start by adding a few songs you can’t imagine your wedding without."
-                                buttonVariant="couple"
-                              />
-                            </div>
-                          ) : (
-                            <MusicHubSongList
-                              songs={mustPlaySongs}
-                              listType="mustPlay"
-                              onTogglePriority={togglePriority}
-                              onRemove={removeSong}
-                              onUpdateSong={updateSong}
-                              disabled={!canManageMusic}
-                              buttonVariant="couple"
-                            />
-                          )}
-                        </div>
-                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
-                          <SectionTitle className="text-stone-950">Open Dancing</SectionTitle>
-                          {playIfPossibleSongs.length === 0 ? (
-                            <div className="mt-3">
-                              <SectionEmptyState
-                                wrapWithCard={false}
-                                title="No open dancing songs yet"
-                                description="Add favorites you would love to hear if the dance floor is ready for them."
-                                buttonVariant="couple"
-                              />
-                            </div>
-                          ) : (
-                            <MusicHubSongList
-                              songs={playIfPossibleSongs}
-                              listType="playIfPossible"
-                              onTogglePriority={togglePriority}
-                              onRemove={removeSong}
-                              onUpdateSong={updateSong}
-                              disabled={!canManageMusic}
-                              buttonVariant="couple"
-                            />
-                          )}
-                        </div>
-                        <div className="rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm">
-                          <SectionTitle className="text-stone-950">Songs to Avoid</SectionTitle>
-                          {doNotPlaySongs.length === 0 ? (
-                            <div className="mt-3">
-                              <SectionEmptyState
-                                wrapWithCard={false}
-                                title="Nothing here yet"
-                                description="Add songs or artists you’d rather not hear on your wedding day."
-                                buttonVariant="couple"
-                              />
-                            </div>
-                          ) : (
-                            <MusicHubSongList
-                              songs={doNotPlaySongs}
-                              listType="doNotPlay"
-                              onTogglePriority={togglePriority}
-                              onRemove={removeSong}
-                              onUpdateSong={updateSong}
-                              disabled={!canManageMusic}
-                              buttonVariant="couple"
-                            />
-                          )}
-                        </div>
+                        {renderMusicListSummaryCard({
+                          listType: "mustPlay",
+                          id: "music-hub-must-play",
+                          title: "Must Play List",
+                          description: "Songs that absolutely have to be part of your celebration.",
+                          songs: mustPlaySongs,
+                          emptyTitle: "No songs yet.",
+                          emptyDescription: "Start by adding a few songs you can’t imagine your wedding without.",
+                          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+                          buttonVariant: "couple",
+                        })}
+                        {renderMusicListSummaryCard({
+                          listType: "playIfPossible",
+                          id: "music-hub-play-if-possible",
+                          title: "Open Dancing",
+                          description: "Favorites you would love to hear if the dance floor is ready for them.",
+                          songs: playIfPossibleSongs,
+                          emptyTitle: "No open dancing songs yet",
+                          emptyDescription: "Add favorites you would love to hear if the dance floor is ready for them.",
+                          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+                          buttonVariant: "couple",
+                        })}
+                        {renderMusicListSummaryCard({
+                          listType: "doNotPlay",
+                          id: "music-hub-do-not-play",
+                          title: "Songs to Avoid",
+                          description: "Songs or artists you’d rather not hear on your wedding day.",
+                          songs: doNotPlaySongs,
+                          emptyTitle: "Nothing here yet",
+                          emptyDescription: "Add songs or artists you’d rather not hear on your wedding day.",
+                          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+                          buttonVariant: "couple",
+                        })}
                       </div>
                     </div>
                   </PremiumCard>
@@ -19967,6 +20046,115 @@ export default function Home() {
               ) : null}
             </PremiumCard>
 
+            {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
+              <div
+                className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}
+                style={isCoupleView ? { order: 4 } : undefined}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  {isCoupleView ? "Must Play List" : "Priority songs"}
+                </p>
+                <p className="text-xs leading-relaxed text-stone-600">
+                  {isCoupleView
+                    ? "These are the songs that absolutely have to be part of your celebration."
+                    : "Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from."}
+                </p>
+              </div>
+            )}
+
+            <div className={isCoupleView ? "contents" : "space-y-5"}>
+              {sectionMustPlayEnabled && (
+                renderMusicListSummaryCard({
+                  listType: "mustPlay",
+                  id: "music-hub-must-play",
+                  title: isCoupleView ? "Must Play List" : "Must play",
+                  description: isCoupleView
+                    ? "These are the songs that absolutely have to be part of your celebration."
+                    : "Songs that should absolutely make the night.",
+                  songs: mustPlaySongs,
+                  emptyTitle: "No must-plays yet",
+                  emptyDescription: "Name a few songs your DJ should absolutely work in—three strong picks is a great start.",
+                  emptyPrimaryAction: {
+                    label: "Add must-play song",
+                    onClick: () => {
+                      setNewSongListType("mustPlay");
+                      setMusicAddSongOpen(true);
+                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                    },
+                    disabled: !canManageMusic,
+                  },
+                  variant: "accent",
+                  className: isCoupleView ? "order-[20]" : "",
+                  style: isCoupleView ? { order: 5 } : undefined,
+                  buttonVariant: isCoupleView ? "couple" : "default",
+                })
+              )}
+
+              {sectionMustPlayEnabled && (
+                renderMusicListSummaryCard({
+                  listType: "playIfPossible",
+                  id: "music-hub-play-if-possible",
+                  title: isCoupleView ? "Songs If They Fit" : "Play if possible",
+                  description: isCoupleView
+                    ? "Songs and artists that would feel good if the room is ready for them."
+                    : "Nice-to-haves when the moment feels right—never a guarantee.",
+                  songs: playIfPossibleSongs,
+                  emptyTitle: "No “play if possible” yet",
+                  emptyDescription: "Optional—add a few if specific songs would make you smile.",
+                  emptyPrimaryAction: {
+                    label: "Add from box above",
+                    onClick: () => {
+                      setNewSongListType("playIfPossible");
+                      setMusicAddSongOpen(true);
+                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                    },
+                    disabled: !canManageMusic,
+                  },
+                  className: `${isCoupleView ? "order-[32] border-emerald-200/80" : "border-[#7F8F7A]/45"} border bg-white shadow-none`,
+                  style: isCoupleView ? { order: 9 } : undefined,
+                  buttonVariant: isCoupleView ? "couple" : "default",
+                })
+              )}
+
+              {sectionDoNotPlayEnabled && (
+                renderMusicListSummaryCard({
+                  listType: "doNotPlay",
+                  id: "music-hub-do-not-play",
+                  title: isCoupleView ? "Songs to Avoid" : "Do not play",
+                  description: isCoupleView
+                    ? "Are there any songs or artists you’d rather not hear on your wedding day?"
+                    : "Songs, artists, genres, or vibes to steer away from—notes optional.",
+                  songs: doNotPlaySongs,
+                  emptyTitle: "Nothing on the block list",
+                  emptyDescription: "A short “do not play” keeps the vibe aligned.",
+                  emptyPrimaryAction: {
+                    label: "Add from quick add",
+                    onClick: () => {
+                      setNewSongListType("doNotPlay");
+                      setMusicAddSongOpen(true);
+                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                    },
+                    disabled: !canManageMusic,
+                  },
+                  className: `border-stone-300 bg-white shadow-none ${isCoupleView ? "order-[40]" : ""}`,
+                  style: isCoupleView ? { order: 12 } : undefined,
+                  buttonVariant: isCoupleView ? "couple" : "default",
+                })
+              )}
+            </div>
+
             <PremiumCard
               id="music-hub-quick-add"
               className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}
@@ -20004,308 +20192,108 @@ export default function Home() {
                 </PrimaryButton>
               </div>
               {musicAddSongOpen ? (
-              <div className="mt-4 space-y-3">
-                <SongSearchAutocomplete
-                  disabled={!canManageMusic}
-                  selectedSong={selectedSpotifySong}
-                  onSelect={(song) => {
-                    setSelectedSpotifySong(song);
-                    setNewSongTitle(song.title);
-                    setNewSongArtist(song.artist);
-                  }}
-                />
-                <TextInput
-                  id="song-title"
-                  label="Song title"
-                  value={newSongTitle}
-                  onChange={(value) => {
-                    setSelectedSpotifySong(null);
-                    setNewSongTitle(value);
-                  }}
-                  placeholder="e.g. Crazy in Love"
-                  disabled={!canManageMusic}
-                />
-                <TextInput
-                  id="song-artist"
-                  label="Artist (optional)"
-                  value={newSongArtist}
-                  onChange={(value) => {
-                    setSelectedSpotifySong(null);
-                    setNewSongArtist(value);
-                  }}
-                  placeholder="e.g. Beyonce"
-                  disabled={!canManageMusic}
-                />
-                <TextArea
-                  id="song-notes"
-                  label="DJ notes (optional)"
-                  value={newSongNotes}
-                  onChange={setNewSongNotes}
-                  placeholder="Special mix notes, timing cues, energy guidance..."
-                  disabled={!canManageMusic}
-                />
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <PrimaryButton
-                    onClick={() => setNewSongListType("mustPlay")}
+                <div className="mt-4 space-y-3">
+                  <SongSearchAutocomplete
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "mustPlay"
+                    selectedSong={selectedSpotifySong}
+                    onSelect={(song) => {
+                      setSelectedSpotifySong(song);
+                      setNewSongTitle(song.title);
+                      setNewSongArtist(song.artist);
+                    }}
+                  />
+                  <TextInput
+                    id="song-title"
+                    label="Song title"
+                    value={newSongTitle}
+                    onChange={(value) => {
+                      setSelectedSpotifySong(null);
+                      setNewSongTitle(value);
+                    }}
+                    placeholder="e.g. Crazy in Love"
+                    disabled={!canManageMusic}
+                  />
+                  <TextInput
+                    id="song-artist"
+                    label="Artist (optional)"
+                    value={newSongArtist}
+                    onChange={(value) => {
+                      setSelectedSpotifySong(null);
+                      setNewSongArtist(value);
+                    }}
+                    placeholder="e.g. Beyonce"
+                    disabled={!canManageMusic}
+                  />
+                  <TextArea
+                    id="song-notes"
+                    label="DJ notes (optional)"
+                    value={newSongNotes}
+                    onChange={setNewSongNotes}
+                    placeholder="Special mix notes, timing cues, energy guidance..."
+                    disabled={!canManageMusic}
+                  />
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <PrimaryButton
+                      onClick={() => setNewSongListType("mustPlay")}
+                      disabled={!canManageMusic}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "mustPlay"
+                        ? isCoupleView
+                          ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
+                          : "border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E]"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                        }`}
+                    >
+                      Must play
+                    </PrimaryButton>
+                    <PrimaryButton
+                      onClick={() => setNewSongListType("playIfPossible")}
+                      disabled={!canManageMusic}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "playIfPossible"
+                        ? isCoupleView
+                          ? "border-emerald-700 bg-emerald-100 text-emerald-950"
+                          : "border-[#7F8F7A]/65 bg-[#7F8F7A]/15 text-[#3f4d3d]"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                        }`}
+                    >
+                      Play if possible
+                    </PrimaryButton>
+                    <PrimaryButton
+                      onClick={() => setNewSongListType("doNotPlay")}
+                      disabled={!canManageMusic}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "doNotPlay"
+                        ? "border-rose-600 bg-rose-100 text-rose-950"
+                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                        }`}
+                    >
+                      {isCoupleView ? "Songs to avoid" : "Do not play"}
+                    </PrimaryButton>
+                  </div>
+                  <PrimaryButton
+                    onClick={() => setNewSongHighPriority((prev) => !prev)}
+                    disabled={!canManageMusic}
+                    className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${newSongHighPriority
                       ? isCoupleView
-                        ? "border-[#2f4a3e] bg-[#2f4a3e] text-white"
-                        : "border-[#C79A5A]/65 bg-[#C79A5A] text-[#1E1E1E]"
+                        ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                        : "border-[#C79A5A] bg-[#C79A5A]/15 text-[#1E1E1E]"
                       : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
                       }`}
                   >
-                    Must play
+                    {newSongHighPriority ? "High Priority Enabled" : "Mark as High Priority"}
                   </PrimaryButton>
                   <PrimaryButton
-                    onClick={() => setNewSongListType("playIfPossible")}
+                    onClick={addSong}
                     disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "playIfPossible"
-                      ? isCoupleView
-                        ? "border-emerald-700 bg-emerald-100 text-emerald-950"
-                        : "border-[#7F8F7A]/65 bg-[#7F8F7A]/15 text-[#3f4d3d]"
-                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                      }`}
+                    className={
+                      isCoupleView
+                        ? `w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`
+                        : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
+                    }
                   >
-                    Play if possible
-                  </PrimaryButton>
-                  <PrimaryButton
-                    onClick={() => setNewSongListType("doNotPlay")}
-                    disabled={!canManageMusic}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold shadow-none ${newSongListType === "doNotPlay"
-                      ? "border-rose-600 bg-rose-100 text-rose-950"
-                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                      }`}
-                  >
-                    {isCoupleView ? "Songs to avoid" : "Do not play"}
+                    Add Song
                   </PrimaryButton>
                 </div>
-                <PrimaryButton
-                  onClick={() => setNewSongHighPriority((prev) => !prev)}
-                  disabled={!canManageMusic}
-                  className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${newSongHighPriority
-                    ? isCoupleView
-                      ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                      : "border-[#C79A5A] bg-[#C79A5A]/15 text-[#1E1E1E]"
-                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                >
-                  {newSongHighPriority ? "High Priority Enabled" : "Mark as High Priority"}
-                </PrimaryButton>
-                <PrimaryButton
-                  onClick={addSong}
-                  disabled={!canManageMusic}
-                  className={
-                    isCoupleView
-                      ? `w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`
-                      : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
-                  }
-                >
-                  Add Song
-                </PrimaryButton>
-              </div>
               ) : null}
             </PremiumCard>
-
-            {(sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
-              <div
-                className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}
-                style={isCoupleView ? { order: 4 } : undefined}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                  {isCoupleView ? "Must Play List" : "Priority songs"}
-                </p>
-                <p className="text-xs leading-relaxed text-stone-600">
-                  {isCoupleView
-                    ? "These are the songs that absolutely have to be part of your celebration."
-                    : "Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from."}
-                </p>
-              </div>
-            )}
-
-            <div className={isCoupleView ? "contents" : "space-y-5"}>
-              {sectionMustPlayEnabled && (
-                <PremiumCard
-                  variant="accent"
-                  id="music-hub-must-play"
-                  className={isCoupleView ? "order-[20]" : ""}
-                  style={isCoupleView ? { order: 5 } : undefined}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <SectionTitle>{isCoupleView ? "Must Play List" : "Must play"}</SectionTitle>
-                      <p className="mt-1 text-xs text-stone-600">
-                        {isCoupleView
-                          ? "These are the songs that absolutely have to be part of your celebration."
-                          : "Songs that should absolutely make the night."}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
-                        isCoupleView
-                          ? "border-[#2f4a3e]/25 bg-[#2f4a3e]/10 text-[#2f4a3e]"
-                          : "border-[#C79A5A]/45 bg-[#C79A5A]/15 text-[#1E1E1E]"
-                      }`}
-                    >
-                      {mustPlaySongs.length}
-                    </span>
-                  </div>
-                  {mustPlaySongs.length === 0 ? (
-                    <div className="mt-3">
-                      <SectionEmptyState
-                        wrapWithCard={false}
-                        title="No must-plays yet"
-                        description="Name a few songs your DJ should absolutely work in—three strong picks is a great start."
-                        buttonVariant={isCoupleView ? "couple" : "default"}
-                        primaryAction={{
-                          label: "Add must-play song",
-                          onClick: () => {
-                            setNewSongListType("mustPlay");
-                            setMusicAddSongOpen(true);
-                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "center",
-                            });
-                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                          },
-                          disabled: !canManageMusic,
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <MusicHubSongList
-                      songs={mustPlaySongs}
-                      listType="mustPlay"
-                      onTogglePriority={togglePriority}
-                      onRemove={removeSong}
-                      onUpdateSong={updateSong}
-                      disabled={!canManageMusic}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  )}
-                </PremiumCard>
-              )}
-
-              {sectionMustPlayEnabled && (
-                <PremiumCard
-                  className={`${isCoupleView ? "order-[32] border-emerald-200/80" : "border-[#7F8F7A]/45"} border bg-white shadow-none`}
-                  id="music-hub-play-if-possible"
-                  style={isCoupleView ? { order: 9 } : undefined}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <SectionTitle className="text-stone-950">
-                        {isCoupleView ? "Songs If They Fit" : "Play if possible"}
-                      </SectionTitle>
-                      <p className="mt-1 text-xs text-stone-600">
-                        {isCoupleView
-                          ? "Songs and artists that would feel good if the room is ready for them."
-                          : "Nice-to-haves when the moment feels right—never a guarantee."}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                        isCoupleView
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                          : "border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
-                      }`}
-                    >
-                      {playIfPossibleSongs.length}
-                    </span>
-                  </div>
-                  {playIfPossibleSongs.length === 0 ? (
-                    <div className="mt-3">
-                      <SectionEmptyState
-                        wrapWithCard={false}
-                        title="No “play if possible” yet"
-                        description="Optional—add a few if specific songs would make you smile."
-                        buttonVariant={isCoupleView ? "couple" : "default"}
-                        primaryAction={{
-                          label: "Add from box above",
-                          onClick: () => {
-                            setNewSongListType("playIfPossible");
-                            setMusicAddSongOpen(true);
-                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "center",
-                            });
-                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                          },
-                          disabled: !canManageMusic,
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <MusicHubSongList
-                      songs={playIfPossibleSongs}
-                      listType="playIfPossible"
-                      onTogglePriority={togglePriority}
-                      onRemove={removeSong}
-                      onUpdateSong={updateSong}
-                      disabled={!canManageMusic}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  )}
-                </PremiumCard>
-              )}
-
-              {sectionDoNotPlayEnabled && (
-                <PremiumCard
-                  className={`border-stone-300 bg-white shadow-none ${isCoupleView ? "order-[40]" : ""}`}
-                  id="music-hub-do-not-play"
-                  style={isCoupleView ? { order: 12 } : undefined}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <SectionTitle className="text-stone-950">
-                        {isCoupleView ? "Songs to Avoid" : "Do not play"}
-                      </SectionTitle>
-                      <p className="mt-1 text-xs text-stone-600">
-                        {isCoupleView
-                          ? "Are there any songs or artists you’d rather not hear on your wedding day?"
-                          : "Songs, artists, genres, or vibes to steer away from—notes optional."}
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-stone-300 bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-900">
-                      {doNotPlaySongs.length}
-                    </span>
-                  </div>
-                  {doNotPlaySongs.length === 0 ? (
-                    <div className="mt-3">
-                      <SectionEmptyState
-                        wrapWithCard={false}
-                        title="Nothing on the block list"
-                        description="A short “do not play” keeps the vibe aligned."
-                        buttonVariant={isCoupleView ? "couple" : "default"}
-                        primaryAction={{
-                          label: "Add from quick add",
-                          onClick: () => {
-                            setNewSongListType("doNotPlay");
-                            setMusicAddSongOpen(true);
-                            document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "center",
-                            });
-                            window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                          },
-                          disabled: !canManageMusic,
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <MusicHubSongList
-                      songs={doNotPlaySongs}
-                      listType="doNotPlay"
-                      onTogglePriority={togglePriority}
-                      onRemove={removeSong}
-                      onUpdateSong={updateSong}
-                      disabled={!canManageMusic}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  )}
-                </PremiumCard>
-              )}
-            </div>
 
             {renderPasteSongListImportCard({
               className: isCoupleView ? "order-[41]" : "",
