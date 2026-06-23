@@ -3729,6 +3729,8 @@ export default function Home() {
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
   const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
   const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
+  const [musicHubHeroImageOrientation, setMusicHubHeroImageOrientation] =
+    useState<"portrait" | "landscape" | "unknown">("unknown");
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
@@ -13071,6 +13073,10 @@ export default function Home() {
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
     musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
+  useEffect(() => {
+    setMusicHubHeroImageOrientation("unknown");
+  }, [musicHubHeroImageSrc]);
+  const musicHubHeroPhotoIsPortrait = musicHubHeroImageOrientation === "portrait";
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
@@ -13381,15 +13387,27 @@ export default function Home() {
             </div>
           ) : null}
         </div>
-        <div className="lg:justify-self-end">
+        <div className={musicHubHeroPhotoIsPortrait ? "justify-self-center lg:justify-self-center" : "lg:justify-self-end"}>
           <div className="rotate-[-0.45deg] rounded-[1.85rem] border border-white bg-white p-3 shadow-[0_18px_42px_-32px_rgba(47,74,62,0.62)]">
-            <div className="relative aspect-[4/3] max-h-[23rem] overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] sm:aspect-[5/4] lg:w-[28rem]">
+            <div
+              className={`relative overflow-hidden rounded-[1.35rem] border border-[#f7f5f1] bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.24),transparent_38%),linear-gradient(135deg,#f7f5f1,#ebe1d2_55%,#dfe7dc)] ${
+                musicHubHeroPhotoIsPortrait
+                  ? "aspect-[3/4] max-h-[25rem] w-[18rem] sm:w-[20rem] lg:w-[21rem]"
+                  : "aspect-[4/3] max-h-[23rem] sm:aspect-[5/4] lg:w-[28rem]"
+              }`}
+            >
               {musicHubHeroImageSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={musicHubHeroImageSrc}
                   alt=""
                   className="absolute inset-0 h-full w-full object-contain object-center"
+                  onLoad={(event) => {
+                    const img = event.currentTarget;
+                    setMusicHubHeroImageOrientation(
+                      img.naturalHeight > img.naturalWidth ? "portrait" : "landscape",
+                    );
+                  }}
                   style={{
                     filter: "sepia(0.04) saturate(1.03) contrast(0.96)",
                   }}
