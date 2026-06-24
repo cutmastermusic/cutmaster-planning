@@ -46,6 +46,11 @@ export type AcceptEventInviteResult = {
   role: "COUPLE";
 };
 
+type InviteAcceptUser = {
+  id: string;
+  email: string;
+};
+
 export type EventInviteListState = "pending" | "active" | "expired" | "revoked" | "accepted";
 
 export type EventInviteListItem = {
@@ -325,7 +330,17 @@ export async function acceptEventInvite(rawToken: string): Promise<AcceptEventIn
   const access = await requireAuth();
   assertSupabaseSessionForAccept(access);
 
-  const sessionEmail = normalizeInviteEmail(access.email);
+  return acceptEventInviteForUser(rawToken, {
+    id: access.dbUser.id,
+    email: access.email,
+  });
+}
+
+export async function acceptEventInviteForUser(
+  rawToken: string,
+  user: InviteAcceptUser,
+): Promise<AcceptEventInviteResult> {
+  const sessionEmail = normalizeInviteEmail(user.email);
   const token = rawToken.trim();
 
   if (!token) {
@@ -365,7 +380,7 @@ export async function acceptEventInvite(rawToken: string): Promise<AcceptEventIn
       where: { id: invite.eventMemberId },
       data: {
         status: "ACTIVE",
-        userId: access.dbUser.id,
+        userId: user.id,
         acceptedAt,
         email: sessionEmail,
       },

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveRequestSiteOrigin } from "@/lib/auth/authConfig";
 import { getOrCreateUserFromSession } from "@/lib/auth/getOrCreateUserFromSession";
+import { acceptEventInviteForUser } from "@/lib/actions/eventInvites";
+import { isEventAccessError } from "@/lib/eventAccess/errors";
 import { createRouteHandlerClient } from "@/lib/supabase/server";
 
 function sanitizeNextPath(next: string | null): string {
@@ -15,6 +17,16 @@ function sanitizeNextPath(next: string | null): string {
 
 function loginErrorRedirect(origin: string): string {
   return `${origin}/login?error=auth_callback_failed`;
+}
+
+function inviteTokenFromNextPath(next: string): string | null {
+  try {
+    const nextUrl = new URL(next, "https://showflow.local");
+    if (nextUrl.pathname !== "/invite/accept") return null;
+    return nextUrl.searchParams.get("token")?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 function countSupabaseAuthCookies(response: NextResponse): number {
@@ -68,11 +80,39 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  let dbUser: Awaited<ReturnType<typeof getOrCreateUserFromSession>>;
   try {
-    await getOrCreateUserFromSession(user);
+    dbUser = await getOrCreateUserFromSession(user);
   } catch (syncError) {
     console.error("[auth/callback] user sync failed:", syncError);
     return NextResponse.redirect(loginErrorRedirect(origin));
+  }
+
+  const inviteToken = inviteTokenFromNextPath(safeNext);
+  if (inviteToken) {
+    try {
+      const accepted = await acceptEventInviteForUser(inviteToken, {
+        id: dbUser.id,
+        email: user.email,
+      });
+      console.info("[auth/callback] accepted invite during auth callback", {
+        eventId: accepted.eventId,
+        userId: dbUser.id,
+        email: dbUser.email,
+      });
+      response.headers.set("Location", `${origin}/`);
+    } catch (inviteError) {
+      if (isEventAccessError(inviteError)) {
+        console.warn("[auth/callback] invite acceptance skipped", {
+          code: inviteError.code,
+          message: inviteError.message,
+          userId: dbUser.id,
+          email: dbUser.email,
+        });
+      } else {
+        console.error("[auth/callback] invite acceptance failed:", inviteError);
+      }
+    }
   }
 
   return response;
