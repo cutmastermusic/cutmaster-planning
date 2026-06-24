@@ -3731,6 +3731,8 @@ export default function Home() {
   const [musicJourneyEditorOpen, setMusicJourneyEditorOpen] = useState(false);
   const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
   const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
+  const musicJourneyPanelRef = useRef<HTMLDivElement | null>(null);
+  const musicJourneyHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
   const [musicNewPlaylistLabel, setMusicNewPlaylistLabel] = useState("");
   const [musicNewPlaylistNotes, setMusicNewPlaylistNotes] = useState("");
@@ -13087,12 +13089,23 @@ export default function Home() {
     }, 50);
   };
 
+  const scrollMusicJourneyPanelIntoView = () => {
+    window.setTimeout(() => {
+      window.requestAnimationFrame(() => {
+        const panel = musicJourneyPanelRef.current ?? document.getElementById("music-journey-inline-panel");
+        panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+        musicJourneyHeadingRef.current?.focus({ preventScroll: true });
+      });
+    }, 50);
+  };
+
   const openMusicJourneyInline = (initialStep: MusicJourneyStep = MUSIC_JOURNEY_START_STEP) => {
     if (!isCoupleView) return;
     const nextStep = MUSIC_JOURNEY_ORDER.includes(initialStep) ? initialStep : MUSIC_JOURNEY_START_STEP;
     setMusicJourneyEditorOpen(true);
     setMusicJourneyCompleted(false);
     setMusicJourneyStep(nextStep);
+    scrollMusicJourneyPanelIntoView();
   };
 
   const handleOpenMusicJourneyInline = () => {
@@ -13896,7 +13909,11 @@ export default function Home() {
     const artists = artistKind === "love" ? musicJourneyLovedArtists : musicJourneyAvoidArtists;
 
     return (
-      <div className="rounded-[1.75rem] border border-white/80 bg-white/85 p-4 shadow-sm">
+      <div
+        id="music-journey-inline-panel"
+        ref={musicJourneyPanelRef}
+        className="scroll-mt-28 rounded-[1.75rem] border border-white/80 bg-white/85 p-4 shadow-sm md:scroll-mt-24"
+      >
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
             Step {musicJourneyCurrentIndex + 1} of {MUSIC_JOURNEY_ORDER.length}
@@ -13910,7 +13927,11 @@ export default function Home() {
           />
         </div>
         <div className="mt-5">
-          <h3 className="text-xl font-semibold tracking-tight text-[#214637]">
+          <h3
+            ref={musicJourneyHeadingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold tracking-tight text-[#214637] outline-none"
+          >
             {musicJourneyCurrentStep.title}
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">{musicJourneyCurrentStep.helper}</p>
