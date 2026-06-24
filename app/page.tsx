@@ -14945,6 +14945,87 @@ export default function Home() {
     guestRequestSettings.maxRequests !== "unlimited" &&
     guestRequests.length >= guestRequestSettings.maxRequests;
 
+  const renderGuestRequestQueueSection = ({
+    title,
+    groups,
+    emptyLabel,
+    badgeLabel,
+    actions,
+  }: {
+    title: string;
+    groups: ReturnType<typeof groupGuestRequestsBySong>;
+    emptyLabel: string;
+    badgeLabel?: string;
+    actions: Array<{
+      label: string;
+      status: GuestRequestStatus;
+      variant: "primary" | "secondary";
+    }>;
+  }) => (
+    <section className="rounded-2xl border border-stone-200 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-3 py-2.5">
+        <h3 className="text-sm font-semibold text-stone-950">{title}</h3>
+        {badgeLabel ? (
+          <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
+            {badgeLabel}
+          </span>
+        ) : null}
+      </div>
+      {groups.length === 0 ? (
+        <p className="px-3 py-3 text-sm text-stone-600">{emptyLabel}</p>
+      ) : (
+        <div className="max-h-[24rem] overflow-y-auto">
+          <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_5rem_minmax(9rem,auto)] gap-3 bg-stone-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 md:grid">
+            <span>Song Title</span>
+            <span>Artist</span>
+            <span>Requested By</span>
+            <span>Count</span>
+            <span className="text-right">Actions</span>
+          </div>
+          {groups.map((group) => {
+            const requestIds = group.requests.map((request) => request.id);
+            const requesterNames = group.requests.map((request) => request.guestName).join(", ");
+            return (
+              <div
+                key={`${title}-${group.key}`}
+                className="grid gap-2 border-t border-stone-100 px-3 py-2.5 text-sm md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_5rem_minmax(9rem,auto)] md:items-center md:gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-stone-950">{group.songTitle}</p>
+                  <p className="text-xs text-stone-500 md:hidden">{group.artist || "Artist unknown"}</p>
+                </div>
+                <p className="hidden truncate text-stone-600 md:block">{group.artist || "Artist unknown"}</p>
+                <p className="min-w-0 text-xs font-medium text-stone-700 md:truncate md:text-sm">
+                  {requesterNames}
+                </p>
+                <p className="text-xs font-semibold text-[#2f4a3e] md:text-sm">
+                  {group.requests.length > 1 ? `${group.requests.length} guests` : "1 guest"}
+                </p>
+                <div className="flex flex-wrap gap-1.5 md:justify-end">
+                  {actions.map((action) => (
+                    <button
+                      key={`${group.key}-${action.status}`}
+                      type="button"
+                      onClick={() => setGuestRequestGroupStatus(requestIds, action.status)}
+                      disabled={!canManageGuestRequests}
+                      className={`min-h-9 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45 ${
+                        action.variant === "primary"
+                          ? "border-[#2f4a3e] bg-[#2f4a3e] text-white hover:bg-[#3a5a4c]"
+                          : "border-stone-300 bg-white text-stone-800 hover:bg-stone-50"
+                      }`}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
   const guestRequestStatusBadgeClass = (status: GuestRequestStatus) => {
     if (status === "Pending") return "bg-[#7E52A0]/18 text-violet-100";
     if (status === "Approved") return "bg-[#7F8F7A]/25 text-[#eaf0e6]";
@@ -20967,86 +21048,38 @@ export default function Home() {
                       </select>
                     </div>
 
-                    <div className="mt-6 space-y-5">
-                      <div>
-                        <div className="flex items-center justify-between gap-3">
-                          <h3 className="text-lg font-semibold text-stone-950">Pending</h3>
-                          {pendingGuestRequestGroups.length > 0 ? (
-                            <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
-                              {pendingGuestRequestGroups.length} New
-                            </span>
-                          ) : null}
-                        </div>
-                        {pendingGuestRequestGroups.length === 0 ? (
-                          <p className="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
-                            No pending requests yet.
-                          </p>
-                        ) : (
-                          <div className="mt-3 grid gap-3">
-                            {pendingGuestRequestGroups.map((group) => (
-                              <div key={`pending-${group.key}`} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-                                <p className="text-base font-semibold text-stone-950">{group.songTitle}</p>
-                                <p className="text-sm text-stone-600">{group.artist || "Artist unknown"}</p>
-                                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                                  Requested by
-                                </p>
-                                <p className="mt-1 text-sm font-medium text-stone-800">
-                                  {group.requests.map((request) => request.guestName).join(", ")}
-                                </p>
-                                {group.requests.length > 1 ? (
-                                  <p className="mt-1 text-xs font-semibold text-[#2f4a3e]">
-                                    ({group.requests.length} Guests)
-                                  </p>
-                                ) : null}
-                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => setGuestRequestGroupStatus(group.requests.map((request) => request.id), "Approved")}
-                                    disabled={!canManageGuestRequests}
-                                    className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
-                                  >
-                                    Approve
-                                  </PrimaryButton>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => setGuestRequestGroupStatus(group.requests.map((request) => request.id), "Rejected")}
-                                    disabled={!canManageGuestRequests}
-                                    className={`w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
-                                  >
-                                    Reject
-                                  </PrimaryButton>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {[
-                        { title: "Approved", groups: approvedGuestRequestGroups },
-                        { title: "Rejected", groups: rejectedGuestRequestGroups },
-                      ].map((section) => (
-                        <div key={section.title}>
-                          <h3 className="text-lg font-semibold text-stone-950">{section.title}</h3>
-                          {section.groups.length === 0 ? (
-                            <p className="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
-                              No {section.title.toLowerCase()} requests yet.
-                            </p>
-                          ) : (
-                            <div className="mt-3 grid gap-3 md:grid-cols-2">
-                              {section.groups.map((group) => (
-                                <div key={`${section.title}-${group.key}`} className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                                  <p className="font-semibold text-stone-950">{group.songTitle}</p>
-                                  <p className="text-sm text-stone-600">{group.artist || "Artist unknown"}</p>
-                                  <p className="mt-2 text-xs text-stone-600">
-                                    Requested by {group.requests.map((request) => request.guestName).join(", ")}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    <div className="mt-6 space-y-4">
+                      {renderGuestRequestQueueSection({
+                        title: "Pending",
+                        groups: pendingGuestRequestGroups,
+                        emptyLabel: "No pending requests yet.",
+                        badgeLabel:
+                          pendingGuestRequestGroups.length > 0
+                            ? `${pendingGuestRequestGroups.length} New`
+                            : undefined,
+                        actions: [
+                          { label: "Approve", status: "Approved", variant: "primary" },
+                          { label: "Reject", status: "Rejected", variant: "secondary" },
+                        ],
+                      })}
+                      {renderGuestRequestQueueSection({
+                        title: "Approved",
+                        groups: approvedGuestRequestGroups,
+                        emptyLabel: "No approved requests yet.",
+                        actions: [
+                          { label: "Pending", status: "Pending", variant: "secondary" },
+                          { label: "Reject", status: "Rejected", variant: "secondary" },
+                        ],
+                      })}
+                      {renderGuestRequestQueueSection({
+                        title: "Rejected",
+                        groups: rejectedGuestRequestGroups,
+                        emptyLabel: "No rejected requests yet.",
+                        actions: [
+                          { label: "Pending", status: "Pending", variant: "secondary" },
+                          { label: "Approve", status: "Approved", variant: "primary" },
+                        ],
+                      })}
                     </div>
                   </PremiumCard>
                 ) : null}
