@@ -907,6 +907,88 @@ function songDuplicateFingerprint(song: Pick<SongEntry, "title" | "artist">): st
   return `${normalizedSongDuplicateText(song.title)}|${normalizedSongDuplicateText(song.artist)}`;
 }
 
+function songGuestRequestFingerprint(song: Pick<SongEntry, "title" | "artist">): string {
+  return songDuplicateFingerprint(song);
+}
+
+function guestRequestSongFingerprint(request: Pick<GuestRequestEntry, "songTitle" | "artist">): string {
+  return `${normalizedSongDuplicateText(request.songTitle)}|${normalizedSongDuplicateText(request.artist)}`;
+}
+
+type ApprovedGuestRequestDocumentRow = {
+  key: string;
+  songTitle: string;
+  artist: string;
+  requestedBy: string[];
+  count: number;
+  dedications: string[];
+};
+
+function buildApprovedGuestRequestDocumentRows(
+  requests: GuestRequestEntry[],
+): ApprovedGuestRequestDocumentRow[] {
+  const rows = new Map<string, ApprovedGuestRequestDocumentRow>();
+
+  requests
+    .filter((request) => request.status === "Approved" && request.songTitle.trim())
+    .forEach((request) => {
+      const key = guestRequestSongFingerprint(request);
+      const existing = rows.get(key);
+      const guestName = request.guestName.trim();
+      const dedication = request.dedication.trim();
+
+      if (existing) {
+        existing.count += 1;
+        if (guestName && !existing.requestedBy.includes(guestName)) {
+          existing.requestedBy.push(guestName);
+        }
+        if (dedication && !existing.dedications.includes(dedication)) {
+          existing.dedications.push(dedication);
+        }
+        return;
+      }
+
+      rows.set(key, {
+        key,
+        songTitle: request.songTitle.trim(),
+        artist: request.artist.trim(),
+        requestedBy: guestName ? [guestName] : [],
+        count: 1,
+        dedications: dedication ? [dedication] : [],
+      });
+    });
+
+  return Array.from(rows.values());
+}
+
+function isPromotedApprovedGuestRequestSong(
+  song: SongEntry,
+  approvedRequestKeys: Set<string>,
+): boolean {
+  return song.source === "guest-request" && approvedRequestKeys.has(songGuestRequestFingerprint(song));
+}
+
+function parseFormalDanceDetailLines(raw: string | undefined | null): string[] {
+  return (raw ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function stripFormalDanceSongDetail(line: string, timelineSongs: Set<string>): string {
+  let next = line;
+  for (const song of timelineSongs) {
+    if (!song) continue;
+    const escaped = song.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    next = next.replace(new RegExp(`\\s*(?:song|music)?\\s*[:—-]?\\s*["“]?${escaped}["”]?`, "gi"), "");
+  }
+  return next
+    .replace(/\s+(?:song|music)\s*[:—-]\s*$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;])/g, "$1")
+    .trim();
+}
+
 function generateGuestRequestPublicToken(): string {
   const bytes = new Uint8Array(12);
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
@@ -16771,6 +16853,60 @@ export default function Home() {
     teamMembers.length,
   ]);
 
+  const grandEntranceDocumentDetail = grandEntranceDetailForRos;
+  const grandEntranceLineupDisplay = useMemo(
+    () => formatWeddingPartyLineupForDisplay(grandEntranceDocumentDetail.lineup),
+    [grandEntranceDocumentDetail.lineup],
+  );
+  const grandEntranceDocumentHasContent = Boolean(
+    grandEntranceDocumentDetail.coupleEntrance.trim() ||
+      grandEntranceDocumentDetail.script.trim() ||
+      grandEntranceLineupDisplay.trim() ||
+      grandEntranceDocumentDetail.coupleEntranceScript.trim(),
+  );
+  const formalDanceTimelineSongs = useMemo(() => {
+    const songs = new Set<string>();
+    mergedTimelineItems
+      .filter((item) => isFormalDanceTimelineItem(item))
+      .forEach((item) => {
+        const title = item.songTitle?.trim();
+        const artist = item.artist?.trim();
+        if (title) songs.add(title);
+        if (title && artist) songs.add(`${title} - ${artist}`);
+        if (title && artist) songs.add(`${title} — ${artist}`);
+      });
+    return songs;
+  }, [mergedTimelineItems]);
+  const formalDanceDocumentLines = useMemo(
+    () =>
+      parseFormalDanceDetailLines(formalDancesRaw)
+        .map((line) => stripFormalDanceSongDetail(line, formalDanceTimelineSongs))
+        .filter(Boolean),
+    [formalDancesRaw, formalDanceTimelineSongs],
+  );
+  const approvedGuestRequestDocumentRows = useMemo(
+    () => buildApprovedGuestRequestDocumentRows(guestRequests),
+    [guestRequests],
+  );
+  const approvedGuestRequestSongKeys = useMemo(
+    () => new Set(approvedGuestRequestDocumentRows.map((row) => row.key)),
+    [approvedGuestRequestDocumentRows],
+  );
+  const documentMustPlaySongs = useMemo(
+    () =>
+      mustPlaySongs.filter(
+        (song) => !isPromotedApprovedGuestRequestSong(song, approvedGuestRequestSongKeys),
+      ),
+    [approvedGuestRequestSongKeys, mustPlaySongs],
+  );
+  const documentPlayIfPossibleSongs = useMemo(
+    () =>
+      playIfPossibleSongs.filter(
+        (song) => !isPromotedApprovedGuestRequestSong(song, approvedGuestRequestSongKeys),
+      ),
+    [approvedGuestRequestSongKeys, playIfPossibleSongs],
+  );
+
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
       const value = eventSettings.assignedDj || "";
@@ -16783,12 +16919,13 @@ export default function Home() {
     const showDnp = sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay;
     const showVendors = sectionVendorContactsEnabled && eventSettings.liveEventShowVendorContacts;
     const showPlaylists = sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists;
-    const showGuestRequestsDoc =
-      sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests;
     const showPlanningQs =
       sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions;
     const liveEventPlanningQuestions = planningQuestionsForEvent.filter(
-      (question) => question.showInLiveEventMode,
+      (question) =>
+        question.showInLiveEventMode &&
+        question.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
+        question.id !== FORMAL_DANCES_PLANNING_KEY,
     );
     const layoutProf = eventSettings.eventLayoutProfile;
     const receptionPlainHeading =
@@ -16873,6 +17010,32 @@ export default function Home() {
           ].filter(Boolean);
           return `- ${parts.join(" | ")}`;
         }),
+        "",
+      );
+    }
+
+    if (sectionReceptionTimelineEnabled && grandEntranceDocumentHasContent) {
+      lines.push("GRAND ENTRANCE DETAILS");
+      if (grandEntranceDocumentDetail.coupleEntrance.trim()) {
+        lines.push(`Couple intro: ${grandEntranceDocumentDetail.coupleEntrance.trim()}`);
+      }
+      if (grandEntranceLineupDisplay.trim()) {
+        lines.push("Lineup:", grandEntranceLineupDisplay.trim());
+      }
+      if (grandEntranceDocumentDetail.script.trim()) {
+        lines.push(`MC script / notes: ${grandEntranceDocumentDetail.script.trim()}`);
+      }
+      if (grandEntranceDocumentDetail.coupleEntranceScript.trim()) {
+        lines.push(`Couple entrance script: ${grandEntranceDocumentDetail.coupleEntranceScript.trim()}`);
+      }
+      lines.push("");
+    }
+
+    if (sectionReceptionTimelineEnabled && formalDanceDocumentLines.length > 0) {
+      lines.push(
+        "SPECIAL DANCES DETAILS",
+        ...formalDanceDocumentLines.map((line) => `- ${line}`),
+        "Songs are shown in timeline rows when already selected there.",
         "",
       );
     }
@@ -16981,7 +17144,7 @@ export default function Home() {
     if (showPlaylists && sectionMustPlayEnabled) {
       lines.push(
         "MUST PLAY SONGS",
-        ...mustPlaySongs.map(
+        ...documentMustPlaySongs.map(
           (song) =>
             `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
         ),
@@ -16992,7 +17155,7 @@ export default function Home() {
     if (showPlaylists && sectionMustPlayEnabled && playIfPossibleSongs.length > 0) {
       lines.push(
         "PLAY IF POSSIBLE",
-        ...playIfPossibleSongs.map(
+        ...documentPlayIfPossibleSongs.map(
           (song) =>
             `- ${song.title}${song.artist ? ` - ${song.artist}` : ""}${song.highPriority ? " (PRIORITY)" : ""}${song.notes ? ` | ${song.notes}` : ""}`,
         ),
@@ -17024,21 +17187,32 @@ export default function Home() {
       lines.push("MC SCRIPTS / ANNOUNCEMENTS", mcAnnouncements || "None", "");
     }
 
-    if (showGuestRequestsDoc) {
+    if (sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0) {
       lines.push(
-        "GUEST REQUESTS",
-        ...guestRequests.map((request) => {
-          const songLine = `${request.songTitle}${request.artist ? ` - ${request.artist}` : ""}`;
-          const ded = request.dedication ? ` | Dedication: ${request.dedication}` : "";
-          const playlist = [
-            request.addedToMustPlay ? "Added to Must Play" : null,
-            request.addedToDoNotPlay ? "Added to Do Not Play" : null,
-          ]
-            .filter(Boolean)
-            .join(", ");
-          const extra = playlist ? ` | ${playlist}` : "";
-          return `- ${songLine} | ${request.guestName} | ${request.status}${ded}${extra}`;
+        "APPROVED GUEST SONG REQUESTS",
+        ...approvedGuestRequestDocumentRows.map((row) => {
+          const songLine = `${row.songTitle}${row.artist ? ` - ${row.artist}` : ""}`;
+          const guestLine =
+            row.requestedBy.length > 0
+              ? `${row.count} request${row.count === 1 ? "" : "s"} by ${row.requestedBy.join(", ")}`
+              : `${row.count} request${row.count === 1 ? "" : "s"}`;
+          const dedications = row.dedications.length > 0 ? ` | Notes: ${row.dedications.join(" / ")}` : "";
+          return `- ${songLine} | ${guestLine}${dedications}`;
         }),
+        "",
+      );
+    }
+
+    if (displayedEventNotes.length > 0) {
+      lines.push(
+        "EVENT NOTES",
+        ...displayedEventNotes
+          .filter((note) => note.title.trim() || note.body.trim())
+          .map((note) => {
+            const title = note.title.trim() ? `${note.title.trim()} — ` : "";
+            const pinned = note.isPinned ? "Pinned | " : "";
+            return `- ${pinned}${note.category || "General"} | ${title}${note.body.trim()}`;
+          }),
         "",
       );
     }
@@ -17062,7 +17236,11 @@ export default function Home() {
     ceremonyNotes,
     ceremonyStartTime,
     ceremonyTimelineItems,
+    approvedGuestRequestDocumentRows,
+    displayedEventNotes,
     doNotPlaySongs,
+    documentMustPlaySongs,
+    documentPlayIfPossibleSongs,
     effectiveEventType,
     effectivePrepSheetFooter,
     eventSettings.assignedDj,
@@ -17073,7 +17251,6 @@ export default function Home() {
     eventSettings.eventLayoutProfile,
     eventSettings.internalNotes,
     eventSettings.liveEventShowDoNotPlay,
-    eventSettings.liveEventShowGuestRequests,
     eventSettings.liveEventShowMcScript,
     eventSettings.liveEventShowMusicNotes,
     eventSettings.liveEventShowPlanningQuestions,
@@ -17086,16 +17263,17 @@ export default function Home() {
     eventCeremonyLocation,
     eventReceptionLocation,
     eventSettings.weddingDate,
+    formalDanceDocumentLines,
     generalDjNotes,
     getPlaylistLines,
-    guestRequests,
+    grandEntranceDocumentDetail,
+    grandEntranceDocumentHasContent,
+    grandEntranceLineupDisplay,
     mcAnnouncements,
     musicVibeDetail,
     musicTasteProfile,
     mergedTimelineItems,
     microphoneNeeds,
-    mustPlaySongs,
-    playIfPossibleSongs,
     musicPlaylistLinks,
     musicGenreEraSelections,
     genreOtherSelected,
@@ -25365,13 +25543,66 @@ export default function Home() {
                     </div>
                   </>
                 )}
+                {sectionReceptionTimelineEnabled && grandEntranceDocumentHasContent ? (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Grand Entrance Details</h3>
+                    <table className="doc-table">
+                      <tbody>
+                        {grandEntranceDocumentDetail.coupleEntrance.trim() ? (
+                          <tr>
+                            <th>Couple intro</th>
+                            <td>{grandEntranceDocumentDetail.coupleEntrance.trim()}</td>
+                          </tr>
+                        ) : null}
+                        {grandEntranceLineupDisplay.trim() ? (
+                          <tr>
+                            <th>Lineup</th>
+                            <td className="whitespace-pre-line">{grandEntranceLineupDisplay}</td>
+                          </tr>
+                        ) : null}
+                        {grandEntranceDocumentDetail.script.trim() ? (
+                          <tr>
+                            <th>MC script / notes</th>
+                            <td className="whitespace-pre-line">{grandEntranceDocumentDetail.script.trim()}</td>
+                          </tr>
+                        ) : null}
+                        {grandEntranceDocumentDetail.coupleEntranceScript.trim() ? (
+                          <tr>
+                            <th>Couple entrance script</th>
+                            <td className="whitespace-pre-line">
+                              {grandEntranceDocumentDetail.coupleEntranceScript.trim()}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+                {sectionReceptionTimelineEnabled && formalDanceDocumentLines.length > 0 ? (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Special Dances Details</h3>
+                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
+                      Songs remain in the timeline rows above; these notes capture dancer/order details from planning.
+                    </p>
+                    <ul>
+                      {formalDanceDocumentLines.map((line, index) => (
+                        <li key={`doc-formal-dance-${index}-${line}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
                   <div className="doc-section print-break-avoid">
                     <h3>Planning Notes / Key Answers</h3>
                     <table className="doc-table">
                       <tbody>
                         {planningQuestionsForEvent
-                          .filter((q) => q.showInLiveEventMode)
+                          .filter(
+                            (q) =>
+                              q.showInLiveEventMode &&
+                              q.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
+                              q.id !== FORMAL_DANCES_PLANNING_KEY,
+                          )
                           .map((q) => (
                             <tr key={`live-planned-q-${q.id}`}>
                               <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
@@ -25557,7 +25788,7 @@ export default function Home() {
                       <table className="doc-table">
                         <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
                         <tbody>
-                          {(sectionMustPlayEnabled ? mustPlaySongs : []).map((song, index) => (
+                          {(sectionMustPlayEnabled ? documentMustPlaySongs : []).map((song, index) => (
                             <tr key={`playlist-must-${song.id}`}>
                               <td>{index + 1}</td>
                               <td>
@@ -25571,7 +25802,7 @@ export default function Home() {
                         </tbody>
                       </table>
                     </div>
-                    {sectionMustPlayEnabled && playIfPossibleSongs.length > 0 ? (
+                    {sectionMustPlayEnabled && documentPlayIfPossibleSongs.length > 0 ? (
                       <div className="doc-section">
                         <h3>Play If Possible</h3>
                         <table className="doc-table">
@@ -25584,7 +25815,7 @@ export default function Home() {
                             </tr>
                           </thead>
                           <tbody>
-                            {playIfPossibleSongs.map((song, index) => (
+                            {documentPlayIfPossibleSongs.map((song, index) => (
                               <tr key={`playlist-pip-${song.id}`}>
                                 <td>{index + 1}</td>
                                 <td>{song.title || "-"}</td>
@@ -25592,26 +25823,6 @@ export default function Home() {
                                 <td>{song.notes || ""}</td>
                               </tr>
                             ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-                    {!eventSettings.liveEventShowGuestRequests ? (
-                      <div className="doc-section">
-                        <h3>Guest Approved Requests</h3>
-                        <table className="doc-table">
-                          <thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Notes</th></tr></thead>
-                          <tbody>
-                            {(sectionGuestRequestsEnabled ? guestRequests : [])
-                              .filter((request) => request.status === "Approved")
-                              .map((request, index) => (
-                                <tr key={`playlist-approved-${request.id}`}>
-                                  <td>{index + 1}</td>
-                                  <td>{request.songTitle || "-"}</td>
-                                  <td>{request.artist || ""}</td>
-                                  <td>{request.dedication || ""}</td>
-                                </tr>
-                              ))}
                           </tbody>
                         </table>
                       </div>
@@ -25693,35 +25904,63 @@ export default function Home() {
                     <p>{mcAnnouncements || "None"}</p>
                   </div>
                 )}
-                {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
+                {sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0 && (
                   <div className="doc-section print-break-avoid">
-                    <h3>Guest Song Requests</h3>
+                    <h3>Approved Guest Song Requests</h3>
                     <table className="doc-table">
                       <thead>
                         <tr>
                           <th>#</th>
-                          <th>Guest</th>
                           <th>Song</th>
                           <th>Artist</th>
-                          <th>Status</th>
-                          <th>Dedication</th>
+                          <th>Requested By</th>
+                          <th>Count</th>
+                          <th>Notes</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {guestRequests.map((request, index) => (
-                          <tr key={`live-guest-doc-${request.id}`}>
+                        {approvedGuestRequestDocumentRows.map((request, index) => (
+                          <tr key={`live-guest-doc-${request.key}`}>
                             <td>{index + 1}</td>
-                            <td>{request.guestName}</td>
                             <td>{request.songTitle || "—"}</td>
                             <td>{request.artist || "—"}</td>
-                            <td>{request.status}</td>
-                            <td>{request.dedication || "—"}</td>
+                            <td>{request.requestedBy.join(", ") || "—"}</td>
+                            <td>{request.count}</td>
+                            <td>{request.dedications.join(" / ") || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
+                {displayedEventNotes.some((note) => note.title.trim() || note.body.trim()) ? (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Event Notes</h3>
+                    <div className="space-y-2">
+                      {displayedEventNotes
+                        .filter((note) => note.title.trim() || note.body.trim())
+                        .map((note) => (
+                          <div
+                            key={`doc-event-note-${note.id}`}
+                            className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                          >
+                            <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
+                              <span>{note.category || "General"}</span>
+                              {note.isPinned ? <span>Pinned</span> : null}
+                            </div>
+                            {note.title.trim() ? (
+                              <p className="text-[12px] font-semibold text-zinc-900 print:text-black">
+                                {note.title.trim()}
+                              </p>
+                            ) : null}
+                            <p className="whitespace-pre-line text-[11px] text-zinc-700 print:text-black">
+                              {note.body.trim()}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : null}
                 {!isCoupleView ? (
                 <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
                 ) : null}
