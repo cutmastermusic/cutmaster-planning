@@ -907,6 +907,18 @@ function songDuplicateFingerprint(song: Pick<SongEntry, "title" | "artist">): st
   return `${normalizedSongDuplicateText(song.title)}|${normalizedSongDuplicateText(song.artist)}`;
 }
 
+function generateGuestRequestPublicToken(): string {
+  const bytes = new Uint8Array(12);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    bytes.forEach((_, index) => {
+      bytes[index] = Math.floor(Math.random() * 256);
+    });
+  }
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 function stripSongListPrefix(line: string): string {
   return line
     .trim()
@@ -6295,8 +6307,9 @@ export default function Home() {
     eventSettings.guestRequestMessageOverride || appSettings.publicGuestRequestMessage;
   const effectiveCoupleWelcomeMessage =
     eventSettings.coupleWelcomeMessageOverride || appSettings.coupleWelcomeMessage;
-  const guestRequestToken = activeEventId || activeEvent?.id || "";
-  const guestRequestPath = guestRequestToken ? `/request/${encodeURIComponent(guestRequestToken)}` : "";
+  const guestRequestPath = guestRequestSettings.publicToken
+    ? `/request/${encodeURIComponent(guestRequestSettings.publicToken)}`
+    : "";
   const guestRequestPublicUrl = guestRequestOrigin && guestRequestPath
     ? `${guestRequestOrigin}${guestRequestPath}`
     : guestRequestPath;
@@ -14771,10 +14784,20 @@ export default function Home() {
     markMusicHubTasteDirty();
   };
 
+  const ensureGuestRequestPublicToken = () => {
+    if (guestRequestSettings.publicToken) return guestRequestSettings.publicToken;
+    const publicToken = generateGuestRequestPublicToken();
+    updateGuestRequestSettings({ publicToken });
+    return publicToken;
+  };
+
   const copyGuestRequestLink = async () => {
-    if (!guestRequestPublicUrl) return;
+    const token = ensureGuestRequestPublicToken();
+    const path = `/request/${encodeURIComponent(token)}`;
+    const url = guestRequestOrigin ? `${guestRequestOrigin}${path}` : path;
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(guestRequestPublicUrl);
+      await navigator.clipboard.writeText(url);
       setGuestRequestCopyStatus("copied");
     } catch {
       setGuestRequestCopyStatus("error");
@@ -20856,7 +20879,13 @@ export default function Home() {
                       </div>
                       <PrimaryButton
                         type="button"
-                        onClick={() => updateGuestRequestSettings({ enabled: !guestRequestSettings.enabled })}
+                        onClick={() => {
+                          const enabled = !guestRequestSettings.enabled;
+                          updateGuestRequestSettings({
+                            enabled,
+                            publicToken: guestRequestSettings.publicToken || generateGuestRequestPublicToken(),
+                          });
+                        }}
                         disabled={!canManageGuestRequests}
                         className={
                           guestRequestSettings.enabled
@@ -20892,12 +20921,11 @@ export default function Home() {
                         Share this link with family and friends before your wedding.
                       </p>
                       <div className="mt-3 overflow-hidden rounded-xl border border-white/80 bg-white px-3 py-2 font-mono text-xs font-semibold text-stone-900">
-                        {guestRequestPublicUrl || "Request link will appear once this event is saved."}
+                        {guestRequestPublicUrl || "Copy the link to generate a private request URL."}
                       </div>
                       <PrimaryButton
                         type="button"
                         onClick={copyGuestRequestLink}
-                        disabled={!guestRequestPublicUrl}
                         className={`mt-3 min-h-11 w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
                       >
                         {guestRequestCopyStatus === "copied"
