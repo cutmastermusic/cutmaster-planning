@@ -2528,23 +2528,19 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
           : "Reception Timeline",
     );
   }
-  if (
-    visibility.liveEventShowPlanningQuestions &&
-    layoutDefaults.sectionPlanningQuestionsEnabled
-  ) {
-    labels.push("Planning Notes / Key Answers");
-  }
+  // ShowFlow Brief V2 compiles planning answers into dedicated brief sections instead of
+  // exposing a raw Planning Notes / Q&A block.
   if (visibility.liveEventShowMusicNotes && layoutDefaults.sectionMusicNotesEnabled) {
-    labels.push(profile === "School Dance" ? "Clean Music Notes" : "Music Notes");
+    labels.push(profile === "School Dance" ? "Clean Music" : "Music");
   }
   if (visibility.liveEventShowDoNotPlay && layoutDefaults.sectionDoNotPlayEnabled) {
-    labels.push("Do Not Play");
+    labels.push("Songs To Avoid");
   }
   if (visibility.liveEventShowPlaylists && layoutDefaults.sectionPlaylistsEnabled) {
     labels.push("Playlists");
   }
   if (visibility.liveEventShowVendorContacts && layoutDefaults.sectionVendorContactsEnabled) {
-    labels.push("People & vendors");
+    labels.push("People");
   }
   if (visibility.liveEventShowMcScript && layoutDefaults.sectionMcScriptEnabled) {
     labels.push(
@@ -6378,7 +6374,7 @@ export default function Home() {
         : effectiveRole === "Couple" && activeScreen === "Reception Timeline"
           ? "Timeline"
           : effectiveRole === "Couple" && activeScreen === "Event Prep"
-            ? "Event Plan"
+            ? "ShowFlow Brief"
             : effectiveRole === "Couple" && activeScreen === "Planning Questions"
             ? COUPLE_ABOUT_YOUR_DAY_LABEL
             : activeScreen;
@@ -10480,8 +10476,8 @@ export default function Home() {
       cards.push({
         id: "event-prep",
         kicker: "Day-of",
-        title: "Event Plan",
-        description: "Printable packet and live view for your team when the day arrives.",
+        title: "ShowFlow Brief",
+        description: "A DJ-ready brief and live view for your team when the day arrives.",
         screen: "Event Prep",
         completion: hasFinalDjNotes ? 100 : 48,
         ctaLabel: hasFinalDjNotes ? "Review" : "Continue",
@@ -10634,7 +10630,7 @@ export default function Home() {
 
     if (effectiveRole === "DJ") {
       return filterScreens([
-        { kind: "screen", screen: "Event Prep", label: "Event Document" },
+        { kind: "screen", screen: "Event Prep", label: "ShowFlow Brief" },
         { kind: "screen", screen: "Music Hub", label: "Music hub · playlists & taste" },
         { kind: "screen", screen: tl, label: "Timeline" },
         { kind: "screen", screen: "Ceremony", label: "Ceremony cues" },
@@ -10644,7 +10640,7 @@ export default function Home() {
     if (effectiveRole === "Admin") {
       return filterScreens([
         { kind: "screen", screen: "Event Settings", label: "Event settings · sections" },
-        { kind: "screen", screen: "Event Prep", label: "Event Document" },
+        { kind: "screen", screen: "Event Prep", label: "ShowFlow Brief" },
         { kind: "screen", screen: tl, label: "Timeline" },
         { kind: "screen", screen: "Music Hub", label: "Music hub" },
         { kind: "workspace", label: "Timeline presets", section: "Timeline Presets" },
@@ -10979,7 +10975,7 @@ export default function Home() {
     if (screen === "Settings") return "Global Settings";
     if (screen === "Reception Hub") return "Reception & timeline";
     if (screen === "Reception Timeline") return "Reception timeline";
-    if (screen === "Event Prep") return isCoupleView ? "Event Plan" : "Event Document";
+    if (screen === "Event Prep") return "ShowFlow Brief";
     if (screen === "Scripts") return "Show Book";
     if (screen === "Event Team") return "People & Vendors";
     return screen;
@@ -16809,7 +16805,7 @@ export default function Home() {
       "Planning Questions": "Tell us a little about your celebration—short answers are enough.",
       "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
       "Planning Checklist": "Glance at your checklist when you want a structured pass.",
-      "Event Prep": "Open your Event Plan when you want a single shareable packet.",
+      "Event Prep": "Open your ShowFlow Brief when you want a DJ-ready packet.",
       "Event Team": "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
     };
 
@@ -16822,7 +16818,7 @@ export default function Home() {
       "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       "Guest Requests": "Guest Song Requests",
       "Planning Checklist": "Checklist",
-      "Event Prep": "Event Plan",
+      "Event Prep": "Brief",
       "Event Team": "People & vendors",
     };
 
@@ -16906,6 +16902,105 @@ export default function Home() {
       ),
     [approvedGuestRequestSongKeys, playIfPossibleSongs],
   );
+  const eventIdentityLines = useMemo(() => {
+    const lines: string[] = [];
+    if (musicTasteProfile.danceFloorStyles.length > 0) {
+      lines.push(musicTasteProfile.danceFloorStyles.join(" • "));
+    }
+    if (musicGenreEraSelections.length > 0) {
+      lines.push(musicGenreEraSelections.join(" • "));
+    }
+    if (musicTasteProfile.crowdPreferences.length > 0) {
+      lines.push(musicTasteProfile.crowdPreferences.join(" • "));
+    }
+    if (musicTasteProfile.musicBehavior.length > 0) {
+      lines.push(musicTasteProfile.musicBehavior.join(" • "));
+    }
+    if ((musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0) {
+      lines.push(`Guest participation: ${musicTasteProfile.lineDancesAndGroupSongs!.join(" • ")}`);
+    }
+    if (musicVibeDetail.cleanMusicPrefs?.trim()) {
+      lines.push(musicVibeDetail.cleanMusicPrefs.trim());
+    }
+    if (musicTasteProfile.danceFloorVibeNotes?.trim()) {
+      lines.push(musicTasteProfile.danceFloorVibeNotes.trim());
+    }
+    return lines;
+  }, [musicGenreEraSelections, musicTasteProfile, musicVibeDetail.cleanMusicPrefs]);
+  const eventIdentitySummary = useMemo(() => {
+    const descriptors: string[] = [];
+    const eventType = effectiveEventType?.trim();
+    if (eventType) descriptors.push(eventType.toLowerCase());
+    if (musicTasteProfile.danceFloorStyles.some((style) => /energy|packed|party|dance/i.test(style))) {
+      descriptors.push("high-energy dance floor");
+    }
+    if (grandEntranceDocumentHasContent || formalDanceDocumentLines.length > 0 || speechesToastsRaw.trim()) {
+      descriptors.push("family-focused traditions");
+    }
+    if (musicVibeDetail.cleanMusicPrefs?.trim() || musicTasteProfile.musicBehavior.some((v) => /clean/i.test(v))) {
+      descriptors.push("clean music preference");
+    }
+    if (descriptors.length === 0) return "A focused event brief compiled from the current planning workspace.";
+    const lead = `${descriptors[0][0]?.toUpperCase() ?? ""}${descriptors[0].slice(1)}`;
+    const supporting = descriptors.slice(1);
+    return supporting.length > 0 ? `${lead} with ${supporting.join(", ")}.` : `${lead}.`;
+  }, [
+    effectiveEventType,
+    formalDanceDocumentLines.length,
+    grandEntranceDocumentHasContent,
+    musicTasteProfile.danceFloorStyles,
+    musicTasteProfile.musicBehavior,
+    musicVibeDetail.cleanMusicPrefs,
+    speechesToastsRaw,
+  ]);
+  const tonightPriorityRows = useMemo(() => {
+    const rows: { label: string; detail: string }[] = [];
+    const attentionMoments = mergedTimelineItems.filter((item) => item.needsDjMcAttention);
+    if (doNotPlaySongs.length > 0) {
+      rows.push({
+        label: "Protect the avoid list",
+        detail: `${doNotPlaySongs.length} song${doNotPlaySongs.length === 1 ? "" : "s"} flagged as do-not-play.`,
+      });
+    }
+    if (attentionMoments.length > 0) {
+      rows.push({
+        label: "MC / DJ cue moments",
+        detail: attentionMoments.slice(0, 4).map((item) => item.title).join(" • "),
+      });
+    }
+    if (approvedGuestRequestDocumentRows.length > 0) {
+      rows.push({
+        label: "Approved guest requests",
+        detail: `${approvedGuestRequestDocumentRows.length} approved song${approvedGuestRequestDocumentRows.length === 1 ? "" : "s"} to work in when the floor is right.`,
+      });
+    }
+    if (displayedEventNotes.some((note) => note.isPinned && (note.title.trim() || note.body.trim()))) {
+      rows.push({
+        label: "Pinned event notes",
+        detail: "Review pinned notes before doors open.",
+      });
+    }
+    if (ceremonyServicesEnabled && microphoneNeeds.trim()) {
+      rows.push({
+        label: "Ceremony audio",
+        detail: microphoneNeeds.trim(),
+      });
+    }
+    return rows;
+  }, [
+    approvedGuestRequestDocumentRows.length,
+    ceremonyServicesEnabled,
+    displayedEventNotes,
+    doNotPlaySongs.length,
+    mergedTimelineItems,
+    microphoneNeeds,
+  ]);
+  const toastDocumentLines = useMemo(
+    () => formatSpeechesToastsForDisplay(speechesToastsRaw).split(/\r?\n/).filter(Boolean),
+    [speechesToastsRaw],
+  );
+  const keyMomentsHasContent =
+    grandEntranceDocumentHasContent || formalDanceDocumentLines.length > 0 || toastDocumentLines.length > 0;
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -20354,7 +20449,7 @@ export default function Home() {
                               onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
                               className="rounded-lg border border-[#1f2724] bg-[#1f2724] px-2 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                             >
-                              Open Event Document
+                              Open Brief
                             </PrimaryButton>
                             <PrimaryButton
                               onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
@@ -25079,15 +25174,15 @@ export default function Home() {
           <section
             className={`${workspaceSectionClass} overflow-x-hidden print-doc`}
           >
-            <EventHomeNav trail={[isCoupleView ? "Event Plan" : "Event Document"]} onBack={() => setActiveScreen("Dashboard")} />
+            <EventHomeNav trail={["ShowFlow Brief"]} onBack={() => setActiveScreen("Dashboard")} />
             <div className="no-print rounded-xl border border-stone-300 bg-white px-4 py-4 shadow-none sm:px-5 sm:py-3.5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-800">
-                    Export packet
+                    ShowFlow Brief
                   </p>
                   <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:mt-1 sm:text-[11px] sm:leading-snug">
-                    Uses your browser print dialog—pick{" "}
+                    A DJ-ready briefing compiled from this event. Use your browser print dialog and pick{" "}
                     <span className="font-semibold text-stone-900">Save as PDF</span> when offered.
                   </p>
                 </div>
@@ -25135,26 +25230,8 @@ export default function Home() {
                 <div className="mt-4 space-y-4 border-t border-stone-200 pt-4">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Core sections</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-stone-600">Timelines follow your Event Settings—toggle extra narrative blocks here.</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-600">Phase 1 keeps the legacy export toggles while the new Brief layout is introduced.</p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {sectionPlanningQuestionsEnabled ? (
-                        <PrimaryButton
-                          type="button"
-                          onClick={() =>
-                            setEventSettings((prev) => ({
-                              ...prev,
-                              liveEventShowPlanningQuestions: !prev.liveEventShowPlanningQuestions,
-                            }))
-                          }
-                          className={
-                            eventSettings.liveEventShowPlanningQuestions
-                              ? EVENT_PACKET_SECTION_TOGGLE_ON
-                              : EVENT_PACKET_SECTION_TOGGLE_OFF
-                          }
-                        >
-                          {eventSettings.liveEventShowPlanningQuestions ? "Planning Q&A on" : "Planning Q&A off"}
-                        </PrimaryButton>
-                      ) : null}
                       {sectionGuestRequestsEnabled ? (
                         <PrimaryButton
                           type="button"
@@ -25256,7 +25333,7 @@ export default function Home() {
                               : EVENT_PACKET_SECTION_TOGGLE_OFF
                           }
                         >
-                          {eventSettings.liveEventShowVendorContacts ? "People & Vendors on" : "People & Vendors off"}
+                        {eventSettings.liveEventShowVendorContacts ? "People on" : "People off"}
                         </PrimaryButton>
                       ) : null}
                     </div>
@@ -25328,7 +25405,7 @@ export default function Home() {
                   <div className="border-t border-stone-200 pt-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">Export</p>
                     <p className="mt-0.5 text-[11px] text-stone-600">
-                      Uses your browser print dialog—choose “Save as PDF” where supported.
+                      Uses your browser print dialog—choose “Save as PDF” where supported. Plain text export is preserved for this phase.
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       <PrimaryButton
@@ -25377,7 +25454,7 @@ export default function Home() {
                           className="doc-header-logo-img"
                         />
                       </div>
-                      <p className="doc-header-brand-tagline">Event Production Timeline</p>
+                      <p className="doc-header-brand-tagline">ShowFlow Brief</p>
                     </div>
                     <div className="doc-header-event">
                       <h1 className="doc-event-title">
@@ -25420,11 +25497,11 @@ export default function Home() {
                 </div>
 
                 <p className="doc-subtitle no-print mb-4 text-[11px] uppercase tracking-[0.14em] text-stone-600">
-                  Live Event Mode · printable working packet
+                  DJ-ready brief · printable packet
                 </p>
 
                 <div className="doc-section doc-section--lead print-break-avoid">
-                  <h3>Event Overview</h3>
+                  <h3>Event Snapshot</h3>
                   <table className="doc-table">
                     <tbody>
                       <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
@@ -25436,63 +25513,49 @@ export default function Home() {
                       )}
                       <tr><th>Event type</th><td>{effectiveEventType || "TBD"}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
                       <tr><th>Assigned DJ</th><td colSpan={3}>{getTeamMemberName(eventSettings.assignedDj || "")}</td></tr>
+                      <tr><th>Summary</th><td colSpan={3}>{eventIdentitySummary}</td></tr>
                     </tbody>
                   </table>
                 </div>
 
-                {ceremonyServicesEnabled && (
-                  <>
-                    <div className="doc-section print-break-avoid">
-                      <p className="doc-section-phase">Phase 1</p>
-                      <h3>Ceremony Timeline</h3>
-                      <table className="doc-table">
-                        <tbody>
-                          <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                          <tr><th>Location</th><td>{eventCeremonyLocation ? (<EventDocumentLocationLink value={eventCeremonyLocation} />) : (eventSettings.venue || weddingDetails.venue || "TBD")}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                          <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
-                        </tbody>
-                      </table>
-                      <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
-                        <table className="doc-table live-event-timeline-table mt-2 min-w-[520px] sm:min-w-0">
-                          <thead>
-                            <tr>
-                              <th scope="col">Time / Order</th>
-                              <th scope="col">Moment</th>
-                              <th scope="col">Song</th>
-                              <th scope="col">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {ceremonyTimelineRows.length === 0 ? (
-                              <tr>
-                                <td
-                                  colSpan={4}
-                                  className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
-                                >
-                                  No ceremony moments yet — add them under Ceremony.
-                                </td>
-                              </tr>
-                            ) : (
-                              ceremonyTimelineRows.map((row) => (
-                                <tr key={`live-ceremony-row-${row.id}`}>
-                                  <td>{row.order}</td>
-                                  <td>{row.moment}</td>
-                                  <td>{row.song}</td>
-                                  <td>{row.notes}</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div className="doc-section print-break-avoid">
+                  <h3>Event Identity</h3>
+                  {eventIdentityLines.length > 0 ? (
+                    <ul>
+                      {eventIdentityLines.map((line, index) => (
+                        <li key={`brief-identity-${index}-${line}`}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="doc-note">Music and couple personality details will appear here as they are added.</p>
+                  )}
+                </div>
+
+                <div className="doc-section print-break-avoid">
+                  <h3>Tonight&apos;s Priorities / Watch Outs</h3>
+                  {tonightPriorityRows.length > 0 ? (
+                    <table className="doc-table">
+                      <tbody>
+                        {tonightPriorityRows.map((row) => (
+                          <tr key={`brief-priority-${row.label}`}>
+                            <th>{row.label}</th>
+                            <td>{row.detail}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="doc-note">No special watch outs have been flagged yet.</p>
+                  )}
+                </div>
+
                 {sectionReceptionTimelineEnabled && (
                   <>
                     <div className="doc-section live-reception-page-break print-break-avoid">
-                      <p className="doc-section-phase">{ceremonyServicesEnabled ? "Phase 2" : "Phase 1"}</p>
-                      <h3>{eventPrepReceptionHeading}</h3>
+                      <h3>Run Of Show</h3>
+                      <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
+                        {eventPrepReceptionHeading}
+                      </p>
                       <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
                         <table className="doc-table live-event-timeline-table min-w-[520px] sm:min-w-0">
                           <thead>
@@ -25543,89 +25606,110 @@ export default function Home() {
                     </div>
                   </>
                 )}
-                {sectionReceptionTimelineEnabled && grandEntranceDocumentHasContent ? (
+                {keyMomentsHasContent ? (
                   <div className="doc-section print-break-avoid">
-                    <h3>Grand Entrance Details</h3>
+                    <h3>Key Moments</h3>
+                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
+                      Timeline rows show when each moment happens; this section captures how to perform them.
+                    </p>
                     <table className="doc-table">
                       <tbody>
                         {grandEntranceDocumentDetail.coupleEntrance.trim() ? (
                           <tr>
-                            <th>Couple intro</th>
+                            <th>Grand Entrance · Couple intro</th>
                             <td>{grandEntranceDocumentDetail.coupleEntrance.trim()}</td>
                           </tr>
                         ) : null}
                         {grandEntranceLineupDisplay.trim() ? (
                           <tr>
-                            <th>Lineup</th>
+                            <th>Grand Entrance · Lineup</th>
                             <td className="whitespace-pre-line">{grandEntranceLineupDisplay}</td>
                           </tr>
                         ) : null}
                         {grandEntranceDocumentDetail.script.trim() ? (
                           <tr>
-                            <th>MC script / notes</th>
+                            <th>Grand Entrance · MC script</th>
                             <td className="whitespace-pre-line">{grandEntranceDocumentDetail.script.trim()}</td>
                           </tr>
                         ) : null}
                         {grandEntranceDocumentDetail.coupleEntranceScript.trim() ? (
                           <tr>
-                            <th>Couple entrance script</th>
+                            <th>Grand Entrance · Couple cue</th>
                             <td className="whitespace-pre-line">
                               {grandEntranceDocumentDetail.coupleEntranceScript.trim()}
                             </td>
+                          </tr>
+                        ) : null}
+                        {formalDanceDocumentLines.length > 0 ? (
+                          <tr>
+                            <th>Special Dances</th>
+                            <td>
+                              <ul className="m-0">
+                                {formalDanceDocumentLines.map((line, index) => (
+                                  <li key={`doc-formal-dance-${index}-${line}`}>{line}</li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ) : null}
+                        {toastDocumentLines.length > 0 ? (
+                          <tr>
+                            <th>Toasts</th>
+                            <td className="whitespace-pre-line">{toastDocumentLines.join("\n")}</td>
                           </tr>
                         ) : null}
                       </tbody>
                     </table>
                   </div>
                 ) : null}
-                {sectionReceptionTimelineEnabled && formalDanceDocumentLines.length > 0 ? (
+                {ceremonyServicesEnabled && (
                   <div className="doc-section print-break-avoid">
-                    <h3>Special Dances Details</h3>
-                    <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
-                      Songs remain in the timeline rows above; these notes capture dancer/order details from planning.
-                    </p>
-                    <ul>
-                      {formalDanceDocumentLines.map((line, index) => (
-                        <li key={`doc-formal-dance-${index}-${line}`}>{line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {sectionPlanningQuestionsEnabled && eventSettings.liveEventShowPlanningQuestions && (
-                  <div className="doc-section print-break-avoid">
-                    <h3>Planning Notes / Key Answers</h3>
+                    <h3>Ceremony Brief</h3>
                     <table className="doc-table">
                       <tbody>
-                        {planningQuestionsForEvent
-                          .filter(
-                            (q) =>
-                              q.showInLiveEventMode &&
-                              q.id !== GRAND_ENTRANCE_PLANNING_LINEUP_KEY &&
-                              q.id !== FORMAL_DANCES_PLANNING_KEY,
-                          )
-                          .map((q) => (
-                            <tr key={`live-planned-q-${q.id}`}>
-                              <th className="max-w-[36%] align-top text-left font-medium">{q.label}</th>
-                              <td>
-                                {q.id === GRAND_ENTRANCE_PLANNING_LINEUP_KEY
-                                  ? formatWeddingPartyLineupForDisplay(
-                                      eventSettings.planningQuestionAnswers[q.id],
-                                    ) || "—"
-                                  : q.id === SPEECHES_TOASTS_PLANNING_KEY
-                                    ? formatSpeechesToastsForDisplay(
-                                        eventSettings.planningQuestionAnswers[q.id],
-                                      ) || "—"
-                                    : (eventSettings.planningQuestionAnswers[q.id] ?? "").trim() || "—"}
-                              </td>
-                            </tr>
-                          ))}
+                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
+                        <tr><th>Location</th><td>{eventCeremonyLocation ? (<EventDocumentLocationLink value={eventCeremonyLocation} />) : (eventSettings.venue || weddingDetails.venue || "TBD")}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
+                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
                       </tbody>
                     </table>
+                    <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
+                      <table className="doc-table live-event-timeline-table mt-2 min-w-[520px] sm:min-w-0">
+                        <thead>
+                          <tr>
+                            <th scope="col">Time / Order</th>
+                            <th scope="col">Moment</th>
+                            <th scope="col">Song</th>
+                            <th scope="col">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ceremonyTimelineRows.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
+                              >
+                                No ceremony moments yet — add them under Ceremony.
+                              </td>
+                            </tr>
+                          ) : (
+                            ceremonyTimelineRows.map((row) => (
+                              <tr key={`live-ceremony-row-${row.id}`}>
+                                <td>{row.order}</td>
+                                <td>{row.moment}</td>
+                                <td>{row.song}</td>
+                                <td>{row.notes}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
                 {sectionMusicNotesEnabled && eventSettings.liveEventShowMusicNotes && (
                   <div className="doc-section">
-                    <h3>Music Notes</h3>
+                    <h3>Music</h3>
                     {layoutProfileForActiveEvent === "School Dance" ? (
                       <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
                         Clean edits and school-appropriate selections.
@@ -25737,7 +25821,7 @@ export default function Home() {
                 )}
                 {sectionDoNotPlayEnabled && eventSettings.liveEventShowDoNotPlay && (
                   <div className="doc-section">
-                    <h3>Do Not Play</h3>
+                    <h3>Songs To Avoid</h3>
                     <ul>
                       {doNotPlaySongs.map((song) => (
                         <li key={`live-dnp-${song.id}`}>
@@ -25829,10 +25913,39 @@ export default function Home() {
                     ) : null}
                   </div>
                 )}
+                {sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0 && (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Approved Guest Requests</h3>
+                    <table className="doc-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Song</th>
+                          <th>Artist</th>
+                          <th>Requested By</th>
+                          <th>Count</th>
+                          <th>Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {approvedGuestRequestDocumentRows.map((request, index) => (
+                          <tr key={`live-guest-doc-${request.key}`}>
+                            <td>{index + 1}</td>
+                            <td>{request.songTitle || "—"}</td>
+                            <td>{request.artist || "—"}</td>
+                            <td>{request.requestedBy.join(", ") || "—"}</td>
+                            <td>{request.count}</td>
+                            <td>{request.dedications.join(" / ") || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 {sectionVendorContactsEnabled &&
                   eventSettings.liveEventShowVendorContacts && (
                     <div className="doc-section print-break-avoid">
-                      <h3>People &amp; Vendors</h3>
+                      <h3>People</h3>
                       <p className="doc-note mb-3 text-[11px] leading-snug text-zinc-600 print:text-black">
                         Cutmaster team, coordinator, and key partners (venue, catering, photo, video, entertainment)
                         are prioritized at the top for fast scanning.
@@ -25900,42 +26013,13 @@ export default function Home() {
                   )}
                 {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && (
                   <div className="doc-section">
-                    <h3>{eventPrepMcHeading}</h3>
+                    <h3>Notes · MC / Announcements</h3>
                     <p>{mcAnnouncements || "None"}</p>
-                  </div>
-                )}
-                {sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0 && (
-                  <div className="doc-section print-break-avoid">
-                    <h3>Approved Guest Song Requests</h3>
-                    <table className="doc-table">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>Song</th>
-                          <th>Artist</th>
-                          <th>Requested By</th>
-                          <th>Count</th>
-                          <th>Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {approvedGuestRequestDocumentRows.map((request, index) => (
-                          <tr key={`live-guest-doc-${request.key}`}>
-                            <td>{index + 1}</td>
-                            <td>{request.songTitle || "—"}</td>
-                            <td>{request.artist || "—"}</td>
-                            <td>{request.requestedBy.join(", ") || "—"}</td>
-                            <td>{request.count}</td>
-                            <td>{request.dedications.join(" / ") || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 )}
                 {displayedEventNotes.some((note) => note.title.trim() || note.body.trim()) ? (
                   <div className="doc-section print-break-avoid">
-                    <h3>Event Notes</h3>
+                    <h3>Notes</h3>
                     <div className="space-y-2">
                       {displayedEventNotes
                         .filter((note) => note.title.trim() || note.body.trim())
@@ -25962,10 +26046,10 @@ export default function Home() {
                   </div>
                 ) : null}
                 {!isCoupleView ? (
-                <div className="doc-section"><h3>Important DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
+                <div className="doc-section"><h3>Internal DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes || "None"}</p></div>
                 ) : null}
                 {(eventSettings.clientFacingNotes ?? "").trim() ? (
-                  <div className="doc-section"><h3>Client-facing notes</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
+                  <div className="doc-section"><h3>Notes · Client Context</h3><p className="doc-note">{eventSettings.clientFacingNotes}</p></div>
                 ) : null}
                 <div className="doc-section"><h3>Document footer</h3><p>{effectivePrepSheetFooter}</p></div>
                 <footer className="doc-footer-brand print-break-avoid" aria-label="Producer">
