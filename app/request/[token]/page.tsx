@@ -1,6 +1,6 @@
 import { GuestRequestPublicPage } from "@/components/guest-request-public-page";
+import { resolvePublicGuestRequestEvent } from "@/lib/guestRequests/resolvePublicEvent";
 import { parseMusicHubPlanJson } from "@/lib/musicHubPlan";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -10,20 +10,8 @@ type GuestRequestPageProps = {
 
 export default async function GuestRequestPage({ params }: GuestRequestPageProps) {
   const { token } = await params;
-  const eventId = decodeURIComponent(token ?? "").trim();
-  const event = eventId
-    ? await prisma.event.findUnique({
-        where: { id: eventId },
-        select: {
-          id: true,
-          title: true,
-          musicHubPlan: true,
-          guestRequests: {
-            select: { id: true },
-          },
-        },
-      })
-    : null;
+  const requestToken = decodeURIComponent(token ?? "").trim();
+  const event = requestToken ? await resolvePublicGuestRequestEvent(requestToken) : null;
 
   const settings = parseMusicHubPlanJson(event?.musicHubPlan)?.guestRequestSettings;
   const enabled = settings?.enabled === true;
@@ -36,7 +24,7 @@ export default async function GuestRequestPage({ params }: GuestRequestPageProps
 
   return (
     <GuestRequestPublicPage
-      token={event?.id ?? eventId}
+      token={requestToken}
       enabled={Boolean(event && enabled)}
       limitReached={limitReached}
     />

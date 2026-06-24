@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { parseMusicHubPlanJson } from "@/lib/musicHubPlan";
+import { resolvePublicGuestRequestEvent } from "@/lib/guestRequests/resolvePublicEvent";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,8 @@ export async function POST(
 ): Promise<NextResponse<GuestRequestSubmitResponse>> {
   try {
     const { token } = await context.params;
-    const eventId = decodeURIComponent(token ?? "").trim();
-    if (!eventId) return errorResponse("not_found", "This request link is not available.", 404);
+    const requestToken = decodeURIComponent(token ?? "").trim();
+    if (!requestToken) return errorResponse("not_found", "This request link is not available.", 404);
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const guestName = cleanText(body?.guestName, 80);
@@ -39,16 +40,7 @@ export async function POST(
       return errorResponse("invalid_input", "Please include your name and song title.", 400);
     }
 
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        musicHubPlan: true,
-        guestRequests: {
-          select: { order: true },
-        },
-      },
-    });
+    const event = await resolvePublicGuestRequestEvent(requestToken);
 
     if (!event) return errorResponse("not_found", "This request link is not available.", 404);
 

@@ -62,12 +62,19 @@ function parseGuestRequestLimit(value: unknown): GuestRequestLimit {
   return value === 25 || value === 50 || value === 100 || value === "unlimited" ? value : 50;
 }
 
+function parseGuestRequestPublicToken(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const token = value.trim();
+  return /^[A-Za-z0-9_-]{10,48}$/.test(token) ? token : undefined;
+}
+
 export function parseGuestRequestSettings(raw: unknown): GuestRequestSettings {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return DEFAULT_GUEST_REQUEST_SETTINGS;
   const entry = raw as Record<string, unknown>;
   return {
     enabled: entry.enabled === true,
     maxRequests: parseGuestRequestLimit(entry.maxRequests),
+    publicToken: parseGuestRequestPublicToken(entry.publicToken),
   };
 }
 
@@ -77,6 +84,7 @@ export function normalizeGuestRequestSettings(
   return {
     enabled: settings?.enabled === true,
     maxRequests: parseGuestRequestLimit(settings?.maxRequests),
+    publicToken: parseGuestRequestPublicToken(settings?.publicToken),
   };
 }
 

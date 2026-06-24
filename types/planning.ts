@@ -339,6 +339,7 @@ export type GuestRequestLimit = 25 | 50 | 100 | "unlimited";
 export type GuestRequestSettings = {
   enabled: boolean;
   maxRequests: GuestRequestLimit;
+  publicToken?: string;
 };
 
 /** Optional structured fields for Music Hub / DJ vibe (stored on the event). */
