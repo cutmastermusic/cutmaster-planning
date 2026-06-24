@@ -678,6 +678,7 @@ const MUSIC_JOURNEY_ORDER: MusicJourneyStep[] = [
   "avoidArtists",
 ];
 
+const MUSIC_JOURNEY_START_STEP: MusicJourneyStep = "dance";
 const MUSIC_JOURNEY_LOVED_ARTISTS_PREFIX = "Artists we love:";
 const MUSIC_JOURNEY_AVOID_ARTISTS_PREFIX = "Artists to avoid:";
 
@@ -725,7 +726,7 @@ const MUSIC_JOURNEY_STEPS: MusicJourneyStepConfig[] = [
     kind: "multi",
     field: "musicGenreEraSelections",
     options: [
-      { label: "Pop", value: "Top 40" },
+      { label: "Pop" },
       { label: "Hip-Hop" },
       { label: "R&B" },
       { label: "Rock" },
@@ -751,14 +752,14 @@ const MUSIC_JOURNEY_STEPS: MusicJourneyStepConfig[] = [
     options: [
       { label: "Mixed Ages", icon: "👨‍👩‍👧" },
       { label: "Younger Crowd", icon: "✨" },
-      { label: "Mostly Friends", value: "Younger Crowd", icon: "🤝" },
-      { label: "Mostly Family", value: "Family Friendly", icon: "🏡" },
+      { label: "Mostly Friends", icon: "🤝" },
+      { label: "Mostly Family", icon: "🏡" },
       { label: "College Crowd", icon: "🎓" },
       { label: "Multicultural", icon: "🌎" },
       { label: "Latin Friendly", icon: "💃" },
       { label: "Country Friendly", icon: "🤠" },
       { label: "Family Friendly", icon: "🫶" },
-      { label: "Corporate", value: "Family Friendly", icon: "🏢" },
+      { label: "Corporate", icon: "🏢" },
     ],
   },
   {
@@ -3727,6 +3728,7 @@ export default function Home() {
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
+  const [musicJourneyEditorOpen, setMusicJourneyEditorOpen] = useState(false);
   const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
   const [musicJourneyArtistDraft, setMusicJourneyArtistDraft] = useState("");
   const [musicNewPlaylistUrl, setMusicNewPlaylistUrl] = useState("");
@@ -13085,14 +13087,16 @@ export default function Home() {
     }, 50);
   };
 
-  const openMusicJourneyInline = (initialStep: MusicJourneyStep = "dance") => {
+  const openMusicJourneyInline = (initialStep: MusicJourneyStep = MUSIC_JOURNEY_START_STEP) => {
     if (!isCoupleView) return;
+    const nextStep = MUSIC_JOURNEY_ORDER.includes(initialStep) ? initialStep : MUSIC_JOURNEY_START_STEP;
+    setMusicJourneyEditorOpen(true);
     setMusicJourneyCompleted(false);
-    setMusicJourneyStep(initialStep);
+    setMusicJourneyStep(nextStep);
   };
 
   const handleOpenMusicJourneyInline = () => {
-    openMusicJourneyInline("dance");
+    openMusicJourneyInline(MUSIC_JOURNEY_START_STEP);
   };
 
   const openMusicHubSongList = (listType: SongListType) => {
@@ -13187,7 +13191,7 @@ export default function Home() {
     musicGenreEraSelections.length > 0 ||
     Boolean((musicVibeDetail.cleanMusicPrefs ?? "").trim()) ||
     Boolean((musicVibeDetail.crowdNotes ?? "").trim());
-  const musicJourneyInlineActive = musicJourneyCurrentIndex >= 0;
+  const musicJourneyInlineActive = musicJourneyEditorOpen && musicJourneyCurrentIndex >= 0;
   const musicJourneyInferredComplete =
     musicTasteProfile.danceFloorStyles.length > 0 &&
       musicGenreEraSelections.length > 0 &&
@@ -13343,10 +13347,12 @@ export default function Home() {
     setMusicJourneyArtistDraft("");
     const currentIndex = MUSIC_JOURNEY_ORDER.indexOf(musicJourneyStep);
     if (musicJourneyStep === "welcome") {
+      setMusicJourneyEditorOpen(true);
       setMusicJourneyStep("dance");
       return;
     }
     if (currentIndex < 0 || currentIndex >= MUSIC_JOURNEY_ORDER.length - 1) {
+      setMusicJourneyEditorOpen(false);
       setMusicJourneyCompleted(true);
       setMusicJourneyStep("complete");
       return;
@@ -13358,10 +13364,12 @@ export default function Home() {
     setMusicJourneyArtistDraft("");
     const currentIndex = MUSIC_JOURNEY_ORDER.indexOf(musicJourneyStep);
     if (musicJourneyStep === "complete") {
+      setMusicJourneyEditorOpen(true);
       setMusicJourneyStep("avoidArtists");
       return;
     }
     if (currentIndex <= 0) {
+      setMusicJourneyEditorOpen(false);
       setMusicJourneyStep("welcome");
       return;
     }
@@ -13758,7 +13766,7 @@ export default function Home() {
             multiProfileCount >= step.limit);
         return (
           <button
-            key={`${step.id}-${option.label}`}
+            key={`${step.id}-${value}`}
             type="button"
             disabled={disabled}
             onClick={() => {
@@ -13771,7 +13779,7 @@ export default function Home() {
               }
             }}
             aria-pressed={selected}
-            className={`min-h-[5.5rem] rounded-[1.4rem] border px-4 py-4 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`pointer-events-auto min-h-[5.5rem] touch-manipulation rounded-[1.4rem] border px-4 py-4 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
               selected
                 ? "border-[#2f4a3e]/45 bg-[#2f4a3e]/10 text-[#214637] ring-2 ring-[#2f4a3e]/10"
                 : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/25 hover:bg-[#f7f5f1]"
@@ -13970,7 +13978,7 @@ export default function Home() {
                   multiProfileCount >= musicJourneyCurrentStep.limit);
               return (
                 <button
-                  key={`inline-${musicJourneyCurrentStep.id}-${option.label}`}
+                  key={`inline-${musicJourneyCurrentStep.id}-${value}`}
                   type="button"
                   disabled={disabled}
                   onClick={() => {
@@ -13990,7 +13998,7 @@ export default function Home() {
                     }
                   }}
                   aria-pressed={selected}
-                  className={`min-h-11 touch-manipulation rounded-2xl border px-3 py-3 text-left text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`pointer-events-auto min-h-11 touch-manipulation rounded-2xl border px-3 py-3 text-left text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
                     selected
                       ? "border-[#2f4a3e]/45 bg-[#2f4a3e]/10 text-[#214637] ring-2 ring-[#2f4a3e]/10"
                       : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/25 hover:bg-[#f7f5f1]"
