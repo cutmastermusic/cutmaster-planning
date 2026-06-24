@@ -13087,7 +13087,12 @@ export default function Home() {
 
   const openMusicJourneyInline = (initialStep: MusicJourneyStep = "dance") => {
     if (!isCoupleView) return;
+    setMusicJourneyCompleted(false);
     setMusicJourneyStep(initialStep);
+  };
+
+  const handleOpenMusicJourneyInline = () => {
+    openMusicJourneyInline("dance");
   };
 
   const openMusicHubSongList = (listType: SongListType) => {
@@ -13384,8 +13389,8 @@ export default function Home() {
             <div className="mt-7">
               <PrimaryButton
                 type="button"
-                onClick={() => openMusicJourneyInline("dance")}
-                className={`min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
+                onClick={handleOpenMusicJourneyInline}
+                className={`pointer-events-auto relative z-10 min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
               >
                 {musicHubHeroStyleComplete ? "Edit Music Style" : "Start Music Journey"}
               </PrimaryButton>
@@ -13522,8 +13527,8 @@ export default function Home() {
             ) : (
               <PrimaryButton
                 type="button"
-                onClick={() => openMusicJourneyInline("dance")}
-                className={`min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
+                onClick={handleOpenMusicJourneyInline}
+                className={`pointer-events-auto relative z-10 min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
               >
                 {musicJourneyCardComplete ? "Edit Music Style" : "Start Music Journey"}
               </PrimaryButton>
