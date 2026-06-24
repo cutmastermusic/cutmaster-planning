@@ -28,7 +28,7 @@ export function MusicHubChipRow({
             aria-pressed={on}
             disabled={disabled}
             onClick={() => onToggle(option)}
-            className={`min-h-11 rounded-full border px-3.5 py-2.5 text-left text-[13px] font-medium transition sm:min-h-10 sm:py-2 ${
+            className={`min-h-11 touch-manipulation rounded-full border px-3.5 py-2.5 text-left text-[13px] font-medium transition sm:min-h-10 sm:py-2 ${
               on
                 ? buttonVariant === "couple"
                   ? "border-[#2f4a3e] bg-[#2f4a3e] text-white shadow-sm"

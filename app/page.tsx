@@ -13365,7 +13365,7 @@ export default function Home() {
 
   const renderMusicHubHero = () => (
     <section className="relative overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.26),transparent_34%),linear-gradient(135deg,#f7f5f1,#efe8dc_50%,#dfe7dc)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,143,122,0.26),transparent_34%),linear-gradient(135deg,#f7f5f1,#efe8dc_50%,#dfe7dc)]" />
       <div className="relative grid min-h-[25rem] gap-7 px-5 py-8 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-10 lg:py-10">
         <div className="flex flex-col justify-center text-[#1f2724]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2f4a3e]/75">
@@ -13385,7 +13385,7 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={() => openMusicJourneyInline("dance")}
-                className={couplePortalPrimaryButtonClass}
+                className={`min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
               >
                 {musicHubHeroStyleComplete ? "Edit Music Style" : "Start Music Journey"}
               </PrimaryButton>
@@ -13397,8 +13397,8 @@ export default function Home() {
         </div>
         <div className="lg:justify-self-end">
           <div className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/72 p-5 shadow-[0_22px_60px_-45px_rgba(47,74,62,0.72)] ring-1 ring-[#2f4a3e]/10 backdrop-blur-sm">
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#b08a45]/15 blur-2xl" />
-            <div className="absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#b08a45]/15 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
             <div className="relative">
               <div className="flex items-center gap-3">
                 <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
@@ -13495,7 +13495,7 @@ export default function Home() {
 
   const renderMusicHubFindYourSoundCard = () => (
     <PremiumCard className="relative overflow-hidden border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-[0_24px_70px_-46px_rgba(47,74,62,0.65)] ring-1 ring-[#2f4a3e]/10">
-      <div className="absolute right-6 top-6 hidden h-28 w-28 rounded-full bg-[#b08a45]/10 blur-2xl sm:block" />
+      <div className="pointer-events-none absolute right-6 top-6 hidden h-28 w-28 rounded-full bg-[#b08a45]/10 blur-2xl sm:block" />
       <div className="relative grid gap-6 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-[#b08a45]/25 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a6933]">
@@ -13523,7 +13523,7 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={() => openMusicJourneyInline("dance")}
-                className={couplePortalPrimaryButtonClass}
+                className={`min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
               >
                 {musicJourneyCardComplete ? "Edit Music Style" : "Start Music Journey"}
               </PrimaryButton>
@@ -13576,7 +13576,7 @@ export default function Home() {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group flex min-h-[12rem] flex-col justify-between rounded-[1.5rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 ${accentClass}`}
+      className={`group pointer-events-auto flex min-h-[12rem] touch-manipulation flex-col justify-between rounded-[1.5rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 ${accentClass}`}
     >
       <span>
         <span className="flex items-start justify-between gap-3">
@@ -13801,7 +13801,7 @@ export default function Home() {
             type="button"
             onClick={() => addMusicJourneyArtist(kind)}
             disabled={!canManageMusic || !musicJourneyArtistDraft.trim()}
-            className={`mt-3 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+            className={`mt-3 min-h-11 w-full touch-manipulation sm:w-auto ${couplePortalSecondaryButtonClass}`}
           >
             Add {kind === "love" ? "Artist" : "Avoid"}
           </PrimaryButton>
@@ -13818,7 +13818,7 @@ export default function Home() {
                   type="button"
                   onClick={() => removeMusicJourneyArtist(kind, artist)}
                   disabled={!canManageMusic}
-                  className="text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
+                  className="min-h-10 min-w-10 touch-manipulation text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
                   aria-label={`Remove ${artist}`}
                 >
                   ×
@@ -13916,7 +13916,7 @@ export default function Home() {
               type="button"
               onClick={() => addMusicJourneyArtist(artistKind)}
               disabled={!canManageMusic || !musicJourneyArtistDraft.trim()}
-              className={`w-full py-2 text-sm sm:w-auto ${couplePortalSecondaryButtonClass}`}
+              className={`min-h-11 w-full touch-manipulation py-2 text-sm sm:w-auto ${couplePortalSecondaryButtonClass}`}
             >
               Add {artistKind === "love" ? "Artist" : "Avoid"}
             </PrimaryButton>
@@ -13932,7 +13932,7 @@ export default function Home() {
                       type="button"
                       onClick={() => removeMusicJourneyArtist(artistKind, artist)}
                       disabled={!canManageMusic}
-                      className="text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
+                      className="min-h-10 min-w-10 touch-manipulation text-[#2f4a3e]/70 transition hover:text-[#2f4a3e] disabled:opacity-50"
                       aria-label={`Remove ${artist}`}
                     >
                       ×
@@ -13985,7 +13985,7 @@ export default function Home() {
                     }
                   }}
                   aria-pressed={selected}
-                  className={`rounded-2xl border px-3 py-3 text-left text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`min-h-11 touch-manipulation rounded-2xl border px-3 py-3 text-left text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
                     selected
                       ? "border-[#2f4a3e]/45 bg-[#2f4a3e]/10 text-[#214637] ring-2 ring-[#2f4a3e]/10"
                       : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/25 hover:bg-[#f7f5f1]"
@@ -14004,7 +14004,7 @@ export default function Home() {
           <PrimaryButton
             type="button"
             onClick={goBackMusicJourney}
-            className={couplePortalSecondaryButtonClass}
+            className={`min-h-11 touch-manipulation ${couplePortalSecondaryButtonClass}`}
           >
             Back
           </PrimaryButton>
@@ -14013,7 +14013,7 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={advanceMusicJourney}
-                className={couplePortalTertiaryButtonClass}
+                className={`min-h-11 touch-manipulation ${couplePortalTertiaryButtonClass}`}
               >
                 Skip
               </PrimaryButton>
@@ -14021,7 +14021,7 @@ export default function Home() {
             <PrimaryButton
               type="button"
               onClick={advanceMusicJourney}
-              className={couplePortalPrimaryButtonClass}
+              className={`min-h-11 touch-manipulation ${couplePortalPrimaryButtonClass}`}
             >
               Continue
             </PrimaryButton>
@@ -14299,7 +14299,7 @@ export default function Home() {
                   setPasteSongListTarget(event.target.value as SongListType);
                   setPasteSongListImportResult(null);
                 }}
-                className={`${lightUiSelectClass} mt-1 min-h-10 py-2 text-sm`}
+                className={`${lightUiSelectClass} mt-1 min-h-11 py-2 text-sm`}
               >
                 {(Object.keys(SPOTIFY_IMPORT_DESTINATION_LABELS) as SongListType[]).map((key) => (
                   <option key={key} value={key}>
@@ -14313,7 +14313,7 @@ export default function Home() {
               type="button"
               onClick={previewPasteSongList}
               disabled={!canManageMusic}
-              className="border border-[#1E1E1E] bg-[#1E1E1E] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-11 touch-manipulation border border-[#1E1E1E] bg-[#1E1E1E] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Preview Songs
             </PrimaryButton>
@@ -14332,8 +14332,8 @@ export default function Home() {
               disabled={!canManageMusic}
               className={
                 isCoupleView
-                  ? `w-full sm:w-auto ${couplePortalPrimaryButtonClass}`
-                  : "w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+                  ? `min-h-11 w-full touch-manipulation sm:w-auto ${couplePortalPrimaryButtonClass}`
+                  : "min-h-11 w-full touch-manipulation border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
               }
             >
               Import Songs
@@ -14385,7 +14385,7 @@ export default function Home() {
                 type="button"
                 onClick={importPasteSongList}
                 disabled={!canManageMusic || !previewStats || previewStats.importableCount === 0}
-                className="rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 touch-manipulation rounded-xl border border-[#1E1E1E] bg-[#1E1E1E] px-3 py-2 text-xs font-semibold text-white shadow-none hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Import Songs
               </PrimaryButton>
@@ -14445,8 +14445,8 @@ export default function Home() {
           disabled={!canManageMusic && musicPlaylistLinks.length === 0}
           className={
             buttonVariant === "couple"
-              ? `w-full sm:w-auto ${couplePortalSecondaryButtonClass}`
-              : "w-full border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto"
+              ? `min-h-11 w-full touch-manipulation sm:w-auto ${couplePortalSecondaryButtonClass}`
+              : "min-h-11 w-full touch-manipulation border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50 sm:w-auto"
           }
         >
           {musicPlaylistLinksOpen ? "Close" : "Manage Playlists"}
@@ -14490,8 +14490,8 @@ export default function Home() {
             disabled={!canManageMusic || !musicNewPlaylistUrl.trim()}
             className={
               buttonVariant === "couple"
-                ? `w-full py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
-                : "w-full border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
+                ? `min-h-11 w-full touch-manipulation py-2.5 text-sm disabled:opacity-45 ${couplePortalPrimaryButtonClass}`
+                : "min-h-11 w-full touch-manipulation border border-[#1f2724] bg-[#1f2724] py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-45"
             }
           >
             Save playlist
@@ -14526,7 +14526,7 @@ export default function Home() {
                         href={openUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-lg border border-[#1f2724] bg-[#1f2724] px-3 py-1.5 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531]"
+                        className="inline-flex min-h-11 touch-manipulation items-center rounded-lg border border-[#1f2724] bg-[#1f2724] px-3 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531]"
                       >
                         Open in Spotify
                       </a>
@@ -14539,14 +14539,14 @@ export default function Home() {
                       type="button"
                       onClick={() => removeMusicPlaylistLink(link.id)}
                       disabled={!canManageMusic}
-                      className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-900 hover:bg-rose-50 disabled:opacity-40"
+                      className="min-h-11 touch-manipulation rounded-lg border border-rose-200 bg-white px-3 py-2 text-[11px] font-semibold text-rose-900 hover:bg-rose-50 disabled:opacity-40"
                     >
                       Remove
                     </button>
                   </div>
                 </div>
                 <details className="group mt-3 rounded-xl border border-stone-200 bg-white">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[12px] font-semibold text-stone-800 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex min-h-11 cursor-pointer touch-manipulation list-none items-center justify-between gap-2 px-3 py-2 text-[12px] font-semibold text-stone-800 [&::-webkit-details-marker]:hidden">
                     <span>Edit</span>
                     <span className="text-[10px] text-stone-400 transition-transform group-open:rotate-180">▼</span>
                   </summary>
@@ -20559,7 +20559,7 @@ export default function Home() {
                               type="button"
                               onClick={() => setNewSongListType("mustPlay")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] touch-manipulation rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "mustPlay"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -20580,7 +20580,7 @@ export default function Home() {
                               type="button"
                               onClick={() => setNewSongListType("playIfPossible")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] touch-manipulation rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "playIfPossible"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -20601,7 +20601,7 @@ export default function Home() {
                               type="button"
                               onClick={() => setNewSongListType("doNotPlay")}
                               disabled={!canManageMusic}
-                              className={`relative min-h-[3.75rem] rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                              className={`relative min-h-[3.75rem] touch-manipulation rounded-2xl border px-3.5 py-2.5 text-left shadow-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
                                 newSongListType === "doNotPlay"
                                   ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
                                   : "border-stone-200 bg-white text-stone-800 hover:border-[#2f4a3e]/35 hover:bg-stone-50/80"
@@ -20638,7 +20638,7 @@ export default function Home() {
                               window.setTimeout(() => document.getElementById("song-notes")?.focus(), 50);
                             }}
                             disabled={!canManageMusic}
-                            className="text-left text-sm font-semibold text-[#2f4a3e] transition hover:text-[#263d33] disabled:cursor-not-allowed disabled:opacity-55"
+                            className="min-h-11 touch-manipulation text-left text-sm font-semibold text-[#2f4a3e] transition hover:text-[#263d33] disabled:cursor-not-allowed disabled:opacity-55"
                           >
                             + Add a note <span className="font-normal text-stone-500">(optional)</span>
                           </button>
@@ -20652,7 +20652,7 @@ export default function Home() {
                             }
                           }}
                           disabled={!canManageMusic}
-                          className={`w-full py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
+                          className={`min-h-11 w-full touch-manipulation py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
                         >
                           {newSongListType === "mustPlay"
                             ? "Add to Must Play"

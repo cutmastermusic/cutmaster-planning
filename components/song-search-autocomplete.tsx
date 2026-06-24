@@ -171,7 +171,7 @@ export function SongSearchAutocomplete({
                 onSelect(selection);
                 setResults([]);
               }}
-              className="flex w-full min-w-0 touch-manipulation items-center gap-3 border-b border-stone-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-11 w-full min-w-0 touch-manipulation items-center gap-3 border-b border-stone-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {result.albumArtSmall ? (
                 // eslint-disable-next-line @next/next/no-img-element
