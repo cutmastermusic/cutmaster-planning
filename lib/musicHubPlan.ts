@@ -5,6 +5,8 @@ import {
 } from "@/data/musicTasteProfileCatalog";
 import type {
   EventRecord,
+  GuestRequestLimit,
+  GuestRequestSettings,
   MusicTasteProfile,
   MusicVibeDetail,
   SharedPlaylistLink,
@@ -16,6 +18,12 @@ export type EventMusicHubPlanSnapshot = {
   musicTasteProfile: MusicTasteProfile;
   musicVibeDetail: MusicVibeDetail;
   musicPlaylistLinks: SharedPlaylistLink[];
+  guestRequestSettings: GuestRequestSettings;
+};
+
+export const DEFAULT_GUEST_REQUEST_SETTINGS: GuestRequestSettings = {
+  enabled: false,
+  maxRequests: 50,
 };
 
 function hasMusicVibeDetailSelections(detail: MusicVibeDetail | undefined): boolean {
@@ -50,12 +58,35 @@ function parseSharedPlaylistLinks(raw: unknown): SharedPlaylistLink[] {
   return links;
 }
 
+function parseGuestRequestLimit(value: unknown): GuestRequestLimit {
+  return value === 25 || value === 50 || value === 100 || value === "unlimited" ? value : 50;
+}
+
+export function parseGuestRequestSettings(raw: unknown): GuestRequestSettings {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return DEFAULT_GUEST_REQUEST_SETTINGS;
+  const entry = raw as Record<string, unknown>;
+  return {
+    enabled: entry.enabled === true,
+    maxRequests: parseGuestRequestLimit(entry.maxRequests),
+  };
+}
+
+export function normalizeGuestRequestSettings(
+  settings: GuestRequestSettings | undefined,
+): GuestRequestSettings {
+  return {
+    enabled: settings?.enabled === true,
+    maxRequests: parseGuestRequestLimit(settings?.maxRequests),
+  };
+}
+
 export function emptyMusicHubPlanSnapshot(): EventMusicHubPlanSnapshot {
   return {
     musicGenreEraSelections: [],
     musicTasteProfile: emptyMusicTasteProfile(),
     musicVibeDetail: {},
     musicPlaylistLinks: [],
+    guestRequestSettings: DEFAULT_GUEST_REQUEST_SETTINGS,
   };
 }
 
@@ -83,6 +114,7 @@ export function parseMusicHubPlanJson(value: unknown): EventMusicHubPlanSnapshot
     musicTasteProfile: normalizeMusicTasteProfile(raw.musicTasteProfile as MusicTasteProfile | undefined),
     musicVibeDetail: parseMusicVibeDetail(raw.musicVibeDetail),
     musicPlaylistLinks: parseSharedPlaylistLinks(raw.musicPlaylistLinks),
+    guestRequestSettings: parseGuestRequestSettings(raw.guestRequestSettings),
   };
 }
 
@@ -94,7 +126,8 @@ export function isMusicHubPlanSnapshotEmpty(
     plan.musicGenreEraSelections.length === 0 &&
     !musicTasteProfileHasSelections(plan.musicTasteProfile) &&
     !hasMusicVibeDetailSelections(plan.musicVibeDetail) &&
-    plan.musicPlaylistLinks.length === 0
+    plan.musicPlaylistLinks.length === 0 &&
+    !plan.guestRequestSettings.enabled
   );
 }
 
@@ -103,6 +136,7 @@ export function buildMusicHubPlanSnapshot(input: {
   musicTasteProfile: MusicTasteProfile;
   musicVibeDetail: MusicVibeDetail;
   musicPlaylistLinks?: SharedPlaylistLink[];
+  guestRequestSettings?: GuestRequestSettings;
 }): EventMusicHubPlanSnapshot {
   const vibe = input.musicVibeDetail ?? {};
   return {
@@ -115,6 +149,7 @@ export function buildMusicHubPlanSnapshot(input: {
       cleanMusicPrefs: vibe.cleanMusicPrefs?.trim() || undefined,
     },
     musicPlaylistLinks: parseSharedPlaylistLinks(input.musicPlaylistLinks ?? []),
+    guestRequestSettings: normalizeGuestRequestSettings(input.guestRequestSettings),
   };
 }
 
@@ -126,6 +161,7 @@ export function applyMusicHubPlanSnapshotToEventFields(
   evt.musicTasteProfile = cloneJson(plan.musicTasteProfile);
   evt.musicVibeDetail = cloneJson(plan.musicVibeDetail);
   evt.musicPlaylistLinks = cloneJson(plan.musicPlaylistLinks);
+  evt.guestRequestSettings = cloneJson(plan.guestRequestSettings);
 }
 
 export function clearMusicHubTasteFieldsOnEvent(evt: EventRecord): void {
@@ -223,6 +259,7 @@ export function eventRecordToMusicHubPlanSnapshot(evt: EventRecord): EventMusicH
     musicTasteProfile: normalizeMusicTasteProfile(evt.musicTasteProfile),
     musicVibeDetail: evt.musicVibeDetail ?? {},
     musicPlaylistLinks: evt.musicPlaylistLinks ?? [],
+    guestRequestSettings: evt.guestRequestSettings,
   });
 }
 
@@ -273,6 +310,9 @@ function priorMusicHubTasteExtendsHydrated(
     );
     if (!exists) return true;
   }
+
+  if (prior.guestRequestSettings.enabled !== hydrated.guestRequestSettings.enabled) return true;
+  if (prior.guestRequestSettings.maxRequests !== hydrated.guestRequestSettings.maxRequests) return true;
 
   return isMusicHubPlanSnapshotEmpty(hydrated);
 }
@@ -331,6 +371,9 @@ export function mergePriorMusicHubTasteIntoHydratedEvent(
         hydratedPlan.musicVibeDetail.cleanMusicPrefs,
       ),
     },
+    guestRequestSettings: hydratedPlan.guestRequestSettings.enabled
+      ? hydratedPlan.guestRequestSettings
+      : priorPlan.guestRequestSettings,
   };
 
   const merged: EventRecord = { ...hydrated };

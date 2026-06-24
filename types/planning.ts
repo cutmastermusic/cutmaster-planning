@@ -334,6 +334,13 @@ export type SharedPlaylistLink = {
   notes?: string;
 };
 
+export type GuestRequestLimit = 25 | 50 | 100 | "unlimited";
+
+export type GuestRequestSettings = {
+  enabled: boolean;
+  maxRequests: GuestRequestLimit;
+};
+
 /** Optional structured fields for Music Hub / DJ vibe (stored on the event). */
 export type MusicVibeDetail = {
   genres?: string;
@@ -384,6 +391,8 @@ export type Event = {
   playlistVibeOverrides?: Partial<Record<PlaylistBucketId, string[]>>;
   /** Spotify, Apple Music, YouTube, etc. — URLs + labels for the DJ. */
   musicPlaylistLinks?: SharedPlaylistLink[];
+  /** Public no-login guest song request settings. */
+  guestRequestSettings?: GuestRequestSettings;
   /** Selected genre / era chips from Music Hub. */
   musicGenreEraSelections?: string[];
   /** Nice-to-have songs (optional list). */

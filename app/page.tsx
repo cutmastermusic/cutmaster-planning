@@ -179,6 +179,8 @@ import type {
   EventRecord,
   EventSongSource,
   GuestRequestEntry,
+  GuestRequestLimit,
+  GuestRequestSettings,
   GuestRequestStatus,
   ChecklistDueDate,
   ChecklistStatus,
@@ -424,7 +426,9 @@ import {
   applyMusicHubPlanSnapshotToEventFields,
   buildMusicHubPlanSnapshot,
   clearMusicHubTasteFieldsOnEvent,
+  DEFAULT_GUEST_REQUEST_SETTINGS,
   mergeHydratedEventsPreservingLocalMusicHubTaste,
+  normalizeGuestRequestSettings,
   parseMusicHubPlanJson,
   toggleMusicGenreEraSelection,
   toggleMusicTasteProfileChip,
@@ -2365,7 +2369,7 @@ const LAYOUT_SECTION_PREVIEW: {
     { key: "sectionMcScriptEnabled", label: "MC script / announcements" },
     { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
     { key: "sectionMusicNotesEnabled", label: "Music notes" },
-    { key: "sectionGuestRequestsEnabled", label: "Guest requests" },
+    { key: "sectionGuestRequestsEnabled", label: "Guest Song Requests" },
     { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
     { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
   ];
@@ -2458,7 +2462,7 @@ const getDefaultLiveEventSectionLabels = (profile: EventLayoutProfile): string[]
     );
   }
   if (visibility.liveEventShowGuestRequests && layoutDefaults.sectionGuestRequestsEnabled) {
-    labels.push("Guest Requests");
+    labels.push("Guest Song Requests");
   }
   return labels;
 };
@@ -3725,6 +3729,9 @@ export default function Home() {
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
   const [coupleMusicHubScreen, setCoupleMusicHubScreen] = useState<CoupleMusicHubScreen>("landing");
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
+  const [guestRequestSettings, setGuestRequestSettings] = useState<GuestRequestSettings>(
+    DEFAULT_GUEST_REQUEST_SETTINGS,
+  );
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
@@ -3757,6 +3764,8 @@ export default function Home() {
   const [guestFormArtist, setGuestFormArtist] = useState("");
   const [guestFormDedication, setGuestFormDedication] = useState("");
   const [guestSubmitBanner, setGuestSubmitBanner] = useState("");
+  const [guestRequestCopyStatus, setGuestRequestCopyStatus] = useState<"" | "copied" | "error">("");
+  const [guestRequestOrigin, setGuestRequestOrigin] = useState("");
   const [activePlanningChapterId, setActivePlanningChapterId] = useState<CoupleWeddingChapterId | null>(
     null,
   );
@@ -4240,6 +4249,9 @@ export default function Home() {
   ]);
   const activeEvent =
     visibleEvents.find((event) => event.id === activeEventId) ?? visibleEvents[0];
+  useEffect(() => {
+    setGuestRequestOrigin(window.location.origin);
+  }, []);
   const markActiveEventPlanningEdited = useCallback((editedAt = Date.now()) => {
     if (!activeEventId) return editedAt;
     setEvents((prev) =>
@@ -5251,6 +5263,7 @@ export default function Home() {
               musicTasteProfile,
               musicVibeDetail,
               musicPlaylistLinks,
+              guestRequestSettings,
             }),
           );
 
@@ -5339,6 +5352,7 @@ export default function Home() {
     doNotPlaySongs,
     playIfPossibleSongs,
     musicPlaylistLinks,
+    guestRequestSettings,
     musicGenreEraSelections,
     officiantName,
     plannerNotes,
@@ -5464,6 +5478,7 @@ export default function Home() {
     setDoNotPlaySongs(dedupeSongEntries(cloneJson(normalized.doNotPlaySongs)));
     setPlayIfPossibleSongs(dedupeSongEntries(cloneJson(normalized.playIfPossibleSongs ?? [])));
     setMusicPlaylistLinks(cloneJson(normalized.musicPlaylistLinks ?? []));
+    setGuestRequestSettings(normalizeGuestRequestSettings(normalized.guestRequestSettings));
     if (!preserveMusicHubTaste) {
       setMusicGenreEraSelections(cloneJson(normalized.musicGenreEraSelections ?? []));
       setMusicTasteProfile(normalizeMusicTasteProfile(normalized.musicTasteProfile));
@@ -6280,6 +6295,11 @@ export default function Home() {
     eventSettings.guestRequestMessageOverride || appSettings.publicGuestRequestMessage;
   const effectiveCoupleWelcomeMessage =
     eventSettings.coupleWelcomeMessageOverride || appSettings.coupleWelcomeMessage;
+  const guestRequestToken = activeEventId || activeEvent?.id || "";
+  const guestRequestPath = guestRequestToken ? `/request/${encodeURIComponent(guestRequestToken)}` : "";
+  const guestRequestPublicUrl = guestRequestOrigin && guestRequestPath
+    ? `${guestRequestOrigin}${guestRequestPath}`
+    : guestRequestPath;
 
   const layoutProfileForActiveEvent = useMemo(
     () => resolveLayoutProfileForDisplay(eventSettings, appSettings.defaultEventType),
@@ -10067,7 +10087,7 @@ export default function Home() {
     ) {
       return "Music Hub";
     }
-    if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Guest Requests";
+    if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Music Hub";
 
     const nextIncomplete = planningChecklist.find(
       (t) => t.status !== "Complete" && t.linkedSection !== "Notes" && t.linkedSection !== "Event Settings",
@@ -10284,9 +10304,9 @@ export default function Home() {
       cards.push({
         id: "guest-requests",
         kicker: "Guests",
-        title: "Guest requests",
+        title: "Guest Song Requests",
         description: "Song ideas and notes from the people celebrating with you.",
-        screen: "Guest Requests",
+        screen: "Music Hub",
         completion,
         ctaLabel: guestRequestsPostJourney
           ? pendingGuestCount > 0
@@ -12106,6 +12126,7 @@ export default function Home() {
                 musicTasteProfile,
                 musicVibeDetail,
                 musicPlaylistLinks,
+                guestRequestSettings,
               }),
             ),
           ];
@@ -12215,6 +12236,7 @@ export default function Home() {
     doNotPlaySongs,
     playIfPossibleSongs,
     musicPlaylistLinks,
+    guestRequestSettings,
     musicGenreEraSelections,
     ceremonyStartTime,
     ceremonyGuestArrivalTime,
@@ -12334,9 +12356,9 @@ export default function Home() {
   useEffect(() => {
     if (!hasHydrated) return;
     const pendingCount = guestRequests.filter((request) => request.status === "Pending").length;
-    if (pendingCount >= 3) {
+    if (pendingCount > 0) {
       window.setTimeout(() => {
-        pushNotification(`${pendingCount} guest requests pending`, "system");
+        pushNotification(`${pendingCount} New Guest Song Request${pendingCount === 1 ? "" : "s"}`, "system");
       }, 0);
     }
   }, [guestRequests, hasHydrated, pushNotification]);
@@ -13696,10 +13718,13 @@ export default function Home() {
         })}
         {renderMusicHubActionCard({
           eyebrow: "Guest input",
-          title: "Guest Requests",
+          title: "Guest Song Requests",
           description: "See and manage song requests from your guests.",
           ctaLabel: "View Requests",
-          countLabel: `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
+          countLabel:
+            pendingGuestRequestGroups.length > 0
+              ? `${pendingGuestRequestGroups.length} New`
+              : `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
           icon: "★",
           accentClass: "min-h-[10rem] border-violet-100 bg-gradient-to-br from-violet-50 via-white to-amber-50/60 hover:border-violet-200",
           onClick: openMusicHubGuestRequests,
@@ -14737,6 +14762,26 @@ export default function Home() {
     );
   };
 
+  const setGuestRequestGroupStatus = (ids: string[], status: GuestRequestStatus) => {
+    ids.forEach((id) => setGuestRequestStatus(id, status));
+  };
+
+  const updateGuestRequestSettings = (patch: Partial<GuestRequestSettings>) => {
+    setGuestRequestSettings((prev) => normalizeGuestRequestSettings({ ...prev, ...patch }));
+    markMusicHubTasteDirty();
+  };
+
+  const copyGuestRequestLink = async () => {
+    if (!guestRequestPublicUrl) return;
+    try {
+      await navigator.clipboard.writeText(guestRequestPublicUrl);
+      setGuestRequestCopyStatus("copied");
+    } catch {
+      setGuestRequestCopyStatus("error");
+    }
+    window.setTimeout(() => setGuestRequestCopyStatus(""), 2400);
+  };
+
   const roleBadgeClass = (role: UserRole | TeamMemberRole | string) => {
     if (role === "Admin") return "border border-stone-400 bg-stone-100 font-semibold text-stone-950";
     if (role === "DJ") return "border border-violet-400 bg-violet-50 font-semibold text-violet-950";
@@ -14836,6 +14881,46 @@ export default function Home() {
     setTimeout(() => setGuestSubmitBanner(""), 3500);
     logActivity("guest_request_submitted", `Guest request submitted by ${name}`);
   };
+
+  const groupGuestRequestsBySong = (requests: GuestRequestEntry[]) => {
+    const groups = new Map<
+      string,
+      {
+        key: string;
+        songTitle: string;
+        artist: string;
+        requests: GuestRequestEntry[];
+      }
+    >();
+    requests.forEach((request) => {
+      const key = songDuplicateFingerprint({ title: request.songTitle, artist: request.artist });
+      const existing = groups.get(key);
+      if (existing) {
+        existing.requests.push(request);
+        return;
+      }
+      groups.set(key, {
+        key,
+        songTitle: request.songTitle,
+        artist: request.artist,
+        requests: [request],
+      });
+    });
+    return Array.from(groups.values());
+  };
+
+  const pendingGuestRequestGroups = groupGuestRequestsBySong(
+    guestRequests.filter((request) => request.status === "Pending"),
+  );
+  const approvedGuestRequestGroups = groupGuestRequestsBySong(
+    guestRequests.filter((request) => request.status === "Approved"),
+  );
+  const rejectedGuestRequestGroups = groupGuestRequestsBySong(
+    guestRequests.filter((request) => request.status === "Rejected"),
+  );
+  const guestRequestLimitReached =
+    guestRequestSettings.maxRequests !== "unlimited" &&
+    guestRequests.length >= guestRequestSettings.maxRequests;
 
   const guestRequestStatusBadgeClass = (status: GuestRequestStatus) => {
     if (status === "Pending") return "bg-[#7E52A0]/18 text-violet-100";
@@ -15657,8 +15742,9 @@ export default function Home() {
         musicTasteProfile,
         musicVibeDetail,
         musicPlaylistLinks,
+        guestRequestSettings,
       }),
-    [musicGenreEraSelections, musicTasteProfile, musicVibeDetail, musicPlaylistLinks],
+    [musicGenreEraSelections, musicTasteProfile, musicVibeDetail, musicPlaylistLinks, guestRequestSettings],
   );
 
   const coupleMomentMusicHubRef = useMemo(
@@ -16548,7 +16634,7 @@ export default function Home() {
       "Reception Timeline": "Timeline",
       "Music Hub": "Music",
       "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
-      "Guest Requests": "Guest requests",
+      "Guest Requests": "Guest Song Requests",
       "Planning Checklist": "Checklist",
       "Event Prep": "Event Plan",
       "Event Team": "People & vendors",
@@ -19998,7 +20084,7 @@ export default function Home() {
                               onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
                               className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
                             >
-                              Review Guest Requests
+                              Review Guest Song Requests
                             </PrimaryButton>
                           </div>
                         </div>
@@ -20019,7 +20105,7 @@ export default function Home() {
                       <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-3 py-2.5 shadow-sm">
                         <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
                         <p className="mt-1 text-xs font-medium text-stone-700">
-                          {pendingGuestRequests} pending guest requests · {incompleteChecklistCount} incomplete planning areas
+                          {pendingGuestRequests} pending guest song request{pendingGuestRequests === 1 ? "" : "s"} · {incompleteChecklistCount} incomplete planning areas
                         </p>
                       </div>
                     ))}
@@ -20754,83 +20840,185 @@ export default function Home() {
                 ) : null}
 
                 {sectionGuestRequestsEnabled ? (
-                  <PremiumCard id="music-hub-guest-requests">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <SectionTitle>Guest Requests</SectionTitle>
-                        <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                          Would you like your guests to help build the playlist?
+                  <PremiumCard
+                    id="music-hub-guest-requests"
+                    className="border-[#2f4a3e]/15 bg-white shadow-sm ring-1 ring-[#2f4a3e]/10"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="max-w-2xl">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+                          Guest Song Requests
+                        </p>
+                        <SectionTitle className="mt-1 text-stone-950">Guest Song Requests</SectionTitle>
+                        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                          Help your guests contribute to your wedding soundtrack.
                         </p>
                       </div>
                       <PrimaryButton
                         type="button"
-                        onClick={() => setActiveScreen("Guest Requests")}
-                        className={couplePortalSecondaryButtonClass}
+                        onClick={() => updateGuestRequestSettings({ enabled: !guestRequestSettings.enabled })}
+                        disabled={!canManageGuestRequests}
+                        className={
+                          guestRequestSettings.enabled
+                            ? `w-full sm:w-auto ${couplePortalPrimaryButtonClass}`
+                            : `w-full sm:w-auto ${couplePortalSecondaryButtonClass}`
+                        }
                       >
-                        Open guest requests
+                        {guestRequestSettings.enabled ? "Guest Song Requests On" : "Enable Guest Song Requests"}
                       </PrimaryButton>
                     </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Approved</p>
-                        {guestRequests.filter((r) => r.status === "Approved").length === 0 ? (
-                          <div className="mt-2">
-                            <SectionEmptyState
-                              wrapWithCard={false}
-                              cardClassName="border-stone-200 bg-white py-3"
-                              title="No approvals yet"
-                              description="Approved guest picks will appear here."
-                              buttonVariant="couple"
-                            />
-                          </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                      {[
+                        { label: "Pending", value: pendingGuestRequestGroups.length, tone: "text-rose-700" },
+                        { label: "Approved", value: approvedGuestRequestGroups.length, tone: "text-[#2f4a3e]" },
+                        { label: "Rejected", value: rejectedGuestRequestGroups.length, tone: "text-stone-500" },
+                        { label: "Total", value: guestRequests.length, tone: "text-stone-900" },
+                      ].map((item) => (
+                        <div key={item.label} className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                            {item.label}
+                          </p>
+                          <p className={`mt-1 text-2xl font-semibold tabular-nums ${item.tone}`}>{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-[#2f4a3e]/15 bg-[#f7f5f1] p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
+                        Request Link
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                        Share this link with family and friends before your wedding.
+                      </p>
+                      <div className="mt-3 overflow-hidden rounded-xl border border-white/80 bg-white px-3 py-2 font-mono text-xs font-semibold text-stone-900">
+                        {guestRequestPublicUrl || "Request link will appear once this event is saved."}
+                      </div>
+                      <PrimaryButton
+                        type="button"
+                        onClick={copyGuestRequestLink}
+                        disabled={!guestRequestPublicUrl}
+                        className={`mt-3 min-h-11 w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
+                      >
+                        {guestRequestCopyStatus === "copied"
+                          ? "Copied"
+                          : guestRequestCopyStatus === "error"
+                            ? "Copy Failed"
+                            : "Copy Link"}
+                      </PrimaryButton>
+                      <p className="mt-3 text-xs font-medium text-stone-600">
+                        Add this link to your wedding website, email, or group chat.
+                      </p>
+                      {guestRequestLimitReached ? (
+                        <p className="mt-2 text-xs font-semibold text-rose-700">
+                          Request limit reached. New guest submissions are closed.
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-4">
+                      <label htmlFor="guest-request-limit" className={lightUiFormLabelClass}>
+                        Maximum Guest Song Requests
+                      </label>
+                      <select
+                        id="guest-request-limit"
+                        value={String(guestRequestSettings.maxRequests)}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          updateGuestRequestSettings({
+                            maxRequests: value === "unlimited" ? "unlimited" : (Number(value) as GuestRequestLimit),
+                          });
+                        }}
+                        disabled={!canManageGuestRequests}
+                        className={`${lightUiSelectClass} mt-1 min-h-11`}
+                      >
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="unlimited">Unlimited</option>
+                      </select>
+                    </div>
+
+                    <div className="mt-6 space-y-5">
+                      <div>
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-lg font-semibold text-stone-950">Pending</h3>
+                          {pendingGuestRequestGroups.length > 0 ? (
+                            <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                              {pendingGuestRequestGroups.length} New
+                            </span>
+                          ) : null}
+                        </div>
+                        {pendingGuestRequestGroups.length === 0 ? (
+                          <p className="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+                            No pending requests yet.
+                          </p>
                         ) : (
-                          <div className="mt-2">
-                            <MusicHubGuestRequestList
-                              requests={guestRequests
-                                .filter((r) => r.status === "Approved")
-                                .map((request) => ({
-                                  id: request.id,
-                                  songTitle: request.songTitle,
-                                  artist: request.artist,
-                                  guestName: request.guestName,
-                                  dedication: request.dedication,
-                                  status: request.status,
-                                }))}
-                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
-                            />
+                          <div className="mt-3 grid gap-3">
+                            {pendingGuestRequestGroups.map((group) => (
+                              <div key={`pending-${group.key}`} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+                                <p className="text-base font-semibold text-stone-950">{group.songTitle}</p>
+                                <p className="text-sm text-stone-600">{group.artist || "Artist unknown"}</p>
+                                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                                  Requested by
+                                </p>
+                                <p className="mt-1 text-sm font-medium text-stone-800">
+                                  {group.requests.map((request) => request.guestName).join(", ")}
+                                </p>
+                                {group.requests.length > 1 ? (
+                                  <p className="mt-1 text-xs font-semibold text-[#2f4a3e]">
+                                    ({group.requests.length} Guests)
+                                  </p>
+                                ) : null}
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => setGuestRequestGroupStatus(group.requests.map((request) => request.id), "Approved")}
+                                    disabled={!canManageGuestRequests}
+                                    className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
+                                  >
+                                    Approve
+                                  </PrimaryButton>
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => setGuestRequestGroupStatus(group.requests.map((request) => request.id), "Rejected")}
+                                    disabled={!canManageGuestRequests}
+                                    className={`w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+                                  >
+                                    Reject
+                                  </PrimaryButton>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
-                      <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">Pending</p>
-                        {guestRequests.filter((r) => r.status === "Pending").length === 0 ? (
-                          <div className="mt-2">
-                            <SectionEmptyState
-                              wrapWithCard={false}
-                              cardClassName="border-stone-200 bg-white py-3"
-                              title="No pending requests"
-                              description="Guest requests will appear here when they are ready to review."
-                              buttonVariant="couple"
-                            />
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <MusicHubGuestRequestList
-                              requests={guestRequests
-                                .filter((r) => r.status === "Pending")
-                                .map((request) => ({
-                                  id: request.id,
-                                  songTitle: request.songTitle,
-                                  artist: request.artist,
-                                  guestName: request.guestName,
-                                  dedication: request.dedication,
-                                  status: request.status,
-                                }))}
-                              onOpenGuestRequests={() => setActiveScreen("Guest Requests")}
-                            />
-                          </div>
-                        )}
-                      </div>
+
+                      {[
+                        { title: "Approved", groups: approvedGuestRequestGroups },
+                        { title: "Rejected", groups: rejectedGuestRequestGroups },
+                      ].map((section) => (
+                        <div key={section.title}>
+                          <h3 className="text-lg font-semibold text-stone-950">{section.title}</h3>
+                          {section.groups.length === 0 ? (
+                            <p className="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+                              No {section.title.toLowerCase()} requests yet.
+                            </p>
+                          ) : (
+                            <div className="mt-3 grid gap-3 md:grid-cols-2">
+                              {section.groups.map((group) => (
+                                <div key={`${section.title}-${group.key}`} className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                                  <p className="font-semibold text-stone-950">{group.songTitle}</p>
+                                  <p className="text-sm text-stone-600">{group.artist || "Artist unknown"}</p>
+                                  <p className="mt-2 text-xs text-stone-600">
+                                    Requested by {group.requests.map((request) => request.guestName).join(", ")}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </PremiumCard>
                 ) : null}
@@ -20924,7 +21112,7 @@ export default function Home() {
                   ) : null}
                   {coupleMomentOpenDancingRef.guestRequestPolicy ? (
                     <div>
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest requests</dt>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest Song Requests</dt>
                       <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.guestRequestPolicy}</dd>
                     </div>
                   ) : null}
@@ -21505,7 +21693,7 @@ export default function Home() {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <SectionTitle>{isCoupleView ? "Guest Requests" : "Guest requests"}</SectionTitle>
+                    <SectionTitle>{isCoupleView ? "Guest Song Requests" : "Guest Song Requests"}</SectionTitle>
                     <p className="mt-1 text-xs text-stone-600">
                       {isCoupleView
                         ? "Would you like your guests to help build the playlist?"
@@ -21517,7 +21705,7 @@ export default function Home() {
                     onClick={() => setActiveScreen("Guest Requests")}
                     className={isCoupleView ? couplePortalSecondaryButtonClass : lightUiCyanPrimaryButtonClass}
                   >
-                    Open guest requests
+                    Open Guest Song Requests
                   </PrimaryButton>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -21586,9 +21774,9 @@ export default function Home() {
                 className={`border-dashed border-stone-300 bg-stone-50 ${isCoupleView ? "order-[50]" : ""}`}
                 style={isCoupleView ? { order: 13 } : undefined}
               >
-                <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
+                <SectionTitle className="text-stone-950">Guest Song Requests</SectionTitle>
                 <p className="mt-2 text-xs text-stone-600">
-                  Guest requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
+                  Guest Song Requests are hidden for this event—flip them on under Event Settings → Sections when you want the queue
                   here.
                 </p>
               </PremiumCard>
@@ -21678,7 +21866,7 @@ export default function Home() {
             {sectionGuestRequestsEnabled && (
               <PremiumCard>
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <SectionTitle className="text-stone-950">Guest requests</SectionTitle>
+                  <SectionTitle className="text-stone-950">Guest Song Requests</SectionTitle>
                   {coupleAttentionSummary.pendingGuestCount > 0 ? (
                     <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
                       {coupleAttentionSummary.pendingGuestCount} pending
@@ -21693,7 +21881,7 @@ export default function Home() {
                   onClick={() => setActiveScreen("Guest Requests")}
                   className={`mt-4 self-start ${lightUiSecondaryButtonClass}`}
                 >
-                  Open guest requests
+                  Open Guest Song Requests
                 </PrimaryButton>
               </PremiumCard>
             )}
@@ -23711,7 +23899,7 @@ export default function Home() {
         {authStage === "app" && appMode === "event" && activeScreen === "Guest Requests" && sectionGuestRequestsEnabled && (
           <section className={`${workspaceSectionClass}${isCoupleView ? " cm-couple-workspace" : ""}`}>
             <EventHomeNav
-              trail={["Guest Requests"]}
+              trail={["Guest Song Requests"]}
               onBack={() => setActiveScreen("Dashboard")}
               buttonVariant={isCoupleView ? "couple" : "default"}
               primaryAction={
@@ -23736,7 +23924,7 @@ export default function Home() {
             )}
             <PremiumCard>
               <div className="flex items-center justify-between gap-2">
-                <SectionTitle className="text-stone-950">Guest Requests</SectionTitle>
+                <SectionTitle className="text-stone-950">Guest Song Requests</SectionTitle>
                 <div className="flex rounded-xl border border-stone-300 bg-stone-100 p-0.5">
                   <PrimaryButton
                     onClick={() => setGuestRequestView("admin")}
@@ -23776,7 +23964,7 @@ export default function Home() {
                 </PremiumCard>
 
                 <PremiumCard variant="accent">
-                  <SectionTitle>Guest Requests Assistant</SectionTitle>
+                  <SectionTitle>Guest Song Requests Assistant</SectionTitle>
                   <p className="mt-1 text-xs text-stone-600">
                     Queue health for approvals.
                   </p>
@@ -24743,7 +24931,7 @@ export default function Home() {
                               : EVENT_PACKET_SECTION_TOGGLE_OFF
                           }
                         >
-                          {eventSettings.liveEventShowGuestRequests ? "Guest requests on" : "Guest requests off"}
+                          {eventSettings.liveEventShowGuestRequests ? "Guest Song Requests on" : "Guest Song Requests off"}
                         </PrimaryButton>
                       ) : null}
                     </div>
@@ -25446,7 +25634,7 @@ export default function Home() {
                 )}
                 {sectionGuestRequestsEnabled && eventSettings.liveEventShowGuestRequests && (
                   <div className="doc-section print-break-avoid">
-                    <h3>Guest Requests</h3>
+                    <h3>Guest Song Requests</h3>
                     <table className="doc-table">
                       <thead>
                         <tr>
@@ -25657,7 +25845,7 @@ export default function Home() {
                     { key: "sectionMcScriptEnabled", label: "MC Script" },
                     { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
                     { key: "sectionMusicNotesEnabled", label: "Music Notes" },
-                    { key: "sectionGuestRequestsEnabled", label: "Guest Requests" },
+                    { key: "sectionGuestRequestsEnabled", label: "Guest Song Requests" },
                     { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
                     { key: "sectionPlanningQuestionsEnabled", label: "Planning Questions" },
                   ].map((item) => {
