@@ -8475,9 +8475,6 @@ export default function Home() {
   const eventVenueAddress = eventSettings.venueAddress?.trim() ?? "";
   const eventCeremonyLocation = eventSettings.ceremonyLocation?.trim() ?? "";
   const eventReceptionLocation = eventSettings.receptionLocation?.trim() ?? "";
-  const eventHeaderMapsUrl = eventVenueAddress
-    ? buildGoogleMapsSearchUrl(eventVenueAddress)
-    : null;
 
   const runOfShowHeadline = useMemo(() => {
     const weddingLike =
@@ -16937,45 +16934,50 @@ export default function Home() {
     musicVibeDetail.cleanMusicPrefs,
     speechesToastsRaw,
   ]);
-  const briefOverviewVibeTags = useMemo(() => {
-    const tags: string[] = [];
-    const addTag = (value: string | undefined | null) => {
-      const label = value?.trim();
-      if (!label) return;
-      if (!tags.some((existing) => existing.toLowerCase() === label.toLowerCase())) {
-        tags.push(label);
-      }
+  const briefOverviewMusicRows = useMemo(() => {
+    const normalizeItems = (values: Array<string | undefined | null>) => {
+      const items: string[] = [];
+      values.forEach((value) => {
+        const label = value?.trim();
+        if (!label) return;
+        if (!items.some((existing) => existing.toLowerCase() === label.toLowerCase())) {
+          items.push(label);
+        }
+      });
+      return items;
     };
+    const splitTags = (value: string | undefined | null) =>
+      value
+        ?.split(/[,•\n]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean) ?? [];
+    const cleanPreference = musicVibeDetail.cleanMusicPrefs?.trim();
+    const musicBehaviorText = musicTasteProfile.musicBehavior.join(" ");
+    const cleanLabel =
+      cleanPreference || (/clean|radio edit|no explicit|school appropriate/i.test(musicBehaviorText) ? "Clean Music Preferred" : "");
 
-    const combinedMusicText = [
-      ...musicTasteProfile.danceFloorStyles,
-      ...musicTasteProfile.crowdPreferences,
-      ...musicTasteProfile.musicBehavior,
-      ...(musicTasteProfile.lineDancesAndGroupSongs ?? []),
-      musicTasteProfile.danceFloorVibeNotes,
-      musicVibeDetail.energy,
-      musicVibeDetail.crowdNotes,
-      musicVibeDetail.cleanMusicPrefs,
-      musicVibeDetail.genres,
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    if (/high[\s-]?energy|packed|party|dance/i.test(combinedMusicText)) addTag("High Energy");
-    if (/singalong|sing-along|anthem/i.test(combinedMusicText)) addTag("Singalongs");
-    if (/family|all ages|kid|grandparent/i.test(combinedMusicText)) addTag("Family Friendly");
-    if (/clean|radio edit|no explicit|school appropriate/i.test(combinedMusicText)) addTag("Clean Music");
-    if (/line dance|group song|participation|guest/i.test(combinedMusicText)) addTag("Guest Participation");
-
-    musicGenreEraSelections.slice(0, 8).forEach(addTag);
-    musicVibeDetail.genres
-      ?.split(/[,•\n]/)
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-      .slice(0, 4)
-      .forEach(addTag);
-
-    return tags.slice(0, 12);
+    return [
+      {
+        label: "Energy",
+        value: normalizeItems([...musicTasteProfile.danceFloorStyles, musicVibeDetail.energy]).join(" • "),
+      },
+      {
+        label: "Crowd",
+        value: normalizeItems([...musicTasteProfile.crowdPreferences, musicVibeDetail.crowdNotes]).join(" • "),
+      },
+      {
+        label: "Music",
+        value: normalizeItems([...musicGenreEraSelections, ...splitTags(musicVibeDetail.genres)]).join(" • "),
+      },
+      {
+        label: "Participation",
+        value: normalizeItems([...(musicTasteProfile.lineDancesAndGroupSongs ?? [])]).join(" • "),
+      },
+      {
+        label: "Clean",
+        value: cleanLabel,
+      },
+    ].filter((row) => row.value.trim());
   }, [musicGenreEraSelections, musicTasteProfile, musicVibeDetail]);
   const assignedDjBriefName = useMemo(() => {
     const value = eventSettings.assignedDj?.trim() ?? "";
@@ -16983,6 +16985,48 @@ export default function Home() {
     const member = teamMembers.find((teamMember) => teamMember.id === value || teamMember.name === value);
     return member?.name?.trim() || "Not Assigned";
   }, [eventSettings.assignedDj, teamMembers]);
+  const briefOverviewMetaLines = useMemo(() => {
+    const lines: string[] = [];
+    const couple = (eventSettings.coupleNames || weddingDetails.couple).trim();
+    const date = formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "").trim();
+    const venue = (eventSettings.venue || weddingDetails.venue).trim();
+    const eventPackage = eventSettings.packageName?.trim();
+    if (couple) lines.push(couple);
+    if (date) lines.push(date);
+    if (venue) lines.push(venue);
+    if (eventPackage) lines.push(eventPackage);
+    lines.push(`Assigned DJ: ${assignedDjBriefName}`);
+    return lines;
+  }, [
+    assignedDjBriefName,
+    eventSettings.coupleNames,
+    eventSettings.packageName,
+    eventSettings.venue,
+    eventSettings.weddingDate,
+    weddingDetails.couple,
+    weddingDetails.date,
+    weddingDetails.venue,
+  ]);
+  const ceremonyBriefRows = useMemo(() => {
+    const rows: { label: string; value: string }[] = [];
+    const ceremonyLocation = eventCeremonyLocation.trim() || (eventSettings.venue || weddingDetails.venue).trim();
+    if (ceremonyStartTime.trim()) rows.push({ label: "Start", value: ceremonyStartTime.trim() });
+    if (ceremonyGuestArrivalTime.trim()) rows.push({ label: "Guest Arrival", value: ceremonyGuestArrivalTime.trim() });
+    if (ceremonyLocation) rows.push({ label: "Location", value: ceremonyLocation });
+    if (officiantName.trim()) rows.push({ label: "Officiant", value: officiantName.trim() });
+    if (microphoneNeeds.trim()) rows.push({ label: "Microphones", value: microphoneNeeds.trim() });
+    if (ceremonyNotes.trim()) rows.push({ label: "Notes", value: ceremonyNotes.trim() });
+    return rows;
+  }, [
+    ceremonyGuestArrivalTime,
+    ceremonyNotes,
+    ceremonyStartTime,
+    eventCeremonyLocation,
+    eventSettings.venue,
+    microphoneNeeds,
+    officiantName,
+    weddingDetails.venue,
+  ]);
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -25396,144 +25440,60 @@ export default function Home() {
                       </div>
                       <p className="doc-header-brand-tagline">ShowFlow Brief</p>
                     </div>
-                    <div className="doc-header-event">
-                      <h1 className="doc-event-title">
-                        {eventSettings.eventName?.trim() || eventDisplayName || "Event"}
-                      </h1>
-                      {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
-                        <p className="doc-header-event-date">
-                          {formatEventDateForDisplay(
-                            eventSettings.weddingDate || weddingDetails.date || "",
-                            "",
-                          )}
-                        </p>
-                      ) : null}
-                      {(eventSettings.venue || weddingDetails.venue)?.trim() ? (
-                        <p className="doc-header-event-venue">{eventSettings.venue || weddingDetails.venue}</p>
-                      ) : null}
-                      {eventHeaderMapsUrl ? (
-                        <p className="doc-header-event-venue doc-header-event-venue-address">
-                          <a
-                            href={eventHeaderMapsUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="doc-venue-address-link"
-                          >
-                            {eventVenueAddress}
-                          </a>
-                        </p>
-                      ) : null}
-                      {(effectiveEventType ?? "").trim() ? (
-                        <p className="doc-event-type-pill doc-header-event-type">{effectiveEventType}</p>
-                      ) : null}
-                      {!(
-                        (eventSettings.weddingDate || weddingDetails.date)?.trim() ||
-                        (eventSettings.venue || weddingDetails.venue)?.trim()
-                      ) ? (
-                        <p className="doc-header-event-placeholder">Date and venue — add in Event Settings</p>
-                      ) : null}
-                    </div>
                   </div>
                 </div>
 
-                <p className="doc-subtitle no-print mb-4 text-[11px] uppercase tracking-[0.14em] text-stone-600">
-                  DJ-ready brief · printable packet
-                </p>
-
                 <div className="doc-section doc-section--lead print-break-avoid">
-                  <div className="rounded-[1.35rem] border border-stone-200 bg-gradient-to-br from-white via-stone-50 to-[#f8f3eb] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.07)] print:border-black print:bg-white print:shadow-none sm:p-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500 print:text-black">
-                      Brief Overview
-                    </p>
-                    <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.85fr)] lg:items-start">
-                      <div className="min-w-0">
-                        <h2 className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-stone-950 print:text-black sm:text-3xl">
-                          {eventSettings.eventName?.trim() || eventDisplayName || "ShowFlow Brief"}
-                        </h2>
-                        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-700 print:text-black">
-                          {eventIdentitySummary}
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)] lg:items-start">
+                    <div className="min-w-0">
+                      <h1 className="font-serif text-[2rem] font-semibold leading-[1.05] tracking-[-0.035em] text-stone-950 print:text-black sm:text-[2.65rem]">
+                        {eventSettings.eventName?.trim() || eventDisplayName || "ShowFlow Brief"}
+                      </h1>
+                      <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-stone-700 print:text-black">
+                        {eventIdentitySummary}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5 text-[13px] leading-relaxed text-stone-700 print:text-black lg:pt-1">
+                      {briefOverviewMetaLines.map((line, index) => (
+                        <p
+                          key={`brief-overview-meta-${index}-${line}`}
+                          className={index === 0 ? "font-semibold text-stone-950 print:text-black" : ""}
+                        >
+                          {line}
                         </p>
-                        {briefOverviewVibeTags.length > 0 ? (
-                          <div className="mt-4 flex flex-wrap gap-1.5">
-                            {briefOverviewVibeTags.map((tag) => (
-                              <span
-                                key={`brief-overview-vibe-${tag}`}
-                                className="rounded-full border border-stone-300 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-700 print:border-black print:bg-white print:text-black"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 text-[11px] leading-snug text-stone-700 print:text-black sm:grid-cols-2 lg:grid-cols-1">
-                        {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
-                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
-                              Date
-                            </p>
-                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
-                              {formatEventDateForDisplay(
-                                eventSettings.weddingDate || weddingDetails.date || "",
-                                "",
-                              )}
-                            </p>
-                          </div>
-                        ) : null}
-                        {(eventSettings.venue || weddingDetails.venue || eventVenueAddress).trim() ? (
-                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
-                              Venue
-                            </p>
-                            <div className="mt-1 font-semibold text-stone-950 print:text-black">
-                              <EventDocumentVenueOverview
-                                venueName={eventSettings.venue || weddingDetails.venue || ""}
-                                venueAddress={eventVenueAddress}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-                        {(eventSettings.coupleNames || weddingDetails.couple).trim() ? (
-                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
-                              {primaryPartyShortLabel}
-                            </p>
-                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
-                              {eventSettings.coupleNames || weddingDetails.couple}
-                            </p>
-                          </div>
-                        ) : null}
-                        <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
-                          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
-                            Assigned DJ
-                          </p>
-                          <p className="mt-1 font-semibold text-stone-950 print:text-black">{assignedDjBriefName}</p>
-                        </div>
-                        {eventSettings.packageName?.trim() ? (
-                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
-                              Package
-                            </p>
-                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
-                              {eventSettings.packageName.trim()}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
+                      ))}
                     </div>
                   </div>
+                  {briefOverviewMusicRows.length > 0 ? (
+                    <div className="mt-5 space-y-1.5 border-t border-stone-200 pt-4 text-[13px] leading-relaxed print:border-black">
+                      {briefOverviewMusicRows.map((row) => (
+                        <div
+                          key={`brief-overview-music-${row.label}`}
+                          className="grid gap-1 sm:grid-cols-[5.5rem_minmax(0,1fr)]"
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            {row.label}
+                          </p>
+                          <p className="text-stone-800 print:text-black">{row.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 {ceremonyServicesEnabled && (
                   <div className="doc-section print-break-avoid">
                     <h3>Ceremony</h3>
-                    <table className="doc-table">
-                      <tbody>
-                        <tr><th>Ceremony Start</th><td>{ceremonyStartTime || "TBD"}</td><th>Guest Arrival</th><td>{ceremonyGuestArrivalTime || "TBD"}</td></tr>
-                        <tr><th>Location</th><td>{eventCeremonyLocation ? (<EventDocumentLocationLink value={eventCeremonyLocation} />) : (eventSettings.venue || weddingDetails.venue || "TBD")}</td><th>Officiant</th><td>{officiantName || "TBD"}</td></tr>
-                        <tr><th>Microphone Needs</th><td>{microphoneNeeds || "None"}</td><th>Ceremony Notes</th><td>{ceremonyNotes || "None"}</td></tr>
-                      </tbody>
-                    </table>
+                    {ceremonyBriefRows.length > 0 ? (
+                      <div className="mb-3 grid gap-x-6 gap-y-1.5 text-[12px] leading-relaxed text-stone-800 print:text-black sm:grid-cols-2">
+                        {ceremonyBriefRows.map((row) => (
+                          <p key={`ceremony-brief-${row.label}`}>
+                            <span className="font-semibold text-stone-950 print:text-black">{row.label}: </span>
+                            {row.value}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="doc-table-scroll -mx-1 max-w-[100vw] print:!overflow-visible sm:mx-0">
                       <table className="doc-table live-event-timeline-table mt-2 min-w-[520px] sm:min-w-0">
                         <thead>
@@ -25638,85 +25598,21 @@ export default function Home() {
                   (sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0)) && (
                   <div className="doc-section">
                     <h3>Music</h3>
-                    {layoutProfileForActiveEvent === "School Dance" ? (
-                      <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
-                        Clean edits and school-appropriate selections.
-                      </p>
-                    ) : null}
-                    <p className="doc-note mb-1 font-medium text-zinc-700 print:text-black">Overall vibe</p>
-                    <p className="mb-3">{generalDjNotes || "None"}</p>
-                    {musicGenreEraSelections.length > 0 ? (
-                      <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">Genre / era picks: </span>
-                        {musicGenreEraSelections.join(", ")}
-                      </p>
-                    ) : null}
-                    {musicTasteProfileHasSelections(musicTasteProfile) ? (
-                      <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3 print:border-black print:bg-white">
-                        <p className="doc-note mb-2 font-medium text-zinc-700 print:text-black">
-                          Music taste profile
-                        </p>
-                        {musicTasteProfile.danceFloorStyles.length > 0 ? (
-                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                            <span className="font-medium text-zinc-700 print:text-black">Dance floor: </span>
-                            {musicTasteProfile.danceFloorStyles.join(", ")}
-                          </p>
-                        ) : null}
-                        {musicTasteProfile.crowdPreferences.length > 0 ? (
-                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                            <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
-                            {musicTasteProfile.crowdPreferences.join(", ")}
-                          </p>
-                        ) : null}
-                        {musicTasteProfile.musicBehavior.length > 0 ? (
-                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                            <span className="font-medium text-zinc-700 print:text-black">Behavior: </span>
-                            {musicTasteProfile.musicBehavior.join(", ")}
-                          </p>
-                        ) : null}
-                        {(musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0 ? (
-                          <p className="mb-1.5 text-sm text-zinc-800 print:text-black">
-                            <span className="font-medium text-zinc-700 print:text-black">
-                              Line dances &amp; group songs:{" "}
-                            </span>
-                            {musicTasteProfile.lineDancesAndGroupSongs!.join(", ")}
+                    {generalDjNotes.trim() || (musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
+                      <div className="mb-3 space-y-1.5 text-[13px] leading-relaxed text-stone-800 print:text-black">
+                        {generalDjNotes.trim() ? (
+                          <p>
+                            <span className="font-semibold text-stone-950 print:text-black">Additional direction: </span>
+                            {generalDjNotes.trim()}
                           </p>
                         ) : null}
                         {(musicTasteProfile.danceFloorVibeNotes ?? "").trim() ? (
-                          <p className="mt-2 text-sm text-zinc-800 print:text-black">
-                            <span className="font-medium text-zinc-700 print:text-black">Ideal dance floor vibe: </span>
-                            {musicTasteProfile.danceFloorVibeNotes}
+                          <p>
+                            <span className="font-semibold text-stone-950 print:text-black">Dance floor note: </span>
+                            {musicTasteProfile.danceFloorVibeNotes?.trim()}
                           </p>
                         ) : null}
                       </div>
-                    ) : null}
-                    {(musicVibeDetail.genres ?? "").trim() ? (
-                      <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">
-                          {genreOtherSelected ? "Other styles: " : "Extra genre notes: "}
-                        </span>
-                        {musicVibeDetail.genres}
-                      </p>
-                    ) : null}
-                    {(musicVibeDetail.energy ?? "").trim() ? (
-                      <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">Energy: </span>
-                        {musicVibeDetail.energy}
-                      </p>
-                    ) : null}
-                    {(musicVibeDetail.crowdNotes ?? "").trim() ? (
-                      <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">Crowd: </span>
-                        {musicVibeDetail.crowdNotes}
-                      </p>
-                    ) : null}
-                    {(musicVibeDetail.cleanMusicPrefs ?? "").trim() ? (
-                      <p className="mb-2">
-                        <span className="font-medium text-zinc-700 print:text-black">
-                          {layoutProfileForActiveEvent === "School Dance" ? "Clean selections: " : "Clean / content: "}
-                        </span>
-                        {musicVibeDetail.cleanMusicPrefs}
-                      </p>
                     ) : null}
                     {musicPlaylistLinks.length > 0 ? (
                       <>

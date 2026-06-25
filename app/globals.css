@@ -1433,8 +1433,8 @@ select.cm-select-dark {
 
 /* —— Branded packet header (screen + print: light, minimal ink) —— */
 .doc-header {
-  margin-bottom: 22px;
-  padding-bottom: 20px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -1464,20 +1464,21 @@ select.cm-select-dark {
 
 .doc-header-logo-img {
   display: block;
-  height: 56px;
+  height: 34px;
   width: auto;
-  max-width: min(340px, 88vw);
+  max-width: min(220px, 70vw);
   flex-shrink: 0;
   object-fit: contain;
   object-position: left center;
+  opacity: 0.82;
 }
 
 .doc-header-brand-tagline {
-  margin: 10px 0 0;
+  margin: 7px 0 0;
   max-width: 340px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #6b7280;
   line-height: 1.45;
@@ -1730,8 +1731,8 @@ select.cm-select-dark {
 }
 
 .doc-mode-compact .doc-header-logo-img {
-  height: 44px;
-  max-width: 260px;
+  height: 30px;
+  max-width: 190px;
 }
 
 .doc-mode-compact .doc-header-brand-tagline {
@@ -1770,8 +1771,8 @@ select.cm-select-dark {
 }
 
 .doc-mode-large-print .doc-header-logo-img {
-  height: 68px;
-  max-width: 380px;
+  height: 44px;
+  max-width: 260px;
 }
 
 .doc-mode-large-print .doc-event-title {
@@ -1848,8 +1849,8 @@ select.cm-select-dark {
   }
 
   .doc-header-logo-img {
-    height: 52px;
-    max-width: min(320px, 94vw);
+    height: 34px;
+    max-width: min(220px, 78vw);
   }
 
   .doc-event-title {
@@ -1983,8 +1984,8 @@ select.cm-select-dark {
   }
 
   .doc-header-logo-img {
-    height: 52pt !important;
-    max-width: 260pt !important;
+    height: 32pt !important;
+    max-width: 170pt !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
