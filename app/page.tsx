@@ -253,10 +253,7 @@ import {
   sortTimelineItemsChronologically,
 } from "@/utils/planning";
 import { buildGoogleMapsSearchUrl } from "@/utils/venueLinks";
-import {
-  EventDocumentLocationLink,
-  EventDocumentVenueOverview,
-} from "@/components/event-document-location-link";
+import { EventDocumentLocationLink } from "@/components/event-document-location-link";
 import {
   parsePastedTimelineText,
   timelineItemsFromImportDrafts,
@@ -17027,6 +17024,44 @@ export default function Home() {
     officiantName,
     weddingDetails.venue,
   ]);
+  const ceremonyTimelineHasSong = useMemo(
+    () => ceremonyTimelineRows.some((row) => row.song.trim()),
+    [ceremonyTimelineRows],
+  );
+  const ceremonyTimelineHasNotes = useMemo(
+    () => ceremonyTimelineRows.some((row) => row.notes.trim()),
+    [ceremonyTimelineRows],
+  );
+  const ceremonyTimelineColSpan = 2 + (ceremonyTimelineHasSong ? 1 : 0) + (ceremonyTimelineHasNotes ? 1 : 0);
+  const receptionTimelineHasSong = useMemo(
+    () =>
+      mergedTimelineItems.some(
+        (item) => item.songTitle?.trim() || item.artist?.trim() || item.fadeOutEarly,
+      ),
+    [mergedTimelineItems],
+  );
+  const receptionTimelineHasNotes = useMemo(
+    () => mergedTimelineItems.some((item) => item.notes?.trim() || item.needsDjMcAttention),
+    [mergedTimelineItems],
+  );
+  const receptionTimelineColSpan = 2 + (receptionTimelineHasSong ? 1 : 0) + (receptionTimelineHasNotes ? 1 : 0);
+  const briefEventNotes = useMemo(
+    () => displayedEventNotes.filter((note) => note.title.trim() || note.body.trim()),
+    [displayedEventNotes],
+  );
+  const pinnedBriefNotes = useMemo(
+    () => briefEventNotes.filter((note) => note.isPinned),
+    [briefEventNotes],
+  );
+  const operationalBriefNotes = useMemo(
+    () => briefEventNotes.filter((note) => !note.isPinned),
+    [briefEventNotes],
+  );
+  const briefHasNotesSection =
+    pinnedBriefNotes.length > 0 ||
+    operationalBriefNotes.length > 0 ||
+    (sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && mcAnnouncements.trim()) ||
+    (!isCoupleView && eventSettings.internalNotes.trim());
 
   const liveEventText = useMemo(() => {
     const assignedDjLabel = (() => {
@@ -25465,7 +25500,11 @@ export default function Home() {
                     </div>
                   </div>
                   {briefOverviewMusicRows.length > 0 ? (
-                    <div className="mt-5 space-y-1.5 border-t border-stone-200 pt-4 text-[13px] leading-relaxed print:border-black">
+                    <div className="mt-5 border-t border-stone-200 pt-4 text-[13px] leading-relaxed print:border-black">
+                      <p className="mb-2 font-serif text-lg font-semibold leading-tight tracking-[-0.02em] text-stone-950 print:text-black">
+                        Dance Floor Profile
+                      </p>
+                      <div className="space-y-1.5">
                       {briefOverviewMusicRows.map((row) => (
                         <div
                           key={`brief-overview-music-${row.label}`}
@@ -25477,6 +25516,7 @@ export default function Home() {
                           <p className="text-stone-800 print:text-black">{row.value}</p>
                         </div>
                       ))}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -25500,15 +25540,15 @@ export default function Home() {
                           <tr>
                             <th scope="col">Time / Order</th>
                             <th scope="col">Moment</th>
-                            <th scope="col">Song</th>
-                            <th scope="col">Notes</th>
+                            {ceremonyTimelineHasSong ? <th scope="col">Song</th> : null}
+                            {ceremonyTimelineHasNotes ? <th scope="col">Notes</th> : null}
                           </tr>
                         </thead>
                         <tbody>
                           {ceremonyTimelineRows.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={4}
+                                colSpan={ceremonyTimelineColSpan}
                                 className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
                               >
                                 No ceremony moments yet — add them under Ceremony.
@@ -25519,8 +25559,8 @@ export default function Home() {
                               <tr key={`live-ceremony-row-${row.id}`}>
                                 <td>{row.order}</td>
                                 <td>{row.moment}</td>
-                                <td>{row.song}</td>
-                                <td>{row.notes}</td>
+                                {ceremonyTimelineHasSong ? <td>{row.song}</td> : null}
+                                {ceremonyTimelineHasNotes ? <td>{row.notes}</td> : null}
                               </tr>
                             ))
                           )}
@@ -25543,15 +25583,15 @@ export default function Home() {
                             <tr>
                               <th scope="col">Time</th>
                               <th scope="col">Moment</th>
-                              <th scope="col">Song</th>
-                              <th scope="col">Notes</th>
+                              {receptionTimelineHasSong ? <th scope="col">Song</th> : null}
+                              {receptionTimelineHasNotes ? <th scope="col">Notes</th> : null}
                             </tr>
                           </thead>
                           <tbody>
                             {mergedTimelineItems.length === 0 ? (
                               <tr>
                                 <td
-                                  colSpan={4}
+                                  colSpan={receptionTimelineColSpan}
                                   className="py-4 text-center text-xs leading-snug text-zinc-600 print:text-black"
                                 >
                                   No reception moments yet — add them under Timeline / Reception.
@@ -25575,8 +25615,8 @@ export default function Home() {
                                   <tr key={`live-timeline-${item.id}`}>
                                     <td>{item.time?.trim() ?? ""}</td>
                                     <td>{item.title}</td>
-                                    <td>{songCell}</td>
-                                    <td>{notesLabel}</td>
+                                    {receptionTimelineHasSong ? <td>{songCell}</td> : null}
+                                    {receptionTimelineHasNotes ? <td>{notesLabel}</td> : null}
                                   </tr>
                                 );
                               })
@@ -25617,28 +25657,33 @@ export default function Home() {
                     {musicPlaylistLinks.length > 0 ? (
                       <>
                         <p className="doc-note mb-2 mt-4 font-medium text-zinc-700 print:text-black">
-                          Client playlist links
+                          Playlist References
                         </p>
-                        <table className="doc-table">
-                          <thead>
-                            <tr>
-                              <th>#</th>
-                              <th>Label</th>
-                              <th>URL</th>
-                              <th>Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {musicPlaylistLinks.map((link, index) => (
-                              <tr key={`doc-plink-${link.id}`}>
-                                <td>{index + 1}</td>
-                                <td>{link.label?.trim() || "—"}</td>
-                                <td className="max-w-[40%] break-all">{link.url}</td>
-                                <td>{link.notes?.trim() || ""}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <ul className="m-0 list-none space-y-1.5 p-0 text-[12px] leading-relaxed text-stone-800 print:text-black">
+                          {musicPlaylistLinks.map((link) => {
+                            const label = link.label?.trim() || musicPlaylistLinkHost(link.url) || "Playlist";
+                            const href = /^https?:\/\//i.test(link.url.trim()) ? link.url.trim() : undefined;
+                            return (
+                              <li key={`doc-plink-${link.id}`}>
+                                {href ? (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-semibold text-stone-950 underline decoration-stone-300 underline-offset-2 print:text-black"
+                                  >
+                                    {label}
+                                  </a>
+                                ) : (
+                                  <span className="font-semibold text-stone-950 print:text-black">{label}</span>
+                                )}
+                                {link.notes?.trim() ? (
+                                  <span className="text-stone-600 print:text-black"> — {link.notes.trim()}</span>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </>
                     ) : null}
                     {sectionPlaylistsEnabled && eventSettings.liveEventShowPlaylists && documentPlaylistSections.length > 0 ? (
@@ -25773,7 +25818,8 @@ export default function Home() {
                   </div>
                 )}
                 {sectionVendorContactsEnabled &&
-                  eventSettings.liveEventShowVendorContacts && (
+                  eventSettings.liveEventShowVendorContacts &&
+                  (grandEntranceLineupDisplay.trim() || eventDocumentTeamMembers.length > 0) && (
                     <div className="doc-section print-break-avoid">
                       <h3>People</h3>
                       {grandEntranceLineupDisplay.trim() ? (
@@ -25802,9 +25848,9 @@ export default function Home() {
                               return (
                                 <div
                                   key={`live-event-team-${member.id}`}
-                                  className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
+                                  className="border-t border-zinc-200 py-2.5 text-[11px] leading-snug text-zinc-800 first:border-t-0 first:pt-0 print:border-zinc-400 print:text-black"
                                 >
-                                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-200/70 pb-2 print:border-zinc-400">
+                                  <div className="flex flex-wrap items-start justify-between gap-2">
                                     <div className="min-w-0">
                                       <p className="text-[12px] font-semibold leading-tight text-zinc-900 print:text-black">
                                         {headline}
@@ -25844,50 +25890,65 @@ export default function Home() {
                                 </div>
                               );
                             })
-                        ) : grandEntranceLineupDisplay.trim() ? null : (
-                          <p className="doc-note text-[11px] leading-snug text-zinc-600 print:text-black">
-                            No event team members added yet — add them under People & Vendors.
-                          </p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   )}
-                {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && mcAnnouncements.trim() && (
-                  <div className="doc-section">
-                    <h3>Notes · MC / Announcements</h3>
-                    <p>{mcAnnouncements}</p>
-                  </div>
-                )}
-                {displayedEventNotes.some((note) => note.title.trim() || note.body.trim()) ? (
+                {briefHasNotesSection ? (
                   <div className="doc-section print-break-avoid">
                     <h3>Notes</h3>
-                    <div className="space-y-2">
-                      {displayedEventNotes
-                        .filter((note) => note.title.trim() || note.body.trim())
-                        .map((note) => (
-                          <div
-                            key={`doc-event-note-${note.id}`}
-                            className="rounded-lg border border-zinc-200/90 bg-zinc-50/60 p-3 text-[11px] leading-snug text-zinc-800 print:border-zinc-400 print:bg-white print:text-black"
-                          >
-                            <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600 print:text-black">
-                              <span>{note.category || "General"}</span>
-                              {note.isPinned ? <span>Pinned</span> : null}
-                            </div>
-                            {note.title.trim() ? (
-                              <p className="text-[12px] font-semibold text-zinc-900 print:text-black">
-                                {note.title.trim()}
-                              </p>
-                            ) : null}
-                            <p className="whitespace-pre-line text-[11px] text-zinc-700 print:text-black">
-                              {note.body.trim()}
-                            </p>
+                    <div className="space-y-4 text-[12px] leading-relaxed text-stone-800 print:text-black">
+                      {pinnedBriefNotes.length > 0 ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Pinned Notes
+                          </p>
+                          <div className="space-y-2">
+                            {pinnedBriefNotes.map((note) => (
+                              <div key={`doc-pinned-note-${note.id}`}>
+                                {note.title.trim() ? (
+                                  <p className="font-semibold text-stone-950 print:text-black">{note.title.trim()}</p>
+                                ) : null}
+                                <p className="whitespace-pre-line">{note.body.trim()}</p>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </div>
+                      ) : null}
+                      {operationalBriefNotes.length > 0 ||
+                      (sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && mcAnnouncements.trim()) ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Operational Notes
+                          </p>
+                          <div className="space-y-2">
+                            {operationalBriefNotes.map((note) => (
+                              <div key={`doc-operational-note-${note.id}`}>
+                                {note.title.trim() ? (
+                                  <p className="font-semibold text-stone-950 print:text-black">{note.title.trim()}</p>
+                                ) : null}
+                                <p className="whitespace-pre-line">{note.body.trim()}</p>
+                              </div>
+                            ))}
+                            {sectionMcScriptEnabled && eventSettings.liveEventShowMcScript && mcAnnouncements.trim() ? (
+                              <div>
+                                <p className="font-semibold text-stone-950 print:text-black">MC / Announcements</p>
+                                <p className="whitespace-pre-line">{mcAnnouncements.trim()}</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      {!isCoupleView && eventSettings.internalNotes.trim() ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Internal DJ Notes
+                          </p>
+                          <p className="whitespace-pre-line">{eventSettings.internalNotes.trim()}</p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                ) : null}
-                {!isCoupleView && eventSettings.internalNotes.trim() ? (
-                <div className="doc-section"><h3>Internal DJ Notes</h3><p className="doc-note">{eventSettings.internalNotes}</p></div>
                 ) : null}
                 <div className="doc-section"><h3>Document footer</h3><p>{effectivePrepSheetFooter}</p></div>
                 <footer className="doc-footer-brand print-break-avoid" aria-label="Producer">
