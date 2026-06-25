@@ -16911,31 +16911,6 @@ export default function Home() {
       })).filter((section) => section.lines.length > 0),
     [getPlaylistLines],
   );
-  const eventIdentityLines = useMemo(() => {
-    const lines: string[] = [];
-    if (musicTasteProfile.danceFloorStyles.length > 0) {
-      lines.push(musicTasteProfile.danceFloorStyles.join(" • "));
-    }
-    if (musicGenreEraSelections.length > 0) {
-      lines.push(musicGenreEraSelections.join(" • "));
-    }
-    if (musicTasteProfile.crowdPreferences.length > 0) {
-      lines.push(musicTasteProfile.crowdPreferences.join(" • "));
-    }
-    if (musicTasteProfile.musicBehavior.length > 0) {
-      lines.push(musicTasteProfile.musicBehavior.join(" • "));
-    }
-    if ((musicTasteProfile.lineDancesAndGroupSongs?.length ?? 0) > 0) {
-      lines.push(`Guest participation: ${musicTasteProfile.lineDancesAndGroupSongs!.join(" • ")}`);
-    }
-    if (musicVibeDetail.cleanMusicPrefs?.trim()) {
-      lines.push(musicVibeDetail.cleanMusicPrefs.trim());
-    }
-    if (musicTasteProfile.danceFloorVibeNotes?.trim()) {
-      lines.push(musicTasteProfile.danceFloorVibeNotes.trim());
-    }
-    return lines;
-  }, [musicGenreEraSelections, musicTasteProfile, musicVibeDetail.cleanMusicPrefs]);
   const eventIdentitySummary = useMemo(() => {
     const descriptors: string[] = [];
     const eventType = effectiveEventType?.trim();
@@ -16962,6 +16937,46 @@ export default function Home() {
     musicVibeDetail.cleanMusicPrefs,
     speechesToastsRaw,
   ]);
+  const briefOverviewVibeTags = useMemo(() => {
+    const tags: string[] = [];
+    const addTag = (value: string | undefined | null) => {
+      const label = value?.trim();
+      if (!label) return;
+      if (!tags.some((existing) => existing.toLowerCase() === label.toLowerCase())) {
+        tags.push(label);
+      }
+    };
+
+    const combinedMusicText = [
+      ...musicTasteProfile.danceFloorStyles,
+      ...musicTasteProfile.crowdPreferences,
+      ...musicTasteProfile.musicBehavior,
+      ...(musicTasteProfile.lineDancesAndGroupSongs ?? []),
+      musicTasteProfile.danceFloorVibeNotes,
+      musicVibeDetail.energy,
+      musicVibeDetail.crowdNotes,
+      musicVibeDetail.cleanMusicPrefs,
+      musicVibeDetail.genres,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    if (/high[\s-]?energy|packed|party|dance/i.test(combinedMusicText)) addTag("High Energy");
+    if (/singalong|sing-along|anthem/i.test(combinedMusicText)) addTag("Singalongs");
+    if (/family|all ages|kid|grandparent/i.test(combinedMusicText)) addTag("Family Friendly");
+    if (/clean|radio edit|no explicit|school appropriate/i.test(combinedMusicText)) addTag("Clean Music");
+    if (/line dance|group song|participation|guest/i.test(combinedMusicText)) addTag("Guest Participation");
+
+    musicGenreEraSelections.slice(0, 8).forEach(addTag);
+    musicVibeDetail.genres
+      ?.split(/[,•\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .forEach(addTag);
+
+    return tags.slice(0, 12);
+  }, [musicGenreEraSelections, musicTasteProfile, musicVibeDetail]);
   const assignedDjBriefName = useMemo(() => {
     const value = eventSettings.assignedDj?.trim() ?? "";
     if (!value) return "Not Assigned";
@@ -25426,21 +25441,87 @@ export default function Home() {
                 </p>
 
                 <div className="doc-section doc-section--lead print-break-avoid">
-                  <h3>Event Snapshot</h3>
-                  <table className="doc-table">
-                    <tbody>
-                      <tr><th>Event</th><td>{eventSettings.eventName || weddingDetails.couple || "TBD"}</td><th>{primaryPartyShortLabel}</th><td>{eventSettings.coupleNames || weddingDetails.couple || "TBD"}</td></tr>
-                      <tr><th>Date</th><td>{formatEventDateForDisplay(eventSettings.weddingDate || weddingDetails.date || "", "TBD")}</td><th>Venue</th><td><EventDocumentVenueOverview venueName={eventSettings.venue || weddingDetails.venue || ""} venueAddress={eventVenueAddress} /></td></tr>
-                      {ceremonyServicesEnabled ? (
-                        <tr><th>Ceremony Location</th><td><EventDocumentLocationLink value={eventCeremonyLocation} /></td><th>Reception Location</th><td><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
-                      ) : (
-                        <tr><th>Reception Location</th><td colSpan={3}><EventDocumentLocationLink value={eventReceptionLocation} /></td></tr>
-                      )}
-                      <tr><th>Event type</th><td>{effectiveEventType || "TBD"}</td><th>Package</th><td>{eventSettings.packageName || "TBD"}</td></tr>
-                      <tr><th>Assigned DJ</th><td colSpan={3}>{assignedDjBriefName}</td></tr>
-                      <tr><th>Summary</th><td colSpan={3}>{eventIdentitySummary}</td></tr>
-                    </tbody>
-                  </table>
+                  <div className="rounded-[1.35rem] border border-stone-200 bg-gradient-to-br from-white via-stone-50 to-[#f8f3eb] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.07)] print:border-black print:bg-white print:shadow-none sm:p-5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500 print:text-black">
+                      Brief Overview
+                    </p>
+                    <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.85fr)] lg:items-start">
+                      <div className="min-w-0">
+                        <h2 className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-stone-950 print:text-black sm:text-3xl">
+                          {eventSettings.eventName?.trim() || eventDisplayName || "ShowFlow Brief"}
+                        </h2>
+                        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-700 print:text-black">
+                          {eventIdentitySummary}
+                        </p>
+                        {briefOverviewVibeTags.length > 0 ? (
+                          <div className="mt-4 flex flex-wrap gap-1.5">
+                            {briefOverviewVibeTags.map((tag) => (
+                              <span
+                                key={`brief-overview-vibe-${tag}`}
+                                className="rounded-full border border-stone-300 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-700 print:border-black print:bg-white print:text-black"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-[11px] leading-snug text-stone-700 print:text-black sm:grid-cols-2 lg:grid-cols-1">
+                        {(eventSettings.weddingDate || weddingDetails.date)?.trim() ? (
+                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
+                              Date
+                            </p>
+                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
+                              {formatEventDateForDisplay(
+                                eventSettings.weddingDate || weddingDetails.date || "",
+                                "",
+                              )}
+                            </p>
+                          </div>
+                        ) : null}
+                        {(eventSettings.venue || weddingDetails.venue || eventVenueAddress).trim() ? (
+                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
+                              Venue
+                            </p>
+                            <div className="mt-1 font-semibold text-stone-950 print:text-black">
+                              <EventDocumentVenueOverview
+                                venueName={eventSettings.venue || weddingDetails.venue || ""}
+                                venueAddress={eventVenueAddress}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                        {(eventSettings.coupleNames || weddingDetails.couple).trim() ? (
+                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
+                              {primaryPartyShortLabel}
+                            </p>
+                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
+                              {eventSettings.coupleNames || weddingDetails.couple}
+                            </p>
+                          </div>
+                        ) : null}
+                        <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
+                            Assigned DJ
+                          </p>
+                          <p className="mt-1 font-semibold text-stone-950 print:text-black">{assignedDjBriefName}</p>
+                        </div>
+                        {eventSettings.packageName?.trim() ? (
+                          <div className="rounded-2xl border border-stone-200 bg-white/75 px-3 py-2.5 print:border-black print:bg-white">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-stone-500 print:text-black">
+                              Package
+                            </p>
+                            <p className="mt-1 font-semibold text-stone-950 print:text-black">
+                              {eventSettings.packageName.trim()}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {ceremonyServicesEnabled && (
@@ -25557,18 +25638,6 @@ export default function Home() {
                   (sectionGuestRequestsEnabled && approvedGuestRequestDocumentRows.length > 0)) && (
                   <div className="doc-section">
                     <h3>Music</h3>
-                    {eventIdentityLines.length > 0 ? (
-                      <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3 print:border-black print:bg-white">
-                        <p className="doc-note mb-2 font-medium text-zinc-700 print:text-black">
-                          Music Direction
-                        </p>
-                        <ul className="m-0">
-                          {eventIdentityLines.map((line, index) => (
-                            <li key={`brief-music-direction-${index}-${line}`}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
                     {layoutProfileForActiveEvent === "School Dance" ? (
                       <p className="doc-note mb-2 text-[11px] leading-snug text-zinc-600 print:text-black">
                         Clean edits and school-appropriate selections.
