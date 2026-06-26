@@ -13569,51 +13569,6 @@ export default function Home() {
       summaryEyebrow="Soundtrack"
       summaryTitle={coupleDisplayName.trim() || "Your Wedding"}
       summarySubtitle="Your Wedding Soundtrack"
-      imageStyle={{ filter: "sepia(0.03) saturate(1.04) contrast(0.97)" }}
-      waveformHeights={[28, 44, 22, 52, 34, 18, 46, 30, 58, 24, 40, 20]}
-      summaryContent={[
-        {
-          label: "Find Your Sound",
-          detail: musicHubHeroStyleComplete ? "Style ready" : "Start here",
-          done: musicHubHeroStyleComplete,
-        },
-        {
-          label: "Must Play Songs",
-          detail: `${mustPlaySongs.length} song${mustPlaySongs.length === 1 ? "" : "s"}`,
-          done: mustPlaySongs.length > 0,
-        },
-        {
-          label: "Dance Floor Favorites",
-          detail: `${playIfPossibleSongs.length} song${playIfPossibleSongs.length === 1 ? "" : "s"}`,
-          done: playIfPossibleSongs.length > 0,
-        },
-        {
-          label: "Spotify Playlists",
-          detail: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"}`,
-          done: musicPlaylistLinks.length > 0,
-        },
-      ].map((item) => (
-        <div
-          key={item.label}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f4a3e]/10 bg-white/72 px-3 py-2.5"
-        >
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
-                item.done
-                  ? "bg-[#2f4a3e] text-white"
-                  : "border border-[#2f4a3e]/20 bg-white/70 text-[#2f4a3e]/40"
-              }`}
-              aria-hidden
-            >
-              {item.done ? "✓" : ""}
-            </span>
-            <span className="text-sm font-semibold text-stone-800">{item.label}</span>
-          </div>
-          <span className="text-xs font-semibold text-stone-500">{item.detail}</span>
-        </div>
-      ))}
-      summaryCornerGlyph="♫"
     />
   );
 
@@ -18846,51 +18801,6 @@ export default function Home() {
           summaryEyebrow="Timeline"
           summaryTitle={coupleDisplayName.trim() || "Your Wedding"}
           summarySubtitle="Ceremony + Reception"
-          imageStyle={{ filter: "sepia(0.03) saturate(1.04) contrast(0.97)" }}
-          waveformHeights={[36, 30, 48, 22, 42, 56, 28, 46, 34, 52, 24, 40]}
-          summaryContent={[
-            {
-              label: "Ceremony Timeline",
-              detail: `${ceremonyTimelineItems.length} moment${ceremonyTimelineItems.length === 1 ? "" : "s"}`,
-              done: ceremonyTimelineItems.length > 0,
-            },
-            {
-              label: "Reception Timeline",
-              detail: `${timelineItems.length} moment${timelineItems.length === 1 ? "" : "s"}`,
-              done: timelineItems.length > 0,
-            },
-            {
-              label: "Planner Import",
-              detail: timelineHeroHasMoments ? "Available anytime" : "Start here",
-              done: timelineHeroHasMoments,
-            },
-            {
-              label: "Editable Plan",
-              detail: timelineHeroHasMoments ? "Ready to review" : "Build manually",
-              done: timelineHeroHasMoments,
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-[#2f4a3e]/10 bg-white/72 px-3 py-2.5"
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className={`grid h-7 w-7 place-items-center rounded-full text-xs ${
-                    item.done
-                      ? "bg-[#2f4a3e] text-white"
-                      : "border border-[#2f4a3e]/20 bg-white/70 text-[#2f4a3e]/40"
-                  }`}
-                  aria-hidden
-                >
-                  {item.done ? "✓" : ""}
-                </span>
-                <span className="text-sm font-semibold text-stone-800">{item.label}</span>
-              </div>
-              <span className="text-xs font-semibold text-stone-500">{item.detail}</span>
-            </div>
-          ))}
-          summaryCornerGlyph="✦"
         />
       ) : null}
 
