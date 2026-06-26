@@ -361,6 +361,7 @@ import {
 } from "@/lib/eventCoverPhotoClient";
 import {
   backfillWelcomePhotoPersonalizationFlag,
+  DEFAULT_EVENT_HERO_SRC,
   hasPersonalizedWelcomePhotoFlag,
   resolveCoupleWelcomePhotoDisplay,
 } from "@/lib/eventCover";
@@ -13226,7 +13227,7 @@ export default function Home() {
       })
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
-    musicHubHeroPhoto.isEventSpecific ? musicHubHeroPhoto.displayUrl?.trim() : undefined;
+    musicHubHeroPhoto.displayUrl?.trim() || DEFAULT_EVENT_HERO_SRC;
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||

@@ -55,6 +55,8 @@ export function WorkspaceHero({
     summaryContent ||
     summaryCornerGlyph;
 
+  const hasBanner = coverImageSrc || coverFallback;
+
   return (
     <section
       className={`relative overflow-hidden rounded-[2rem] border border-[#2f4a3e]/15 bg-[#f7f5f1] shadow-[0_22px_70px_-42px_rgba(47,74,62,0.55)] ${className}`}
@@ -90,25 +92,31 @@ export function WorkspaceHero({
         </div>
         {hasSummary ? (
           <div className="lg:justify-self-end">
-            <div className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/72 p-5 shadow-[0_22px_60px_-45px_rgba(47,74,62,0.72)] ring-1 ring-[#2f4a3e]/10 backdrop-blur-sm">
+            <div className="relative w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/72 shadow-[0_22px_60px_-45px_rgba(47,74,62,0.72)] ring-1 ring-[#2f4a3e]/10 backdrop-blur-sm">
               <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#b08a45]/15 blur-2xl" />
               <div className="pointer-events-none absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
-              <div className="relative">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
-                    {coverImageSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={coverImageSrc}
-                        alt={coverImageAlt}
-                        className="h-full w-full object-cover object-center"
-                        style={imageStyle}
-                      />
-                    ) : (
-                      coverFallback
-                    )}
-                  </div>
-                  <div className="min-w-0">
+
+              {hasBanner ? (
+                <div className="relative h-24 w-full overflow-hidden">
+                  {coverImageSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={coverImageSrc}
+                      alt={coverImageAlt}
+                      className="h-full w-full object-cover object-top"
+                      style={imageStyle}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[#f7f5f1] text-2xl text-[#2f4a3e]">
+                      {coverFallback}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              <div className="relative p-5">
+                {summaryEyebrow || summaryTitle || summarySubtitle ? (
+                  <div className="mb-4">
                     {summaryEyebrow ? (
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#b08a45]">
                         {summaryEyebrow}
@@ -125,8 +133,9 @@ export function WorkspaceHero({
                       </h2>
                     ) : null}
                   </div>
-                </div>
-                <div className="mt-5 h-8 overflow-hidden rounded-full bg-[#f7f5f1]/85 px-3">
+                ) : null}
+
+                <div className="h-8 overflow-hidden rounded-full bg-[#f7f5f1]/85 px-3">
                   <div className="flex h-full items-center gap-1.5" aria-hidden>
                     {waveformHeights.map((height, index) => (
                       <span
@@ -137,8 +146,10 @@ export function WorkspaceHero({
                     ))}
                   </div>
                 </div>
+
                 {summaryContent ? <div className="mt-5 space-y-2.5">{summaryContent}</div> : null}
               </div>
+
               {summaryCornerGlyph ? (
                 <span className="pointer-events-none absolute bottom-5 right-6 text-2xl text-[#b08a45]/35" aria-hidden>
                   {summaryCornerGlyph}
