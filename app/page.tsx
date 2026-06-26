@@ -3957,7 +3957,8 @@ export default function Home() {
   const [plannerTimelineReplaceConfirmOpen, setPlannerTimelineReplaceConfirmOpen] = useState(false);
   const [plannerTimelineImportConfirmation, setPlannerTimelineImportConfirmation] =
     useState<PlannerTimelineImportConfirmation | null>(null);
-  const [plannerTimelineProcessingStep, setPlannerTimelineProcessingStep] = useState(0);
+  const [plannerTimelineProcessingCompletedSteps, setPlannerTimelineProcessingCompletedSteps] = useState(0);
+  const plannerTimelineProcessingCompletedStepsRef = useRef(0);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Inline insert directly after a reception timeline row (+ After). */
@@ -15390,7 +15391,8 @@ export default function Home() {
     if (!file) return;
 
     setPlannerTimelineImport({ status: "loading" });
-    setPlannerTimelineProcessingStep(0);
+    plannerTimelineProcessingCompletedStepsRef.current = 0;
+    setPlannerTimelineProcessingCompletedSteps(0);
     setPlannerTimelineReplaceConfirmOpen(false);
     setPlannerTimelineImportConfirmation(null);
 
@@ -15409,6 +15411,15 @@ export default function Home() {
           message: payload?.message ?? "Could not preview planner timeline import.",
         });
         return;
+      }
+
+      while (plannerTimelineProcessingCompletedStepsRef.current < 4) {
+        await new Promise((resolve) => window.setTimeout(resolve, 280));
+        setPlannerTimelineProcessingCompletedSteps((current) => {
+          const next = Math.min(current + 1, 4);
+          plannerTimelineProcessingCompletedStepsRef.current = next;
+          return next;
+        });
       }
 
       setPlannerTimelineImport({
@@ -18738,24 +18749,28 @@ export default function Home() {
     />
   ) : null;
 
-  const plannerTimelineProcessingMessages = [
-    "📄 Reading your planner's timeline...",
-    "✨ Finding the important moments...",
-    "🎵 Building your ShowFlow timeline...",
+  const plannerTimelineProcessingSteps = [
+    "Reading your planner's timeline",
+    "Finding the important moments",
+    "Organizing Ceremony and Reception",
+    "Building your editable timeline",
   ];
 
   useEffect(() => {
     if (plannerTimelineImport.status !== "loading") {
-      setPlannerTimelineProcessingStep(0);
       return;
     }
 
     const interval = window.setInterval(() => {
-      setPlannerTimelineProcessingStep((current) => (current + 1) % plannerTimelineProcessingMessages.length);
-    }, 1050);
+      setPlannerTimelineProcessingCompletedSteps((current) => {
+        const next = Math.min(current + 1, plannerTimelineProcessingSteps.length);
+        plannerTimelineProcessingCompletedStepsRef.current = next;
+        return next;
+      });
+    }, 1200);
 
     return () => window.clearInterval(interval);
-  }, [plannerTimelineImport.status, plannerTimelineProcessingMessages.length]);
+  }, [plannerTimelineImport.status, plannerTimelineProcessingSteps.length]);
 
   useEffect(() => {
     if (!plannerTimelineImportConfirmation) return;
@@ -18867,20 +18882,45 @@ export default function Home() {
       </div>
 
       {plannerTimelineImport.status === "loading" ? (
-        <div className="mt-5 flex justify-center rounded-[1.5rem] border border-[#C79A5A]/20 bg-[#fbfaf7] px-4 py-8 shadow-inner transition-all duration-500 ease-out">
-          <div className="mx-auto max-w-sm text-center">
-            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-white text-xl shadow-sm ring-1 ring-stone-200">
-              <span aria-hidden>✨</span>
+        <div className="mt-5 flex justify-center rounded-[1.5rem] border border-[#C79A5A]/20 bg-[#fbfaf7] px-4 py-7 shadow-inner transition-all duration-500 ease-out">
+          <div className="mx-auto w-full max-w-md">
+            <div className="text-center">
+              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-white text-xl shadow-sm ring-1 ring-stone-200">
+                <span aria-hidden>✨</span>
+              </div>
+              <p className="text-base font-semibold tracking-tight text-stone-950">
+                Building your ShowFlow timeline...
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-stone-500">
+                This usually takes a few seconds.
+              </p>
             </div>
-            <p
-              key={plannerTimelineProcessingStep}
-              className="text-base font-semibold text-stone-950 transition-all duration-500 ease-out"
-            >
-              {plannerTimelineProcessingMessages[plannerTimelineProcessingStep]}
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-stone-500">
-              We&apos;re reading the document and shaping it into a clean ceremony and reception flow.
-            </p>
+            <ol className="mt-6 space-y-3">
+              {plannerTimelineProcessingSteps.map((step, index) => {
+                const complete = plannerTimelineProcessingCompletedSteps > index;
+                return (
+                  <li
+                    key={step}
+                    className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm transition-all duration-500 ease-out ${
+                      complete
+                        ? "translate-y-0 border-[#7F8F7A]/30 bg-white text-stone-950 opacity-100 shadow-sm"
+                        : "translate-y-1 border-stone-200/80 bg-white/60 text-stone-500 opacity-80"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold transition-all duration-500 ease-out ${
+                        complete
+                          ? "bg-[#7F8F7A] text-white"
+                          : "bg-stone-100 text-stone-500 ring-1 ring-stone-200"
+                      }`}
+                    >
+                      {complete ? "✓" : index + 1}
+                    </span>
+                    <span className="font-medium">{step}</span>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </div>
       ) : null}
