@@ -31,7 +31,9 @@ export type Screen =
   | "Planning Assistant"
   | "Notification Center"
   | "Settings"
-  | "Event Settings";
+  | "Event Settings"
+  /** Global DJ workspace — library scanner, crate builder. DJ/Admin only, never couple-facing. */
+  | "DJ Tools";
 
 export type AppMode = "events" | "event";
 export type AuthStage = "login" | "invite" | "app";
@@ -334,7 +336,7 @@ export type SharedPlaylistLink = {
   notes?: string;
 };
 
-export type GuestRequestLimit = 25 | 50 | 100 | "unlimited";
+export type GuestRequestLimit = number | "unlimited";
 
 export type GuestRequestSettings = {
   enabled: boolean;

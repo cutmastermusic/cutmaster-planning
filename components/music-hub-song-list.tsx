@@ -10,10 +10,10 @@ import {
 import type { GuestRequestStatus, SongEntry, SongListType } from "@/types/planning";
 
 const songTableHeaderClass =
-  "hidden border-b border-stone-200 bg-stone-50/90 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto] md:gap-2";
+  "hidden border-b border-stone-200 bg-[#f7f5f1]/90 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#2f4a3e]/55 md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto] md:gap-2";
 
 const songTableRowClass =
-  "border-b border-stone-100 last:border-b-0 md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto] md:items-center md:gap-2 md:px-2 md:py-1.5";
+  "border-b border-stone-100 last:border-b-0 transition-colors hover:bg-[#f7f5f1]/60 md:grid md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto] md:items-center md:gap-2 md:px-2 md:py-1.5";
 
 const songActionButtonClass = `${lightUiGhostButtonClass} min-h-8 px-2 py-1 text-[11px]`;
 
@@ -102,7 +102,7 @@ function SongListRow({
               <img src={albumArtSrc} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" loading="lazy" />
             ) : null}
             <div className="min-w-0">
-              <p className="min-w-0 truncate text-sm font-medium text-stone-900">{song.title}</p>
+              <p className="min-w-0 truncate text-sm font-medium text-[#1f2724]">{song.title}</p>
               {song.album ? <p className="truncate text-[11px] text-stone-500">{song.album}</p> : null}
             </div>
             {song.highPriority ? (

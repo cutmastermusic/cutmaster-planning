@@ -23,7 +23,7 @@ export type EventMusicHubPlanSnapshot = {
 
 export const DEFAULT_GUEST_REQUEST_SETTINGS: GuestRequestSettings = {
   enabled: false,
-  maxRequests: 50,
+  maxRequests: 5,
 };
 
 function hasMusicVibeDetailSelections(detail: MusicVibeDetail | undefined): boolean {
@@ -59,7 +59,9 @@ function parseSharedPlaylistLinks(raw: unknown): SharedPlaylistLink[] {
 }
 
 function parseGuestRequestLimit(value: unknown): GuestRequestLimit {
-  return value === 25 || value === 50 || value === 100 || value === "unlimited" ? value : 50;
+  if (value === "unlimited") return "unlimited";
+  const n = typeof value === "number" ? value : typeof value === "string" ? parseInt(value, 10) : NaN;
+  return Number.isFinite(n) && n >= 1 ? n : 5;
 }
 
 function parseGuestRequestPublicToken(value: unknown): string | undefined {

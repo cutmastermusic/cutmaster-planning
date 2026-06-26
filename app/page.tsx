@@ -377,6 +377,7 @@ import {
   type CoupleFinalPlanningQuickLink,
 } from "@/lib/coupleFinalPlanningPrep";
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
+import { CoupleTimelineCard, CoupleAddMomentStrip } from "@/components/couple-timeline-card";
 import { CoupleTimelineMomentCardSummary } from "@/components/couple-timeline-moment-card-summary";
 import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-moment-workspace/couple-timeline-moment-workspace";
 import { buildCoupleTimelineMomentSummaryLines } from "@/lib/coupleTimelineMomentSummary";
@@ -397,6 +398,8 @@ import {
 } from "@/lib/coupleTimelineGuidance";
 import { resolveTimelineMomentType } from "@/lib/timelineMomentType";
 import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
+import { SeratoLibraryScanner } from "@/components/serato-library-scanner";
+import { SeratoLibraryStatusCard } from "@/components/serato-library-status-card";
 import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import { WorkspaceHero } from "@/components/workspace-hero";
 import {
@@ -10100,10 +10103,10 @@ export default function Home() {
       return ["Notification Center"];
     }
     if (effectiveRole === "Admin") {
-      return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
+      return ["Command Center", "All Events", "DJ Tools", "Team", "Settings", "Notification Center"];
     }
     if (effectiveRole === "DJ") {
-      return ["Command Center", "All Events", "Notification Center"];
+      return ["Command Center", "All Events", "DJ Tools", "Notification Center"];
     }
     if (effectiveRole === "Planner") {
       return ["All Events", "Notification Center"];
@@ -13638,9 +13641,11 @@ export default function Home() {
     countLabel,
     ctaLabel,
     icon,
-    accentClass,
+    tintClass = "bg-white",
+    iconClass = "bg-[#2f4a3e]/8 text-[#2f4a3e]",
     onClick,
     disabled = false,
+    tall = false,
   }: {
     eyebrow: string;
     title: string;
@@ -13648,41 +13653,44 @@ export default function Home() {
     countLabel?: string;
     ctaLabel: string;
     icon: string;
-    accentClass: string;
+    accentClass?: string;
+    tintClass?: string;
+    iconClass?: string;
     onClick: () => void;
     disabled?: boolean;
+    tall?: boolean;
   }) => (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group pointer-events-auto flex min-h-[12rem] touch-manipulation flex-col justify-between rounded-[1.5rem] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 ${accentClass}`}
+      className={`group pointer-events-auto flex touch-manipulation flex-col justify-between rounded-[1.5rem] border border-stone-200 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#2f4a3e]/25 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 ${tall ? "min-h-[10rem]" : "min-h-[12rem]"} ${tintClass}`}
     >
       <span>
         <span className="flex items-start justify-between gap-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/55">
             {eyebrow}
           </span>
-          <span className="grid h-10 w-10 place-items-center rounded-full border border-white/80 bg-white/80 text-base font-semibold text-[#2f4a3e] shadow-sm">
+          <span className={`grid h-9 w-9 place-items-center rounded-full text-[15px] ${iconClass}`}>
             {icon}
           </span>
         </span>
-        <span className="mt-5 block text-lg font-semibold tracking-tight text-stone-950">
+        <span className="mt-4 block text-base font-semibold tracking-tight text-[#214637]">
           {title}
         </span>
-        <span className="mt-2 block text-sm leading-relaxed text-stone-600">
+        <span className="mt-1.5 block text-sm leading-relaxed text-stone-500">
           {description}
         </span>
       </span>
       <span className="mt-5 flex flex-wrap items-center justify-between gap-3">
         {countLabel ? (
-          <span className="rounded-full border border-white/80 bg-white/75 px-3 py-1 text-[11px] font-semibold text-stone-700">
+          <span className="rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold text-[#2f4a3e] ring-1 ring-inset ring-[#2f4a3e]/15">
             {countLabel}
           </span>
         ) : (
           <span aria-hidden />
         )}
-        <span className="rounded-full bg-white/75 px-3 py-1.5 text-[12px] font-semibold text-[#2f4a3e] ring-1 ring-inset ring-[#2f4a3e]/10 transition group-hover:bg-[#2f4a3e] group-hover:text-white">
+        <span className="rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-semibold text-[#2f4a3e] ring-1 ring-inset ring-[#2f4a3e]/20 transition group-hover:bg-[#2f4a3e] group-hover:text-white">
           {ctaLabel}
         </span>
       </span>
@@ -13699,7 +13707,8 @@ export default function Home() {
           countLabel: musicHubSongCountLabel(mustPlaySongs.length),
           ctaLabel: mustPlaySongs.length === 0 ? "Add Favorites" : "Edit List",
           icon: "♪",
-          accentClass: "border-rose-100 bg-gradient-to-br from-rose-50 via-white to-rose-50/70 hover:border-rose-200",
+          tintClass: "bg-gradient-to-br from-[#C79A5A]/12 via-white to-white",
+          iconClass: "bg-[#C79A5A]/18 text-[#8a6020]",
           onClick: () => openMusicHubSongList("mustPlay"),
           disabled: !canManageMusic && mustPlaySongs.length === 0,
         })}
@@ -13710,7 +13719,8 @@ export default function Home() {
           countLabel: musicHubSongCountLabel(playIfPossibleSongs.length),
           ctaLabel: playIfPossibleSongs.length === 0 ? "Add Dance Songs" : "Edit List",
           icon: "♬",
-          accentClass: "border-violet-100 bg-gradient-to-br from-violet-50 via-white to-emerald-50/80 hover:border-violet-200",
+          tintClass: "bg-gradient-to-br from-[#2f4a3e]/7 via-white to-white",
+          iconClass: "bg-[#2f4a3e]/12 text-[#2f4a3e]",
           onClick: () => openMusicHubSongList("playIfPossible"),
           disabled: !canManageMusic && playIfPossibleSongs.length === 0,
         })}
@@ -13721,18 +13731,20 @@ export default function Home() {
           countLabel: musicHubSongCountLabel(doNotPlaySongs.length),
           ctaLabel: doNotPlaySongs.length === 0 ? "Add Avoids" : "Edit List",
           icon: "⊘",
-          accentClass: "border-orange-100 bg-gradient-to-br from-orange-50 via-white to-stone-50 hover:border-orange-200",
+          tintClass: "bg-gradient-to-br from-rose-50/80 via-white to-white",
+          iconClass: "bg-rose-100 text-rose-500",
           onClick: () => openMusicHubSongList("doNotPlay"),
           disabled: !canManageMusic && doNotPlaySongs.length === 0,
         })}
         {renderMusicHubActionCard({
           eyebrow: "Playlist links",
-          title: "Your Spotify Playlists",
-          description: "Share playlists that capture your style and vibe.",
+          title: "Your Playlists",
+          description: "Share Spotify or Apple Music playlists that capture your style.",
           countLabel: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"} added`,
           ctaLabel: musicPlaylistLinks.length === 0 ? "Add Playlist" : "Manage Playlists",
           icon: "♩",
-          accentClass: "border-[#2f4a3e]/15 bg-gradient-to-br from-[#2f4a3e]/[0.08] via-white to-[#7F8F7A]/[0.12] hover:border-[#2f4a3e]/30",
+          tintClass: "bg-gradient-to-br from-stone-100/80 via-white to-white",
+          iconClass: "bg-stone-100 text-stone-500",
           onClick: openMusicHubSpotifyPlaylists,
           disabled: !canManageMusic && musicPlaylistLinks.length === 0,
         })}
@@ -13744,7 +13756,9 @@ export default function Home() {
           description: "Paste songs from Spotify, Apple Music, Notes, or Excel and we’ll organize them for you.",
           ctaLabel: "Import Songs",
           icon: "↧",
-          accentClass: "min-h-[10rem] border-amber-100 bg-gradient-to-br from-amber-50 via-white to-violet-50/50 hover:border-amber-200",
+          tintClass: "bg-gradient-to-br from-amber-50/70 via-white to-white",
+          iconClass: "bg-amber-100 text-amber-700",
+          tall: true,
           onClick: openMusicHubImportSongs,
           disabled: !canManageMusic,
         })}
@@ -13758,7 +13772,9 @@ export default function Home() {
               ? `${pendingGuestRequestGroups.length} New`
               : `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
           icon: "★",
-          accentClass: "min-h-[10rem] border-violet-100 bg-gradient-to-br from-violet-50 via-white to-amber-50/60 hover:border-violet-200",
+          tintClass: "bg-gradient-to-br from-[#7F8F7A]/10 via-white to-white",
+          iconClass: "bg-[#7F8F7A]/18 text-[#4a5a4e]",
+          tall: true,
           onClick: openMusicHubGuestRequests,
           disabled: !sectionGuestRequestsEnabled,
         })}
@@ -21372,6 +21388,16 @@ export default function Home() {
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
             {renderMusicHubNextUpSection()}
 
+            {!isCoupleView && (effectiveRole === "DJ" || effectiveRole === "Admin") && (
+              <SeratoLibraryStatusCard
+                onGoToDjTools={() => {
+                  setAppMode("events");
+                  setActiveScreen("DJ Tools");
+                  void commitActiveEventPlanningToEventsState().catch(() => {});
+                }}
+              />
+            )}
+
             {isCoupleView ? (
               <>
                 {coupleMusicHubScreen === "songLists" ? (
@@ -21706,23 +21732,43 @@ export default function Home() {
                       <label htmlFor="guest-request-limit" className={lightUiFormLabelClass}>
                         Maximum Guest Song Requests
                       </label>
-                      <select
-                        id="guest-request-limit"
-                        value={String(guestRequestSettings.maxRequests)}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          updateGuestRequestSettings({
-                            maxRequests: value === "unlimited" ? "unlimited" : (Number(value) as GuestRequestLimit),
-                          });
-                        }}
-                        disabled={!canManageGuestRequests}
-                        className={`${lightUiSelectClass} mt-1 min-h-11`}
-                      >
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="unlimited">Unlimited</option>
-                      </select>
+                      {guestRequestSettings.maxRequests === "unlimited" ? (
+                        <div className="mt-1 flex min-h-11 items-center gap-3">
+                          <span className="text-sm font-semibold text-[#2f4a3e]">Unlimited</span>
+                          <button
+                            type="button"
+                            disabled={!canManageGuestRequests}
+                            onClick={() => updateGuestRequestSettings({ maxRequests: 5 })}
+                            className="text-xs font-medium text-stone-500 underline underline-offset-2 transition hover:text-stone-800 disabled:opacity-40"
+                          >
+                            Set a limit
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            id="guest-request-limit"
+                            type="number"
+                            min="1"
+                            max="9999"
+                            value={guestRequestSettings.maxRequests}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (val >= 1) updateGuestRequestSettings({ maxRequests: val });
+                            }}
+                            disabled={!canManageGuestRequests}
+                            className={`${lightUiInputClass} min-h-11 w-28`}
+                          />
+                          <button
+                            type="button"
+                            disabled={!canManageGuestRequests}
+                            onClick={() => updateGuestRequestSettings({ maxRequests: "unlimited" })}
+                            className="text-xs font-medium text-stone-500 underline underline-offset-2 transition hover:text-stone-800 disabled:opacity-40"
+                          >
+                            Unlimited
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-6 space-y-4">
@@ -22823,12 +22869,7 @@ export default function Home() {
                   return (
                     <Fragment key={item.id}>
                     <PremiumCard
-                      className={`${timelineReorderRowSurfaceClass({
-                        isDragging,
-                        isDropTarget,
-                        dragActive: ceremonyDragActive && !isDragging,
-                        zebra: index % 2 === 1,
-                      })} ${TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
+                      className={`${isCoupleView && !rowExpanded ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: ceremonyDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !rowExpanded ? "" : TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
                       aria-grabbed={isDragging}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
@@ -22855,8 +22896,45 @@ export default function Home() {
                         touchDragCeremonyTimelineSourceRef.current = null;
                       }}
                     >
-                      {isDropTarget ? <TimelineDropTargetMarker /> : null}
-                      {!rowExpanded && (
+                      {isDropTarget && !isCoupleView ? <TimelineDropTargetMarker /> : null}
+                      {!rowExpanded && isCoupleView ? (
+                        <CoupleTimelineCard
+                          title={item.moment}
+                          time={item.timeOrOrder ?? ""}
+                          songTitle={item.songTitle ?? undefined}
+                          artist={item.artist ?? undefined}
+                          momentType="ceremony"
+                          isDragging={isDragging}
+                          isDropTarget={isDropTarget}
+                          dragActive={ceremonyDragActive && !isDragging}
+                          canEdit={canEditTimeline}
+                          onCustomize={() => openCeremonyTimelineCardExpanded(item)}
+                          onDelete={() =>
+                            setPendingTimelineDelete({
+                              kind: "ceremony",
+                              id: item.id,
+                              label: item.moment.trim() || "this moment",
+                            })
+                          }
+                          onDragStart={(event) => {
+                            if (!canEditTimeline) return;
+                            touchDragCeremonyTimelineSourceRef.current = null;
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingCeremonyTimelineId(null);
+                            setDropTargetCeremonyTimelineId(null);
+                            dropTargetCeremonyTimelineIdRef.current = null;
+                            touchDragCeremonyTimelineSourceRef.current = null;
+                          }}
+                          onTouchStart={(event) => {
+                            if (!canEditTimeline || event.touches.length > 1) return;
+                            touchDragCeremonyTimelineSourceRef.current = item.id;
+                            setDraggingCeremonyTimelineId(item.id);
+                          }}
+                        />
+                      ) : !rowExpanded && (
                         <>
                           <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                             <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
@@ -23209,6 +23287,12 @@ export default function Home() {
                         </div>
                       </div>
                     </PremiumCard>
+                    {isCoupleView && !rowExpanded && (
+                      <CoupleAddMomentStrip
+                        onClick={() => prepareAddCeremonyMomentAfter(item.id)}
+                        disabled={!canEditTimeline}
+                      />
+                    )}
                     {ceremonyTimelineInsertAfterId === item.id ? (
                       <div ref={ceremonyTimelineInlineInsertRef} className="-mt-0.5">
                         <PremiumCard
@@ -23600,12 +23684,7 @@ export default function Home() {
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
-                        className={`${timelineReorderRowSurfaceClass({
-                          isDragging,
-                          isDropTarget,
-                          dragActive: timelineDragActive && !isDragging,
-                          zebra: index % 2 === 1,
-                        })} ${TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
+                        className={`${isCoupleView && !rowExpanded ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: timelineDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !rowExpanded ? "" : TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
                         aria-grabbed={isDragging}
                         onDragOver={(event) => {
                           if (!canEditTimeline || !draggingTimelineId) return;
@@ -23632,53 +23711,46 @@ export default function Home() {
                         }}
                         data-timeline-id={item.id}
                       >
-                        {isDropTarget ? <TimelineDropTargetMarker /> : null}
+                        {isDropTarget && !isCoupleView ? <TimelineDropTargetMarker /> : null}
                         {!rowExpanded && isCoupleView ? (
-                          <div className="mx-auto flex w-full max-w-[44rem] min-w-0 flex-col items-stretch gap-3 sm:gap-4 md:flex-row md:items-start md:justify-between lg:max-w-[56rem] xl:max-w-[60rem]">
-                            <CoupleScrollSafeTapSurface
-                              disabled={!canEditTimeline || !timelineRow}
-                              onTap={() => {
-                                if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                              }}
-                              className={`w-full min-w-0 md:flex-1 ${canEditTimeline
-                                ? "cursor-pointer active:scale-[0.995]"
-                                : "cursor-default opacity-80"
-                                }`}
-                            >
-                              <TimelineMomentHeadline
-                                timeLabel={item.time ?? ""}
-                                title={item.title}
-                                titleClassName="text-[1.05rem] md:text-inherit"
-                              />
-                              <CoupleTimelineMomentCardSummary lines={coupleSummaryLines} />
-                            </CoupleScrollSafeTapSurface>
-                            {canEditTimeline ? (
-                              <div className="flex w-full flex-col gap-2 md:w-auto md:shrink-0 md:flex-row md:flex-wrap md:justify-end">
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => {
-                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                                  }}
-                                  className={`${TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS} w-full md:w-auto md:shrink-0`}
-                                >
-                                  Edit
-                                </PrimaryButton>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPendingTimelineDelete({
-                                      kind: "reception",
-                                      id: item.id,
-                                      label: item.title.trim() || "this moment",
-                                    })
-                                  }
-                                  className={`${TIMELINE_CARD_ACTION_BTN_DELETE_CLASS} w-full md:w-auto md:shrink-0`}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
+                          <CoupleTimelineCard
+                            title={item.title}
+                            time={item.time ?? ""}
+                            songTitle={item.songTitle ?? undefined}
+                            artist={item.artist ?? undefined}
+                            momentType={item.momentType}
+                            isDragging={isDragging}
+                            isDropTarget={isDropTarget}
+                            dragActive={timelineDragActive && !isDragging}
+                            canEdit={canEditTimeline}
+                            onCustomize={() => {
+                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                            }}
+                            onDelete={() =>
+                              setPendingTimelineDelete({
+                                kind: "reception",
+                                id: item.id,
+                                label: item.title.trim() || "this moment",
+                              })
+                            }
+                            onDragStart={(event) => {
+                              if (!canEditTimeline) return;
+                              touchDragTimelineSourceRef.current = null;
+                              event.dataTransfer.effectAllowed = "move";
+                              setDraggingTimelineId(item.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggingTimelineId(null);
+                              setDropTargetTimelineId(null);
+                              dropTargetTimelineIdRef.current = null;
+                              touchDragTimelineSourceRef.current = null;
+                            }}
+                            onTouchStart={(event) => {
+                              if (!canEditTimeline || event.touches.length > 1) return;
+                              touchDragTimelineSourceRef.current = item.id;
+                              setDraggingTimelineId(item.id);
+                            }}
+                          />
                         ) : !rowExpanded ? (
                           <>
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
@@ -24246,7 +24318,8 @@ export default function Home() {
                             </div>
                           </div>
                         ) : null}
-                        <div className={TIMELINE_CARD_FOOTER_CLASS}>
+                        {/* Footer: hidden in couple view — drag handle lives on the step badge instead */}
+                        <div className={`${TIMELINE_CARD_FOOTER_CLASS}${isCoupleView ? " hidden" : ""}`}>
                           <button
                             type="button"
                             draggable={canEditTimeline}
@@ -24286,6 +24359,12 @@ export default function Home() {
                           />
                         </div>
                       </PremiumCard>
+                      {isCoupleView && !rowExpanded && (
+                        <CoupleAddMomentStrip
+                          onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
+                          disabled={!canEditTimeline}
+                        />
+                      )}
                       {timelineInsertAfterId === item.id ? (
                         <div ref={timelineInlineInsertRef} className="-mt-0.5">
                           <PremiumCard
@@ -24444,6 +24523,25 @@ export default function Home() {
               )}
             </section>
           )}
+
+        {authStage === "app" && appMode === "events" && activeScreen === "DJ Tools" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
+          <section className={workspaceSectionClass}>
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+                DJ Workspace
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#214637]">
+                DJ Tools
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-500">
+                Your personal DJ workspace. Manage your music library, check client song lists against what you have, and export Serato crates — all without touching your library files.
+              </p>
+            </div>
+            <div className="max-w-2xl">
+              <SeratoLibraryScanner />
+            </div>
+          </section>
+        )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Timeline Templates" && (
           <section className={workspaceSectionClass}>
