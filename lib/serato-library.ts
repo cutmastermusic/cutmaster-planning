@@ -34,7 +34,7 @@ export type ScanProgress = {
 const DB_NAME = "showflow-serato";
 const DB_VERSION = 1;
 
-function openDb(): Promise<IDBDatabase> {
+export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {

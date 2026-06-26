@@ -400,6 +400,7 @@ import { resolveTimelineMomentType } from "@/lib/timelineMomentType";
 import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
 import { SeratoLibraryScanner } from "@/components/serato-library-scanner";
 import { SeratoLibraryStatusCard } from "@/components/serato-library-status-card";
+import { SeratoSongChecker } from "@/components/serato-song-checker";
 import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import { WorkspaceHero } from "@/components/workspace-hero";
 import {
@@ -3857,6 +3858,7 @@ export default function Home() {
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
   const [coupleMusicHubScreen, setCoupleMusicHubScreen] = useState<CoupleMusicHubScreen>("landing");
+  const [showSeratoChecker, setShowSeratoChecker] = useState(false);
   const [musicPlaylistLinks, setMusicPlaylistLinks] = useState<SharedPlaylistLink[]>([]);
   const [guestRequestSettings, setGuestRequestSettings] = useState<GuestRequestSettings>(
     DEFAULT_GUEST_REQUEST_SETTINGS,
@@ -21389,13 +21391,37 @@ export default function Home() {
             {renderMusicHubNextUpSection()}
 
             {!isCoupleView && (effectiveRole === "DJ" || effectiveRole === "Admin") && (
-              <SeratoLibraryStatusCard
-                onGoToDjTools={() => {
-                  setAppMode("events");
-                  setActiveScreen("DJ Tools");
-                  void commitActiveEventPlanningToEventsState().catch(() => {});
-                }}
-              />
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <SeratoLibraryStatusCard
+                    onGoToDjTools={() => {
+                      setAppMode("events");
+                      setActiveScreen("DJ Tools");
+                      void commitActiveEventPlanningToEventsState().catch(() => {});
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSeratoChecker((v) => !v)}
+                    className="shrink-0 rounded-xl border border-[#2f4a3e]/20 bg-white px-3 py-2 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5]"
+                  >
+                    {showSeratoChecker ? "Hide Check" : "Check Songs"}
+                  </button>
+                </div>
+                {showSeratoChecker && (
+                  <SeratoSongChecker
+                    mustPlaySongs={mustPlaySongs}
+                    playIfPossibleSongs={playIfPossibleSongs}
+                    doNotPlaySongs={doNotPlaySongs}
+                    defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
+                    onGoToLibrary={() => {
+                      setAppMode("events");
+                      setActiveScreen("DJ Tools");
+                      void commitActiveEventPlanningToEventsState().catch(() => {});
+                    }}
+                  />
+                )}
+              </div>
             )}
 
             {isCoupleView ? (
