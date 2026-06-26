@@ -1151,6 +1151,36 @@ function canPersistTimelineEventToDatabase(
 
 type RunOfShowSyncPhase = "idle" | "saving" | "synced" | "error";
 
+type PlannerTimelineImportMoment = {
+  time: string;
+  title: string;
+  section: "ceremony" | "reception";
+  notes?: string;
+  confidence?: "high" | "medium" | "low";
+};
+
+type PlannerTimelineImportPreviewPayload = {
+  ok: boolean;
+  source?: "pdf-text" | "openai-vision" | "text" | "unsupported";
+  moments?: PlannerTimelineImportMoment[];
+  message?: string;
+  debug?: {
+    fileType?: string;
+    charactersExtracted?: number;
+    momentsExtracted?: number;
+  };
+};
+
+type PlannerTimelineImportState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "success";
+      source?: PlannerTimelineImportPreviewPayload["source"];
+      moments: PlannerTimelineImportMoment[];
+    }
+  | { status: "error"; message: string };
+
 type RunOfShowTimelineFlagsPersistResult =
   | { ok: true }
   | { ok: true; skipped: true }
@@ -3703,6 +3733,7 @@ export default function Home() {
   const prevPlanningChapterRef = useRef<CoupleWeddingChapterId | null | undefined>(undefined);
   const eventCoverPhotoInputRef = useRef<HTMLInputElement>(null);
   const defaultWelcomePhotoInputRef = useRef<HTMLInputElement>(null);
+  const plannerTimelineFileInputRef = useRef<HTMLInputElement | null>(null);
   const [welcomePhotoEditorOpen, setWelcomePhotoEditorOpen] = useState(false);
   const [welcomePhotoPreparing, setWelcomePhotoPreparing] = useState(false);
   const [welcomePhotoSessionKey, setWelcomePhotoSessionKey] = useState(0);
@@ -3915,6 +3946,8 @@ export default function Home() {
   const [timelineImportStep, setTimelineImportStep] = useState<"paste" | "review">("paste");
   const [timelineImportParseError, setTimelineImportParseError] = useState<string | null>(null);
   const [timelineImportReplaceDanger, setTimelineImportReplaceDanger] = useState(false);
+  const [plannerTimelineImport, setPlannerTimelineImport] =
+    useState<PlannerTimelineImportState>({ status: "idle" });
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Inline insert directly after a reception timeline row (+ After). */
@@ -15341,6 +15374,46 @@ export default function Home() {
     setTimelineImportStep("review");
   }, [timelineImportRaw]);
 
+  const handlePlannerTimelineFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setPlannerTimelineImport({ status: "loading" });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/planner-timeline/preview", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json().catch(() => null)) as PlannerTimelineImportPreviewPayload | null;
+      if (!response.ok || !payload?.ok || !Array.isArray(payload.moments)) {
+        setPlannerTimelineImport({
+          status: "error",
+          message: payload?.message ?? "Could not preview planner timeline import.",
+        });
+        return;
+      }
+
+      setPlannerTimelineImport({
+        status: "success",
+        source: payload.source,
+        moments: payload.moments,
+      });
+    } catch (error) {
+      setPlannerTimelineImport({
+        status: "error",
+        message:
+          error instanceof TypeError
+            ? "Could not reach the server to read your planner timeline."
+            : "Could not preview planner timeline import.",
+      });
+    }
+  }, []);
+
   const applyTimelineImport = useCallback(
     (mode: "add" | "replace") => {
       if (timelineImportDrafts.length === 0) return;
@@ -18571,6 +18644,122 @@ export default function Home() {
       onSignOut={handleSignOut}
     />
   ) : null;
+
+  const plannerTimelineImportCeremonyMoments =
+    plannerTimelineImport.status === "success"
+      ? plannerTimelineImport.moments.filter((moment) => moment.section === "ceremony")
+      : [];
+  const plannerTimelineImportReceptionMoments =
+    plannerTimelineImport.status === "success"
+      ? plannerTimelineImport.moments.filter((moment) => moment.section === "reception")
+      : [];
+
+  const renderPlannerTimelineImportGroup = (
+    title: "Ceremony" | "Reception",
+    moments: PlannerTimelineImportMoment[],
+  ) => (
+    <div className="rounded-2xl border border-stone-200 bg-white/75 p-3.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">{title}</p>
+      {moments.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {moments.map((moment, index) => (
+            <li
+              key={`${title}-${moment.time}-${moment.title}-${index}`}
+              className="rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-2.5"
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="text-xs font-semibold text-[#8a6938]">{moment.time || "Time TBD"}</span>
+                <span className="text-sm font-semibold text-stone-950">{moment.title}</span>
+                {moment.confidence ? (
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                    {moment.confidence}
+                  </span>
+                ) : null}
+              </div>
+              {moment.notes ? (
+                <p className="mt-1 text-xs leading-relaxed text-stone-600">{moment.notes}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-stone-500">No {title.toLowerCase()} moments found.</p>
+      )}
+    </div>
+  );
+
+  const plannerTimelineImportCard = (
+    <PremiumCard className="no-print border-stone-200 bg-white shadow-sm">
+      <input
+        ref={plannerTimelineFileInputRef}
+        type="file"
+        accept=".pdf,image/*,.txt,.doc,.docx"
+        className="hidden"
+        onChange={handlePlannerTimelineFileChange}
+        disabled={!canEditTimeline || plannerTimelineImport.status === "loading"}
+      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a6938]">
+            Planner import
+          </p>
+          <SectionTitle className="mt-1 text-stone-950">Upload Planner Timeline</SectionTitle>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+            Already have a planner timeline? Upload it and we&apos;ll build your ShowFlow timeline for you.
+          </p>
+        </div>
+        <PrimaryButton
+          type="button"
+          onClick={() => plannerTimelineFileInputRef.current?.click()}
+          disabled={!canEditTimeline || plannerTimelineImport.status === "loading"}
+          className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] disabled:opacity-45 sm:w-auto sm:shrink-0"
+        >
+          Upload Timeline
+        </PrimaryButton>
+      </div>
+
+      {plannerTimelineImport.status === "loading" ? (
+        <div className="mt-4 rounded-2xl border border-[#C79A5A]/25 bg-[#C79A5A]/10 px-4 py-3 text-sm font-semibold text-stone-900">
+          Reading your planner timeline…
+        </div>
+      ) : null}
+
+      {plannerTimelineImport.status === "error" ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-950">
+          {plannerTimelineImport.message}
+        </div>
+      ) : null}
+
+      {plannerTimelineImport.status === "success" ? (
+        <div className="mt-5 space-y-4">
+          <p className="text-sm font-semibold text-stone-900">
+            We found {plannerTimelineImport.moments.length} timeline{" "}
+            {plannerTimelineImport.moments.length === 1 ? "moment" : "moments"}.
+          </p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {renderPlannerTimelineImportGroup("Ceremony", plannerTimelineImportCeremonyMoments)}
+            {renderPlannerTimelineImportGroup("Reception", plannerTimelineImportReceptionMoments)}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <PrimaryButton
+              type="button"
+              onClick={() => setPlannerTimelineImport({ status: "idle" })}
+              className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+            >
+              Review Timeline
+            </PrimaryButton>
+            <PrimaryButton
+              type="button"
+              onClick={() => setPlannerTimelineImport({ status: "idle" })}
+              className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+            >
+              Cancel
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : null}
+    </PremiumCard>
+  );
 
   if (!hasHydrated) {
     return (
@@ -22275,6 +22464,7 @@ export default function Home() {
                     className="pt-1 sm:pt-0.5"
                   />
                 </div>
+                {plannerTimelineImportCard}
                 <TimelinePhaseSectionHeader
                   id="timeline-section-ceremony"
                   title={isCoupleView ? "Ceremony Timeline" : "Ceremony"}
@@ -23101,6 +23291,8 @@ export default function Home() {
               </div>
               </>
               ) : null}
+
+              {!showUnifiedTimelineWorkspace ? plannerTimelineImportCard : null}
 
               {showTimelinePresetOnboarding && (
                 <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
