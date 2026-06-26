@@ -25115,27 +25115,39 @@ export default function Home() {
                     : undefined
               }
             />
-            <PremiumCard variant={isCoupleView ? "default" : "accent"}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <SectionTitle>People &amp; Vendors</SectionTitle>
-                <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                {isCoupleView
-                  ? "Add photographers, caterers, officiants, venues, planners, and other partners here—the same list your Cutmaster team uses on event day."
-                  : "People helping with your event—internal Cutmaster staff, external partners, and who can open this plan in the app."}
-              </p>
-              {vendorStatus && (
-                <p
-                  className={`mt-3 rounded-xl px-3 py-2 text-xs ${vendorStatus.kind === "success"
-                    ? "border border-[#7F8F7A]/45 bg-[#7F8F7A]/20 text-[#f4f7f1]"
-                    : "border border-rose-500/40 bg-rose-950/35 text-rose-50"
-                    }`}
-                >
-                  {vendorStatus.message}
+            {isCoupleView ? (
+              <>
+                <WorkspaceHero
+                  eyebrow="People & Vendors"
+                  title="Your wedding dream team."
+                  subtitle="Everyone who's making your day extraordinary."
+                  description="Add photographers, caterers, officiants, planners, and anyone else helping make your day perfect. Your DJ team uses this list on event day."
+                  coverImageSrc={musicHubHeroImageSrc}
+                  summaryTitle={coupleDisplayName.trim() || "Your Wedding"}
+                  summarySubtitle={weddingDetails.date || "Your Wedding Day"}
+                />
+                {vendorStatus && (
+                  <p className={`rounded-xl px-3 py-2 text-xs ${vendorStatus.kind === "success" ? "border border-[#7F8F7A]/45 bg-[#7F8F7A]/20 text-[#214637]" : "border border-rose-300 bg-rose-50 text-rose-900"}`}>
+                    {vendorStatus.message}
+                  </p>
+                )}
+              </>
+            ) : (
+              <PremiumCard variant="accent">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <SectionTitle>People &amp; Vendors</SectionTitle>
+                  <PersistEcho persistFeedback={persistFeedback} variant="light" className="pt-0.5" />
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                  People helping with your event—internal Cutmaster staff, external partners, and who can open this plan in the app.
                 </p>
-              )}
-            </PremiumCard>
+                {vendorStatus && (
+                  <p className={`mt-3 rounded-xl px-3 py-2 text-xs ${vendorStatus.kind === "success" ? "border border-[#7F8F7A]/45 bg-[#7F8F7A]/20 text-[#f4f7f1]" : "border border-rose-500/40 bg-rose-950/35 text-rose-50"}`}>
+                    {vendorStatus.message}
+                  </p>
+                )}
+              </PremiumCard>
+            )}
 
             <PremiumCard>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
