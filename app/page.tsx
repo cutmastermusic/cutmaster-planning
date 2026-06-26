@@ -18835,6 +18835,17 @@ export default function Home() {
   ) : null;
 
   const timelineHeroHasMoments = ceremonyTimelineItems.length > 0 || timelineItems.length > 0;
+  const timelineHeroPhoto = coverPhotoHydrationReady
+    ? resolveCoupleWelcomePhotoDisplay({
+        coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
+        coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
+        defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
+      })
+    : { displayUrl: undefined, isEventSpecific: false };
+  const timelineHeroPhotoSrc = timelineHeroPhoto.displayUrl?.trim();
+  const timelineHeroPhotoTransform = timelineHeroPhoto.isEventSpecific
+    ? eventSettings.coverPhotoTransform
+    : appSettings.defaultWelcomePhotoTransform;
   const openPlannerTimelineImportPicker = () => plannerTimelineFileInputRef.current?.click();
   const scrollToTimelineStart = () => {
     const target =
@@ -18856,48 +18867,65 @@ export default function Home() {
         disabled={!canEditTimeline || plannerTimelineImport.status === "loading"}
       />
       {(plannerTimelineImport.status === "idle" || plannerTimelineImport.status === "error") ? (
-        <div className="space-y-8 px-1 py-2 sm:px-2 sm:py-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7a44]">
-                Timeline
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-stone-950 sm:text-4xl">
+        <div className="relative min-h-[390px] overflow-hidden rounded-[2rem] bg-[#efe7d9] shadow-[0_24px_80px_rgba(45,35,24,0.18)] ring-1 ring-black/5 transition-all duration-700 ease-out sm:min-h-[420px]">
+          {timelineHeroPhotoSrc ? (
+            <WelcomePhotoHeroImage
+              src={timelineHeroPhotoSrc}
+              transform={timelineHeroPhotoTransform}
+              stageClassName="absolute inset-0"
+              imageClassName="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.72),transparent_32%),linear-gradient(135deg,#e8dcc9,#f8f2e8_52%,#d7c5aa)]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#11100e]/60 via-[#11100e]/24 to-transparent" />
+          <div className="absolute inset-y-0 right-0 hidden w-[46%] items-center justify-center px-10 text-right md:flex">
+            <p className="max-w-xs font-serif text-4xl italic leading-tight tracking-[-0.04em] text-white/55 drop-shadow-sm lg:text-5xl">
+              One beautiful plan.
+              <br />
+              One unforgettable day.
+            </p>
+          </div>
+          <div className="relative z-10 flex min-h-[390px] flex-col justify-between p-5 sm:min-h-[420px] sm:p-7 lg:p-8">
+            <div className="flex justify-end">
+              <PersistEcho
+                persistFeedback={persistFeedback}
+                variant="light"
+                className="rounded-full bg-white/15 px-3 py-1 text-white/85 backdrop-blur-md"
+              />
+            </div>
+            <div className="max-w-2xl animate-[fadeIn_420ms_ease-out] pb-2 text-white">
+              <h2 className="text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">
                 Your Event Timeline
               </h2>
-              <p className="mt-3 text-lg font-medium tracking-tight text-stone-800">
+              <p className="mt-4 text-xl font-medium tracking-tight text-white/90">
                 {timelineHeroHasMoments
                   ? "Everything is coming together."
                   : "Every great celebration starts with a great plan."}
               </p>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-600 sm:text-[15px]">
+              <p className="mt-4 max-w-xl text-sm leading-7 text-white/78 sm:text-[15px]">
                 {timelineHeroHasMoments
                   ? "Your ceremony and reception timeline are ready to review and edit."
-                  : "This is where your ceremony and reception come together into one seamless timeline. We'll read your planner's timeline and turn it into your ShowFlow timeline in seconds — or you can build it yourself."}
+                  : "We'll read your planner's timeline and turn it into your ShowFlow timeline in seconds—or you can build it yourself."}
               </p>
             </div>
-            <PersistEcho
-              persistFeedback={persistFeedback}
-              variant="light"
-              className="shrink-0 pt-1 sm:pt-1.5"
-            />
-          </div>
+            <div className="relative z-10">
 
           {timelineHeroHasMoments ? (
-            <div className="rounded-[1.5rem] border border-white/70 bg-white/70 p-4 shadow-sm sm:p-5">
+            <div className="max-w-3xl rounded-[1.35rem] bg-black/10 p-3 backdrop-blur-sm">
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#7F8F7A]/35 bg-[#7F8F7A]/10 px-3 py-1 text-xs font-semibold text-[#3f4d3d]">
+                <span className="rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-md">
                   ✓ Ceremony Planned
                 </span>
-                <span className="rounded-full border border-[#7F8F7A]/35 bg-[#7F8F7A]/10 px-3 py-1 text-xs font-semibold text-[#3f4d3d]">
+                <span className="rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-md">
                   ✓ Reception Planned
                 </span>
               </div>
-              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <PrimaryButton
                   type="button"
                   onClick={scrollToTimelineStart}
-                  className="min-h-11 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+                  className="min-h-10 w-full rounded-xl border border-white/70 bg-white px-3.5 py-2 text-[13px] font-semibold text-stone-950 shadow-sm hover:bg-white/90 sm:w-auto"
                 >
                   Review Timeline
                 </PrimaryButton>
@@ -18905,48 +18933,49 @@ export default function Home() {
                   type="button"
                   onClick={openPlannerTimelineImportPicker}
                   disabled={!canEditTimeline}
-                  className={`min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+                  className="min-h-10 w-full rounded-xl border border-white/25 bg-white/14 px-3.5 py-2 text-[13px] font-semibold text-white shadow-none backdrop-blur-md hover:bg-white/22 disabled:opacity-45 sm:w-auto"
                 >
                   Import a New Planner Timeline
                 </PrimaryButton>
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="flex min-h-[18rem] flex-col rounded-[1.5rem] border border-white/75 bg-white/75 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md sm:p-6">
-                <p className="text-lg font-semibold tracking-tight text-stone-950">✨ Import Planner Timeline</p>
-                <p className="mt-4 text-sm font-semibold text-stone-800">Already have a planner timeline?</p>
-                <p className="mt-2 flex-1 text-sm leading-7 text-stone-600">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="flex min-h-[11.5rem] flex-col rounded-[1.35rem] bg-white/16 p-4 text-white shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 sm:p-5">
+                <p className="text-base font-semibold tracking-tight">✨ Import Planner Timeline</p>
+                <p className="mt-3 text-sm font-semibold text-white/90">Already have a planner timeline?</p>
+                <p className="mt-2 flex-1 text-sm leading-6 text-white/76">
                   Upload a PDF, Word document or image and we&apos;ll turn it into your ShowFlow timeline in seconds.
                 </p>
                 <PrimaryButton
                   type="button"
                   onClick={openPlannerTimelineImportPicker}
                   disabled={!canEditTimeline}
-                  className="mt-6 min-h-11 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531]"
+                  className="mt-4 min-h-10 w-full rounded-xl border border-white/70 bg-white px-3.5 py-2 text-[13px] font-semibold text-stone-950 shadow-sm hover:bg-white/90"
                 >
                   Import Planner Timeline
                 </PrimaryButton>
-                <p className="mt-3 text-xs font-medium text-stone-500">Supports PDF, Word documents and images.</p>
               </div>
 
-              <div className="flex min-h-[18rem] flex-col rounded-[1.5rem] border border-white/75 bg-white/75 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md sm:p-6">
-                <p className="text-lg font-semibold tracking-tight text-stone-950">✏️ Build Your Timeline</p>
-                <p className="mt-4 text-sm font-semibold text-stone-800">Prefer to build it yourself?</p>
-                <p className="mt-2 flex-1 text-sm leading-7 text-stone-600">
+              <div className="flex min-h-[11.5rem] flex-col rounded-[1.35rem] bg-white/16 p-4 text-white shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/20 sm:p-5">
+                <p className="text-base font-semibold tracking-tight">✏️ Build Your Timeline</p>
+                <p className="mt-3 text-sm font-semibold text-white/90">Prefer to build it yourself?</p>
+                <p className="mt-2 flex-1 text-sm leading-6 text-white/76">
                   Add ceremony moments, reception events and special dances manually.
                 </p>
                 <PrimaryButton
                   type="button"
                   onClick={scrollToTimelineStart}
                   disabled={!canEditTimeline}
-                  className="mt-6 min-h-11 w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45"
+                  className="mt-4 min-h-10 w-full rounded-xl border border-white/25 bg-white/14 px-3.5 py-2 text-[13px] font-semibold text-white shadow-none backdrop-blur-md hover:bg-white/22 disabled:opacity-45"
                 >
                   Start Building
                 </PrimaryButton>
               </div>
             </div>
           )}
+            </div>
+          </div>
         </div>
       ) : null}
 
