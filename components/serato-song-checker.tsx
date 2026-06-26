@@ -26,6 +26,8 @@ type Props = {
   mustPlaySongs: SongEntry[];
   playIfPossibleSongs: SongEntry[];
   doNotPlaySongs: SongEntry[];
+  cocktailHourSongs?: SongEntry[];
+  dinnerSongs?: SongEntry[];
   /** Default crate name — typically the couple/event name. */
   defaultCrateName?: string;
   onGoToLibrary: () => void;
@@ -50,7 +52,12 @@ const LIST_LABELS: Record<string, string> = {
   mustPlay: "Must Play",
   playIfPossible: "Dance Floor Favorites",
   doNotPlay: "Songs to Avoid",
+  cocktailHour: "Cocktail Hour",
+  dinner: "Dinner",
 };
+
+const ALL_LIST_TYPES = ["mustPlay", "playIfPossible", "doNotPlay", "cocktailHour", "dinner"] as const;
+type ListType = typeof ALL_LIST_TYPES[number];
 
 function formatDuration(ms: number): string {
   const totalSec = Math.round(ms / 1000);
@@ -264,19 +271,37 @@ export function SeratoSongChecker({
   mustPlaySongs,
   playIfPossibleSongs,
   doNotPlaySongs,
+  cocktailHourSongs = [],
+  dinnerSongs = [],
   defaultCrateName = "ShowFlow Crate",
   onGoToLibrary,
 }: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "idle" });
   const [selections, setSelections] = useState<Record<string, string>>({});
-  const [crateName, setCrateName] = useState(defaultCrateName);
-  const [exportState, setExportState] = useState<ExportState>({ status: "idle" });
+
+  // Per-list crate names and export states
+  const [crateNames, setCrateNames] = useState<Record<string, string>>(() => ({
+    mustPlay: `${defaultCrateName} - Must Play`,
+    playIfPossible: `${defaultCrateName} - Dance Floor`,
+    doNotPlay: `${defaultCrateName} - Do Not Play`,
+    cocktailHour: `${defaultCrateName} - Cocktail Hour`,
+    dinner: `${defaultCrateName} - Dinner`,
+  }));
+  const [exportStates, setExportStates] = useState<Record<string, ExportState>>({
+    mustPlay: { status: "idle" },
+    playIfPossible: { status: "idle" },
+    doNotPlay: { status: "idle" },
+    cocktailHour: { status: "idle" },
+    dinner: { status: "idle" },
+  });
 
   const allClientSongs = useMemo(() => [
     ...mustPlaySongs.map((s) => songEntryToClientSong(s, "mustPlay")),
     ...playIfPossibleSongs.map((s) => songEntryToClientSong(s, "playIfPossible")),
     ...doNotPlaySongs.map((s) => songEntryToClientSong(s, "doNotPlay")),
-  ], [mustPlaySongs, playIfPossibleSongs, doNotPlaySongs]);
+    ...cocktailHourSongs.map((s) => songEntryToClientSong(s, "cocktailHour")),
+    ...dinnerSongs.map((s) => songEntryToClientSong(s, "dinner")),
+  ], [mustPlaySongs, playIfPossibleSongs, doNotPlaySongs, cocktailHourSongs, dinnerSongs]);
 
   const runCheck = useCallback(async () => {
     setLoadState({ status: "loading" });
@@ -305,8 +330,7 @@ export function SeratoSongChecker({
     setSelections((prev) => ({ ...prev, [songId]: candidateId }));
   }, []);
 
-  const handleExport = useCallback(async (results: MatchResult[]) => {
-    // Collect tracks for found + multiple-with-selection rows (skip missing)
+  const handleExport = useCallback(async (listType: string, results: MatchResult[]) => {
     const tracksToExport: SeratoTrack[] = [];
     for (const r of results) {
       if (r.status === "missing") continue;
@@ -315,18 +339,18 @@ export function SeratoSongChecker({
     }
 
     if (tracksToExport.length === 0) {
-      setExportState({ status: "error", message: "No matched tracks to export." });
+      setExportStates((prev) => ({ ...prev, [listType]: { status: "error", message: "No matched tracks to export." } }));
       return;
     }
 
-    setExportState({ status: "exporting" });
-    const result = await exportCrate(crateName, tracksToExport);
+    setExportStates((prev) => ({ ...prev, [listType]: { status: "exporting" } }));
+    const result = await exportCrate(crateNames[listType], tracksToExport);
     if (result.ok) {
-      setExportState({ status: "success", result });
+      setExportStates((prev) => ({ ...prev, [listType]: { status: "success", result } }));
     } else {
-      setExportState({ status: "error", message: result.error });
+      setExportStates((prev) => ({ ...prev, [listType]: { status: "error", message: result.error } }));
     }
-  }, [crateName]);
+  }, [crateNames]);
 
   // Merge DJ selections into summary results
   const mergedResults = useMemo<MatchResult[]>(() => {
@@ -393,104 +417,109 @@ export function SeratoSongChecker({
   if (loadState.status !== "ready") return null;
 
   const { foundCount, multipleCount, missingCount, totalCount } = loadState.summary;
-  const exportableCount = foundCount + multipleCount;
 
   const groupedByList = (listType: string) =>
     mergedResults.filter((r) => r.clientSong.listType === listType);
 
   return (
     <div className="space-y-4">
-      {/* Summary + export bar */}
-      <div className="space-y-3 rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-sm">
-        {/* Stats row */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="text-center">
-              <p className="text-lg font-bold text-[#214637]">{totalCount}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Total</p>
-            </div>
-            <div className="h-8 w-px bg-stone-100" />
-            <div className="text-center">
-              <p className="text-lg font-bold text-emerald-600">{foundCount}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Found</p>
-            </div>
-            {multipleCount > 0 && (
-              <div className="text-center">
-                <p className="text-lg font-bold text-amber-500">{multipleCount}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Pick version</p>
-              </div>
-            )}
-            <div className="text-center">
-              <p className="text-lg font-bold text-rose-500">{missingCount}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Missing</p>
-            </div>
+      {/* Summary bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="text-center">
+            <p className="text-lg font-bold text-[#214637]">{totalCount}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Total</p>
           </div>
-          <button
-            type="button"
-            onClick={runCheck}
-            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-          >
-            Recheck
-          </button>
+          <div className="h-8 w-px bg-stone-100" />
+          <div className="text-center">
+            <p className="text-lg font-bold text-emerald-600">{foundCount}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Found</p>
+          </div>
+          {multipleCount > 0 && (
+            <div className="text-center">
+              <p className="text-lg font-bold text-amber-500">{multipleCount}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Pick version</p>
+            </div>
+          )}
+          <div className="text-center">
+            <p className="text-lg font-bold text-rose-500">{missingCount}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Missing</p>
+          </div>
         </div>
-
-        {/* Export row */}
-        {exportableCount > 0 && (
-          <div className="border-t border-stone-100 pt-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2f4a3e]/55">
-              Export to Serato — {exportableCount} track{exportableCount !== 1 ? "s" : ""}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={crateName}
-                onChange={(e) => setCrateName(e.target.value)}
-                placeholder="Crate name"
-                className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-[#1f2724] placeholder:text-stone-400 focus:border-[#2f4a3e]/40 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/10"
-              />
-              <button
-                type="button"
-                disabled={exportState.status === "exporting" || !crateName.trim()}
-                onClick={() => void handleExport(mergedResults)}
-                className="shrink-0 rounded-xl bg-[#2f4a3e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
-              >
-                {exportState.status === "exporting" ? "Exporting…" : "Export Crate"}
-              </button>
-            </div>
-
-            {/* Export feedback */}
-            {exportState.status === "success" && (
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
-                <span className="text-emerald-600">✓</span>
-                <p className="text-[12px] font-medium text-emerald-800">
-                  Saved <span className="font-semibold">{exportState.result.fileName}</span> — {exportState.result.trackCount} tracks. Reload Serato to see it.
-                </p>
-              </div>
-            )}
-            {exportState.status === "error" && (
-              <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
-                <p className="text-[12px] font-medium text-rose-800">{exportState.message}</p>
-              </div>
-            )}
-
-            <p className="mt-2 text-[11px] text-stone-400">
-              First export: you&apos;ll be asked to select your Serato Subcrates folder. ShowFlow remembers it after that.
-            </p>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={runCheck}
+          className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-[12px] font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+        >
+          Recheck
+        </button>
       </div>
 
-      {/* Results by list */}
-      {(["mustPlay", "playIfPossible", "doNotPlay"] as const).map((listType) => {
+      {/* Per-list sections with individual export */}
+      {ALL_LIST_TYPES.map((listType) => {
         const results = groupedByList(listType);
+        if (results.length === 0) return null;
+        const exportableCount = results.filter((r) => r.status !== "missing").length;
+        const listExportState = exportStates[listType];
+        const listCrateName = crateNames[listType];
+
         return (
-          <ResultSection
-            key={listType}
-            title={LIST_LABELS[listType]}
-            results={results}
-            onSelectCandidate={handleSelectCandidate}
-            defaultOpen={false}
-          />
+          <div key={listType} className="space-y-2">
+            <ResultSection
+              title={LIST_LABELS[listType]}
+              results={results}
+              onSelectCandidate={handleSelectCandidate}
+              defaultOpen={false}
+            />
+
+            {/* Export footer for this list */}
+            {exportableCount > 0 && (
+              <div className="rounded-2xl border border-stone-200 bg-[#f7f5f1]/60 px-4 py-3 shadow-sm">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2f4a3e]/55">
+                  Export crate — {exportableCount} track{exportableCount !== 1 ? "s" : ""}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={listCrateName}
+                    onChange={(e) =>
+                      setCrateNames((prev) => ({ ...prev, [listType]: e.target.value }))
+                    }
+                    placeholder="Crate name"
+                    className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-[#1f2724] placeholder:text-stone-400 focus:border-[#2f4a3e]/40 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/10"
+                  />
+                  <button
+                    type="button"
+                    disabled={listExportState.status === "exporting" || !listCrateName.trim()}
+                    onClick={() => void handleExport(listType, results)}
+                    className="shrink-0 rounded-xl bg-[#2f4a3e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
+                  >
+                    {listExportState.status === "exporting" ? "Exporting…" : "Export Crate"}
+                  </button>
+                </div>
+
+                {listExportState.status === "success" && (
+                  <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <span className="text-emerald-600">✓</span>
+                    <p className="text-[12px] font-medium text-emerald-800">
+                      Saved <span className="font-semibold">{listExportState.result.fileName}</span> — {listExportState.result.trackCount} tracks. Reload Serato to see it.
+                    </p>
+                  </div>
+                )}
+                {listExportState.status === "error" && (
+                  <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                    <p className="text-[12px] font-medium text-rose-800">{listExportState.message}</p>
+                  </div>
+                )}
+
+                {listExportState.status === "idle" && (
+                  <p className="mt-2 text-[11px] text-stone-400">
+                    First export: you&apos;ll be asked to select your Serato Subcrates folder. ShowFlow remembers it after that.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>

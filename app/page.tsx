@@ -880,6 +880,8 @@ const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
   mustPlay: "Must Play",
   playIfPossible: "Dance Floor Favorites",
   doNotPlay: "Songs to Avoid",
+  cocktailHour: "Cocktail Hour",
+  dinner: "Dinner",
 };
 
 type PastedSongPreviewRow = {
@@ -3854,6 +3856,8 @@ export default function Home() {
     mustPlay: false,
     playIfPossible: false,
     doNotPlay: false,
+    cocktailHour: false,
+    dinner: false,
   });
   const [newSongHighPriority, setNewSongHighPriority] = useState(false);
   const [newSongListType, setNewSongListType] = useState<SongListType>("mustPlay");
@@ -3865,6 +3869,8 @@ export default function Home() {
   );
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
+  const [cocktailHourSongs, setCocktailHourSongs] = useState<SongEntry[]>([]);
+  const [dinnerSongs, setDinnerSongs] = useState<SongEntry[]>([]);
   const [musicJourneyStep, setMusicJourneyStep] = useState<MusicJourneyStep>("welcome");
   const [musicJourneyEditorOpen, setMusicJourneyEditorOpen] = useState(false);
   const [musicJourneyCompleted, setMusicJourneyCompleted] = useState(false);
@@ -4935,6 +4941,8 @@ export default function Home() {
       mustPlay: SongEntry[],
       doNotPlay: SongEntry[],
       playIfPossible: SongEntry[],
+      cocktailHour: SongEntry[],
+      dinner: SongEntry[],
       options?: DbPersistGuardOptions,
     ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
       const dbBacked = databaseEventIdsRef.current.has(eventId);
@@ -4950,7 +4958,9 @@ export default function Home() {
       const incomingMust = dedupeSongEntries(mustPlay);
       const incomingDoNot = dedupeSongEntries(doNotPlay);
       const incomingPif = dedupeSongEntries(playIfPossible);
-      const incomingTotal = incomingMust.length + incomingDoNot.length + incomingPif.length;
+      const incomingCocktail = dedupeSongEntries(cocktailHour);
+      const incomingDinner = dedupeSongEntries(dinner);
+      const incomingTotal = incomingMust.length + incomingDoNot.length + incomingPif.length + incomingCocktail.length + incomingDinner.length;
 
       if (!force) {
         if (dbWorkingStateReadyEventIdRef.current !== eventId) {
@@ -5042,11 +5052,47 @@ export default function Home() {
             order: index,
           })),
         );
+        await replaceEventSongs(
+          eventId,
+          "cocktailHour",
+          incomingCocktail.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
+            source: song.source,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
+        await replaceEventSongs(
+          eventId,
+          "dinner",
+          incomingDinner.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
+            source: song.source,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
         console.info("[song-persist] saved", {
           eventId,
           mustPlayCount: incomingMust.length,
           doNotPlayCount: incomingDoNot.length,
           playIfPossibleCount: incomingPif.length,
+          cocktailHourCount: incomingCocktail.length,
+          dinnerCount: incomingDinner.length,
         });
         return { ok: true };
       } catch (error) {
@@ -5364,6 +5410,8 @@ export default function Home() {
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
+            cocktailHourSongs,
+            dinnerSongs,
             { force: true },
           );
 
@@ -5431,6 +5479,8 @@ export default function Home() {
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
+            cocktailHourSongs,
+            dinnerSongs,
             musicPlaylistLinks,
             musicGenreEraSelections,
             ceremonyStartTime,
@@ -5615,6 +5665,8 @@ export default function Home() {
     setMustPlaySongs(dedupeSongEntries(cloneJson(normalized.mustPlaySongs)));
     setDoNotPlaySongs(dedupeSongEntries(cloneJson(normalized.doNotPlaySongs)));
     setPlayIfPossibleSongs(dedupeSongEntries(cloneJson(normalized.playIfPossibleSongs ?? [])));
+    setCocktailHourSongs(dedupeSongEntries(cloneJson(normalized.cocktailHourSongs ?? [])));
+    setDinnerSongs(dedupeSongEntries(cloneJson(normalized.dinnerSongs ?? [])));
     setMusicPlaylistLinks(cloneJson(normalized.musicPlaylistLinks ?? []));
     setGuestRequestSettings(normalizeGuestRequestSettings(normalized.guestRequestSettings));
     if (!preserveMusicHubTaste) {
@@ -11825,6 +11877,12 @@ export default function Home() {
         playIfPossibleSongs: dedupeSongEntries(
           Array.isArray(evt.playIfPossibleSongs) ? evt.playIfPossibleSongs : [],
         ),
+        cocktailHourSongs: dedupeSongEntries(
+          Array.isArray(evt.cocktailHourSongs) ? evt.cocktailHourSongs : [],
+        ),
+        dinnerSongs: dedupeSongEntries(
+          Array.isArray(evt.dinnerSongs) ? evt.dinnerSongs : [],
+        ),
         settings: {
           eventLayoutProfile: migrateLegacyLayoutProfile(
             evt.settings?.eventLayoutProfile,
@@ -12216,6 +12274,8 @@ export default function Home() {
               mustPlaySongs,
               doNotPlaySongs,
               playIfPossibleSongs,
+              cocktailHourSongs,
+              dinnerSongs,
             ),
             replaceGuestRequests(
               activeEventId,
@@ -12952,6 +13012,10 @@ export default function Home() {
       setMustPlaySongs((prev) => [newEntry, ...prev]);
     } else if (newSongListType === "playIfPossible") {
       setPlayIfPossibleSongs((prev) => [newEntry, ...prev]);
+    } else if (newSongListType === "cocktailHour") {
+      setCocktailHourSongs((prev) => [newEntry, ...prev]);
+    } else if (newSongListType === "dinner") {
+      setDinnerSongs((prev) => [newEntry, ...prev]);
     } else {
       setDoNotPlaySongs((prev) => [newEntry, ...prev]);
     }
@@ -13237,7 +13301,9 @@ export default function Home() {
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
-    musicExpandedSongLists.doNotPlay;
+    musicExpandedSongLists.doNotPlay ||
+    musicExpandedSongLists.cocktailHour ||
+    musicExpandedSongLists.dinner;
 
   const musicHubSongCountLabel = (count: number) =>
     `${count} song${count === 1 ? "" : "s"} added`;
@@ -14751,6 +14817,14 @@ export default function Home() {
       setPlayIfPossibleSongs((prev) => prev.filter((song) => song.id !== songId));
       return;
     }
+    if (listType === "cocktailHour") {
+      setCocktailHourSongs((prev) => prev.filter((song) => song.id !== songId));
+      return;
+    }
+    if (listType === "dinner") {
+      setDinnerSongs((prev) => prev.filter((song) => song.id !== songId));
+      return;
+    }
     setDoNotPlaySongs((prev) => prev.filter((song) => song.id !== songId));
   };
 
@@ -14766,6 +14840,14 @@ export default function Home() {
     }
     if (listType === "playIfPossible") {
       setPlayIfPossibleSongs((prev) => updatePriority(prev));
+      return;
+    }
+    if (listType === "cocktailHour") {
+      setCocktailHourSongs((prev) => updatePriority(prev));
+      return;
+    }
+    if (listType === "dinner") {
+      setDinnerSongs((prev) => updatePriority(prev));
       return;
     }
     setDoNotPlaySongs((prev) => updatePriority(prev));
@@ -14795,6 +14877,14 @@ export default function Home() {
     }
     if (listType === "playIfPossible") {
       setPlayIfPossibleSongs((prev) => applyUpdate(prev));
+      return;
+    }
+    if (listType === "cocktailHour") {
+      setCocktailHourSongs((prev) => applyUpdate(prev));
+      return;
+    }
+    if (listType === "dinner") {
+      setDinnerSongs((prev) => applyUpdate(prev));
       return;
     }
     setDoNotPlaySongs((prev) => applyUpdate(prev));
@@ -21391,7 +21481,37 @@ export default function Home() {
             {renderMusicHubNextUpSection()}
 
             {!isCoupleView && (effectiveRole === "DJ" || effectiveRole === "Admin") && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* DJ-only song lists: Cocktail Hour + Dinner */}
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">DJ playlists</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {renderMusicHubActionCard({
+                      eyebrow: "DJ list",
+                      title: "Cocktail Hour",
+                      description: "Songs curated for cocktail hour — export as a Serato crate.",
+                      countLabel: musicHubSongCountLabel(cocktailHourSongs.length),
+                      ctaLabel: cocktailHourSongs.length === 0 ? "Add Songs" : "Edit List",
+                      icon: "🥂",
+                      tintClass: "bg-gradient-to-br from-amber-50/70 via-white to-white",
+                      iconClass: "bg-amber-100 text-amber-700",
+                      onClick: () => openMusicHubSongList("cocktailHour"),
+                      disabled: !canManageMusic && cocktailHourSongs.length === 0,
+                    })}
+                    {renderMusicHubActionCard({
+                      eyebrow: "DJ list",
+                      title: "Dinner",
+                      description: "Songs curated for dinner service — export as a Serato crate.",
+                      countLabel: musicHubSongCountLabel(dinnerSongs.length),
+                      ctaLabel: dinnerSongs.length === 0 ? "Add Songs" : "Edit List",
+                      icon: "🍽",
+                      tintClass: "bg-gradient-to-br from-stone-100/80 via-white to-white",
+                      iconClass: "bg-stone-100 text-stone-600",
+                      onClick: () => openMusicHubSongList("dinner"),
+                      disabled: !canManageMusic && dinnerSongs.length === 0,
+                    })}
+                  </div>
+                </div>
                 <div className="flex items-center gap-3">
                   <SeratoLibraryStatusCard
                     onGoToDjTools={() => {
@@ -21413,6 +21533,8 @@ export default function Home() {
                     mustPlaySongs={mustPlaySongs}
                     playIfPossibleSongs={playIfPossibleSongs}
                     doNotPlaySongs={doNotPlaySongs}
+                    cocktailHourSongs={cocktailHourSongs}
+                    dinnerSongs={dinnerSongs}
                     defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
                     onGoToLibrary={() => {
                       setAppMode("events");
@@ -22150,6 +22272,54 @@ export default function Home() {
                   buttonVariant: isCoupleView ? "couple" : "default",
                 })
               )}
+
+              {!isCoupleView && renderMusicListSummaryCard({
+                listType: "cocktailHour",
+                id: "music-hub-cocktail-hour",
+                title: "Cocktail Hour",
+                description: "Songs planned for cocktail hour — matched against your library for crate export.",
+                songs: cocktailHourSongs,
+                emptyTitle: "No cocktail hour songs yet",
+                emptyDescription: "Add songs to build your cocktail hour crate.",
+                emptyPrimaryAction: {
+                  label: "Add from quick add",
+                  onClick: () => {
+                    setNewSongListType("cocktailHour");
+                    setMusicAddSongOpen(true);
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  },
+                  disabled: !canManageMusic,
+                },
+                className: "border-stone-300 bg-white shadow-none",
+              })}
+
+              {!isCoupleView && renderMusicListSummaryCard({
+                listType: "dinner",
+                id: "music-hub-dinner",
+                title: "Dinner",
+                description: "Songs planned for dinner — matched against your library for crate export.",
+                songs: dinnerSongs,
+                emptyTitle: "No dinner songs yet",
+                emptyDescription: "Add songs to build your dinner crate.",
+                emptyPrimaryAction: {
+                  label: "Add from quick add",
+                  onClick: () => {
+                    setNewSongListType("dinner");
+                    setMusicAddSongOpen(true);
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  },
+                  disabled: !canManageMusic,
+                },
+                className: "border-stone-300 bg-white shadow-none",
+              })}
             </div>
             ) : null}
 
