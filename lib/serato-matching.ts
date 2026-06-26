@@ -40,8 +40,13 @@ export type LibraryCheckSummary = {
 
 // ─── Matching ─────────────────────────────────────────────────────────────────
 
-/** Score threshold to consider a match meaningful. */
-const MIN_SCORE = 1;
+/**
+ * Score threshold to consider a match meaningful.
+ * Score 1 = title "contains" match — too loose, pulls in false positives.
+ * Score 2 = exact title match (minimum acceptable confidence).
+ * Score 3 = exact title + artist match (highest confidence).
+ */
+const MIN_SCORE = 2;
 
 /**
  * Find all library tracks that match a client song, sorted by score descending.

@@ -96,7 +96,7 @@ function ResultRow({
   result: MatchResult;
   onSelectCandidate: (songId: string, candidateId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(result.status === "multiple");
+  const [expanded, setExpanded] = useState(false);
   const { clientSong, status, candidates, selectedCandidateId } = result;
 
   const selectedTrack = candidates.find((c) => c.id === selectedCandidateId);
@@ -489,7 +489,7 @@ export function SeratoSongChecker({
             title={LIST_LABELS[listType]}
             results={results}
             onSelectCandidate={handleSelectCandidate}
-            defaultOpen={listType === "mustPlay"}
+            defaultOpen={false}
           />
         );
       })}
