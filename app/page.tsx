@@ -2828,7 +2828,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
       : []),
     ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
-    ...(s.sectionPlanningQuestionsEnabled ? (["Planning Assistant"] as Screen[]) : []),
+    // Planning Assistant hidden — guidance lives within each section workspace
     ...(s.sectionCeremonyEnabled && !s.sectionReceptionTimelineEnabled ? (["Ceremony"] as Screen[]) : []),
     ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
@@ -11018,6 +11018,7 @@ export default function Home() {
     if (screen === "Event Prep") return "ShowFlow Brief";
     if (screen === "Scripts") return "Show Book";
     if (screen === "Event Team") return "People & Vendors";
+    if (screen === "Planning Checklist") return "Your Progress";
     return screen;
   };
 
@@ -26718,20 +26719,106 @@ export default function Home() {
 
         {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && sectionPlanningChecklistEnabled && (
           <section className={workspaceSectionClass}>
-            <EventHomeNav trail={["Planning Checklist"]} onBack={() => setActiveScreen("Dashboard")} />
-            <PremiumCard variant="accent">
-              <div className="flex items-center justify-between">
-                <SectionTitle>Planning Checklist</SectionTitle>
-                <span className="rounded-full bg-[#C79A5A]/20 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
-                  {completionPercent}% complete
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-stone-600">
-                Track major planning milestones and jump directly to the linked section.
-              </p>
-            </PremiumCard>
+            <EventHomeNav trail={["Your Progress"]} onBack={() => setActiveScreen("Dashboard")} />
 
-            {planningChecklist.map((task) => (
+            {isCoupleView ? (
+              <>
+                <WorkspaceHero
+                  eyebrow="Your Progress"
+                  title={
+                    completionPercent === 100
+                      ? "You're all set!"
+                      : completionPercent >= 50
+                        ? "You're making great progress."
+                        : "Let's build your perfect day."
+                  }
+                  subtitle={
+                    completionPercent === 100
+                      ? "Everything is in place for your big day."
+                      : `${completionPercent}% complete — keep going.`
+                  }
+                  description="Here's where everything stands across your wedding planning. Each section shows what's done and what still needs attention."
+                  coverImageSrc={musicHubHeroImageSrc}
+                  summaryTitle={coupleDisplayName.trim() || "Your Wedding"}
+                  summarySubtitle={weddingDetails.date || "Your Wedding Day"}
+                />
+                <div className="grid gap-3">
+                  {(
+                    [
+                      { id: "event-details", title: "Event Details", taskIds: ["complete-event-details"] },
+                      { id: "timeline", title: "Your Timeline", taskIds: ["review-timeline", "add-formal-dance-songs", "add-grand-entrance-details", "choose-ceremony-songs"] },
+                      { id: "music", title: "Music Hub", taskIds: ["add-must-play-songs", "build-must-play-list", "add-do-not-play-songs"] },
+                      { id: "team", title: "People & Vendors", taskIds: ["add-planner-contact"] },
+                      { id: "guest-requests", title: "Guest Requests", taskIds: ["approve-guest-requests"] },
+                    ] as const
+                  ).map((section) => {
+                    const tasks = planningChecklist.filter((t) => section.taskIds.includes(t.id as never));
+                    const complete = tasks.filter((t) => t.status === "Complete").length;
+                    const total = tasks.length;
+                    const allDone = total > 0 && complete === total;
+                    const noneStarted = complete === 0;
+                    const firstIncomplete = tasks.find((t) => t.status !== "Complete");
+                    return (
+                      <div
+                        key={section.id}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-[#2f4a3e]/10 bg-white px-5 py-4"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span
+                            className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                              allDone ? "bg-[#4a7c59]" : noneStarted ? "bg-stone-300" : "bg-[#b08a45]"
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-stone-900">{section.title}</p>
+                            <p className="truncate text-xs text-stone-500">
+                              {allDone
+                                ? "All set"
+                                : noneStarted
+                                  ? "Not started yet"
+                                  : `${complete} of ${total} complete`}
+                              {!allDone && firstIncomplete?.missingNotes[0]
+                                ? ` · ${firstIncomplete.missingNotes[0]}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            firstIncomplete
+                              ? navigateToChecklistTask(firstIncomplete.id)
+                              : tasks[0]
+                                ? setActiveScreen(tasks[0].linkedSection)
+                                : undefined
+                          }
+                          className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-semibold transition ${
+                            allDone
+                              ? "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                              : "border-[#2f4a3e]/30 bg-[#2f4a3e] text-white hover:bg-[#3a5c4d]"
+                          }`}
+                        >
+                          {allDone ? "Review" : "Continue"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <PremiumCard variant="accent">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>Planning Checklist</SectionTitle>
+                    <span className="rounded-full bg-[#C79A5A]/20 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
+                      {completionPercent}% complete
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-stone-600">
+                    Track major planning milestones and jump directly to the linked section.
+                  </p>
+                </PremiumCard>
+                {planningChecklist.map((task) => (
               <PremiumCard key={`task-${task.id}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -26895,7 +26982,9 @@ export default function Home() {
                   </PrimaryButton>
                 </div>
               </PremiumCard>
-            ))}
+                ))}
+              </>
+            )}
           </section>
         )}
 
