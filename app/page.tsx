@@ -3957,8 +3957,8 @@ export default function Home() {
   const [plannerTimelineReplaceConfirmOpen, setPlannerTimelineReplaceConfirmOpen] = useState(false);
   const [plannerTimelineImportConfirmation, setPlannerTimelineImportConfirmation] =
     useState<PlannerTimelineImportConfirmation | null>(null);
-  const [plannerTimelineProcessingCompletedSteps, setPlannerTimelineProcessingCompletedSteps] = useState(0);
-  const plannerTimelineProcessingCompletedStepsRef = useRef(0);
+  const [plannerTimelineProcessingWait, setPlannerTimelineProcessingWait] =
+    useState<"initial" | "slow" | "long">("initial");
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Inline insert directly after a reception timeline row (+ After). */
@@ -15391,8 +15391,7 @@ export default function Home() {
     if (!file) return;
 
     setPlannerTimelineImport({ status: "loading" });
-    plannerTimelineProcessingCompletedStepsRef.current = 0;
-    setPlannerTimelineProcessingCompletedSteps(0);
+    setPlannerTimelineProcessingWait("initial");
     setPlannerTimelineReplaceConfirmOpen(false);
     setPlannerTimelineImportConfirmation(null);
 
@@ -15411,15 +15410,6 @@ export default function Home() {
           message: payload?.message ?? "Could not preview planner timeline import.",
         });
         return;
-      }
-
-      while (plannerTimelineProcessingCompletedStepsRef.current < 4) {
-        await new Promise((resolve) => window.setTimeout(resolve, 280));
-        setPlannerTimelineProcessingCompletedSteps((current) => {
-          const next = Math.min(current + 1, 4);
-          plannerTimelineProcessingCompletedStepsRef.current = next;
-          return next;
-        });
       }
 
       setPlannerTimelineImport({
@@ -18749,28 +18739,24 @@ export default function Home() {
     />
   ) : null;
 
-  const plannerTimelineProcessingSteps = [
-    "Reading your planner's timeline",
-    "Finding the important moments",
-    "Organizing Ceremony and Reception",
-    "Building your editable timeline",
-  ];
-
   useEffect(() => {
     if (plannerTimelineImport.status !== "loading") {
+      setPlannerTimelineProcessingWait("initial");
       return;
     }
 
-    const interval = window.setInterval(() => {
-      setPlannerTimelineProcessingCompletedSteps((current) => {
-        const next = Math.min(current + 1, plannerTimelineProcessingSteps.length);
-        plannerTimelineProcessingCompletedStepsRef.current = next;
-        return next;
-      });
-    }, 1200);
+    const slowTimer = window.setTimeout(() => {
+      setPlannerTimelineProcessingWait("slow");
+    }, 8000);
+    const longTimer = window.setTimeout(() => {
+      setPlannerTimelineProcessingWait("long");
+    }, 18000);
 
-    return () => window.clearInterval(interval);
-  }, [plannerTimelineImport.status, plannerTimelineProcessingSteps.length]);
+    return () => {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(longTimer);
+    };
+  }, [plannerTimelineImport.status]);
 
   useEffect(() => {
     if (!plannerTimelineImportConfirmation) return;
@@ -18883,44 +18869,29 @@ export default function Home() {
 
       {plannerTimelineImport.status === "loading" ? (
         <div className="mt-5 flex justify-center rounded-[1.5rem] border border-[#C79A5A]/20 bg-[#fbfaf7] px-4 py-7 shadow-inner transition-all duration-500 ease-out">
-          <div className="mx-auto w-full max-w-md">
+          <div className="mx-auto w-full max-w-md text-center">
             <div className="text-center">
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-white text-xl shadow-sm ring-1 ring-stone-200">
-                <span aria-hidden>✨</span>
+              <div className="mx-auto mb-4 grid h-12 w-12 animate-pulse place-items-center rounded-full bg-white text-xl shadow-sm ring-1 ring-stone-200">
+                <span aria-hidden>📄</span>
               </div>
               <p className="text-base font-semibold tracking-tight text-stone-950">
-                Building your ShowFlow timeline...
+                Turning your planner into a ShowFlow timeline...
               </p>
-              <p className="mt-2 text-xs leading-relaxed text-stone-500">
-                This usually takes a few seconds.
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-stone-600">
+                We&apos;re reading your planner&apos;s document and organizing the important moments into your
+                ShowFlow timeline.
               </p>
+              <p className="mx-auto mt-3 max-w-sm text-xs leading-relaxed text-stone-500">
+                This usually takes about 5–10 seconds.
+              </p>
+              {plannerTimelineProcessingWait !== "initial" ? (
+                <p className="mx-auto mt-3 max-w-sm text-xs font-semibold leading-relaxed text-stone-600 transition-opacity duration-500 ease-out">
+                  {plannerTimelineProcessingWait === "slow"
+                    ? "Some planner timelines take a little longer depending on the document quality."
+                    : "Thanks for waiting. We're still working on your timeline."}
+                </p>
+              ) : null}
             </div>
-            <ol className="mt-6 space-y-3">
-              {plannerTimelineProcessingSteps.map((step, index) => {
-                const complete = plannerTimelineProcessingCompletedSteps > index;
-                return (
-                  <li
-                    key={step}
-                    className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm transition-all duration-500 ease-out ${
-                      complete
-                        ? "translate-y-0 border-[#7F8F7A]/30 bg-white text-stone-950 opacity-100 shadow-sm"
-                        : "translate-y-1 border-stone-200/80 bg-white/60 text-stone-500 opacity-80"
-                    }`}
-                  >
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold transition-all duration-500 ease-out ${
-                        complete
-                          ? "bg-[#7F8F7A] text-white"
-                          : "bg-stone-100 text-stone-500 ring-1 ring-stone-200"
-                      }`}
-                    >
-                      {complete ? "✓" : index + 1}
-                    </span>
-                    <span className="font-medium">{step}</span>
-                  </li>
-                );
-              })}
-            </ol>
           </div>
         </div>
       ) : null}
@@ -18935,11 +18906,14 @@ export default function Home() {
         <div className="mt-5 transition-all duration-500 ease-out">
           {plannerTimelineImport.view === "ready" ? (
             <div className="rounded-[1.5rem] border border-[#7F8F7A]/30 bg-[#f6f8f2] px-4 py-5 text-center shadow-sm transition-all duration-500 ease-out sm:px-6 sm:py-6">
-              <p className="text-lg font-semibold tracking-tight text-stone-950">✅ Your timeline is ready!</p>
+              <p className="text-lg font-semibold tracking-tight text-stone-950">🎉 Your timeline is ready!</p>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-stone-600">
-                We found {plannerTimelineImport.moments.length} timeline{" "}
-                {plannerTimelineImport.moments.length === 1 ? "moment" : "moments"} and organized them into your
-                ShowFlow timeline.
+                We found {plannerTimelineImport.moments.length}{" "}
+                {plannerTimelineImport.moments.length === 1 ? "moment" : "moments"} in your planner and turned
+                them into your ShowFlow timeline.
+              </p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-stone-600">
+                Everything is fully editable, so you can make any changes you&apos;d like.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <span className="rounded-full border border-[#7F8F7A]/35 bg-white px-3 py-1 text-xs font-semibold text-[#3f4d3d] shadow-sm">
@@ -18960,7 +18934,7 @@ export default function Home() {
                   }
                   className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
                 >
-                  Review Timeline
+                  Review My Timeline
                 </PrimaryButton>
                 <PrimaryButton
                   type="button"
@@ -18971,7 +18945,7 @@ export default function Home() {
                   }}
                   className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
                 >
-                  Upload Different Timeline
+                  Upload a Different Timeline
                 </PrimaryButton>
               </div>
             </div>
