@@ -13301,9 +13301,7 @@ export default function Home() {
   const musicAnySongListExpanded =
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
-    musicExpandedSongLists.doNotPlay ||
-    musicExpandedSongLists.cocktailHour ||
-    musicExpandedSongLists.dinner;
+    musicExpandedSongLists.doNotPlay;
 
   const musicHubSongCountLabel = (count: number) =>
     `${count} song${count === 1 ? "" : "s"} added`;
@@ -21478,73 +21476,7 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
-            {renderMusicHubNextUpSection()}
-
-            {!isCoupleView && (effectiveRole === "DJ" || effectiveRole === "Admin") && (
-              <div className="space-y-4">
-                {/* DJ-only song lists: Cocktail Hour + Dinner */}
-                <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">DJ playlists</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {renderMusicHubActionCard({
-                      eyebrow: "DJ list",
-                      title: "Cocktail Hour",
-                      description: "Songs curated for cocktail hour — export as a Serato crate.",
-                      countLabel: musicHubSongCountLabel(cocktailHourSongs.length),
-                      ctaLabel: cocktailHourSongs.length === 0 ? "Add Songs" : "Edit List",
-                      icon: "🥂",
-                      tintClass: "bg-gradient-to-br from-amber-50/70 via-white to-white",
-                      iconClass: "bg-amber-100 text-amber-700",
-                      onClick: () => openMusicHubSongList("cocktailHour"),
-                      disabled: !canManageMusic && cocktailHourSongs.length === 0,
-                    })}
-                    {renderMusicHubActionCard({
-                      eyebrow: "DJ list",
-                      title: "Dinner",
-                      description: "Songs curated for dinner service — export as a Serato crate.",
-                      countLabel: musicHubSongCountLabel(dinnerSongs.length),
-                      ctaLabel: dinnerSongs.length === 0 ? "Add Songs" : "Edit List",
-                      icon: "🍽",
-                      tintClass: "bg-gradient-to-br from-stone-100/80 via-white to-white",
-                      iconClass: "bg-stone-100 text-stone-600",
-                      onClick: () => openMusicHubSongList("dinner"),
-                      disabled: !canManageMusic && dinnerSongs.length === 0,
-                    })}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <SeratoLibraryStatusCard
-                    onGoToDjTools={() => {
-                      setAppMode("events");
-                      setActiveScreen("DJ Tools");
-                      void commitActiveEventPlanningToEventsState().catch(() => {});
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSeratoChecker((v) => !v)}
-                    className="shrink-0 rounded-xl border border-[#2f4a3e]/20 bg-white px-3 py-2 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5]"
-                  >
-                    {showSeratoChecker ? "Hide Check" : "Check Songs"}
-                  </button>
-                </div>
-                {showSeratoChecker && (
-                  <SeratoSongChecker
-                    mustPlaySongs={mustPlaySongs}
-                    playIfPossibleSongs={playIfPossibleSongs}
-                    doNotPlaySongs={doNotPlaySongs}
-                    cocktailHourSongs={cocktailHourSongs}
-                    dinnerSongs={dinnerSongs}
-                    defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
-                    onGoToLibrary={() => {
-                      setAppMode("events");
-                      setActiveScreen("DJ Tools");
-                      void commitActiveEventPlanningToEventsState().catch(() => {});
-                    }}
-                  />
-                )}
-              </div>
-            )}
+            {isCoupleView ? renderMusicHubNextUpSection() : null}
 
             {isCoupleView ? (
               <>
@@ -22005,315 +21937,201 @@ export default function Home() {
               </PremiumCard>
             )}
 
-            <PremiumCard
-              id="music-hub-taste-profile"
-              className={`border-stone-200 bg-white shadow-sm ring-1 ring-stone-200/80 ${isCoupleView ? "order-[30]" : ""}`}
-              style={isCoupleView ? { order: 7 } : undefined}
-            >
-              <SectionTitle className="text-stone-950">
-                {isCoupleView ? "Dance Floor Favorites" : "Music taste profile"}
-              </SectionTitle>
-              <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                {isCoupleView
-                  ? "Tell us about the kind of dance floor you’re hoping for."
-                  : "How do you want the event to feel? Tap what fits—this guides your DJ and keeps planning collaborative, not a giant manual playlist."}
-              </p>
-              {isCoupleView &&
-              (coupleMomentOpenDancingRef.guestCount ||
-                coupleMomentOpenDancingRef.ageGroup ||
-                coupleMomentOpenDancingRef.partyRating ||
-                coupleMomentOpenDancingRef.guestRequestPolicy) ? (
-                <dl className="mt-4 grid gap-3 rounded-xl border border-stone-200 bg-stone-50/70 px-4 py-4 sm:grid-cols-2">
-                  {coupleMomentOpenDancingRef.guestCount ? (
+            {/* ── Client Vibe Brief — compact read-only summary for DJ/Admin ── */}
+            {(
+              musicGenreEraSelections.length > 0 ||
+              musicTasteProfile.danceFloorStyles.length > 0 ||
+              musicTasteProfile.crowdPreferences.length > 0 ||
+              musicTasteProfile.musicBehavior.length > 0 ||
+              (musicTasteProfile.lineDancesAndGroupSongs ?? []).length > 0 ||
+              !!musicTasteProfile.danceFloorVibeNotes?.trim()
+            ) && (
+              <PremiumCard className="border-stone-200 bg-white shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Client vibe brief</p>
+                <div className="mt-4 space-y-3 text-sm">
+                  {musicGenreEraSelections.length > 0 && (
                     <div>
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest count</dt>
-                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.guestCount}</dd>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Genres &amp; eras</span>
+                      <p className="mt-1 font-medium text-stone-800">{musicGenreEraSelections.join(" · ")}</p>
+                      {!!musicVibeDetail.genres?.trim() && (
+                        <p className="mt-0.5 italic text-stone-600">{musicVibeDetail.genres}</p>
+                      )}
                     </div>
-                  ) : null}
-                  {coupleMomentOpenDancingRef.ageGroup ? (
+                  )}
+                  {musicTasteProfile.danceFloorStyles.length > 0 && (
                     <div>
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Age groups</dt>
-                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.ageGroup}</dd>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Dance floor style</span>
+                      <p className="mt-1 font-medium text-stone-800">{musicTasteProfile.danceFloorStyles.join(" · ")}</p>
                     </div>
-                  ) : null}
-                  {coupleMomentOpenDancingRef.partyRating ? (
+                  )}
+                  {musicTasteProfile.crowdPreferences.length > 0 && (
                     <div>
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Crowd energy</dt>
-                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.partyRating}</dd>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Crowd</span>
+                      <p className="mt-1 font-medium text-stone-800">{musicTasteProfile.crowdPreferences.join(" · ")}</p>
                     </div>
-                  ) : null}
-                  {coupleMomentOpenDancingRef.guestRequestPolicy ? (
+                  )}
+                  {musicTasteProfile.musicBehavior.length > 0 && (
                     <div>
-                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Guest Song Requests</dt>
-                      <dd className="mt-1 text-sm font-medium text-stone-900">{coupleMomentOpenDancingRef.guestRequestPolicy}</dd>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Music behavior</span>
+                      <p className="mt-1 font-medium text-stone-800">{musicTasteProfile.musicBehavior.join(" · ")}</p>
                     </div>
-                  ) : null}
-                </dl>
-              ) : null}
-              <div className="mt-5 space-y-6">
-                <div>
-                  <p className={lightUiFormLabelClass}>Dance floor style</p>
-                  <div className="mt-2.5">
-                    <MusicHubChipRow
-                      keyPrefix="taste-dance"
-                      options={MUSIC_TASTE_DANCE_FLOOR_OPTIONS}
-                      selected={musicTasteProfile.danceFloorStyles}
-                      disabled={!canManageMusic}
-                      onToggle={(label) => toggleMusicTasteChip("danceFloorStyles", label)}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  </div>
+                  )}
+                  {(musicTasteProfile.lineDancesAndGroupSongs ?? []).length > 0 && (
+                    <div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Line dances &amp; group songs</span>
+                      <p className="mt-1 font-medium text-stone-800">{(musicTasteProfile.lineDancesAndGroupSongs ?? []).join(" · ")}</p>
+                    </div>
+                  )}
+                  {!!musicTasteProfile.danceFloorVibeNotes?.trim() && (
+                    <div className="rounded-xl border border-stone-100 bg-stone-50/50 px-4 py-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Vibe notes</span>
+                      <p className="mt-1 leading-relaxed text-stone-700">{musicTasteProfile.danceFloorVibeNotes}</p>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p className={lightUiFormLabelClass}>Crowd preferences</p>
-                  <div className="mt-2.5">
-                    <MusicHubChipRow
-                      keyPrefix="taste-crowd"
-                      options={MUSIC_TASTE_CROWD_OPTIONS}
-                      selected={musicTasteProfile.crowdPreferences}
-                      disabled={!canManageMusic}
-                      onToggle={(label) => toggleMusicTasteChip("crowdPreferences", label)}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className={lightUiFormLabelClass}>Music behavior</p>
-                  <div className="mt-2.5">
-                    <MusicHubChipRow
-                      keyPrefix="taste-behavior"
-                      options={MUSIC_TASTE_BEHAVIOR_OPTIONS}
-                      selected={musicTasteProfile.musicBehavior}
-                      disabled={!canManageMusic}
-                      onToggle={(label) => toggleMusicTasteChip("musicBehavior", label)}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className={lightUiFormLabelClass}>Line dances &amp; group songs</p>
-                  {!isCoupleView ? (
-                    <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                      No judgement here — check all that apply.
-                    </p>
-                  ) : null}
-                  <div className="mt-2.5">
-                    <MusicHubChipRow
-                      keyPrefix="taste-line-dance"
-                      options={MUSIC_TASTE_LINE_DANCE_OPTIONS}
-                      selected={musicTasteProfile.lineDancesAndGroupSongs ?? []}
-                      disabled={!canManageMusic}
-                      onToggle={(label) => toggleMusicTasteChip("lineDancesAndGroupSongs", label)}
-                      buttonVariant={isCoupleView ? "couple" : "default"}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 border-t border-stone-100 pt-6">
-                <TextArea
-                  id="music-taste-dance-floor-vibe"
-                  label="Describe your ideal dance floor vibe (optional)"
-                  value={musicTasteProfile.danceFloorVibeNotes ?? ""}
-                  onChange={updateMusicHubTasteNotes}
-                  rows={3}
-                  placeholder="e.g. Big energy after dinner, singalongs guests know, then room for a few surprises…"
-                  disabled={!canManageMusic}
-                />
-                {!isCoupleView ? (
-                  <p className="mt-1.5 text-xs leading-relaxed text-stone-500">
-                    Describe the kind of energy or atmosphere you want your guests to experience.
-                  </p>
-                ) : null}
-              </div>
-            </PremiumCard>
-
-            <PremiumCard
-              className={`border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[31]" : ""}`}
-              style={isCoupleView ? { order: 8 } : undefined}
-            >
-              <SectionTitle className="text-stone-950">
-                {isCoupleView ? "Favorite Genres" : "Genres & eras"}
-              </SectionTitle>
-              <p className="mt-1 text-sm text-stone-600">
-                {isCoupleView
-                  ? "Choose the sounds, decades, and styles that feel most like your celebration."
-                  : "Tap everything that fits—this is a quick map, not a test."}
-              </p>
-              <div className="mt-4">
-                <MusicHubChipRow
-                  keyPrefix="genre"
-                  options={MUSIC_GENRE_ERA_OPTIONS}
-                  selected={musicGenreEraSelections}
-                  disabled={!canManageMusic}
-                  onToggle={toggleGenreEraChip}
-                  buttonVariant={isCoupleView ? "couple" : "default"}
-                />
-              </div>
-              {genreOtherSelected ? (
-                <div className="mt-5 border-t border-stone-100 pt-5">
-                  <TextArea
-                    id="music-genre-other-styles"
-                    label="Other styles (describe)"
-                    value={musicVibeDetail.genres ?? ""}
-                    onChange={(value) => updateMusicHubVibeDetailField("genres", value)}
-                    rows={2}
-                    placeholder="e.g. Afrobeats, K-pop, classic rock deep cuts…"
-                    disabled={!canManageMusic}
-                  />
-                </div>
-              ) : null}
-            </PremiumCard>
-
-            {musicAnySongListExpanded && (sectionMustPlayEnabled || sectionDoNotPlayEnabled) && (
-              <div
-                className={`flex flex-col gap-1.5 ${isCoupleView ? "order-[18]" : ""}`}
-                style={isCoupleView ? { order: 4 } : undefined}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                  {isCoupleView ? "Must Play List" : "Priority songs"}
-                </p>
-                <p className="text-xs leading-relaxed text-stone-600">
-                  {isCoupleView
-                    ? "These are the songs that absolutely have to be part of your celebration."
-                    : "Three operational tiers your DJ scans on event day — what to play, what to slide in if it fits, and what to steer away from."}
-                </p>
-              </div>
+              </PremiumCard>
             )}
 
-            {musicAnySongListExpanded ? (
-            <div className={isCoupleView ? "contents" : "space-y-5"}>
-              {sectionMustPlayEnabled && (
-                renderMusicListSummaryCard({
-                  listType: "mustPlay",
-                  id: "music-hub-must-play",
-                  title: isCoupleView ? "Must Play List" : "Must play",
-                  description: isCoupleView
-                    ? "These are the songs that absolutely have to be part of your celebration."
-                    : "Songs that should absolutely make the night.",
-                  songs: mustPlaySongs,
-                  emptyTitle: "No must-plays yet",
-                  emptyDescription: "Name a few songs your DJ should absolutely work in—three strong picks is a great start.",
-                  emptyPrimaryAction: {
-                    label: "Add must-play song",
-                    onClick: () => {
-                      setNewSongListType("mustPlay");
-                      setMusicAddSongOpen(true);
-                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  },
-                  variant: "accent",
-                  className: isCoupleView ? "order-[20]" : "",
-                  style: isCoupleView ? { order: 5 } : undefined,
-                  buttonVariant: isCoupleView ? "couple" : "default",
-                })
-              )}
 
-              {sectionMustPlayEnabled && (
-                renderMusicListSummaryCard({
-                  listType: "playIfPossible",
-                  id: "music-hub-play-if-possible",
-                  title: "Dance Floor Favorites",
-                  description: isCoupleView
-                    ? "Songs and artists that would feel good if the room is ready for them."
-                    : "Nice-to-haves when the moment feels right—never a guarantee.",
-                  songs: playIfPossibleSongs,
-                  emptyTitle: "No dance floor favorites yet",
-                  emptyDescription: "Optional—add a few if specific songs would make you smile.",
-                  emptyPrimaryAction: {
-                    label: "Add from box above",
-                    onClick: () => {
-                      setNewSongListType("playIfPossible");
-                      setMusicAddSongOpen(true);
-                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  },
-                  className: `${isCoupleView ? "order-[32] border-emerald-200/80" : "border-[#7F8F7A]/45"} border bg-white shadow-none`,
-                  style: isCoupleView ? { order: 9 } : undefined,
-                  buttonVariant: isCoupleView ? "couple" : "default",
-                })
-              )}
+            {/* ── DJ Workspace ── */}
+            <div className="relative flex items-center gap-3 py-1">
+              <div className="h-px flex-1 bg-stone-200" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+                DJ Workspace
+              </span>
+              <div className="h-px flex-1 bg-stone-200" />
+            </div>
 
-              {sectionDoNotPlayEnabled && (
-                renderMusicListSummaryCard({
-                  listType: "doNotPlay",
-                  id: "music-hub-do-not-play",
-                  title: isCoupleView ? "Songs to Avoid" : "Do not play",
-                  description: isCoupleView
-                    ? "Are there any songs or artists you’d rather not hear on your wedding day?"
-                    : "Songs, artists, genres, or vibes to steer away from—notes optional.",
-                  songs: doNotPlaySongs,
-                  emptyTitle: "Nothing on the block list",
-                  emptyDescription: "A short “do not play” keeps the vibe aligned.",
-                  emptyPrimaryAction: {
-                    label: "Add from quick add",
-                    onClick: () => {
-                      setNewSongListType("doNotPlay");
-                      setMusicAddSongOpen(true);
-                      document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  },
-                  className: `border-stone-300 bg-white shadow-none ${isCoupleView ? "order-[40]" : ""}`,
-                  style: isCoupleView ? { order: 12 } : undefined,
-                  buttonVariant: isCoupleView ? "couple" : "default",
-                })
-              )}
+            {/* Serato library status + Check Songs */}
+            <div className="flex items-center gap-3">
+              <SeratoLibraryStatusCard
+                onGoToDjTools={() => {
+                  setAppMode("events");
+                  setActiveScreen("DJ Tools");
+                  void commitActiveEventPlanningToEventsState().catch(() => {});
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowSeratoChecker((v) => !v)}
+                className="shrink-0 rounded-xl border border-[#2f4a3e]/20 bg-white px-3 py-2 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5]"
+              >
+                {showSeratoChecker ? "Hide Check" : "Check Songs"}
+              </button>
+            </div>
+            {showSeratoChecker && (
+              <SeratoSongChecker
+                mustPlaySongs={mustPlaySongs}
+                playIfPossibleSongs={playIfPossibleSongs}
+                doNotPlaySongs={doNotPlaySongs}
+                cocktailHourSongs={cocktailHourSongs}
+                dinnerSongs={dinnerSongs}
+                defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
+                onGoToLibrary={() => {
+                  setAppMode("events");
+                  setActiveScreen("DJ Tools");
+                  void commitActiveEventPlanningToEventsState().catch(() => {});
+                }}
+              />
+            )}
 
-              {!isCoupleView && renderMusicListSummaryCard({
+            {/* All playlists — organized by segment */}
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Playlists</p>
+            <div className="space-y-3">
+              {renderMusicListSummaryCard({
                 listType: "cocktailHour",
                 id: "music-hub-cocktail-hour",
                 title: "Cocktail Hour",
-                description: "Songs planned for cocktail hour — matched against your library for crate export.",
+                description: "Songs for cocktail hour — export as a Serato crate.",
                 songs: cocktailHourSongs,
                 emptyTitle: "No cocktail hour songs yet",
                 emptyDescription: "Add songs to build your cocktail hour crate.",
                 emptyPrimaryAction: {
-                  label: "Add from quick add",
+                  label: "Add songs",
                   onClick: () => {
                     setNewSongListType("cocktailHour");
                     setMusicAddSongOpen(true);
-                    document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
                     window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
                   },
                   disabled: !canManageMusic,
                 },
                 className: "border-stone-300 bg-white shadow-none",
               })}
-
-              {!isCoupleView && renderMusicListSummaryCard({
+              {renderMusicListSummaryCard({
                 listType: "dinner",
                 id: "music-hub-dinner",
                 title: "Dinner",
-                description: "Songs planned for dinner — matched against your library for crate export.",
+                description: "Songs for dinner service — export as a Serato crate.",
                 songs: dinnerSongs,
                 emptyTitle: "No dinner songs yet",
                 emptyDescription: "Add songs to build your dinner crate.",
                 emptyPrimaryAction: {
-                  label: "Add from quick add",
+                  label: "Add songs",
                   onClick: () => {
                     setNewSongListType("dinner");
                     setMusicAddSongOpen(true);
-                    document.getElementById("music-hub-quick-add")?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  },
+                  disabled: !canManageMusic,
+                },
+                className: "border-stone-300 bg-white shadow-none",
+              })}
+              {sectionMustPlayEnabled && renderMusicListSummaryCard({
+                listType: "playIfPossible",
+                id: "music-hub-play-if-possible",
+                title: "Dance Floor Favorites",
+                description: "Nice-to-haves when the moment feels right.",
+                songs: playIfPossibleSongs,
+                emptyTitle: "No dance floor favorites yet",
+                emptyDescription: "Optional—add a few if specific songs would make you smile.",
+                emptyPrimaryAction: {
+                  label: "Add songs",
+                  onClick: () => {
+                    setNewSongListType("playIfPossible");
+                    setMusicAddSongOpen(true);
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  },
+                  disabled: !canManageMusic,
+                },
+                className: "border border-[#7F8F7A]/45 bg-white shadow-none",
+              })}
+              {sectionMustPlayEnabled && renderMusicListSummaryCard({
+                listType: "mustPlay",
+                id: "music-hub-must-play",
+                title: "Must Play",
+                description: "Songs that should absolutely make the night.",
+                songs: mustPlaySongs,
+                emptyTitle: "No must-plays yet",
+                emptyDescription: "Name a few songs your DJ should absolutely work in.",
+                emptyPrimaryAction: {
+                  label: "Add must-play song",
+                  onClick: () => {
+                    setNewSongListType("mustPlay");
+                    setMusicAddSongOpen(true);
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
+                  },
+                  disabled: !canManageMusic,
+                },
+                variant: "accent",
+              })}
+              {sectionDoNotPlayEnabled && renderMusicListSummaryCard({
+                listType: "doNotPlay",
+                id: "music-hub-do-not-play",
+                title: "Do Not Play",
+                description: "Songs, artists, or vibes to steer away from.",
+                songs: doNotPlaySongs,
+                emptyTitle: "Nothing on the block list",
+                emptyDescription: "A short do-not-play keeps the vibe aligned.",
+                emptyPrimaryAction: {
+                  label: "Add to avoid list",
+                  onClick: () => {
+                    setNewSongListType("doNotPlay");
+                    setMusicAddSongOpen(true);
+                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
                     window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
                   },
                   disabled: !canManageMusic,
@@ -22321,7 +22139,6 @@ export default function Home() {
                 className: "border-stone-300 bg-white shadow-none",
               })}
             </div>
-            ) : null}
 
             <PremiumCard
               id="music-hub-quick-add"
