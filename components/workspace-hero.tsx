@@ -95,7 +95,7 @@ export function WorkspaceHero({
               <div className="pointer-events-none absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-[#2f4a3e]/10 blur-3xl" />
               <div className="relative">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
+                  <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#f7f5f1] shadow-sm">
                     {coverImageSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

@@ -18807,7 +18807,7 @@ export default function Home() {
           title="Your Event Timeline"
           subtitle={
             timelineHeroHasMoments
-              ? "Everything is coming together."
+              ? "Your wedding day is taking shape."
               : "Every great celebration starts with a great plan."
           }
           description={
