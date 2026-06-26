@@ -1177,12 +1177,14 @@ type PlannerTimelineImportState =
   | {
       status: "success";
       source?: PlannerTimelineImportPreviewPayload["source"];
+      view: "ready" | "preview";
       moments: PlannerTimelineImportMoment[];
     }
   | { status: "error"; message: string };
 
 type PlannerTimelineImportConfirmation = {
   momentsAdded: number;
+  firstItemId?: string;
 };
 
 type RunOfShowTimelineFlagsPersistResult =
@@ -3955,6 +3957,7 @@ export default function Home() {
   const [plannerTimelineReplaceConfirmOpen, setPlannerTimelineReplaceConfirmOpen] = useState(false);
   const [plannerTimelineImportConfirmation, setPlannerTimelineImportConfirmation] =
     useState<PlannerTimelineImportConfirmation | null>(null);
+  const [plannerTimelineProcessingStep, setPlannerTimelineProcessingStep] = useState(0);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Inline insert directly after a reception timeline row (+ After). */
@@ -15387,6 +15390,7 @@ export default function Home() {
     if (!file) return;
 
     setPlannerTimelineImport({ status: "loading" });
+    setPlannerTimelineProcessingStep(0);
     setPlannerTimelineReplaceConfirmOpen(false);
     setPlannerTimelineImportConfirmation(null);
 
@@ -15410,6 +15414,7 @@ export default function Home() {
       setPlannerTimelineImport({
         status: "success",
         source: payload.source,
+        view: "ready",
         moments: payload.moments,
       });
     } catch (error) {
@@ -15672,6 +15677,7 @@ export default function Home() {
     (moments: PlannerTimelineImportMoment[]) => {
       const { ceremonyItems, receptionItems } = buildPlannerTimelineImportItems(moments);
       const momentsAdded = ceremonyItems.length + receptionItems.length;
+      const firstItemId = ceremonyItems[0]?.id ?? receptionItems[0]?.id;
 
       closeReceptionTimelineCardExpanded();
       closeCeremonyTimelineCardExpanded();
@@ -15683,7 +15689,7 @@ export default function Home() {
       setCeremonyTimelineItems(ceremonyItems);
       setPlannerTimelineImport({ status: "idle" });
       setPlannerTimelineReplaceConfirmOpen(false);
-      setPlannerTimelineImportConfirmation({ momentsAdded });
+      setPlannerTimelineImportConfirmation({ momentsAdded, firstItemId });
       logActivity("timeline_updated", `Imported planner timeline with ${momentsAdded} moments`);
       pushNotification("Planner timeline imported", "timeline_updated");
     },
@@ -18732,6 +18738,47 @@ export default function Home() {
     />
   ) : null;
 
+  const plannerTimelineProcessingMessages = [
+    "📄 Reading your planner's timeline...",
+    "✨ Finding the important moments...",
+    "🎵 Building your ShowFlow timeline...",
+  ];
+
+  useEffect(() => {
+    if (plannerTimelineImport.status !== "loading") {
+      setPlannerTimelineProcessingStep(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setPlannerTimelineProcessingStep((current) => (current + 1) % plannerTimelineProcessingMessages.length);
+    }, 1050);
+
+    return () => window.clearInterval(interval);
+  }, [plannerTimelineImport.status, plannerTimelineProcessingMessages.length]);
+
+  useEffect(() => {
+    if (!plannerTimelineImportConfirmation) return;
+
+    const scrollTimer = window.setTimeout(() => {
+      const firstItemId = plannerTimelineImportConfirmation.firstItemId;
+      if (!firstItemId) return;
+      const target = document.querySelector<HTMLElement>(
+        `[data-ceremony-timeline-id="${firstItemId}"], [data-timeline-id="${firstItemId}"]`,
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+
+    const hideTimer = window.setTimeout(() => {
+      setPlannerTimelineImportConfirmation(null);
+    }, 6000);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, [plannerTimelineImportConfirmation]);
+
   const plannerTimelineImportCeremonyMoments =
     plannerTimelineImport.status === "success"
       ? plannerTimelineImport.moments.filter((moment) => moment.section === "ceremony")
@@ -18745,7 +18792,7 @@ export default function Home() {
     title: "Ceremony" | "Reception",
     moments: PlannerTimelineImportMoment[],
   ) => (
-    <div className="rounded-2xl border border-stone-200 bg-white/75 p-3.5">
+    <div className="rounded-2xl border border-stone-200 bg-white/75 p-3.5 shadow-sm transition-all duration-300 ease-out">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">{title}</p>
       {moments.length > 0 ? (
         <ul className="mt-3 space-y-2">
@@ -18775,8 +18822,19 @@ export default function Home() {
     </div>
   );
 
+  const plannerTimelineImportSuccessBanner = plannerTimelineImportConfirmation ? (
+    <div className="no-print rounded-[1.5rem] border border-[#7F8F7A]/35 bg-[#f3f6ef] px-4 py-3.5 text-sm text-stone-900 shadow-sm transition-all duration-500 ease-out sm:px-5">
+      <p className="font-semibold">🎉 Your timeline is ready!</p>
+      <p className="mt-1 leading-relaxed text-stone-700">
+        We imported {plannerTimelineImportConfirmation.momentsAdded}{" "}
+        {plannerTimelineImportConfirmation.momentsAdded === 1 ? "moment" : "moments"} from your planner.
+        Everything is now part of your ShowFlow timeline.
+      </p>
+    </div>
+  ) : null;
+
   const plannerTimelineImportCard = (
-    <PremiumCard className="no-print border-stone-200 bg-white shadow-sm">
+    <PremiumCard className="no-print overflow-hidden border-stone-200 bg-white shadow-sm transition-all duration-500 ease-out">
       <input
         ref={plannerTimelineFileInputRef}
         type="file"
@@ -18792,8 +18850,11 @@ export default function Home() {
           </p>
           <SectionTitle className="mt-1 text-stone-950">Upload Planner Timeline</SectionTitle>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-            Already have a planner timeline? Upload it and we&apos;ll build your ShowFlow timeline for you.
+            Already have a planner timeline?
+            <br />
+            Upload it and we&apos;ll build your ShowFlow timeline for you in just a few seconds.
           </p>
+          <p className="mt-2 text-xs font-medium text-stone-500">Supports PDF, Word documents and images.</p>
         </div>
         <PrimaryButton
           type="button"
@@ -18806,8 +18867,21 @@ export default function Home() {
       </div>
 
       {plannerTimelineImport.status === "loading" ? (
-        <div className="mt-4 rounded-2xl border border-[#C79A5A]/25 bg-[#C79A5A]/10 px-4 py-3 text-sm font-semibold text-stone-900">
-          Reading your planner timeline…
+        <div className="mt-5 flex justify-center rounded-[1.5rem] border border-[#C79A5A]/20 bg-[#fbfaf7] px-4 py-8 shadow-inner transition-all duration-500 ease-out">
+          <div className="mx-auto max-w-sm text-center">
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-white text-xl shadow-sm ring-1 ring-stone-200">
+              <span aria-hidden>✨</span>
+            </div>
+            <p
+              key={plannerTimelineProcessingStep}
+              className="text-base font-semibold text-stone-950 transition-all duration-500 ease-out"
+            >
+              {plannerTimelineProcessingMessages[plannerTimelineProcessingStep]}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-stone-500">
+              We&apos;re reading the document and shaping it into a clean ceremony and reception flow.
+            </p>
+          </div>
         </div>
       ) : null}
 
@@ -18817,70 +18891,113 @@ export default function Home() {
         </div>
       ) : null}
 
-      {plannerTimelineImport.status === "idle" && plannerTimelineImportConfirmation ? (
-        <div className="mt-4 rounded-2xl border border-[#7F8F7A]/35 bg-[#7F8F7A]/10 px-4 py-3 text-sm text-stone-900">
-          <p className="font-semibold">We imported your planner&apos;s timeline.</p>
-          <p className="mt-1 text-stone-700">
-            {plannerTimelineImportConfirmation.momentsAdded}{" "}
-            {plannerTimelineImportConfirmation.momentsAdded === 1 ? "moment" : "moments"} added.
-          </p>
-        </div>
-      ) : null}
-
       {plannerTimelineImport.status === "success" ? (
-        <div className="mt-5 space-y-4">
-          <p className="text-sm font-semibold text-stone-900">
-            We found {plannerTimelineImport.moments.length} timeline{" "}
-            {plannerTimelineImport.moments.length === 1 ? "moment" : "moments"}.
-          </p>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {renderPlannerTimelineImportGroup("Ceremony", plannerTimelineImportCeremonyMoments)}
-            {renderPlannerTimelineImportGroup("Reception", plannerTimelineImportReceptionMoments)}
-          </div>
-          {plannerTimelineReplaceConfirmOpen ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-950">
-                This will replace your current ShowFlow timeline with the planner timeline.
+        <div className="mt-5 transition-all duration-500 ease-out">
+          {plannerTimelineImport.view === "ready" ? (
+            <div className="rounded-[1.5rem] border border-[#7F8F7A]/30 bg-[#f6f8f2] px-4 py-5 text-center shadow-sm transition-all duration-500 ease-out sm:px-6 sm:py-6">
+              <p className="text-lg font-semibold tracking-tight text-stone-950">✅ Your timeline is ready!</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-stone-600">
+                We found {plannerTimelineImport.moments.length} timeline{" "}
+                {plannerTimelineImport.moments.length === 1 ? "moment" : "moments"} and organized them into your
+                ShowFlow timeline.
               </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <span className="rounded-full border border-[#7F8F7A]/35 bg-white px-3 py-1 text-xs font-semibold text-[#3f4d3d] shadow-sm">
+                  ✓ Ceremony
+                </span>
+                <span className="rounded-full border border-[#7F8F7A]/35 bg-white px-3 py-1 text-xs font-semibold text-[#3f4d3d] shadow-sm">
+                  ✓ Reception
+                </span>
+              </div>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
                 <PrimaryButton
                   type="button"
-                  onClick={() => applyPlannerTimelineImport(plannerTimelineImport.moments)}
+                  onClick={() =>
+                    setPlannerTimelineImport({
+                      ...plannerTimelineImport,
+                      view: "preview",
+                    })
+                  }
                   className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
                 >
-                  Replace Timeline
+                  Review Timeline
                 </PrimaryButton>
                 <PrimaryButton
                   type="button"
                   onClick={() => {
                     setPlannerTimelineReplaceConfirmOpen(false);
                     setPlannerTimelineImport({ status: "idle" });
+                    window.setTimeout(() => plannerTimelineFileInputRef.current?.click(), 0);
                   }}
                   className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
                 >
-                  Cancel
+                  Upload Different Timeline
                 </PrimaryButton>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <PrimaryButton
-                type="button"
-                onClick={handleUsePlannerTimelineImport}
-                className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
-              >
-                Use This Timeline
-              </PrimaryButton>
-              <PrimaryButton
-                type="button"
-                onClick={() => {
-                  setPlannerTimelineReplaceConfirmOpen(false);
-                  setPlannerTimelineImport({ status: "idle" });
-                }}
-                className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
-              >
-                Cancel
-              </PrimaryButton>
+            <div className="space-y-4 transition-all duration-500 ease-out">
+              <div>
+                <h3 className="text-base font-semibold tracking-tight text-stone-950">Planner Timeline Preview</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-stone-600">
+                  We&apos;ve organized your planner&apos;s timeline into Ceremony and Reception moments.
+                  Everything is fully editable after import.
+                </p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {renderPlannerTimelineImportGroup("Ceremony", plannerTimelineImportCeremonyMoments)}
+                {renderPlannerTimelineImportGroup("Reception", plannerTimelineImportReceptionMoments)}
+              </div>
+              {plannerTimelineReplaceConfirmOpen ? (
+                <div className="rounded-[1.4rem] border border-amber-200 bg-amber-50 px-4 py-4 shadow-sm transition-all duration-300 ease-out">
+                  <p className="text-base font-semibold text-amber-950">Replace your current timeline?</p>
+                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-amber-900">
+                    We&apos;ll replace your existing ShowFlow timeline with the one we found in your planner&apos;s
+                    document.
+                    <br />
+                    You can edit everything afterward.
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => applyPlannerTimelineImport(plannerTimelineImport.moments)}
+                      className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+                    >
+                      Replace Timeline
+                    </PrimaryButton>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => {
+                        setPlannerTimelineReplaceConfirmOpen(false);
+                        setPlannerTimelineImport({ status: "idle" });
+                      }}
+                      className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+                    >
+                      Keep Current Timeline
+                    </PrimaryButton>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <PrimaryButton
+                    type="button"
+                    onClick={handleUsePlannerTimelineImport}
+                    className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+                  >
+                    Use This Timeline
+                  </PrimaryButton>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => {
+                      setPlannerTimelineReplaceConfirmOpen(false);
+                      setPlannerTimelineImport({ status: "idle" });
+                    }}
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+                  >
+                    Cancel
+                  </PrimaryButton>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -22592,6 +22709,7 @@ export default function Home() {
                   />
                 </div>
                 {plannerTimelineImportCard}
+                {plannerTimelineImportSuccessBanner}
                 <TimelinePhaseSectionHeader
                   id="timeline-section-ceremony"
                   title={isCoupleView ? "Ceremony Timeline" : "Ceremony"}
@@ -23420,6 +23538,7 @@ export default function Home() {
               ) : null}
 
               {!showUnifiedTimelineWorkspace ? plannerTimelineImportCard : null}
+              {!showUnifiedTimelineWorkspace ? plannerTimelineImportSuccessBanner : null}
 
               {showTimelinePresetOnboarding && (
                 <PremiumCard className="no-print overflow-hidden !p-0 border-stone-200 bg-white shadow-sm">
