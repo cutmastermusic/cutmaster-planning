@@ -1181,6 +1181,10 @@ type PlannerTimelineImportState =
     }
   | { status: "error"; message: string };
 
+type PlannerTimelineImportConfirmation = {
+  momentsAdded: number;
+};
+
 type RunOfShowTimelineFlagsPersistResult =
   | { ok: true }
   | { ok: true; skipped: true }
@@ -3948,6 +3952,9 @@ export default function Home() {
   const [timelineImportReplaceDanger, setTimelineImportReplaceDanger] = useState(false);
   const [plannerTimelineImport, setPlannerTimelineImport] =
     useState<PlannerTimelineImportState>({ status: "idle" });
+  const [plannerTimelineReplaceConfirmOpen, setPlannerTimelineReplaceConfirmOpen] = useState(false);
+  const [plannerTimelineImportConfirmation, setPlannerTimelineImportConfirmation] =
+    useState<PlannerTimelineImportConfirmation | null>(null);
   /** Compact add/edit panel for new items (not inline-expanded rows) */
   const [timelineComposerOpen, setTimelineComposerOpen] = useState(false);
   /** Inline insert directly after a reception timeline row (+ After). */
@@ -15380,6 +15387,8 @@ export default function Home() {
     if (!file) return;
 
     setPlannerTimelineImport({ status: "loading" });
+    setPlannerTimelineReplaceConfirmOpen(false);
+    setPlannerTimelineImportConfirmation(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -15620,6 +15629,84 @@ export default function Home() {
     resetCeremonyTimelineDraft();
     setCeremonyTimelineInsertAfterId(null);
   };
+
+  const buildPlannerTimelineImportItems = useCallback((moments: PlannerTimelineImportMoment[]) => {
+    const batchId = Date.now().toString(36);
+    const ceremonyItems: CeremonyTimelineItem[] = [];
+    const receptionItems: TimelineItem[] = [];
+
+    moments.forEach((moment, index) => {
+      const cleanTime = moment.time.trim();
+      const cleanTitle = moment.title.trim() || "Imported planner moment";
+      const cleanNotes = moment.notes?.trim() ?? "";
+
+      if (moment.section === "ceremony") {
+        ceremonyItems.push({
+          id: `ceremony-timeline-planner-${batchId}-${index}`,
+          timeOrOrder: cleanTime,
+          moment: cleanTitle,
+          songTitle: "",
+          artist: "",
+          notes: cleanNotes,
+          needsDjMcAttention: false,
+        });
+        return;
+      }
+
+      receptionItems.push({
+        id: `timeline-planner-${batchId}-${index}`,
+        time: cleanTime,
+        title: cleanTitle,
+        category: "Reception",
+        notes: cleanNotes,
+        needsDjMcAttention: false,
+        songTitle: "",
+        artist: "",
+      });
+    });
+
+    return { ceremonyItems, receptionItems };
+  }, []);
+
+  const applyPlannerTimelineImport = useCallback(
+    (moments: PlannerTimelineImportMoment[]) => {
+      const { ceremonyItems, receptionItems } = buildPlannerTimelineImportItems(moments);
+      const momentsAdded = ceremonyItems.length + receptionItems.length;
+
+      closeReceptionTimelineCardExpanded();
+      closeCeremonyTimelineCardExpanded();
+      cancelReceptionTimelineInlineInsert();
+      cancelCeremonyTimelineInlineInsert();
+      setTimelineComposerOpen(false);
+      setCeremonyTimelineComposerOpen(false);
+      setTimelineItems(receptionItems);
+      setCeremonyTimelineItems(ceremonyItems);
+      setPlannerTimelineImport({ status: "idle" });
+      setPlannerTimelineReplaceConfirmOpen(false);
+      setPlannerTimelineImportConfirmation({ momentsAdded });
+      logActivity("timeline_updated", `Imported planner timeline with ${momentsAdded} moments`);
+      pushNotification("Planner timeline imported", "timeline_updated");
+    },
+    [
+      buildPlannerTimelineImportItems,
+      cancelCeremonyTimelineInlineInsert,
+      cancelReceptionTimelineInlineInsert,
+      closeCeremonyTimelineCardExpanded,
+      closeReceptionTimelineCardExpanded,
+      logActivity,
+      pushNotification,
+    ],
+  );
+
+  const handleUsePlannerTimelineImport = useCallback(() => {
+    if (plannerTimelineImport.status !== "success") return;
+    const hasExistingTimeline = ceremonyTimelineItems.length > 0 || timelineItems.length > 0;
+    if (hasExistingTimeline) {
+      setPlannerTimelineReplaceConfirmOpen(true);
+      return;
+    }
+    applyPlannerTimelineImport(plannerTimelineImport.moments);
+  }, [applyPlannerTimelineImport, ceremonyTimelineItems.length, plannerTimelineImport, timelineItems.length]);
 
   const openCeremonyTimelineComposerAtTop = () => {
     resetCeremonyTimelineDraft();
@@ -18730,6 +18817,16 @@ export default function Home() {
         </div>
       ) : null}
 
+      {plannerTimelineImport.status === "idle" && plannerTimelineImportConfirmation ? (
+        <div className="mt-4 rounded-2xl border border-[#7F8F7A]/35 bg-[#7F8F7A]/10 px-4 py-3 text-sm text-stone-900">
+          <p className="font-semibold">We imported your planner&apos;s timeline.</p>
+          <p className="mt-1 text-stone-700">
+            {plannerTimelineImportConfirmation.momentsAdded}{" "}
+            {plannerTimelineImportConfirmation.momentsAdded === 1 ? "moment" : "moments"} added.
+          </p>
+        </div>
+      ) : null}
+
       {plannerTimelineImport.status === "success" ? (
         <div className="mt-5 space-y-4">
           <p className="text-sm font-semibold text-stone-900">
@@ -18740,22 +18837,52 @@ export default function Home() {
             {renderPlannerTimelineImportGroup("Ceremony", plannerTimelineImportCeremonyMoments)}
             {renderPlannerTimelineImportGroup("Reception", plannerTimelineImportReceptionMoments)}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <PrimaryButton
-              type="button"
-              onClick={() => setPlannerTimelineImport({ status: "idle" })}
-              className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
-            >
-              Review Timeline
-            </PrimaryButton>
-            <PrimaryButton
-              type="button"
-              onClick={() => setPlannerTimelineImport({ status: "idle" })}
-              className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
-            >
-              Cancel
-            </PrimaryButton>
-          </div>
+          {plannerTimelineReplaceConfirmOpen ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-950">
+                This will replace your current ShowFlow timeline with the planner timeline.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <PrimaryButton
+                  type="button"
+                  onClick={() => applyPlannerTimelineImport(plannerTimelineImport.moments)}
+                  className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+                >
+                  Replace Timeline
+                </PrimaryButton>
+                <PrimaryButton
+                  type="button"
+                  onClick={() => {
+                    setPlannerTimelineReplaceConfirmOpen(false);
+                    setPlannerTimelineImport({ status: "idle" });
+                  }}
+                  className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+                >
+                  Cancel
+                </PrimaryButton>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <PrimaryButton
+                type="button"
+                onClick={handleUsePlannerTimelineImport}
+                className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-4 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] sm:w-auto"
+              >
+                Use This Timeline
+              </PrimaryButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  setPlannerTimelineReplaceConfirmOpen(false);
+                  setPlannerTimelineImport({ status: "idle" });
+                }}
+                className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${lightUiSecondaryButtonClass}`}
+              >
+                Cancel
+              </PrimaryButton>
+            </div>
+          )}
         </div>
       ) : null}
     </PremiumCard>
