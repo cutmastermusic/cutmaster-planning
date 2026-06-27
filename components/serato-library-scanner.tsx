@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   connectMusicFolder,
+  ensureReadPermission,
   getLibraryMeta,
   getStoredMusicHandle,
   getMusicRootPath,
   isFileSystemAccessSupported,
+  saveMusicRootPath,
   scanMusicFolder,
   type SeratoLibraryMeta,
   type MusicFolderScanProgress,
@@ -35,6 +37,24 @@ function StatusDot({ color }: { color: "green" | "amber" | "red" }) {
   return <span className={`inline-block h-2 w-2 rounded-full ${cls}`} />;
 }
 
+function isFolderPermissionRecoveryError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "AbortError") return false;
+  if (["NotAllowedError", "SecurityError", "NotFoundError"].includes(err.name)) return true;
+  const message = err.message.toLowerCase();
+  return (
+    message.includes("request is not allowed") ||
+    message.includes("user agent") ||
+    message.includes("current context") ||
+    message.includes("permission")
+  );
+}
+
+function isUsableMacMusicBasePath(value: string | null | undefined): value is string {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.startsWith("/Users/") || trimmed.startsWith("/Volumes/");
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type ScanState =
@@ -47,16 +67,26 @@ export function SeratoLibraryScanner() {
   const [meta, setMeta] = useState<SeratoLibraryMeta | undefined>();
   const [hasMusicHandle, setHasMusicHandle] = useState(false);
   const [musicRoot, setMusicRoot] = useState<string | undefined>();
+  const [musicRootDraft, setMusicRootDraft] = useState("");
+  const [clipboardStatus, setClipboardStatus] = useState<"idle" | "pasted" | "invalid" | "error">("idle");
   const [scanState, setScanState] = useState<ScanState>({ status: "idle" });
 
   useEffect(() => {
     if (!isFileSystemAccessSupported()) { setSupported(false); return; }
     getLibraryMeta().then(setMeta).catch(console.error);
     getStoredMusicHandle().then((h) => setHasMusicHandle(!!h)).catch(console.error);
-    getMusicRootPath().then((p) => { if (p) setMusicRoot(p); }).catch(console.error);
+    getMusicRootPath().then((p) => {
+      if (p) {
+        setMusicRoot(p);
+        setMusicRootDraft(p);
+      }
+    }).catch(console.error);
   }, []);
 
-  const runScan = useCallback(async (handle: FileSystemDirectoryHandle) => {
+  const runScan = useCallback(async (
+    handle: FileSystemDirectoryHandle,
+    options?: { rethrowPermissionErrors?: boolean },
+  ) => {
     setScanState({ status: "scanning", progress: { phase: "listing", filesTotal: 0, filesDone: 0, tracksFound: 0 } });
     try {
       const storedRoot = await getMusicRootPath();
@@ -66,6 +96,9 @@ export function SeratoLibraryScanner() {
       setMusicRoot(root);
       setScanState({ status: "idle" });
     } catch (err) {
+      if (options?.rethrowPermissionErrors && isFolderPermissionRecoveryError(err)) {
+        throw err;
+      }
       setScanState({ status: "error", message: err instanceof Error ? err.message : "Scan failed." });
     }
   }, []);
@@ -74,7 +107,7 @@ export function SeratoLibraryScanner() {
     try {
       const handle = await connectMusicFolder();
       setHasMusicHandle(true);
-      await runScan(handle);
+      await runScan(handle, { rethrowPermissionErrors: true });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       setScanState({ status: "error", message: err instanceof Error ? err.message : "Could not connect folder." });
@@ -82,16 +115,63 @@ export function SeratoLibraryScanner() {
   }, [runScan]);
 
   const handleRescan = useCallback(async () => {
-    const handle = await getStoredMusicHandle();
-    if (!handle) { await handleConnect(); return; }
-    await runScan(handle);
+    try {
+      const handle = await getStoredMusicHandle();
+      if (!handle) {
+        await handleConnect();
+        return;
+      }
+      const hasPermission = await ensureReadPermission(handle);
+      if (!hasPermission) {
+        await handleConnect();
+        return;
+      }
+      await runScan(handle);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      await handleConnect();
+    }
   }, [handleConnect, runScan]);
+
+  const handleSaveBasePath = useCallback(async () => {
+    const nextPath = musicRootDraft.trim().replace(/\/+$/, "");
+    if (!isUsableMacMusicBasePath(nextPath)) {
+      setClipboardStatus("invalid");
+      return;
+    }
+    await saveMusicRootPath(nextPath);
+    setMusicRoot(nextPath);
+    setClipboardStatus("idle");
+  }, [musicRootDraft]);
+
+  const handlePasteBasePath = useCallback(async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      const nextPath = clipboardText.trim().replace(/\/+$/, "");
+      if (!isUsableMacMusicBasePath(nextPath)) {
+        setClipboardStatus("invalid");
+        return;
+      }
+      setMusicRootDraft(nextPath);
+      setClipboardStatus("pasted");
+    } catch {
+      setClipboardStatus("error");
+    }
+  }, []);
 
   const isScanning = scanState.status === "scanning";
   const progress = isScanning ? (scanState as { status: "scanning"; progress: MusicFolderScanProgress }).progress : null;
   const pct = progress && progress.filesTotal > 0
     ? Math.round((progress.filesDone / progress.filesTotal) * 100)
     : null;
+  const savedMusicRootIsValid = isUsableMacMusicBasePath(musicRoot);
+  const draftMusicRootIsValid = isUsableMacMusicBasePath(musicRootDraft);
+  const setupStatusItems = [
+    { label: "Music folder connected", done: hasMusicHandle },
+    { label: "Library scanned", done: Boolean(meta?.trackCount) },
+    { label: "Music library location set", done: savedMusicRootIsValid },
+    { label: "Ready to export crates", done: hasMusicHandle && Boolean(meta?.trackCount) && savedMusicRootIsValid },
+  ];
 
   if (!supported) {
     return (
@@ -114,20 +194,36 @@ export function SeratoLibraryScanner() {
               DJ Tools
             </p>
             <h3 className="mt-1 text-base font-semibold text-[#214637]">
-              Music Library
+              Serato Setup
             </h3>
             <p className="mt-1 text-sm leading-relaxed text-stone-500">
-              Scan your music folder directly — reads title, artist, BPM, key, and Serato play
-              counts from each file&apos;s metadata.{" "}
-              <span className="font-medium text-[#2f4a3e]">Your files are never modified.</span>
+              Connect your music folder once, then tell ShowFlow where that folder lives on your Mac so exported crates load cleanly in Serato.
             </p>
           </div>
-          {meta && !isScanning && (
+          {setupStatusItems[3].done && !isScanning && (
             <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5">
               <StatusDot color="green" />
-              <span className="text-[11px] font-semibold text-emerald-800">Indexed</span>
+              <span className="text-[11px] font-semibold text-emerald-800">Ready</span>
             </div>
           )}
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-4">
+          {setupStatusItems.map((item) => (
+            <div
+              key={item.label}
+              className={`rounded-xl border px-3 py-2 ${
+                item.done
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : "border-stone-200 bg-stone-50 text-stone-600"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <StatusDot color={item.done ? "green" : "amber"} />
+                <p className="text-[11px] font-semibold leading-snug">{item.label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Stats */}
@@ -151,6 +247,110 @@ export function SeratoLibraryScanner() {
             )}
           </div>
         )}
+
+        <div className="mt-5 rounded-2xl border border-stone-200 bg-[#f7f5f1]/70 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]/60">
+            Step 1
+          </p>
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-[#214637]">Connect Music Library</h4>
+              <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                Select the folder that contains your DJ music. ShowFlow reads it in read-only mode.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!hasMusicHandle ? (
+                <button
+                  type="button"
+                  onClick={handleConnect}
+                  disabled={isScanning}
+                  className="rounded-xl bg-[#2f4a3e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
+                >
+                  Connect Music Folder
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRescan}
+                    disabled={isScanning}
+                    className="rounded-xl bg-[#2f4a3e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
+                  >
+                    {isScanning ? "Scanning..." : "Rescan Library"}
+                  </button>
+                  {!isScanning && (
+                    <button
+                      type="button"
+                      onClick={handleConnect}
+                      className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+                    >
+                      Change Folder
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-stone-200 bg-[#f7f5f1]/70 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]/60">
+            Step 2
+          </p>
+          <label htmlFor="music-library-base-path" className="mt-1 block text-sm font-semibold text-[#214637]">
+            Music Library Location
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-stone-500">
+            In Finder, select your Music Library folder and press Cmd + Option + C, then paste it here.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 lg:flex-row">
+            <input
+              id="music-library-base-path"
+              value={musicRootDraft}
+              onChange={(event) => {
+                setMusicRootDraft(event.target.value);
+                setClipboardStatus("idle");
+              }}
+              placeholder="/Users/yourname/Music/Cutmaster Music Library"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 font-mono text-xs text-stone-900 placeholder:text-stone-400 focus:border-[#2f4a3e]/40 focus:outline-none focus:ring-2 focus:ring-[#2f4a3e]/10"
+            />
+            <button
+              type="button"
+              onClick={() => void handlePasteBasePath()}
+              className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-50"
+            >
+              Paste from Clipboard
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveBasePath()}
+              disabled={
+                !draftMusicRootIsValid ||
+                musicRootDraft.trim().replace(/\/+$/, "") === (musicRoot ?? "")
+              }
+              className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save Location
+            </button>
+          </div>
+          {!draftMusicRootIsValid ? (
+            <p className="mt-2 text-xs font-semibold text-amber-800">
+              Finish Serato Setup before exporting crates. The location must start with /Users/ or /Volumes/.
+            </p>
+          ) : null}
+          {clipboardStatus === "pasted" ? (
+            <p className="mt-2 text-xs font-semibold text-emerald-700">Path pasted. Save it to finish setup.</p>
+          ) : clipboardStatus === "invalid" ? (
+            <p className="mt-2 text-xs font-semibold text-amber-800">
+              That clipboard value does not look like a Mac folder path. Copy the folder path from Finder and try again.
+            </p>
+          ) : clipboardStatus === "error" ? (
+            <p className="mt-2 text-xs font-semibold text-rose-700">
+              Could not read the clipboard. Paste the path manually.
+            </p>
+          ) : null}
+        </div>
 
         {/* Scan progress */}
         {isScanning && progress && (
@@ -184,40 +384,6 @@ export function SeratoLibraryScanner() {
             <p className="mt-0.5 text-sm text-rose-700">{scanState.message}</p>
           </div>
         )}
-
-        {/* Actions */}
-        <div className="mt-5 flex flex-wrap gap-2">
-          {!hasMusicHandle ? (
-            <button
-              type="button"
-              onClick={handleConnect}
-              disabled={isScanning}
-              className="rounded-xl bg-[#2f4a3e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
-            >
-              Connect Music Folder
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleRescan}
-                disabled={isScanning}
-                className="rounded-xl bg-[#2f4a3e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
-              >
-                {isScanning ? "Scanning…" : "Rescan Library"}
-              </button>
-              {!isScanning && (
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-                >
-                  Change Folder
-                </button>
-              )}
-            </>
-          )}
-        </div>
 
         <p className="mt-4 flex items-center gap-1.5 text-[11px] text-stone-400">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>

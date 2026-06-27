@@ -16,7 +16,7 @@ import {
   type LibraryCheckSummary,
   type MatchResult,
 } from "@/lib/serato-matching";
-import { exportCrate, type ExportResult } from "@/lib/serato-crate-writer";
+import { buildSeratoCratePathString, exportCrate, type ExportResult } from "@/lib/serato-crate-writer";
 import type { SeratoTrack } from "@/lib/serato-parser";
 import type { SongEntry } from "@/types/planning";
 
@@ -62,9 +62,54 @@ const ALL_LIST_TYPES = ["preCeremony", "mustPlay", "playIfPossible", "doNotPlay"
 type ListType = typeof ALL_LIST_TYPES[number];
 
 const DEFAULT_SINGLE_EXPORT_STATE: ExportState = { status: "idle" };
+const SHOW_SERATO_EXPORT_PATH_PREVIEW = process.env.NODE_ENV !== "production";
+
+const SERATO_CRATE_LABELS: Record<ListType, string> = {
+  preCeremony: "Pre-Ceremony",
+  cocktailHour: "Cocktail Hour",
+  dinner: "Dinner",
+  playIfPossible: "Open Dancing",
+  mustPlay: "Must Play",
+  doNotPlay: "Do Not Play",
+};
+
+const SERATO_CRATE_EMOJIS: Record<ListType, string> = {
+  preCeremony: "🎻",
+  cocktailHour: "🥂",
+  dinner: "🍽",
+  playIfPossible: "💃",
+  mustPlay: "⭐",
+  doNotPlay: "🚫",
+};
+
+function formatPlainSeratoCrateName(eventName: string, listType: ListType): string {
+  return `${eventName} - ${SERATO_CRATE_LABELS[listType]}`;
+}
+
+function formatSeratoCrateName(eventName: string, listType: ListType, useEmoji = true): string {
+  const plainName = formatPlainSeratoCrateName(eventName, listType);
+  if (!useEmoji) return plainName;
+  const emoji = SERATO_CRATE_EMOJIS[listType];
+  return `${emoji} ${plainName} ${emoji}`;
+}
 
 function defaultCrateNameForList(defaultCrateName: string, listType: ListType): string {
-  return `${defaultCrateName} - ${LIST_LABELS[listType]}`;
+  return formatSeratoCrateName(defaultCrateName, listType);
+}
+
+function isUsableMacMusicBasePath(value: string | null | undefined): value is string {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.startsWith("/Users/") || trimmed.startsWith("/Volumes/");
+}
+
+const SERATO_SETUP_REQUIRED_MESSAGE = "Finish Serato Setup before exporting crates.";
+
+function selectedExportTracks(results: MatchResult[]): SeratoTrack[] {
+  return results.flatMap((result) => {
+    if (result.status === "missing") return [];
+    const track = result.candidates.find((candidate) => candidate.id === result.selectedCandidateId);
+    return track ? [track] : [];
+  });
 }
 
 function buildDefaultCrateNames(defaultCrateName: string): Record<ListType, string> {
@@ -471,12 +516,7 @@ export function SeratoSongChecker({
   }, []);
 
   const handleExport = useCallback(async (listType: string, results: MatchResult[]) => {
-    const tracksToExport: SeratoTrack[] = [];
-    for (const r of results) {
-      if (r.status === "missing") continue;
-      const track = r.candidates.find((c) => c.id === r.selectedCandidateId);
-      if (track) tracksToExport.push(track);
-    }
+    const tracksToExport = selectedExportTracks(results);
 
     if (tracksToExport.length === 0) {
       setExportStates((prev) => ({ ...prev, [listType]: { status: "error", message: "No matched tracks to export." } }));
@@ -489,13 +529,40 @@ export function SeratoSongChecker({
       (ALL_LIST_TYPES.includes(listType as ListType)
         ? defaultCrateNameForList(defaultCrateName, listType as ListType)
         : `${defaultCrateName} - ${listType}`);
-    const result = await exportCrate(crateName, tracksToExport);
+    const savedMusicRoot = await getMusicRootPath();
+    const savedMusicRootTrimmed = savedMusicRoot?.trim() || "";
+    const previewMusicRoot = musicRoot?.trim() || "";
+    if (savedMusicRootTrimmed && savedMusicRootTrimmed !== previewMusicRoot) {
+      setMusicRoot(savedMusicRootTrimmed);
+      setExportStates((prev) => ({
+        ...prev,
+        [listType]: {
+          status: "error",
+          message: "Music Library Base Path was refreshed. Review the path preview and export again.",
+        },
+      }));
+      return;
+    }
+    const musicLibraryBasePath = previewMusicRoot || undefined;
+    if (!isUsableMacMusicBasePath(musicLibraryBasePath)) {
+      setExportStates((prev) => ({
+        ...prev,
+        [listType]: {
+          status: "error",
+          message: SERATO_SETUP_REQUIRED_MESSAGE,
+        },
+      }));
+      return;
+    }
+    const result = await exportCrate(crateName, tracksToExport, {
+      musicLibraryBasePath,
+    });
     if (result.ok) {
       setExportStates((prev) => ({ ...prev, [listType]: { status: "success", result } }));
     } else {
       setExportStates((prev) => ({ ...prev, [listType]: { status: "error", message: result.error } }));
     }
-  }, [crateNames, defaultCrateName]);
+  }, [crateNames, defaultCrateName, musicRoot]);
 
   // Merge DJ selections into summary results
   const mergedResults = useMemo<MatchResult[]>(() => {
@@ -607,6 +674,17 @@ export function SeratoSongChecker({
         const exportableCount = results.filter((r) => r.status !== "missing").length;
         const listExportState = exportStates[listType] ?? DEFAULT_SINGLE_EXPORT_STATE;
         const listCrateName = crateNames[listType] ?? defaultCrateNameForList(defaultCrateName, listType);
+        const exportTracks = selectedExportTracks(results);
+        const musicLibraryBasePath = musicRoot?.trim() || "";
+        const musicLibraryBasePathReady = isUsableMacMusicBasePath(musicLibraryBasePath);
+        const previewTracks = exportTracks.slice(0, 3).map((track) => ({
+          title: track.title,
+          artist: track.artist,
+          originalStoredPath: track.filePath,
+          finalCratePath: musicLibraryBasePathReady
+            ? buildSeratoCratePathString(track.filePath, musicLibraryBasePath)
+            : buildSeratoCratePathString(track.filePath, undefined),
+        }));
 
         return (
           <div key={listType} className="space-y-2">
@@ -627,6 +705,43 @@ export function SeratoSongChecker({
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2f4a3e]/55">
                   Export crate — {exportableCount} track{exportableCount !== 1 ? "s" : ""}
                 </p>
+                {!musicLibraryBasePathReady ? (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-[12px] font-semibold text-amber-900">
+                      {SERATO_SETUP_REQUIRED_MESSAGE}
+                    </p>
+                    {musicLibraryBasePath ? (
+                      <p className="mt-1 font-mono text-[11px] text-amber-800">
+                        Current value: {musicLibraryBasePath}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {SHOW_SERATO_EXPORT_PATH_PREVIEW ? (
+                  <details className="mb-3 rounded-xl border border-stone-200 bg-white px-3 py-2">
+                    <summary className="cursor-pointer list-none text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 [&::-webkit-details-marker]:hidden">
+                      Developer Tools / Show Path Preview
+                    </summary>
+                    <p className="mt-2 font-mono text-[11px] text-stone-700">
+                      Music Library Location: {musicLibraryBasePath || "(not set)"}
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {previewTracks.map((track, index) => (
+                        <div key={`${track.originalStoredPath}-${index}`} className="rounded-lg bg-stone-50 px-2 py-2">
+                          <p className="truncate text-[11px] font-semibold text-stone-800">
+                            {track.title}{track.artist ? ` — ${track.artist}` : ""}
+                          </p>
+                          <p className="mt-1 break-all font-mono text-[10px] text-stone-500">
+                            Original: {track.originalStoredPath}
+                          </p>
+                          <p className="mt-1 break-all font-mono text-[10px] font-semibold text-[#2f4a3e]">
+                            Final crate path: {track.finalCratePath}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
@@ -639,7 +754,11 @@ export function SeratoSongChecker({
                   />
                   <button
                     type="button"
-                    disabled={listExportState.status === "exporting" || !listCrateName.trim()}
+                    disabled={
+                      listExportState.status === "exporting" ||
+                      !listCrateName.trim() ||
+                      !musicLibraryBasePathReady
+                    }
                     onClick={() => void handleExport(listType, results)}
                     className="shrink-0 rounded-xl bg-[#2f4a3e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#214637] disabled:opacity-50"
                   >

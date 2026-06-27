@@ -13,7 +13,7 @@
  * Crate format: same TLV binary format as database V2.
  *   vrsn  — version string (UTF-16 BE)
  *   otrk  — one per track, contains:
- *     pfil  — file path (UTF-16 BE)
+ *     ptrk  — file path (UTF-16 BE), no leading slash
  */
 
 import type { SeratoTrack } from "@/lib/serato-parser";
@@ -119,7 +119,11 @@ function concat(...parts: Uint8Array[]): Uint8Array {
 
 // ─── Crate builder ────────────────────────────────────────────────────────────
 
-const CRATE_VERSION = "1.0/Serato ScratchLive Crate\0\0";
+const CRATE_VERSION = "1.0/Serato ScratchLive Crate";
+
+function toSeratoCratePath(path: string): string {
+  return path.replace(/^\/+/, "");
+}
 
 /**
  * Build the binary content of a Serato .crate file.
@@ -131,10 +135,10 @@ export function buildCrateBuffer(tracks: SeratoTrack[]): Uint8Array {
   // vrsn record
   const vrsn = tlv("vrsn", encodeUtf16BE(CRATE_VERSION));
 
-  // otrk records (one per track — each wraps a pfil tag)
+  // otrk records (one per track — each wraps a ptrk tag)
   const otrkRecords = tracks.map((track) => {
-    const pfil = tlv("pfil", encodeUtf16BE(track.filePath));
-    return tlv("otrk", pfil);
+    const ptrk = tlv("ptrk", encodeUtf16BE(toSeratoCratePath(track.filePath)));
+    return tlv("otrk", ptrk);
   });
 
   return concat(vrsn, ...otrkRecords);
@@ -145,6 +149,66 @@ export function buildCrateBuffer(tracks: SeratoTrack[]): Uint8Array {
 export type ExportResult =
   | { ok: true; fileName: string; trackCount: number }
   | { ok: false; error: string };
+
+type ExportCrateOptions = {
+  musicLibraryBasePath?: string;
+};
+
+function normalizePath(value: string): string {
+  const withoutFileScheme = value.startsWith("file://") ? value.slice("file://".length) : value;
+  try {
+    return decodeURI(withoutFileScheme).replace(/\\/g, "/").replace(/\/+$/, "");
+  } catch {
+    return withoutFileScheme.replace(/\\/g, "/").replace(/\/+$/, "");
+  }
+}
+
+function pathBaseName(value: string): string {
+  const parts = normalizePath(value).split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+
+function looksLikeMacAbsolutePath(value: string): boolean {
+  return value.startsWith("/Users/") || value.startsWith("/Volumes/");
+}
+
+function resolveCrateTrackPath(storedPath: string, musicLibraryBasePath?: string): string {
+  const normalizedStoredPath = normalizePath(storedPath);
+  const normalizedBasePath = musicLibraryBasePath?.trim()
+    ? normalizePath(musicLibraryBasePath.trim())
+    : "";
+
+  if (!normalizedBasePath) return normalizedStoredPath;
+  if (normalizedStoredPath === normalizedBasePath || normalizedStoredPath.startsWith(`${normalizedBasePath}/`)) {
+    return normalizedStoredPath;
+  }
+  if (looksLikeMacAbsolutePath(normalizedStoredPath)) return normalizedStoredPath;
+
+  const baseName = pathBaseName(normalizedBasePath);
+  let relativePath = normalizedStoredPath.replace(/^\/+/, "");
+  if (baseName && relativePath === baseName) {
+    relativePath = "";
+  } else if (baseName && relativePath.startsWith(`${baseName}/`)) {
+    relativePath = relativePath.slice(baseName.length + 1);
+  }
+
+  return relativePath ? `${normalizedBasePath}/${relativePath}` : normalizedBasePath;
+}
+
+export function buildSeratoCratePathString(storedPath: string, musicLibraryBasePath?: string): string {
+  return toSeratoCratePath(resolveCrateTrackPath(storedPath, musicLibraryBasePath));
+}
+
+function applyCrateExportPaths(tracks: SeratoTrack[], musicLibraryBasePath?: string): SeratoTrack[] {
+  return tracks.map((track) => ({
+    ...track,
+    filePath: buildSeratoCratePathString(track.filePath, musicLibraryBasePath),
+  }));
+}
+
+function pathToFileUrl(path: string): string {
+  return `file:///${encodeURI(path)}`;
+}
 
 /**
  * Export a list of tracks as a Serato crate file.
@@ -161,6 +225,7 @@ export async function exportCrateFile(
   crateName: string,
   tracks: SeratoTrack[],
   subcratesDir: FileSystemDirectoryHandle,
+  options: ExportCrateOptions = {},
 ): Promise<ExportResult> {
   if (tracks.length === 0) {
     return { ok: false, error: "No tracks to export." };
@@ -184,7 +249,21 @@ export async function exportCrateFile(
     // Create the new file (never overwrites — we checked above)
     const fileHandle = await subcratesDir.getFileHandle(fileName, { create: true });
     const writable = await fileHandle.createWritable();
-    const buffer = buildCrateBuffer(tracks);
+    const tracksForCrate = applyCrateExportPaths(tracks, options.musicLibraryBasePath);
+    console.info("[serato-crate-export] writing crate", {
+      crateName,
+      fileName,
+      musicLibraryBasePath: options.musicLibraryBasePath,
+      tracks: tracksForCrate.map((track, index) => ({
+        title: track.title,
+        artist: track.artist,
+        originalStoredTrackPath: tracks[index]?.filePath,
+        rewrittenAbsolutePath: `/${track.filePath}`,
+        finalCratePathString: track.filePath,
+        finalCrateFileUrl: pathToFileUrl(track.filePath),
+      })),
+    });
+    const buffer = buildCrateBuffer(tracksForCrate);
     await writable.write(buffer.buffer as ArrayBuffer);
     await writable.close();
 
@@ -204,6 +283,7 @@ export async function exportCrateFile(
 export async function exportCrate(
   crateName: string,
   tracks: SeratoTrack[],
+  options: ExportCrateOptions = {},
 ): Promise<ExportResult> {
   let handle = await getStoredSubcratesHandle();
 
@@ -225,5 +305,5 @@ export async function exportCrate(
     return { ok: false, error: "Permission denied. Please try again and approve folder access." };
   }
 
-  return exportCrateFile(crateName, tracks, handle);
+  return exportCrateFile(crateName, tracks, handle, options);
 }
