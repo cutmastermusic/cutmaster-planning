@@ -398,10 +398,7 @@ import {
 } from "@/lib/coupleTimelineGuidance";
 import { resolveTimelineMomentType } from "@/lib/timelineMomentType";
 import { MusicHubGuestRequestList, MusicHubSongList } from "@/components/music-hub-song-list";
-import { SeratoLibraryScanner } from "@/components/serato-library-scanner";
-import { SeratoLibraryStatusCard } from "@/components/serato-library-status-card";
-import { SeratoSongChecker } from "@/components/serato-song-checker";
-import { SpotifyRecommendations } from "@/components/spotify-recommendations";
+import { DjPrepScreen } from "@/components/dj-prep-screen";
 import { MusicHubChipRow } from "@/components/music-hub-chip-row";
 import { WorkspaceHero } from "@/components/workspace-hero";
 import {
@@ -2478,6 +2475,9 @@ function getLiveEventDocumentDefaults(profile: EventLayoutProfile): LiveEventDoc
 
 /** Migrates deprecated screen ids from persisted app state (localStorage / backups). */
 function migrateLegacyScreenId(raw: unknown): Screen {
+  if (raw === "DJ Tools") {
+    return "DJ Prep";
+  }
   if (
     raw === "DJ Prep Sheet" ||
     raw === "Live Event Mode" ||
@@ -2848,7 +2848,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
     "Event Team",
     "Scripts",
-    "DJ Tools",
+    "DJ Prep",
     "Event Settings",
     ...(includeExportScreens ? (["Event Prep"] as Screen[]) : []),
   ];
@@ -10237,10 +10237,10 @@ export default function Home() {
       return ["Notification Center"];
     }
     if (effectiveRole === "Admin") {
-      return ["Command Center", "All Events", "DJ Tools", "Team", "Settings", "Notification Center"];
+      return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
     }
     if (effectiveRole === "DJ") {
-      return ["Command Center", "All Events", "DJ Tools", "Notification Center"];
+      return ["Command Center", "All Events", "Notification Center"];
     }
     if (effectiveRole === "Planner") {
       return ["All Events", "Notification Center"];
@@ -22542,237 +22542,6 @@ export default function Home() {
             {/* ── DJ Workspace ── */}
             {renderPlaylistFirstMusicSections("default")}
 
-            {/* ── DJ Workspace ── */}
-            <div className="relative flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-stone-200" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-                DJ Workspace
-              </span>
-              <div className="h-px flex-1 bg-stone-200" />
-            </div>
-
-            {/* Serato library status + Check Songs */}
-            <div className="flex items-center gap-3">
-              <SeratoLibraryStatusCard
-                onGoToDjTools={() => {
-                  setAppMode("events");
-                  setActiveScreen("DJ Tools");
-                  void commitActiveEventPlanningToEventsState().catch(() => {});
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowSeratoChecker((v) => !v)}
-                className="shrink-0 rounded-xl border border-[#2f4a3e]/20 bg-white px-3 py-2 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5]"
-              >
-                {showSeratoChecker ? "Hide Check" : "Check Songs"}
-              </button>
-            </div>
-            {showSeratoChecker && (
-              <SeratoSongChecker
-                preCeremonySongs={preCeremonySongs}
-                mustPlaySongs={mustPlaySongs}
-                playIfPossibleSongs={playIfPossibleSongs}
-                doNotPlaySongs={doNotPlaySongs}
-                cocktailHourSongs={cocktailHourSongs}
-                dinnerSongs={dinnerSongs}
-                defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
-                onGoToLibrary={() => {
-                  setAppMode("events");
-                  setActiveScreen("DJ Tools");
-                  void commitActiveEventPlanningToEventsState().catch(() => {});
-                }}
-              />
-            )}
-
-            <PremiumCard className="border-stone-200 bg-white shadow-sm">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                  DJ Recommendations
-                </p>
-                <SectionTitle className="mt-1 text-stone-950">Spotify Recommendations</SectionTitle>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                  DJ-only suggestions based on the songs already added to each playlist.
-                </p>
-              </div>
-              <div className="mt-4 space-y-3">
-                <SpotifyRecommendations
-                  songs={preCeremonySongs}
-                  listType="preCeremony"
-                  onAddSong={(title, artist) => addRecommendedSong("preCeremony", title, artist)}
-                />
-                <SpotifyRecommendations
-                  songs={cocktailHourSongs}
-                  listType="cocktailHour"
-                  onAddSong={(title, artist) => addRecommendedSong("cocktailHour", title, artist)}
-                />
-                <SpotifyRecommendations
-                  songs={dinnerSongs}
-                  listType="dinner"
-                  onAddSong={(title, artist) => addRecommendedSong("dinner", title, artist)}
-                />
-                <SpotifyRecommendations
-                  songs={playIfPossibleSongs}
-                  listType="playIfPossible"
-                  onAddSong={(title, artist) => addRecommendedSong("playIfPossible", title, artist)}
-                />
-              </div>
-            </PremiumCard>
-
-            {false ? (
-            <>
-            {/* All playlists — organized by segment */}
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Playlists</p>
-            <div className="space-y-4">
-              {/* Cocktail Hour */}
-              <div className="space-y-2">
-                {renderMusicListSummaryCard({
-                  listType: "cocktailHour",
-                  id: "music-hub-cocktail-hour",
-                  title: "Cocktail Hour",
-                  description: "Songs for cocktail hour — export as a Serato crate.",
-                  songs: cocktailHourSongs,
-                  emptyTitle: "No cocktail hour songs yet",
-                  emptyDescription: "Add songs to build your cocktail hour crate.",
-                  emptyPrimaryAction: {
-                    label: "Add songs",
-                    onClick: () => {
-                      setNewSongListType("cocktailHour");
-                      setMusicAddSongOpen(true);
-                      document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  },
-                  className: "border-stone-300 bg-white shadow-none",
-                  renderWhenCollapsed: true,
-                })}
-                <SpotifyRecommendations
-                  songs={cocktailHourSongs}
-                  listType="cocktailHour"
-                  onAddSong={(title, artist) => addRecommendedSong("cocktailHour", title, artist)}
-                />
-              </div>
-
-              {/* Dinner */}
-              <div className="space-y-2">
-                {renderMusicListSummaryCard({
-                  listType: "dinner",
-                  id: "music-hub-dinner",
-                  title: "Dinner",
-                  description: "Songs for dinner service — export as a Serato crate.",
-                  songs: dinnerSongs,
-                  emptyTitle: "No dinner songs yet",
-                  emptyDescription: "Add songs to build your dinner crate.",
-                  emptyPrimaryAction: {
-                    label: "Add songs",
-                    onClick: () => {
-                      setNewSongListType("dinner");
-                      setMusicAddSongOpen(true);
-                      document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                    },
-                    disabled: !canManageMusic,
-                  },
-                  className: "border-stone-300 bg-white shadow-none",
-                  renderWhenCollapsed: true,
-                })}
-                <SpotifyRecommendations
-                  songs={dinnerSongs}
-                  listType="dinner"
-                  onAddSong={(title, artist) => addRecommendedSong("dinner", title, artist)}
-                />
-              </div>
-
-              {/* Dance Floor Favorites */}
-              {sectionMustPlayEnabled && (
-                <div className="space-y-2">
-                  {renderMusicListSummaryCard({
-                    listType: "playIfPossible",
-                    id: "music-hub-play-if-possible",
-                    title: "Dance Floor Favorites",
-                    description: "Nice-to-haves when the moment feels right.",
-                    songs: playIfPossibleSongs,
-                    emptyTitle: "No dance floor favorites yet",
-                    emptyDescription: "Optional—add a few if specific songs would make you smile.",
-                    emptyPrimaryAction: {
-                      label: "Add songs",
-                      onClick: () => {
-                        setNewSongListType("playIfPossible");
-                        setMusicAddSongOpen(true);
-                        document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                      },
-                      disabled: !canManageMusic,
-                    },
-                    className: "border border-[#7F8F7A]/45 bg-white shadow-none",
-                    renderWhenCollapsed: true,
-                  })}
-                  <SpotifyRecommendations
-                    songs={playIfPossibleSongs}
-                    listType="playIfPossible"
-                    onAddSong={(title, artist) => addRecommendedSong("playIfPossible", title, artist)}
-                  />
-                </div>
-              )}
-
-              {/* Must Play */}
-              {sectionMustPlayEnabled && (
-                <div className="space-y-2">
-                  {renderMusicListSummaryCard({
-                    listType: "mustPlay",
-                    id: "music-hub-must-play",
-                    title: "Must Play",
-                    description: "Songs that should absolutely make the night.",
-                    songs: mustPlaySongs,
-                    emptyTitle: "No must-plays yet",
-                    emptyDescription: "Name a few songs your DJ should absolutely work in.",
-                    emptyPrimaryAction: {
-                      label: "Add must-play song",
-                      onClick: () => {
-                        setNewSongListType("mustPlay");
-                        setMusicAddSongOpen(true);
-                        document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                      },
-                      disabled: !canManageMusic,
-                    },
-                    variant: "accent",
-                    renderWhenCollapsed: true,
-                  })}
-                  <SpotifyRecommendations
-                    songs={mustPlaySongs}
-                    listType="mustPlay"
-                    onAddSong={(title, artist) => addRecommendedSong("mustPlay", title, artist)}
-                  />
-                </div>
-              )}
-
-              {/* Do Not Play — no recommendations */}
-              {sectionDoNotPlayEnabled && renderMusicListSummaryCard({
-                listType: "doNotPlay",
-                id: "music-hub-do-not-play",
-                title: "Do Not Play",
-                description: "Songs, artists, or vibes to steer away from.",
-                songs: doNotPlaySongs,
-                emptyTitle: "Nothing on the block list",
-                emptyDescription: "A short do-not-play keeps the vibe aligned.",
-                emptyPrimaryAction: {
-                  label: "Add to avoid list",
-                  onClick: () => {
-                    setNewSongListType("doNotPlay");
-                    setMusicAddSongOpen(true);
-                    document.getElementById("music-hub-quick-add")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                    window.setTimeout(() => document.getElementById("song-title")?.focus(), 250);
-                  },
-                  disabled: !canManageMusic,
-                },
-                className: "border-stone-300 bg-white shadow-none",
-                renderWhenCollapsed: true,
-              })}
-            </div>
-            </>
-            ) : null}
 
             {false ? (
             <PremiumCard
@@ -25203,21 +24972,28 @@ export default function Home() {
             </section>
           )}
 
-        {authStage === "app" && activeScreen === "DJ Tools" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
+        {authStage === "app" && activeScreen === "DJ Prep" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
           <section className={workspaceSectionClass}>
-            <div className="mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
-                DJ Workspace
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#214637]">
-                DJ Tools
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-500">
-                Your personal DJ workspace. Manage your music library, check client song lists against what you have, and export Serato crates — all without touching your library files.
-              </p>
-            </div>
-            <div className="max-w-2xl">
-              <SeratoLibraryScanner />
+            <div className="mx-auto max-w-5xl">
+              <DjPrepScreen
+                preCeremonySongs={preCeremonySongs}
+                mustPlaySongs={mustPlaySongs}
+                playIfPossibleSongs={playIfPossibleSongs}
+                doNotPlaySongs={doNotPlaySongs}
+                cocktailHourSongs={cocktailHourSongs}
+                dinnerSongs={dinnerSongs}
+                timelineItems={timelineItems}
+                ceremonyTimelineItems={ceremonyTimelineItems}
+                weddingPartyProcessional={weddingPartyProcessional}
+                brideGroomProcessional={brideGroomProcessional}
+                unityCeremonySong={unityCeremonySong}
+                recessionalSong={recessionalSong}
+                defaultCrateName={eventSettings.coupleNames?.trim() || "ShowFlow Crate"}
+                eventDateDisplay={eventDateDisplay}
+                eventVenueDisplay={eventVenueDisplay}
+                requestedSongCount={guestRequests.length}
+                pendingGuestRequestCount={guestRequests.filter((request) => request.status === "Pending").length}
+              />
             </div>
           </section>
         )}

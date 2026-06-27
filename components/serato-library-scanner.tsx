@@ -191,7 +191,7 @@ export function SeratoLibraryScanner() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/55">
-              DJ Tools
+              DJ Prep
             </p>
             <h3 className="mt-1 text-base font-semibold text-[#214637]">
               Serato Setup
@@ -250,7 +250,7 @@ export function SeratoLibraryScanner() {
 
         <div className="mt-5 rounded-2xl border border-stone-200 bg-[#f7f5f1]/70 p-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]/60">
-            Step 1
+            Connect Library
           </p>
           <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -296,7 +296,7 @@ export function SeratoLibraryScanner() {
 
         <div className="mt-4 rounded-2xl border border-stone-200 bg-[#f7f5f1]/70 p-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]/60">
-            Step 2
+            Locate Library
           </p>
           <label htmlFor="music-library-base-path" className="mt-1 block text-sm font-semibold text-[#214637]">
             Music Library Location

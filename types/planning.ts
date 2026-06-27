@@ -32,8 +32,8 @@ export type Screen =
   | "Notification Center"
   | "Settings"
   | "Event Settings"
-  /** Global DJ workspace — library scanner, crate builder. DJ/Admin only, never couple-facing. */
-  | "DJ Tools";
+  /** Per-event DJ prep workflow: library setup, music review, moment crates, recommendations. DJ/Admin only. */
+  | "DJ Prep";
 
 export type AppMode = "events" | "event";
 export type AuthStage = "login" | "invite" | "app";

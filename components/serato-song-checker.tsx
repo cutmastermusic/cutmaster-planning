@@ -589,14 +589,14 @@ export function SeratoSongChecker({
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
         <p className="text-sm font-semibold text-amber-800">Library not indexed yet</p>
         <p className="mt-1 text-sm text-amber-700">
-          Scan your Serato library in DJ Tools first, then come back to check this client&apos;s songs.
+          Finish Serato Setup in DJ Prep first, then check this event&apos;s songs.
         </p>
         <button
           type="button"
           onClick={onGoToLibrary}
           className="mt-3 rounded-xl bg-[#2f4a3e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#214637]"
         >
-          Go to DJ Tools
+          Open Serato Setup
         </button>
       </div>
     );

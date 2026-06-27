@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Compact Serato library status card for the Music Hub admin view.
- * Shows index status and links to DJ Tools. Never shown to couples.
+ * Compact Serato library status card for DJ Prep.
+ * Shows index status and links to Serato Setup. Never shown to couples.
  */
 
 import { useEffect, useState } from "react";
@@ -46,7 +46,7 @@ export function SeratoLibraryStatusCard({ onGoToDjTools }: Props) {
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2f4a3e]/55">
-            DJ Tools · Serato Library
+            DJ Prep · Serato Library
           </p>
           {indexed ? (
             <p className="text-sm font-medium text-[#214637]">
@@ -68,7 +68,7 @@ export function SeratoLibraryStatusCard({ onGoToDjTools }: Props) {
         onClick={onGoToDjTools}
         className="shrink-0 rounded-xl border border-[#2f4a3e]/20 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5]"
       >
-        {indexed ? "DJ Tools →" : "Set Up →"}
+        {indexed ? "DJ Prep →" : "Set Up →"}
       </button>
     </div>
   );
