@@ -23131,7 +23131,7 @@ export default function Home() {
           appMode === "event" &&
           (showCeremonyOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
           <section
-            className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pb-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
+            className={`${workspaceSectionClass} overflow-x-hidden ${showUnifiedTimelineWorkspace ? "pb-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
           >
             {showUnifiedTimelineWorkspace ? (
               <>
@@ -23875,7 +23875,7 @@ export default function Home() {
           appMode === "event" &&
           (showReceptionOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
             <section
-              className={`${workspaceSectionClass} overflow-x-hidden md:mx-auto md:w-full md:max-w-5xl md:px-3 lg:max-w-6xl lg:px-6 xl:px-8 ${showUnifiedTimelineWorkspace ? "pt-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
+              className={`${workspaceSectionClass} overflow-x-hidden ${showUnifiedTimelineWorkspace ? "pt-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
             >
               {showCouplePostJourneyTimelineGuidance && !showUnifiedTimelineWorkspace ? (
                 <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
