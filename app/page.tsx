@@ -8314,6 +8314,12 @@ export default function Home() {
   /** True couple/client sessions — not Admin previewing as Couple. */
   const isRealCoupleSession = sessionIsCoupleForPersist;
   const showStaffWorkspaceChrome = !isRealCoupleSession;
+  const showAdminWorkspaceBridge =
+    authStage === "app" &&
+    appMode === "event" &&
+    (effectiveRole === "Admin" || effectiveRole === "DJ") &&
+    !authSession.isCouplePortalSession &&
+    !isCoupleEditorialShell;
   const showAdminClientPreviewChrome =
     showRolePreviewSwitcher && isCoupleEditorialShell && !isRealCoupleSession;
   const hideCoupleDashboardAppHeader =
@@ -11178,6 +11184,20 @@ export default function Home() {
     if (screen === "Planning Checklist") return "Your Progress";
     return screen;
   };
+
+  const returnToStaffWorkspace = useCallback(
+    (screen: "Command Center" | "All Events") => {
+      void commitActiveEventPlanningToEventsState()
+        .catch((error) => {
+          console.error(`Background save before opening ${screen} failed:`, error);
+        })
+        .finally(() => {
+          setAppMode("events");
+          setActiveScreen(screen);
+        });
+    },
+    [commitActiveEventPlanningToEventsState, setActiveScreen],
+  );
 
   const isWorkspaceContext = appMode === "events";
   const headerWeddingDetails: WeddingDetails = isWorkspaceContext
@@ -20469,6 +20489,52 @@ export default function Home() {
           />
         ) : (
           <>
+        {showAdminWorkspaceBridge ? (
+          <div
+            className="no-print mt-3 flex min-w-0 flex-col gap-2 rounded-xl border border-stone-200/90 bg-white/80 px-3 py-2 text-xs shadow-sm ring-1 ring-white/70 sm:flex-row sm:items-center sm:justify-between"
+            aria-label="Admin workspace breadcrumb"
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-stone-500">
+              <PrimaryButton
+                type="button"
+                onClick={() => returnToStaffWorkspace("Command Center")}
+                className="min-h-0 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[11px] font-semibold text-stone-700 shadow-none hover:bg-stone-100 hover:text-stone-950"
+              >
+                Command Center
+              </PrimaryButton>
+              <span aria-hidden className="text-stone-300">
+                /
+              </span>
+              <PrimaryButton
+                type="button"
+                onClick={() => returnToStaffWorkspace("All Events")}
+                className="min-h-0 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[11px] font-semibold text-stone-700 shadow-none hover:bg-stone-100 hover:text-stone-950"
+              >
+                All Events
+              </PrimaryButton>
+              <span aria-hidden className="text-stone-300">
+                /
+              </span>
+              <PrimaryButton
+                type="button"
+                onClick={() => selectActiveScreen("Dashboard")}
+                className="min-h-0 max-w-[18rem] truncate rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-left text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-100"
+              >
+                {eventDisplayName || "Current Event"}
+              </PrimaryButton>
+              <span aria-hidden className="text-stone-300">
+                /
+              </span>
+              <span className="rounded-lg bg-stone-100 px-2 py-1 text-[11px] font-semibold text-stone-700">
+                {navLabel(activeScreen)}
+              </span>
+            </div>
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+              {perspectiveRoleLabel(effectiveRole)} Workspace
+            </span>
+          </div>
+        ) : null}
+
         {authStage === "app" && (
           <EventNavSegmented
             items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
@@ -22076,22 +22142,20 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && showStaffWorkspaceChrome && (
-          <div className="mt-4">
-            <PrimaryButton
-              onClick={() => {
-                setAppMode("events");
-                setActiveScreen("All Events");
-                void commitActiveEventPlanningToEventsState().catch((error) => {
-                  console.error("Background save after Back to All Events failed:", error);
-                });
-              }}
-              className={`w-full ${lightUiSecondaryButtonClass}`}
-            >
-              Back to All Events
-            </PrimaryButton>
-          </div>
-        )}
+        {authStage === "app" &&
+          appMode === "event" &&
+          showStaffWorkspaceChrome &&
+          !showAdminWorkspaceBridge &&
+          !isCoupleEditorialShell && (
+            <div className="mt-4">
+              <PrimaryButton
+                onClick={() => returnToStaffWorkspace("All Events")}
+                className={`w-full ${lightUiSecondaryButtonClass}`}
+              >
+                Back to All Events
+              </PrimaryButton>
+            </div>
+          )}
 
         {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
           <section className={`${workspaceSectionClass} cm-section-enter`}>
