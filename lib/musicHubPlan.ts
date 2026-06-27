@@ -408,6 +408,7 @@ export function mergeHydratedEventsPreservingLocalMusicHubTaste(
     // copy so songs aren't silently wiped on reload.
     let result = event;
     const songLists = [
+      "preCeremonySongs",
       "mustPlaySongs",
       "doNotPlaySongs",
       "playIfPossibleSongs",

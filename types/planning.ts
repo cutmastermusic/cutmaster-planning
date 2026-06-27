@@ -37,7 +37,13 @@ export type Screen =
 
 export type AppMode = "events" | "event";
 export type AuthStage = "login" | "invite" | "app";
-export type SongListType = "mustPlay" | "doNotPlay" | "playIfPossible" | "cocktailHour" | "dinner";
+export type SongListType =
+  | "preCeremony"
+  | "mustPlay"
+  | "doNotPlay"
+  | "playIfPossible"
+  | "cocktailHour"
+  | "dinner";
 export type GuestRequestStatus = "Pending" | "Approved" | "Rejected";
 export type ChecklistStatus = "Not Started" | "In Progress" | "Complete";
 export type TimelineCategory =
@@ -400,6 +406,8 @@ export type Event = {
   musicGenreEraSelections?: string[];
   /** Nice-to-have songs (optional list). */
   playIfPossibleSongs?: SongEntry[];
+  /** Music played while guests enter before the ceremony. */
+  preCeremonySongs?: SongEntry[];
   /** DJ-curated cocktail hour song list. */
   cocktailHourSongs?: SongEntry[];
   /** DJ-curated dinner music song list. */

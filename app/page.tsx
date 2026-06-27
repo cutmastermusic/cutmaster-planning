@@ -878,8 +878,9 @@ function musicPlaylistLinkHost(url: string): string {
 }
 
 const SPOTIFY_IMPORT_DESTINATION_LABELS: Record<SongListType, string> = {
+  preCeremony: "Pre-Ceremony Music",
   mustPlay: "Must Play",
-  playIfPossible: "Dance Floor Favorites",
+  playIfPossible: "Open Dancing",
   doNotPlay: "Songs to Avoid",
   cocktailHour: "Cocktail Hour",
   dinner: "Dinner",
@@ -1271,12 +1272,18 @@ function spotifyPlaylistPreviewDataFromResponse(
 }
 
 function countEventSongs(
-  evt: Pick<EventRecord, "mustPlaySongs" | "doNotPlaySongs" | "playIfPossibleSongs">,
+  evt: Pick<
+    EventRecord,
+    "preCeremonySongs" | "mustPlaySongs" | "doNotPlaySongs" | "playIfPossibleSongs" | "cocktailHourSongs" | "dinnerSongs"
+  >,
 ): number {
   return (
+    (evt.preCeremonySongs?.length ?? 0) +
     (evt.mustPlaySongs?.length ?? 0) +
     (evt.doNotPlaySongs?.length ?? 0) +
-    (evt.playIfPossibleSongs?.length ?? 0)
+    (evt.playIfPossibleSongs?.length ?? 0) +
+    (evt.cocktailHourSongs?.length ?? 0) +
+    (evt.dinnerSongs?.length ?? 0)
   );
 }
 
@@ -3000,9 +3007,12 @@ function mergeHydratedEventsPreservingPlaylists(
 ): EventRecord[] {
   return hydratedEvents.map((hydrated) => ({
     ...hydrated,
+    preCeremonySongs: dedupeSongEntries(hydrated.preCeremonySongs ?? []),
     mustPlaySongs: dedupeSongEntries(hydrated.mustPlaySongs ?? []),
     doNotPlaySongs: dedupeSongEntries(hydrated.doNotPlaySongs ?? []),
     playIfPossibleSongs: dedupeSongEntries(hydrated.playIfPossibleSongs ?? []),
+    cocktailHourSongs: dedupeSongEntries(hydrated.cocktailHourSongs ?? []),
+    dinnerSongs: dedupeSongEntries(hydrated.dinnerSongs ?? []),
   }));
 }
 
@@ -3855,6 +3865,7 @@ export default function Home() {
   const [musicSongNoteExpanded, setMusicSongNoteExpanded] = useState(false);
   const [musicAddSongOpen, setMusicAddSongOpen] = useState(false);
   const [musicExpandedSongLists, setMusicExpandedSongLists] = useState<Record<SongListType, boolean>>({
+    preCeremony: false,
     mustPlay: false,
     playIfPossible: false,
     doNotPlay: false,
@@ -3870,6 +3881,7 @@ export default function Home() {
     DEFAULT_GUEST_REQUEST_SETTINGS,
   );
   const [musicGenreEraSelections, setMusicGenreEraSelections] = useState<string[]>([]);
+  const [preCeremonySongs, setPreCeremonySongs] = useState<SongEntry[]>([]);
   const [playIfPossibleSongs, setPlayIfPossibleSongs] = useState<SongEntry[]>([]);
   const [cocktailHourSongs, setCocktailHourSongs] = useState<SongEntry[]>([]);
   const [dinnerSongs, setDinnerSongs] = useState<SongEntry[]>([]);
@@ -4278,6 +4290,7 @@ export default function Home() {
       timelineItems,
       ceremonyTimelineItems,
       formalities: [],
+      preCeremonySongs,
       mustPlaySongs,
       doNotPlaySongs,
       ...seedCeremonyPlanningDetails,
@@ -4940,6 +4953,7 @@ export default function Home() {
   const persistSongsToDatabase = useCallback(
     async (
       eventId: string,
+      preCeremony: SongEntry[],
       mustPlay: SongEntry[],
       doNotPlay: SongEntry[],
       playIfPossible: SongEntry[],
@@ -4957,12 +4971,19 @@ export default function Home() {
       }
 
       const force = options?.force === true;
+      const incomingPreCeremony = dedupeSongEntries(preCeremony);
       const incomingMust = dedupeSongEntries(mustPlay);
       const incomingDoNot = dedupeSongEntries(doNotPlay);
       const incomingPif = dedupeSongEntries(playIfPossible);
       const incomingCocktail = dedupeSongEntries(cocktailHour);
       const incomingDinner = dedupeSongEntries(dinner);
-      const incomingTotal = incomingMust.length + incomingDoNot.length + incomingPif.length + incomingCocktail.length + incomingDinner.length;
+      const incomingTotal =
+        incomingPreCeremony.length +
+        incomingMust.length +
+        incomingDoNot.length +
+        incomingPif.length +
+        incomingCocktail.length +
+        incomingDinner.length;
 
       if (!force) {
         if (dbWorkingStateReadyEventIdRef.current !== eventId) {
@@ -4972,6 +4993,7 @@ export default function Home() {
               eventId,
               dbWorkingStateReadyEventId: dbWorkingStateReadyEventIdRef.current,
               incomingTotal,
+              preCeremonyCount: incomingPreCeremony.length,
               mustPlayCount: incomingMust.length,
               doNotPlayCount: incomingDoNot.length,
               playIfPossibleCount: incomingPif.length,
@@ -5003,6 +5025,23 @@ export default function Home() {
       }
 
       try {
+        await replaceEventSongs(
+          eventId,
+          "preCeremony",
+          incomingPreCeremony.map((song, index) => ({
+            title: song.title,
+            artist: song.artist,
+            notes: song.notes,
+            spotifyId: song.spotifyId,
+            album: song.album,
+            albumArt: song.albumArt,
+            albumArtSmall: song.albumArtSmall,
+            previewUrl: song.previewUrl,
+            source: song.source,
+            highPriority: song.highPriority,
+            order: index,
+          })),
+        );
         await replaceEventSongs(
           eventId,
           "mustPlay",
@@ -5090,6 +5129,7 @@ export default function Home() {
         );
         console.info("[song-persist] saved", {
           eventId,
+          preCeremonyCount: incomingPreCeremony.length,
           mustPlayCount: incomingMust.length,
           doNotPlayCount: incomingDoNot.length,
           playIfPossibleCount: incomingPif.length,
@@ -5409,6 +5449,7 @@ export default function Home() {
 
           await persistSongsToDatabase(
             activeEventId,
+            preCeremonySongs,
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
@@ -5478,6 +5519,7 @@ export default function Home() {
             timelineItems: timelinePayload,
             ceremonyTimelineItems: ceremonyPayload,
             formalities: [],
+            preCeremonySongs,
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
@@ -5664,6 +5706,7 @@ export default function Home() {
     }
     setTimelineItems(nextTimelineItems);
     setCeremonyTimelineItems(nextCeremonyTimelineItems);
+    setPreCeremonySongs(dedupeSongEntries(cloneJson(normalized.preCeremonySongs ?? [])));
     setMustPlaySongs(dedupeSongEntries(cloneJson(normalized.mustPlaySongs)));
     setDoNotPlaySongs(dedupeSongEntries(cloneJson(normalized.doNotPlaySongs)));
     setPlayIfPossibleSongs(dedupeSongEntries(cloneJson(normalized.playIfPossibleSongs ?? [])));
@@ -6037,6 +6080,7 @@ export default function Home() {
       timelineItems: templateTimeline,
       ceremonyTimelineItems: cloneJson(ceremonyTimelineItems),
       formalities: [],
+      preCeremonySongs: [],
       mustPlaySongs: [],
       doNotPlaySongs: [],
       playIfPossibleSongs: [],
@@ -7722,8 +7766,12 @@ export default function Home() {
   const musicHubHasCoupleSignal =
     musicPlaylistLinks.length > 0 ||
     musicGenreEraSelections.length > 0 ||
+    preCeremonySongs.length > 0 ||
     mustPlaySongs.length > 0 ||
     playIfPossibleSongs.length > 0 ||
+    cocktailHourSongs.length > 0 ||
+    dinnerSongs.length > 0 ||
+    doNotPlaySongs.length > 0 ||
     musicTasteProfileHasSelections(musicTasteProfile) ||
     PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
   const coupleWeddingJourneyInput = useMemo(
@@ -11282,6 +11330,25 @@ export default function Home() {
             venue: dbEvent.venue || "",
           };
 
+          seededEvent.preCeremonySongs = dedupeSongEntries(
+            (dbEvent.songs || [])
+              .filter((song) => song.listType === "preCeremony")
+              .sort((a, b) => a.order - b.order)
+              .map((song) => ({
+                id: song.id,
+                title: song.title,
+                artist: song.artist || "",
+                notes: song.notes || "",
+                spotifyId: song.spotifyId || undefined,
+                album: song.album || undefined,
+                albumArt: song.albumArt || undefined,
+                albumArtSmall: song.albumArtSmall || undefined,
+                previewUrl: song.previewUrl || undefined,
+                source: normalizeEventSongSource(song.source),
+                highPriority: song.highPriority,
+              })),
+          );
+
           seededEvent.mustPlaySongs = dedupeSongEntries(
             (dbEvent.songs || [])
               .filter((song) => song.listType === "mustPlay")
@@ -11550,6 +11617,7 @@ export default function Home() {
               eventNotes?: EventNote[];
             }).eventNotes;
             setEventNotes(Array.isArray(evtNotes) ? cloneJson(evtNotes) : []);
+            setPreCeremonySongs(dedupeSongEntries(cloneJson(resolvedEvent.preCeremonySongs ?? [])));
             setMustPlaySongs(dedupeSongEntries(cloneJson(resolvedEvent.mustPlaySongs ?? [])));
             setDoNotPlaySongs(dedupeSongEntries(cloneJson(resolvedEvent.doNotPlaySongs ?? [])));
             setPlayIfPossibleSongs(
@@ -11942,6 +12010,9 @@ export default function Home() {
         vendors: Array.isArray(evt.vendors) ? evt.vendors : [],
         guestRequests: Array.isArray(evt.guestRequests) ? evt.guestRequests : [],
         ceremonyGuestArrivalTime: evt.ceremonyGuestArrivalTime ?? "",
+        preCeremonySongs: dedupeSongEntries(
+          Array.isArray(evt.preCeremonySongs) ? evt.preCeremonySongs : [],
+        ),
         mustPlaySongs: dedupeSongEntries(Array.isArray(evt.mustPlaySongs) ? evt.mustPlaySongs : []),
         doNotPlaySongs: dedupeSongEntries(Array.isArray(evt.doNotPlaySongs) ? evt.doNotPlaySongs : []),
         playIfPossibleSongs: dedupeSongEntries(
@@ -12302,9 +12373,12 @@ export default function Home() {
         const dbWorkingStateReadyEventId = dbWorkingStateReadyEventIdRef.current;
         const timelineSuppressBoot = persistUiSuppressBootCountRef.current;
         const songCounts = {
+          preCeremony: preCeremonySongs.length,
           mustPlay: mustPlaySongs.length,
           doNotPlay: doNotPlaySongs.length,
           playIfPossible: playIfPossibleSongs.length,
+          cocktailHour: cocktailHourSongs.length,
+          dinner: dinnerSongs.length,
         };
         const timelineCounts = {
           main: timelineForStore.length,
@@ -12323,6 +12397,7 @@ export default function Home() {
           timelineHydrationComplete,
           dbWorkingStateReadyEventId,
           activeEventId,
+          preCeremony: preCeremonySongs.length,
           cocktailHour: cocktailHourSongs.length,
           dinner: dinnerSongs.length,
           mustPlay: mustPlaySongs.length,
@@ -12355,6 +12430,7 @@ export default function Home() {
             persistTimelinesToDatabase(activeEventId, timelineForStore, ceremonyForStore),
             persistSongsToDatabase(
               activeEventId,
+              preCeremonySongs,
               mustPlaySongs,
               doNotPlaySongs,
               playIfPossibleSongs,
@@ -12513,6 +12589,7 @@ export default function Home() {
     persistEventMetadataToDatabase,
     djScripts,
     djMusicNotes,
+    preCeremonySongs,
     mustPlaySongs,
     doNotPlaySongs,
     playIfPossibleSongs,
@@ -12727,6 +12804,7 @@ export default function Home() {
             timelineItems,
             ceremonyTimelineItems,
             formalities: [],
+            preCeremonySongs,
             mustPlaySongs,
             doNotPlaySongs,
             playIfPossibleSongs,
@@ -13094,7 +13172,9 @@ export default function Home() {
       highPriority: newSongHighPriority,
     };
 
-    if (newSongListType === "mustPlay") {
+    if (newSongListType === "preCeremony") {
+      setPreCeremonySongs((prev) => [newEntry, ...prev]);
+    } else if (newSongListType === "mustPlay") {
       setMustPlaySongs((prev) => [newEntry, ...prev]);
     } else if (newSongListType === "playIfPossible") {
       setPlayIfPossibleSongs((prev) => [newEntry, ...prev]);
@@ -13113,7 +13193,15 @@ export default function Home() {
     setSelectedSpotifySong(null);
     setNewSongNotes("");
     setNewSongHighPriority(false);
-    setMusicAddSongOpen(false);
+    // Keep the composer open so the user can add another song immediately.
+    // Scroll the title input back into view after React re-renders the new row.
+    window.requestAnimationFrame(() => {
+      const titleInput = document.getElementById("song-title");
+      if (titleInput) {
+        titleInput.focus();
+        titleInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
   };
 
   /** Add a Spotify-recommended song directly to a playlist. */
@@ -13126,7 +13214,8 @@ export default function Home() {
         source: "spotify-search",
         highPriority: false,
       };
-      if (listType === "mustPlay") setMustPlaySongs((prev) => [newEntry, ...prev]);
+      if (listType === "preCeremony") setPreCeremonySongs((prev) => [newEntry, ...prev]);
+      else if (listType === "mustPlay") setMustPlaySongs((prev) => [newEntry, ...prev]);
       else if (listType === "playIfPossible") setPlayIfPossibleSongs((prev) => [newEntry, ...prev]);
       else if (listType === "cocktailHour") setCocktailHourSongs((prev) => [newEntry, ...prev]);
       else if (listType === "dinner") setDinnerSongs((prev) => [newEntry, ...prev]);
@@ -13227,6 +13316,7 @@ export default function Home() {
     if (spotifyPlaylistPreviewState.status !== "success") return;
 
     const existingSongs = [
+      ...preCeremonySongs,
       ...mustPlaySongs,
       ...playIfPossibleSongs,
       ...doNotPlaySongs,
@@ -13264,10 +13354,16 @@ export default function Home() {
     });
 
     if (importedSongs.length > 0) {
-      if (spotifyImportTarget === "mustPlay") {
+      if (spotifyImportTarget === "preCeremony") {
+        setPreCeremonySongs((prev) => [...importedSongs, ...prev]);
+      } else if (spotifyImportTarget === "mustPlay") {
         setMustPlaySongs((prev) => [...importedSongs, ...prev]);
       } else if (spotifyImportTarget === "playIfPossible") {
         setPlayIfPossibleSongs((prev) => [...importedSongs, ...prev]);
+      } else if (spotifyImportTarget === "cocktailHour") {
+        setCocktailHourSongs((prev) => [...importedSongs, ...prev]);
+      } else if (spotifyImportTarget === "dinner") {
+        setDinnerSongs((prev) => [...importedSongs, ...prev]);
       } else {
         setDoNotPlaySongs((prev) => [...importedSongs, ...prev]);
       }
@@ -13375,19 +13471,20 @@ export default function Home() {
     });
 
     if (importedSongs.length > 0) {
-      if (pasteSongListTarget === "mustPlay") {
+      if (pasteSongListTarget === "preCeremony") {
+        setPreCeremonySongs((prev) => [...importedSongs, ...prev]);
+      } else if (pasteSongListTarget === "mustPlay") {
         setMustPlaySongs((prev) => [...importedSongs, ...prev]);
       } else if (pasteSongListTarget === "playIfPossible") {
         setPlayIfPossibleSongs((prev) => [...importedSongs, ...prev]);
       } else if (pasteSongListTarget === "cocktailHour") {
         setCocktailHourSongs((prev) => [...importedSongs, ...prev]);
-        markMusicHubTasteDirty();
       } else if (pasteSongListTarget === "dinner") {
         setDinnerSongs((prev) => [...importedSongs, ...prev]);
-        markMusicHubTasteDirty();
       } else {
         setDoNotPlaySongs((prev) => [...importedSongs, ...prev]);
       }
+      markMusicHubTasteDirty();
       logActivity(
         "song_added",
         `Imported ${importedSongs.length} pasted song${importedSongs.length === 1 ? "" : "s"}`,
@@ -13414,6 +13511,7 @@ export default function Home() {
   const musicHubHeroImageSrc =
     musicHubHeroPhoto.displayUrl?.trim() || DEFAULT_EVENT_HERO_SRC;
   const musicAnySongListExpanded =
+    musicExpandedSongLists.preCeremony ||
     musicExpandedSongLists.mustPlay ||
     musicExpandedSongLists.playIfPossible ||
     musicExpandedSongLists.doNotPlay ||
@@ -13453,13 +13551,18 @@ export default function Home() {
   };
 
   const openMusicHubSongList = (listType: SongListType) => {
-    if (isCoupleView) {
-      setCoupleMusicHubScreen("songLists");
-    }
+    const targetIds: Record<SongListType, string> = {
+      preCeremony: "music-hub-pre-ceremony",
+      cocktailHour: "music-hub-cocktail-hour",
+      dinner: "music-hub-dinner",
+      playIfPossible: "music-hub-open-dancing",
+      mustPlay: "music-hub-open-dancing",
+      doNotPlay: "music-hub-do-not-play",
+    };
     setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: true }));
     setNewSongListType(listType);
     setMusicAddSongOpen(true);
-    scrollToMusicHubSection("music-hub-song-lists-workspace");
+    scrollToMusicHubSection(targetIds[listType], "center");
   };
 
   const openMusicHubSpotifyPlaylists = () => {
@@ -13882,37 +13985,61 @@ export default function Home() {
 
   const renderMusicHubActionCards = (muted = false) => (
     <div className={`space-y-4 transition ${muted ? "opacity-75" : "opacity-100"}`}>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {renderMusicHubActionCard({
-          eyebrow: "Music list",
-          title: "Must Play Songs",
-          description: "The songs you absolutely want to hear.",
-          countLabel: musicHubSongCountLabel(mustPlaySongs.length),
-          ctaLabel: mustPlaySongs.length === 0 ? "Add Favorites" : "Edit List",
+          eyebrow: "Ceremony arrival",
+          title: "Pre-Ceremony Music",
+          description: "Songs for guest arrival before the ceremony begins.",
+          countLabel: musicHubSongCountLabel(preCeremonySongs.length),
+          ctaLabel: preCeremonySongs.length === 0 ? "Add Songs" : "Edit Playlist",
           icon: "♪",
           tintClass: "bg-gradient-to-br from-[#C79A5A]/12 via-white to-white",
           iconClass: "bg-[#C79A5A]/18 text-[#8a6020]",
-          onClick: () => openMusicHubSongList("mustPlay"),
-          disabled: !canManageMusic && mustPlaySongs.length === 0,
+          onClick: () => openMusicHubSongList("preCeremony"),
+          disabled: !canManageMusic && preCeremonySongs.length === 0,
         })}
         {renderMusicHubActionCard({
-          eyebrow: "Music list",
-          title: "Dance Floor Favorites",
-          description: "Songs that keep everyone moving all night long.",
-          countLabel: musicHubSongCountLabel(playIfPossibleSongs.length),
-          ctaLabel: playIfPossibleSongs.length === 0 ? "Add Dance Songs" : "Edit List",
+          eyebrow: "Reception flow",
+          title: "Cocktail Hour",
+          description: "Music for mingling, drinks, and the first reception transition.",
+          countLabel: musicHubSongCountLabel(cocktailHourSongs.length),
+          ctaLabel: cocktailHourSongs.length === 0 ? "Add Songs" : "Edit Playlist",
           icon: "♬",
+          tintClass: "bg-gradient-to-br from-stone-100/80 via-white to-white",
+          iconClass: "bg-stone-100 text-stone-500",
+          onClick: () => openMusicHubSongList("cocktailHour"),
+          disabled: !canManageMusic && cocktailHourSongs.length === 0,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Reception flow",
+          title: "Dinner",
+          description: "Background songs for dinner service and conversation.",
+          countLabel: musicHubSongCountLabel(dinnerSongs.length),
+          ctaLabel: dinnerSongs.length === 0 ? "Add Songs" : "Edit Playlist",
+          icon: "♩",
+          tintClass: "bg-gradient-to-br from-amber-50/70 via-white to-white",
+          iconClass: "bg-amber-100 text-amber-700",
+          onClick: () => openMusicHubSongList("dinner"),
+          disabled: !canManageMusic && dinnerSongs.length === 0,
+        })}
+        {renderMusicHubActionCard({
+          eyebrow: "Dance floor",
+          title: "Open Dancing",
+          description: "Dance songs for the party. Mark any song as Must Play inside the list.",
+          countLabel: musicHubSongCountLabel(playIfPossibleSongs.length),
+          ctaLabel: playIfPossibleSongs.length === 0 ? "Add Songs" : "Edit Playlist",
+          icon: "♫",
           tintClass: "bg-gradient-to-br from-[#2f4a3e]/7 via-white to-white",
           iconClass: "bg-[#2f4a3e]/12 text-[#2f4a3e]",
           onClick: () => openMusicHubSongList("playIfPossible"),
           disabled: !canManageMusic && playIfPossibleSongs.length === 0,
         })}
         {renderMusicHubActionCard({
-          eyebrow: "Music list",
-          title: "Songs to Avoid",
-          description: "Songs or artists you don’t want to hear.",
+          eyebrow: "Guardrails",
+          title: "Do Not Play",
+          description: "Songs, artists, or vibes your DJ should avoid.",
           countLabel: musicHubSongCountLabel(doNotPlaySongs.length),
-          ctaLabel: doNotPlaySongs.length === 0 ? "Add Avoids" : "Edit List",
+          ctaLabel: doNotPlaySongs.length === 0 ? "Add Songs" : "Edit Playlist",
           icon: "⊘",
           tintClass: "bg-gradient-to-br from-rose-50/80 via-white to-white",
           iconClass: "bg-rose-100 text-rose-500",
@@ -13920,47 +14047,29 @@ export default function Home() {
           disabled: !canManageMusic && doNotPlaySongs.length === 0,
         })}
         {renderMusicHubActionCard({
-          eyebrow: "Playlist links",
-          title: "Your Playlists",
-          description: "Share Spotify or Apple Music playlists that capture your style.",
-          countLabel: `${musicPlaylistLinks.length} playlist${musicPlaylistLinks.length === 1 ? "" : "s"} added`,
-          ctaLabel: musicPlaylistLinks.length === 0 ? "Add Playlist" : "Manage Playlists",
-          icon: "♩",
+          eyebrow: "Coming soon",
+          title: "Custom Playlists",
+          description: "Special crates for afterparty, late night, cultural sets, or any custom moment.",
+          countLabel: "Placeholder",
+          ctaLabel: "View Placeholder",
+          icon: "+",
           tintClass: "bg-gradient-to-br from-stone-100/80 via-white to-white",
           iconClass: "bg-stone-100 text-stone-500",
-          onClick: openMusicHubSpotifyPlaylists,
-          disabled: !canManageMusic && musicPlaylistLinks.length === 0,
+          onClick: () => scrollToMusicHubSection("music-hub-custom-playlists", "center"),
         })}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {renderMusicHubActionCard({
-          eyebrow: "Quick action",
-          title: "Import Songs",
-          description: "Paste songs from Spotify, Apple Music, Notes, or Excel and we’ll organize them for you.",
-          ctaLabel: "Import Songs",
-          icon: "↧",
-          tintClass: "bg-gradient-to-br from-amber-50/70 via-white to-white",
-          iconClass: "bg-amber-100 text-amber-700",
-          tall: true,
-          onClick: openMusicHubImportSongs,
-          disabled: !canManageMusic,
-        })}
-        {renderMusicHubActionCard({
-          eyebrow: "Guest input",
-          title: "Guest Song Requests",
-          description: "See and manage song requests from your guests.",
-          ctaLabel: "View Requests",
-          countLabel:
-            pendingGuestRequestGroups.length > 0
-              ? `${pendingGuestRequestGroups.length} New`
-              : `${guestRequests.length} request${guestRequests.length === 1 ? "" : "s"}`,
-          icon: "★",
-          tintClass: "bg-gradient-to-br from-[#7F8F7A]/10 via-white to-white",
-          iconClass: "bg-[#7F8F7A]/18 text-[#4a5a4e]",
-          tall: true,
-          onClick: openMusicHubGuestRequests,
-          disabled: !sectionGuestRequestsEnabled,
-        })}
+      <div className="flex flex-col gap-3 rounded-[1.35rem] border border-stone-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-relaxed text-stone-600">
+          Already have a song list? Import songs into one of the playlists after you review them.
+        </p>
+        <PrimaryButton
+          type="button"
+          onClick={openMusicHubImportSongs}
+          disabled={!canManageMusic}
+          className={`min-h-11 w-full sm:w-auto ${couplePortalSecondaryButtonClass}`}
+        >
+          Import Songs
+        </PrimaryButton>
       </div>
     </div>
   );
@@ -14448,6 +14557,119 @@ export default function Home() {
     setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: !prev[listType] }));
   };
 
+  const openInlineSongComposer = (listType: SongListType) => {
+    setNewSongListType(listType);
+    setMusicAddSongOpen(true);
+    setMusicExpandedSongLists((prev) => ({ ...prev, [listType]: true }));
+    window.setTimeout(() => document.getElementById("song-title")?.focus(), 75);
+  };
+
+  const renderInlineSongComposer = (listType: SongListType, title: string, buttonVariant: "default" | "couple") => {
+    const composerOpenForList = musicAddSongOpen && newSongListType === listType;
+    const actionButtonClass =
+      buttonVariant === "couple"
+        ? couplePortalSecondaryButtonClass
+        : "border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50";
+    const primaryButtonClass =
+      buttonVariant === "couple"
+        ? couplePortalPrimaryButtonClass
+        : "border border-[#1f2724] bg-[#1f2724] text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2";
+
+    if (!composerOpenForList) {
+      return (
+        <PrimaryButton
+          type="button"
+          onClick={() => openInlineSongComposer(listType)}
+          disabled={!canManageMusic}
+          className={`mt-3 w-full sm:w-auto ${actionButtonClass}`}
+        >
+          Add Songs
+        </PrimaryButton>
+      );
+    }
+
+    return (
+      <div className="mt-4 rounded-2xl border border-stone-200 bg-[#f7f5f1]/70 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-stone-900">Add to {title}</p>
+          <button
+            type="button"
+            onClick={() => setMusicAddSongOpen(false)}
+            className="text-xs font-semibold text-stone-500 underline underline-offset-2 transition hover:text-stone-800"
+          >
+            Close
+          </button>
+        </div>
+        <div className="mt-4 space-y-3">
+          <SongSearchAutocomplete
+            disabled={!canManageMusic}
+            selectedSong={selectedSpotifySong}
+            onSelect={(song) => {
+              setSelectedSpotifySong(song);
+              setNewSongTitle(song.title);
+              setNewSongArtist(song.artist);
+            }}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextInput
+              id="song-title"
+              label="Song title"
+              value={newSongTitle}
+              onChange={(value) => {
+                setSelectedSpotifySong(null);
+                setNewSongTitle(value);
+              }}
+              placeholder="e.g. Crazy in Love"
+              disabled={!canManageMusic}
+            />
+            <TextInput
+              id="song-artist"
+              label="Artist (optional)"
+              value={newSongArtist}
+              onChange={(value) => {
+                setSelectedSpotifySong(null);
+                setNewSongArtist(value);
+              }}
+              placeholder="e.g. Beyonce"
+              disabled={!canManageMusic}
+            />
+          </div>
+          <TextArea
+            id="song-notes"
+            label="Notes (optional)"
+            value={newSongNotes}
+            onChange={setNewSongNotes}
+            placeholder="Special mix notes, timing cues, energy guidance..."
+            disabled={!canManageMusic}
+            rows={2}
+          />
+          {listType === "playIfPossible" ? (
+            <PrimaryButton
+              type="button"
+              onClick={() => setNewSongHighPriority((prev) => !prev)}
+              disabled={!canManageMusic}
+              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold shadow-none ${
+                newSongHighPriority
+                  ? "border-[#2f4a3e]/55 bg-[#2f4a3e]/10 text-[#2f4a3e]"
+                  : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              {newSongHighPriority ? "Marked Must Play" : "Mark as Must Play"}
+            </PrimaryButton>
+          ) : null}
+          <PrimaryButton
+            type="button"
+            onClick={addSong}
+            disabled={!canManageMusic}
+            className={`min-h-11 w-full touch-manipulation py-2.5 text-sm ${primaryButtonClass}`}
+          >
+            Add to {title}
+          </PrimaryButton>
+        </div>
+      </div>
+    );
+  };
+
   const renderMusicListSummaryCard = ({
     listType,
     id,
@@ -14521,21 +14743,207 @@ export default function Home() {
               buttonVariant={buttonVariant}
               primaryAction={emptyPrimaryAction}
             />
+            {renderInlineSongComposer(listType, title, buttonVariant)}
           </div>
         ) : isExpanded ? (
-          <MusicHubSongList
-            songs={songs}
-            listType={listType}
-            onTogglePriority={togglePriority}
-            onRemove={removeSong}
-            onUpdateSong={updateSong}
-            disabled={!canManageMusic}
-            buttonVariant={buttonVariant}
-          />
+          <>
+            <MusicHubSongList
+              songs={songs}
+              listType={listType}
+              onTogglePriority={togglePriority}
+              onRemove={removeSong}
+              onUpdateSong={updateSong}
+              disabled={!canManageMusic}
+              buttonVariant={buttonVariant}
+              priorityLabel={listType === "playIfPossible" ? "Must Play" : "Priority"}
+            />
+            {renderInlineSongComposer(listType, title, buttonVariant)}
+          </>
         ) : null}
       </PremiumCard>
     );
   };
+
+  const renderCustomPlaylistPlaceholder = (buttonVariant: "default" | "couple") => (
+    <PremiumCard
+      id="music-hub-custom-playlists"
+      className="rounded-2xl border border-dashed border-stone-300 bg-white/70 p-4 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <SectionTitle className="text-stone-950">Custom Playlists</SectionTitle>
+          <p className="mt-1 text-sm leading-relaxed text-stone-600">
+            Need a special crate for afterparty, late night, or a cultural set? Custom playlist builder is coming next.
+          </p>
+        </div>
+        <PrimaryButton
+          type="button"
+          disabled
+          className={`w-full sm:w-auto ${
+            buttonVariant === "couple"
+              ? couplePortalSecondaryButtonClass
+              : "border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none"
+          }`}
+        >
+          Coming Soon
+        </PrimaryButton>
+      </div>
+    </PremiumCard>
+  );
+
+  const renderPlaylistFirstMusicSections = (buttonVariant: "default" | "couple") => (
+    <PremiumCard id="music-hub-song-lists-workspace" variant="accent" className="flex flex-col gap-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+          Playlists
+        </p>
+        <SectionTitle className="mt-1 text-stone-950">Build Your Wedding Soundtrack</SectionTitle>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+          Add songs directly into each part of the day so your DJ can prep the right music for every moment.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {renderMusicListSummaryCard({
+          listType: "preCeremony",
+          id: "music-hub-pre-ceremony",
+          title: "Pre-Ceremony Music",
+          description: "Songs played while guests arrive and find their seats before the ceremony.",
+          songs: preCeremonySongs,
+          emptyTitle: "No pre-ceremony songs yet",
+          emptyDescription: "Add calm guest-arrival songs for the ceremony space.",
+          emptyPrimaryAction: {
+            label: "Add songs",
+            onClick: () => openInlineSongComposer("preCeremony"),
+            disabled: !canManageMusic,
+          },
+          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+          buttonVariant,
+          renderWhenCollapsed: true,
+        })}
+
+        {renderMusicListSummaryCard({
+          listType: "cocktailHour",
+          id: "music-hub-cocktail-hour",
+          title: "Cocktail Hour",
+          description: "Music for mingling, drinks, and the first transition into the reception.",
+          songs: cocktailHourSongs,
+          emptyTitle: "No cocktail hour songs yet",
+          emptyDescription: "Add songs that fit the mood while guests mingle.",
+          emptyPrimaryAction: {
+            label: "Add songs",
+            onClick: () => openInlineSongComposer("cocktailHour"),
+            disabled: !canManageMusic,
+          },
+          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+          buttonVariant,
+          renderWhenCollapsed: true,
+        })}
+
+        {renderMusicListSummaryCard({
+          listType: "dinner",
+          id: "music-hub-dinner",
+          title: "Dinner",
+          description: "Background songs for dinner service and conversation.",
+          songs: dinnerSongs,
+          emptyTitle: "No dinner songs yet",
+          emptyDescription: "Add dinner-friendly songs or artists for the room.",
+          emptyPrimaryAction: {
+            label: "Add songs",
+            onClick: () => openInlineSongComposer("dinner"),
+            disabled: !canManageMusic,
+          },
+          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+          buttonVariant,
+          renderWhenCollapsed: true,
+        })}
+
+        {renderMusicListSummaryCard({
+          listType: "playIfPossible",
+          id: "music-hub-open-dancing",
+          title: "Open Dancing",
+          description: "Dance floor favorites. Use the Must Play flag for songs that should be worked in if at all possible.",
+          songs: playIfPossibleSongs,
+          emptyTitle: "No open dancing songs yet",
+          emptyDescription: "Add dance floor songs, then mark any as Must Play.",
+          emptyPrimaryAction: {
+            label: "Add songs",
+            onClick: () => openInlineSongComposer("playIfPossible"),
+            disabled: !canManageMusic,
+          },
+          className: "rounded-2xl border border-[#7F8F7A]/35 bg-white/80 p-4 shadow-sm",
+          buttonVariant,
+          renderWhenCollapsed: true,
+        })}
+
+        {mustPlaySongs.length > 0 ? (
+          <PremiumCard className="rounded-2xl border border-[#2f4a3e]/15 bg-[#2f4a3e]/[0.04] p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#2f4a3e]/70">
+                  Preserved Must Play Songs
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                  These were saved before Must Play became a flag inside Open Dancing. They remain editable and persisted.
+                </p>
+              </div>
+            </div>
+            <MusicHubSongList
+              songs={mustPlaySongs}
+              listType="mustPlay"
+              onTogglePriority={togglePriority}
+              onRemove={removeSong}
+              onUpdateSong={updateSong}
+              disabled={!canManageMusic}
+              buttonVariant={buttonVariant}
+              priorityLabel="Must Play"
+            />
+          </PremiumCard>
+        ) : null}
+
+        {renderMusicListSummaryCard({
+          listType: "doNotPlay",
+          id: "music-hub-do-not-play",
+          title: "Do Not Play",
+          description: "Songs, artists, or vibes your DJ should avoid.",
+          songs: doNotPlaySongs,
+          emptyTitle: "Nothing on the do-not-play list",
+          emptyDescription: "Add songs or artists you would rather not hear.",
+          emptyPrimaryAction: {
+            label: "Add songs",
+            onClick: () => openInlineSongComposer("doNotPlay"),
+            disabled: !canManageMusic,
+          },
+          className: "rounded-2xl border border-stone-200 bg-white/80 p-4 shadow-sm",
+          buttonVariant,
+          renderWhenCollapsed: true,
+        })}
+
+        {renderCustomPlaylistPlaceholder(buttonVariant)}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-stone-900">Already have a song list?</p>
+          <p className="mt-1 text-sm leading-relaxed text-stone-600">
+            Import songs from notes, spreadsheets, or playlists and choose where they belong.
+          </p>
+        </div>
+        <PrimaryButton
+          type="button"
+          onClick={openMusicHubImportSongs}
+          disabled={!canManageMusic}
+          className={`min-h-11 w-full sm:w-auto ${
+            buttonVariant === "couple"
+              ? couplePortalSecondaryButtonClass
+              : "border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-none hover:bg-stone-50"
+          }`}
+        >
+          Import Songs
+        </PrimaryButton>
+      </div>
+    </PremiumCard>
+  );
 
   const renderPasteSongListImportCard = ({
     className = "",
@@ -14544,7 +14952,14 @@ export default function Home() {
     className?: string;
     style?: CSSProperties;
   }) => {
-    const existingSongs = [...mustPlaySongs, ...playIfPossibleSongs, ...doNotPlaySongs];
+    const existingSongs = [
+      ...preCeremonySongs,
+      ...mustPlaySongs,
+      ...playIfPossibleSongs,
+      ...cocktailHourSongs,
+      ...dinnerSongs,
+      ...doNotPlaySongs,
+    ];
     const previewStats =
       pasteSongListPreviewState.status === "success"
         ? calculatePasteSongListImportStats(pasteSongListPreviewState.rows, existingSongs)
@@ -14926,6 +15341,10 @@ export default function Home() {
   const genreOtherSelected = musicGenreEraSelections.includes(MUSIC_GENRE_ERA_OTHER_CHIP);
 
   const removeSong = (listType: SongListType, songId: string) => {
+    if (listType === "preCeremony") {
+      setPreCeremonySongs((prev) => prev.filter((song) => song.id !== songId));
+      return;
+    }
     if (listType === "mustPlay") {
       setMustPlaySongs((prev) => prev.filter((song) => song.id !== songId));
       return;
@@ -14951,6 +15370,10 @@ export default function Home() {
         song.id === songId ? { ...song, highPriority: !song.highPriority } : song,
       );
 
+    if (listType === "preCeremony") {
+      setPreCeremonySongs((prev) => updatePriority(prev));
+      return;
+    }
     if (listType === "mustPlay") {
       setMustPlaySongs((prev) => updatePriority(prev));
       return;
@@ -14988,6 +15411,10 @@ export default function Home() {
         };
       });
 
+    if (listType === "preCeremony") {
+      setPreCeremonySongs((prev) => applyUpdate(prev));
+      return;
+    }
     if (listType === "mustPlay") {
       setMustPlaySongs((prev) => applyUpdate(prev));
       return;
@@ -21595,11 +22022,11 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
-            {isCoupleView ? renderMusicHubNextUpSection() : null}
 
             {isCoupleView ? (
               <>
-                {coupleMusicHubScreen === "songLists" ? (
+                {renderPlaylistFirstMusicSections("couple")}
+                {false && coupleMusicHubScreen === "songLists" ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-[#2f4a3e]/75">Music Hub</p>
@@ -21617,7 +22044,7 @@ export default function Home() {
                   </div>
                 ) : null}
 
-                {coupleMusicHubScreen === "songLists" ? (
+                {false && coupleMusicHubScreen === "songLists" ? (
                   <>
                 {sectionMustPlayEnabled ? (
                   <PremiumCard variant="accent" id="music-hub-song-lists-workspace" className="flex flex-col">
@@ -22113,6 +22540,9 @@ export default function Home() {
 
 
             {/* ── DJ Workspace ── */}
+            {renderPlaylistFirstMusicSections("default")}
+
+            {/* ── DJ Workspace ── */}
             <div className="relative flex items-center gap-3 py-1">
               <div className="h-px flex-1 bg-stone-200" />
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
@@ -22140,6 +22570,7 @@ export default function Home() {
             </div>
             {showSeratoChecker && (
               <SeratoSongChecker
+                preCeremonySongs={preCeremonySongs}
                 mustPlaySongs={mustPlaySongs}
                 playIfPossibleSongs={playIfPossibleSongs}
                 doNotPlaySongs={doNotPlaySongs}
@@ -22154,6 +22585,42 @@ export default function Home() {
               />
             )}
 
+            <PremiumCard className="border-stone-200 bg-white shadow-sm">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                  DJ Recommendations
+                </p>
+                <SectionTitle className="mt-1 text-stone-950">Spotify Recommendations</SectionTitle>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                  DJ-only suggestions based on the songs already added to each playlist.
+                </p>
+              </div>
+              <div className="mt-4 space-y-3">
+                <SpotifyRecommendations
+                  songs={preCeremonySongs}
+                  listType="preCeremony"
+                  onAddSong={(title, artist) => addRecommendedSong("preCeremony", title, artist)}
+                />
+                <SpotifyRecommendations
+                  songs={cocktailHourSongs}
+                  listType="cocktailHour"
+                  onAddSong={(title, artist) => addRecommendedSong("cocktailHour", title, artist)}
+                />
+                <SpotifyRecommendations
+                  songs={dinnerSongs}
+                  listType="dinner"
+                  onAddSong={(title, artist) => addRecommendedSong("dinner", title, artist)}
+                />
+                <SpotifyRecommendations
+                  songs={playIfPossibleSongs}
+                  listType="playIfPossible"
+                  onAddSong={(title, artist) => addRecommendedSong("playIfPossible", title, artist)}
+                />
+              </div>
+            </PremiumCard>
+
+            {false ? (
+            <>
             {/* All playlists — organized by segment */}
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Playlists</p>
             <div className="space-y-4">
@@ -22304,7 +22771,10 @@ export default function Home() {
                 renderWhenCollapsed: true,
               })}
             </div>
+            </>
+            ) : null}
 
+            {false ? (
             <PremiumCard
               id="music-hub-quick-add"
               className={`border border-dashed border-stone-300 bg-stone-50/60 shadow-none ${isCoupleView ? "order-[19]" : ""}`}
@@ -22472,6 +22942,7 @@ export default function Home() {
                 </div>
               ) : null}
             </PremiumCard>
+            ) : null}
 
             {pasteSongListOpen || pasteSongListPreviewState.status !== "idle" || pasteSongListImportResult ? (
               renderPasteSongListImportCard({
@@ -22488,7 +22959,7 @@ export default function Home() {
               })
             ) : null}
 
-            {sectionPlaylistsEnabled && (
+            {false && sectionPlaylistsEnabled && (
               <details
                 className={`group no-print rounded-2xl border border-stone-200 bg-white shadow-sm ${isCoupleView ? "order-[33]" : ""}`}
                 style={isCoupleView ? { order: 10 } : undefined}

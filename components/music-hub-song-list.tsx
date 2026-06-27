@@ -36,6 +36,7 @@ type MusicHubSongListProps = {
   ) => void;
   disabled?: boolean;
   buttonVariant?: "default" | "couple";
+  priorityLabel?: string;
 };
 
 function SongListRow({
@@ -46,6 +47,7 @@ function SongListRow({
   onUpdateSong,
   disabled = false,
   buttonVariant = "default",
+  priorityLabel = "Priority",
 }: {
   song: SongEntry;
   listType: SongListType;
@@ -54,6 +56,7 @@ function SongListRow({
   onUpdateSong: MusicHubSongListProps["onUpdateSong"];
   disabled?: boolean;
   buttonVariant?: MusicHubSongListProps["buttonVariant"];
+  priorityLabel?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(song.title);
@@ -107,7 +110,7 @@ function SongListRow({
             </div>
             {song.highPriority ? (
               <span className="shrink-0 rounded-full border border-stone-300 bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-700">
-                Priority
+                {priorityLabel}
               </span>
             ) : null}
             {song.source === "spotify-search" ? (
@@ -161,7 +164,7 @@ function SongListRow({
             onClick={() => onTogglePriority(listType, song.id)}
             className={songActionButtonClass}
           >
-            {song.highPriority ? "Unmark" : "Priority"}
+            {song.highPriority ? `Unmark ${priorityLabel}` : priorityLabel}
           </button>
           <button type="button" disabled={disabled} onClick={startEdit} className={songActionButtonClass}>
             Edit
@@ -245,6 +248,7 @@ export function MusicHubSongList({
   onUpdateSong,
   disabled = false,
   buttonVariant = "default",
+  priorityLabel,
 }: MusicHubSongListProps) {
   if (songs.length === 0) return null;
 
@@ -266,7 +270,8 @@ export function MusicHubSongList({
             onRemove={onRemove}
             onUpdateSong={onUpdateSong}
             disabled={disabled}
-          buttonVariant={buttonVariant}
+            buttonVariant={buttonVariant}
+            priorityLabel={priorityLabel}
           />
         ))}
       </div>

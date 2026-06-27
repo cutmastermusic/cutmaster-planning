@@ -25,6 +25,7 @@ type SeedEventPlanningPayload = {
   timelineItems: TimelineItem[];
   ceremonyTimelineItems: CeremonyTimelineItem[];
   formalities: FormalityItem[];
+  preCeremonySongs?: SongEntry[];
   mustPlaySongs: SongEntry[];
   doNotPlaySongs: SongEntry[];
   ceremonyStartTime: string;
@@ -501,6 +502,7 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     timelineItems: payload.timelineItems,
     ceremonyTimelineItems: payload.ceremonyTimelineItems,
     formalities: payload.formalities,
+    preCeremonySongs: payload.preCeremonySongs ?? [],
     mustPlaySongs: payload.mustPlaySongs,
     doNotPlaySongs: payload.doNotPlaySongs,
     ceremonyStartTime: payload.ceremonyStartTime,

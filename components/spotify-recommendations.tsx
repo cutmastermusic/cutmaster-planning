@@ -45,9 +45,10 @@ type RecommendationsApiResponse =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const LIST_LABELS: Record<SongListType, string> = {
+  preCeremony: "Pre-Ceremony",
   mustPlay: "Must Play",
   doNotPlay: "Do Not Play",
-  playIfPossible: "Dance Floor",
+  playIfPossible: "Open Dancing",
   cocktailHour: "Cocktail Hour",
   dinner: "Dinner",
 };

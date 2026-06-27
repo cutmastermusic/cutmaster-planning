@@ -23,6 +23,7 @@ import type { SongEntry } from "@/types/planning";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = {
+  preCeremonySongs?: SongEntry[];
   mustPlaySongs: SongEntry[];
   playIfPossibleSongs: SongEntry[];
   doNotPlaySongs: SongEntry[];
@@ -49,15 +50,42 @@ type LoadState =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const LIST_LABELS: Record<string, string> = {
+  preCeremony: "Pre-Ceremony Music",
   mustPlay: "Must Play",
-  playIfPossible: "Dance Floor Favorites",
+  playIfPossible: "Open Dancing",
   doNotPlay: "Songs to Avoid",
   cocktailHour: "Cocktail Hour",
   dinner: "Dinner",
 };
 
-const ALL_LIST_TYPES = ["mustPlay", "playIfPossible", "doNotPlay", "cocktailHour", "dinner"] as const;
+const ALL_LIST_TYPES = ["preCeremony", "mustPlay", "playIfPossible", "doNotPlay", "cocktailHour", "dinner"] as const;
 type ListType = typeof ALL_LIST_TYPES[number];
+
+const DEFAULT_SINGLE_EXPORT_STATE: ExportState = { status: "idle" };
+
+function defaultCrateNameForList(defaultCrateName: string, listType: ListType): string {
+  return `${defaultCrateName} - ${LIST_LABELS[listType]}`;
+}
+
+function buildDefaultCrateNames(defaultCrateName: string): Record<ListType, string> {
+  return ALL_LIST_TYPES.reduce(
+    (acc, listType) => ({
+      ...acc,
+      [listType]: defaultCrateNameForList(defaultCrateName, listType),
+    }),
+    {} as Record<ListType, string>,
+  );
+}
+
+function buildDefaultExportStates(): Record<ListType, ExportState> {
+  return ALL_LIST_TYPES.reduce(
+    (acc, listType) => ({
+      ...acc,
+      [listType]: DEFAULT_SINGLE_EXPORT_STATE,
+    }),
+    {} as Record<ListType, ExportState>,
+  );
+}
 
 function formatDuration(ms: number): string {
   const totalSec = Math.round(ms / 1000);
@@ -343,6 +371,7 @@ function ResultSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function SeratoSongChecker({
+  preCeremonySongs = [],
   mustPlaySongs,
   playIfPossibleSongs,
   doNotPlaySongs,
@@ -361,28 +390,21 @@ export function SeratoSongChecker({
   const [musicRoot, setMusicRoot] = useState<string | null>(null);
 
   // Per-list crate names and export states
-  const [crateNames, setCrateNames] = useState<Record<string, string>>(() => ({
-    mustPlay: `${defaultCrateName} - Must Play`,
-    playIfPossible: `${defaultCrateName} - Dance Floor`,
-    doNotPlay: `${defaultCrateName} - Do Not Play`,
-    cocktailHour: `${defaultCrateName} - Cocktail Hour`,
-    dinner: `${defaultCrateName} - Dinner`,
-  }));
-  const [exportStates, setExportStates] = useState<Record<string, ExportState>>({
-    mustPlay: { status: "idle" },
-    playIfPossible: { status: "idle" },
-    doNotPlay: { status: "idle" },
-    cocktailHour: { status: "idle" },
-    dinner: { status: "idle" },
-  });
+  const [crateNames, setCrateNames] = useState<Record<string, string>>(() =>
+    buildDefaultCrateNames(defaultCrateName),
+  );
+  const [exportStates, setExportStates] = useState<Record<string, ExportState>>(() =>
+    buildDefaultExportStates(),
+  );
 
   const allClientSongs = useMemo(() => [
+    ...preCeremonySongs.map((s) => songEntryToClientSong(s, "preCeremony")),
     ...mustPlaySongs.map((s) => songEntryToClientSong(s, "mustPlay")),
     ...playIfPossibleSongs.map((s) => songEntryToClientSong(s, "playIfPossible")),
     ...doNotPlaySongs.map((s) => songEntryToClientSong(s, "doNotPlay")),
     ...cocktailHourSongs.map((s) => songEntryToClientSong(s, "cocktailHour")),
     ...dinnerSongs.map((s) => songEntryToClientSong(s, "dinner")),
-  ], [mustPlaySongs, playIfPossibleSongs, doNotPlaySongs, cocktailHourSongs, dinnerSongs]);
+  ], [preCeremonySongs, mustPlaySongs, playIfPossibleSongs, doNotPlaySongs, cocktailHourSongs, dinnerSongs]);
 
   const runCheck = useCallback(async () => {
     setLoadState({ status: "loading" });
@@ -462,13 +484,18 @@ export function SeratoSongChecker({
     }
 
     setExportStates((prev) => ({ ...prev, [listType]: { status: "exporting" } }));
-    const result = await exportCrate(crateNames[listType], tracksToExport);
+    const crateName =
+      crateNames[listType] ??
+      (ALL_LIST_TYPES.includes(listType as ListType)
+        ? defaultCrateNameForList(defaultCrateName, listType as ListType)
+        : `${defaultCrateName} - ${listType}`);
+    const result = await exportCrate(crateName, tracksToExport);
     if (result.ok) {
       setExportStates((prev) => ({ ...prev, [listType]: { status: "success", result } }));
     } else {
       setExportStates((prev) => ({ ...prev, [listType]: { status: "error", message: result.error } }));
     }
-  }, [crateNames]);
+  }, [crateNames, defaultCrateName]);
 
   // Merge DJ selections into summary results
   const mergedResults = useMemo<MatchResult[]>(() => {
@@ -578,8 +605,8 @@ export function SeratoSongChecker({
         const results = groupedByList(listType);
         if (results.length === 0) return null;
         const exportableCount = results.filter((r) => r.status !== "missing").length;
-        const listExportState = exportStates[listType];
-        const listCrateName = crateNames[listType];
+        const listExportState = exportStates[listType] ?? DEFAULT_SINGLE_EXPORT_STATE;
+        const listCrateName = crateNames[listType] ?? defaultCrateNameForList(defaultCrateName, listType);
 
         return (
           <div key={listType} className="space-y-2">
