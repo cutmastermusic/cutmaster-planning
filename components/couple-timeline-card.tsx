@@ -70,6 +70,7 @@ type CoupleTimelineCardProps = {
   onDragStart: (e: DragEvent<HTMLButtonElement>) => void;
   onDragEnd: () => void;
   onTouchStart: (e: TouchEvent<HTMLButtonElement>) => void;
+  isEditing?: boolean;
 };
 
 export function CoupleTimelineCard({
@@ -87,6 +88,7 @@ export function CoupleTimelineCard({
   onDragStart,
   onDragEnd,
   onTouchStart,
+  isEditing = false,
 }: CoupleTimelineCardProps) {
   const resolvedType = resolveTimelineMomentType({ title, momentType });
   const guidance = coupleTimelineMomentGuidance(resolvedType, title);
@@ -170,14 +172,21 @@ export function CoupleTimelineCard({
 
       {/* Actions */}
       <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
-        <button
-          type="button"
-          onClick={onEdit}
-          disabled={!canEdit}
-          className="rounded-lg border border-[#2f4a3e]/22 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5] disabled:opacity-40"
-        >
-          Edit
-        </button>
+        {isEditing ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#7F8F7A]/35 bg-[#7F8F7A]/12 px-2.5 py-1.5 text-[11px] font-semibold text-[#2f4a3e]">
+            <span className="size-1.5 rounded-full bg-[#7F8F7A]" aria-hidden />
+            Editing
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!canEdit}
+            className="rounded-lg border border-[#2f4a3e]/22 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5] disabled:opacity-40"
+          >
+            Edit
+          </button>
+        )}
         <button
           type="button"
           onClick={onDelete}

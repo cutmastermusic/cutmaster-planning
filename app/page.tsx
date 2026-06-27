@@ -3477,6 +3477,14 @@ const TIMELINE_DRAG_HANDLE_EDITING_CLASS =
  */
 const TIMELINE_CARD_EDITING_CLASS =
   "!border-[#C79A5A]/35 !bg-[#C79A5A]/[0.035] ring-1 ring-[#C79A5A]/15 shadow-none";
+const TIMELINE_CARD_DESKTOP_SELECTED_CLASS =
+  "xl:relative xl:overflow-hidden xl:!border-[#7F8F7A]/60 xl:!bg-[#f4f7ef] xl:shadow-[0_18px_52px_-40px_rgba(47,74,62,0.72)] xl:ring-1 xl:ring-[#2f4a3e]/15 xl:before:absolute xl:before:bottom-4 xl:before:left-0 xl:before:top-4 xl:before:w-1 xl:before:rounded-r-full xl:before:bg-[#7F8F7A]/85 xl:before:content-['']";
+const TIMELINE_DESKTOP_INSPECTOR_SHELL_CLASS =
+  "sticky top-[7.25rem] max-h-[calc(100dvh-8.5rem)] overflow-y-auto rounded-[2rem] border border-white/80 bg-[#fbfaf7]/92 p-3 shadow-[0_22px_70px_-48px_rgba(31,39,36,0.55)] ring-1 ring-stone-200/60 backdrop-blur";
+const TIMELINE_CARD_ACTIVE_EDITING_BADGE_CLASS =
+  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[#7F8F7A]/35 bg-[#7F8F7A]/12 px-3 py-2 text-[11px] font-semibold text-[#2f4a3e] shadow-none";
+const TIMELINE_DESKTOP_INSPECTOR_HEADER_CLASS =
+  "rounded-[1.5rem] border border-[#7F8F7A]/25 bg-[#f4f7ef] px-4 py-4 shadow-sm";
 
 function TimelineCardPositionIndicator({
   index,
@@ -3952,6 +3960,7 @@ export default function Home() {
   const touchDragTimelineSourceRef = useRef<string | null>(null);
   /** Reception/main timeline: collapsed summary vs expanded inline edit */
   const [receptionTimelineExpandedId, setReceptionTimelineExpandedId] = useState<string | null>(null);
+  const [timelineDesktopEditorEnabled, setTimelineDesktopEditorEnabled] = useState(false);
   /** Inline expanded row: field edits stay local until flush (avoids full-tree persist on each keystroke). */
   const [receptionTimelineInlineEditDraft, setReceptionTimelineInlineEditDraft] = useState<{
     itemId: string;
@@ -4527,6 +4536,15 @@ export default function Home() {
   receptionTimelineInlineEditDraftRef.current = receptionTimelineInlineEditDraft;
   const ceremonyTimelineInlineEditDraftRef = useRef(ceremonyTimelineInlineEditDraft);
   ceremonyTimelineInlineEditDraftRef.current = ceremonyTimelineInlineEditDraft;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(min-width: 1280px)");
+    const update = () => setTimelineDesktopEditorEnabled(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   const flushReceptionTimelineInlineEditDraftIntoTimeline = useCallback(() => {
     const draft = receptionTimelineInlineEditDraftRef.current;
@@ -19400,6 +19418,14 @@ export default function Home() {
       timelineStreamRef.current;
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  const openCeremonyTimelineEditor = (item: CeremonyTimelineItem) => {
+    if (timelineDesktopEditorEnabled) closeReceptionTimelineCardExpanded();
+    openCeremonyTimelineCardExpanded(item);
+  };
+  const openReceptionTimelineEditor = (item: TimelineItem) => {
+    if (timelineDesktopEditorEnabled) closeCeremonyTimelineCardExpanded();
+    openReceptionTimelineCardExpanded(item);
+  };
 
   const renderCeremonyTimelineExpandedEditor = ({
     item,
@@ -19410,6 +19436,7 @@ export default function Home() {
     cerNotes,
     cerNeedsMc,
     cerTeamCueFormat,
+    inspectorMode = false,
   }: {
     item: CeremonyTimelineItem;
     cerTime: string;
@@ -19419,8 +19446,10 @@ export default function Home() {
     cerNotes: string;
     cerNeedsMc: boolean;
     cerTeamCueFormat: TeamCueFormat;
+    inspectorMode?: boolean;
   }) => (
-    <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+    <div className={inspectorMode ? "md:w-full" : "md:mx-auto md:w-full md:max-w-[44rem]"}>
+      {!inspectorMode ? (
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
         <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
           Edit moment
@@ -19453,6 +19482,7 @@ export default function Home() {
           ) : null}
         </div>
       </div>
+      ) : null}
       <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
           <TextInput
@@ -19551,7 +19581,7 @@ export default function Home() {
                 : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
             }
           >
-            Done
+            {inspectorMode ? "Close Editor" : "Done"}
           </PrimaryButton>
         </div>
       </div>
@@ -19573,6 +19603,7 @@ export default function Home() {
     recvFadeTs,
     recvTeamCueFormat,
     isToast,
+    inspectorMode = false,
   }: {
     item: TimelineItem;
     timelineRow: TimelineItem | null;
@@ -19588,6 +19619,7 @@ export default function Home() {
     recvFadeTs: string;
     recvTeamCueFormat: TeamCueFormat;
     isToast: boolean;
+    inspectorMode?: boolean;
   }) => {
     if (isCoupleView && coupleWorkspaceId) {
       return (
@@ -19634,7 +19666,8 @@ export default function Home() {
     }
 
     return (
-      <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+      <div className={inspectorMode ? "md:w-full" : "md:mx-auto md:w-full md:max-w-[44rem]"}>
+        {!inspectorMode ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
           <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
             Edit moment
@@ -19670,6 +19703,7 @@ export default function Home() {
             ) : null}
           </div>
         </div>
+        ) : null}
 
         <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
           <TextInput
@@ -19836,10 +19870,182 @@ export default function Home() {
                   : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
               }
             >
-              Done
+              {inspectorMode ? "Close Editor" : "Done"}
             </PrimaryButton>
           </div>
         </div>
+      </div>
+    );
+  };
+  const renderTimelineDesktopEditorPanel = (section: "ceremony" | "reception") => {
+    const selectedCeremony = ceremonyTimelineExpandedId
+      ? ceremonyTimelineItems.find((item) => item.id === ceremonyTimelineExpandedId)
+      : null;
+    if (selectedCeremony) {
+      if (section !== "ceremony") {
+        return null;
+      }
+      const cerInlineVals =
+        ceremonyTimelineInlineEditDraft?.itemId === selectedCeremony.id
+          ? ceremonyTimelineInlineEditDraft.values
+          : null;
+      return (
+        <div className="space-y-3">
+          <div className={TIMELINE_DESKTOP_INSPECTOR_HEADER_CLASS}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7F8F7A]">Editing</p>
+                <h3 className="mt-1 truncate text-lg font-semibold tracking-tight text-stone-950">
+                  {cerInlineVals?.moment ?? selectedCeremony.moment}
+                </h3>
+                {(cerInlineVals?.timeOrOrder ?? selectedCeremony.timeOrOrder)?.trim() ? (
+                  <p className="mt-1 font-mono text-xs font-semibold tabular-nums text-stone-500">
+                    {cerInlineVals?.timeOrOrder ?? selectedCeremony.timeOrOrder}
+                  </p>
+                ) : null}
+              </div>
+              {canEditTimeline ? (
+                <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => duplicateCeremonyTimelineItem(selectedCeremony)}
+                    disabled={!canEditTimeline}
+                    className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
+                  >
+                    Duplicate
+                  </PrimaryButton>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPendingTimelineDelete({
+                        kind: "ceremony",
+                        id: selectedCeremony.id,
+                        label: selectedCeremony.moment.trim() || "this moment",
+                      })
+                    }
+                    className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {renderCeremonyTimelineExpandedEditor({
+            item: selectedCeremony,
+            cerTime: cerInlineVals?.timeOrOrder ?? selectedCeremony.timeOrOrder,
+            cerMoment: cerInlineVals?.moment ?? selectedCeremony.moment,
+            cerSong: cerInlineVals?.songTitle ?? selectedCeremony.songTitle,
+            cerArtist: cerInlineVals?.artist ?? selectedCeremony.artist,
+            cerNotes: cerInlineVals?.notes ?? selectedCeremony.notes,
+            cerNeedsMc: cerInlineVals?.needsDjMcAttention ?? selectedCeremony.needsDjMcAttention,
+            cerTeamCueFormat: normalizeTeamCueFormat(
+              cerInlineVals?.teamCueFormat ?? selectedCeremony.teamCueFormat,
+            ),
+            inspectorMode: true,
+          })}
+        </div>
+      );
+    }
+
+    const selectedReception = receptionTimelineExpandedId
+      ? timelineItems.find((item) => item.id === receptionTimelineExpandedId)
+      : null;
+    if (selectedReception) {
+      if (section !== "reception") {
+        return null;
+      }
+      const recvInlineVals =
+        receptionTimelineInlineEditDraft?.itemId === selectedReception.id
+          ? receptionTimelineInlineEditDraft.values
+          : null;
+      const coupleWorkspaceId =
+        isCoupleView && selectedReception.momentType
+          ? (() => {
+            const resolved = resolveCoupleTimelineMomentWorkspaceId({
+              title: selectedReception.title,
+              momentType: selectedReception.momentType,
+            });
+            return hideCoupleCeremonyTimelineForNoCeremony && resolved === "ceremony" ? null : resolved;
+          })()
+          : null;
+      const recvTitle = recvInlineVals?.title ?? selectedReception.title;
+      return (
+        <div className="space-y-3">
+          <div className={TIMELINE_DESKTOP_INSPECTOR_HEADER_CLASS}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7F8F7A]">Editing</p>
+                <h3 className="mt-1 truncate text-lg font-semibold tracking-tight text-stone-950">{recvTitle}</h3>
+                {(recvInlineVals?.time ?? selectedReception.time)?.trim() ? (
+                  <p className="mt-1 font-mono text-xs font-semibold tabular-nums text-stone-500">
+                    {recvInlineVals?.time ?? selectedReception.time}
+                  </p>
+                ) : null}
+              </div>
+              {canEditTimeline ? (
+                <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => duplicateTimelineItem(selectedReception)}
+                    disabled={!canEditTimeline}
+                    className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
+                  >
+                    Duplicate
+                  </PrimaryButton>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPendingTimelineDelete({
+                        kind: "reception",
+                        id: selectedReception.id,
+                        label: selectedReception.title.trim() || "this moment",
+                      })
+                    }
+                    className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {renderReceptionTimelineExpandedEditor({
+            item: selectedReception,
+            timelineRow: selectedReception,
+            coupleWorkspaceId,
+            recvTitle,
+            recvTime: recvInlineVals?.time ?? selectedReception.time,
+            recvNotes: recvInlineVals?.notes ?? selectedReception.notes,
+            recvSong: recvInlineVals?.songTitle ?? selectedReception.songTitle ?? "",
+            recvArtist: recvInlineVals?.artist ?? selectedReception.artist ?? "",
+            recvCategory: recvInlineVals?.category ?? selectedReception.category,
+            recvNeedsMc: recvInlineVals?.needsDjMcAttention ?? selectedReception.needsDjMcAttention ?? false,
+            recvFadeEarly: recvInlineVals?.fadeOutEarly ?? selectedReception.fadeOutEarly ?? false,
+            recvFadeTs: recvInlineVals?.fadeOutTimestamp ?? selectedReception.fadeOutTimestamp ?? "",
+            recvTeamCueFormat: normalizeTeamCueFormat(
+              recvInlineVals?.teamCueFormat ?? selectedReception.teamCueFormat,
+            ),
+            isToast: isToastTimelineItem(selectedReception.title),
+            inspectorMode: true,
+          })}
+        </div>
+      );
+    }
+
+    if (section !== "ceremony") {
+      return null;
+    }
+
+    return (
+      <div className="flex min-h-[18rem] flex-col justify-center rounded-[1.75rem] border border-stone-200 bg-white/80 px-6 py-8 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#2f4a3e]/15 bg-[#f7f5f1] text-[#2f4a3e]">
+          ✎
+        </div>
+        <p className="text-base font-semibold tracking-tight text-stone-950">Select a moment to edit</p>
+        <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-stone-600">
+          Choose any ceremony or reception moment from the timeline.
+        </p>
       </div>
     );
   };
@@ -23575,7 +23781,7 @@ export default function Home() {
           appMode === "event" &&
           (showCeremonyOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
           <section
-            className={`${workspaceSectionClass} overflow-x-hidden ${showUnifiedTimelineWorkspace ? "pb-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
+            className={`${workspaceSectionClass} ${showUnifiedTimelineWorkspace ? "overflow-x-clip pb-0" : "overflow-x-hidden"}${isCoupleView ? " cm-couple-workspace" : ""}`}
           >
             {showUnifiedTimelineWorkspace ? (
               <>
@@ -23718,11 +23924,12 @@ export default function Home() {
               </PremiumCard>
             )}
 
+            <div className={showUnifiedTimelineWorkspace ? "xl:grid xl:grid-cols-[minmax(0,0.88fr)_minmax(24rem,0.56fr)] xl:items-stretch xl:gap-6" : ""}>
             <div
               ref={ceremonyTimelineStreamRef}
               className={
                 showUnifiedTimelineWorkspace
-                  ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
+                  ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6 xl:px-0`
                   : isCoupleView
                     ? COUPLE_TIMELINE_STREAM_CLASS
                     : TIMELINE_STREAM_CLASS
@@ -23743,6 +23950,8 @@ export default function Home() {
                 <>
                 {ceremonyTimelineItems.map((item, index) => {
                   const rowExpanded = ceremonyTimelineExpandedId === item.id;
+                  const inlineEditorOpen = rowExpanded && !timelineDesktopEditorEnabled;
+                  const desktopRowSelected = rowExpanded && timelineDesktopEditorEnabled;
                   const songLine = [item.songTitle?.trim(), item.artist?.trim()]
                     .filter(Boolean)
                     .join(" · ");
@@ -23766,7 +23975,7 @@ export default function Home() {
                   return (
                     <Fragment key={item.id}>
                     <PremiumCard
-                      className={`${isCoupleView && !rowExpanded ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: ceremonyDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !rowExpanded ? "" : TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
+                      className={`${isCoupleView && !inlineEditorOpen && !desktopRowSelected ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: ceremonyDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !inlineEditorOpen && !desktopRowSelected ? "" : TIMELINE_CARD_SHELL_CLASS} ${ceremonyDragActive ? "select-none" : ""} ${inlineEditorOpen ? TIMELINE_CARD_EDITING_CLASS : ""} ${desktopRowSelected ? TIMELINE_CARD_DESKTOP_SELECTED_CLASS : ""}`}
                       aria-grabbed={isDragging}
                       data-ceremony-timeline-id={item.id}
                       onDragOver={(event) => {
@@ -23794,7 +24003,7 @@ export default function Home() {
                       }}
                     >
                       {isDropTarget && !isCoupleView ? <TimelineDropTargetMarker /> : null}
-                      {!rowExpanded && isCoupleView ? (
+                      {!inlineEditorOpen && isCoupleView ? (
                         <CoupleTimelineCard
                           title={item.moment}
                           time={item.timeOrOrder ?? ""}
@@ -23805,7 +24014,7 @@ export default function Home() {
                           isDropTarget={isDropTarget}
                           dragActive={ceremonyDragActive && !isDragging}
                           canEdit={canEditTimeline}
-                          onEdit={() => openCeremonyTimelineCardExpanded(item)}
+                          onEdit={() => openCeremonyTimelineEditor(item)}
                           onDelete={() =>
                             setPendingTimelineDelete({
                               kind: "ceremony",
@@ -23830,8 +24039,9 @@ export default function Home() {
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
+                          isEditing={desktopRowSelected}
                         />
-                      ) : !rowExpanded && (
+                      ) : !inlineEditorOpen && (
                         <>
                           <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                             <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
@@ -23861,14 +24071,21 @@ export default function Home() {
                                 ) : null}
                               </div>
                               <div className={TIMELINE_CARD_ACTION_ROW_CLASS}>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => openCeremonyTimelineCardExpanded(item)}
-                                  disabled={!canEditTimeline}
-                                  className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
-                                >
-                                  Edit
-                                </PrimaryButton>
+                                {desktopRowSelected ? (
+                                  <span className={TIMELINE_CARD_ACTIVE_EDITING_BADGE_CLASS}>
+                                    <span className="size-1.5 rounded-full bg-[#7F8F7A]" aria-hidden />
+                                    Editing
+                                  </span>
+                                ) : (
+                                  <PrimaryButton
+                                    type="button"
+                                    onClick={() => openCeremonyTimelineEditor(item)}
+                                    disabled={!canEditTimeline}
+                                    className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
+                                  >
+                                    Edit
+                                  </PrimaryButton>
+                                )}
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => prepareAddCeremonyMomentAfter(item.id)}
@@ -23907,7 +24124,7 @@ export default function Home() {
                           <div className="flex flex-col gap-2.5 md:hidden">
                             <CoupleScrollSafeTapSurface
                               disabled={!canEditTimeline}
-                              onTap={() => openCeremonyTimelineCardExpanded(item)}
+                              onTap={() => openCeremonyTimelineEditor(item)}
                               className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                 ? "cursor-pointer active:scale-[0.995]"
                                 : "cursor-default opacity-80"
@@ -23961,7 +24178,7 @@ export default function Home() {
                             <div className={TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS}>
                               <PrimaryButton
                                 type="button"
-                                onClick={() => openCeremonyTimelineCardExpanded(item)}
+                                onClick={() => openCeremonyTimelineEditor(item)}
                                 disabled={!canEditTimeline}
                                 className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                               >
@@ -24004,7 +24221,7 @@ export default function Home() {
                           </div>
                         </>
                       )}
-                      {rowExpanded && (
+                      {inlineEditorOpen && (
                         renderCeremonyTimelineExpandedEditor({
                           item,
                           cerTime,
@@ -24038,7 +24255,7 @@ export default function Home() {
                             touchDragCeremonyTimelineSourceRef.current = item.id;
                             setDraggingCeremonyTimelineId(item.id);
                           }}
-                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${rowExpanded ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
+                          className={`${TIMELINE_DRAG_HANDLE_CLASS} ${inlineEditorOpen ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                           disabled={!canEditTimeline}
                           aria-label={`Drag to reorder ${item.moment}`}
                         >
@@ -24058,7 +24275,7 @@ export default function Home() {
                         </div>
                       </div>
                     </PremiumCard>
-                    {isCoupleView && !rowExpanded && (
+                    {isCoupleView && !inlineEditorOpen && (
                       <CoupleAddMomentStrip
                         onClick={() => prepareAddCeremonyMomentAfter(item.id)}
                         disabled={!canEditTimeline}
@@ -24113,6 +24330,18 @@ export default function Home() {
                 ) : null}
                 </>
               )}
+            </div>
+            {showUnifiedTimelineWorkspace && timelineDesktopEditorEnabled ? (
+              <aside className="no-print hidden xl:block">
+                {receptionTimelineExpandedId ? (
+                  <div className="sticky top-[7.25rem] min-h-px" aria-hidden />
+                ) : (
+                  <div className={TIMELINE_DESKTOP_INSPECTOR_SHELL_CLASS}>
+                    {renderTimelineDesktopEditorPanel("ceremony")}
+                  </div>
+                )}
+              </aside>
+            ) : null}
             </div>
 
             {!showUnifiedTimelineWorkspace && !isCoupleView && (
@@ -24193,7 +24422,7 @@ export default function Home() {
           appMode === "event" &&
           (showReceptionOnlyTimelineWorkspace || showUnifiedTimelineWorkspace) && (
             <section
-              className={`${workspaceSectionClass} overflow-x-hidden ${showUnifiedTimelineWorkspace ? "pt-0" : ""}${isCoupleView ? " cm-couple-workspace" : ""}`}
+              className={`${workspaceSectionClass} ${showUnifiedTimelineWorkspace ? "overflow-x-clip pt-0" : "overflow-x-hidden"}${isCoupleView ? " cm-couple-workspace" : ""}`}
             >
               {showCouplePostJourneyTimelineGuidance && !showUnifiedTimelineWorkspace ? (
                 <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
@@ -24368,11 +24597,12 @@ export default function Home() {
                 </div>
               ) : null}
 
+              <div className={showUnifiedTimelineWorkspace ? "xl:grid xl:grid-cols-[minmax(0,0.88fr)_minmax(24rem,0.56fr)] xl:items-stretch xl:gap-6" : ""}>
               <div
                 ref={timelineStreamRef}
                 className={
                   showUnifiedTimelineWorkspace
-                    ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6`
+                    ? `${TIMELINE_STREAM_UNIFIED_CLASS} px-4 pb-4 sm:px-5 md:px-6 xl:px-0`
                     : isCoupleView
                       ? COUPLE_TIMELINE_STREAM_CLASS
                       : TIMELINE_STREAM_CLASS
@@ -24407,6 +24637,8 @@ export default function Home() {
                   {receptionTimelineDisplayItems.map((item, index) => {
                     const timelineRow = timelineItems.find((t) => t.id === item.id);
                     const rowExpanded = receptionTimelineExpandedId === item.id;
+                    const inlineEditorOpen = rowExpanded && !timelineDesktopEditorEnabled;
+                    const desktopRowSelected = rowExpanded && timelineDesktopEditorEnabled;
                     const songPreview =
                       [item.songTitle?.trim(), item.artist?.trim()].filter(Boolean).join(" · ") ||
                       (item.notes?.trim()
@@ -24455,7 +24687,7 @@ export default function Home() {
                     return (
                       <Fragment key={item.id}>
                       <PremiumCard
-                        className={`${isCoupleView && !rowExpanded ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: timelineDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !rowExpanded ? "" : TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""} ${rowExpanded ? TIMELINE_CARD_EDITING_CLASS : ""}`}
+                        className={`${isCoupleView && !inlineEditorOpen && !desktopRowSelected ? "!bg-transparent !border-transparent !p-0 !shadow-none !rounded-none" : timelineReorderRowSurfaceClass({ isDragging, isDropTarget, dragActive: timelineDragActive && !isDragging, zebra: index % 2 === 1 })} ${isCoupleView && !inlineEditorOpen && !desktopRowSelected ? "" : TIMELINE_CARD_SHELL_CLASS} ${timelineDragActive ? "select-none" : ""} ${inlineEditorOpen ? TIMELINE_CARD_EDITING_CLASS : ""} ${desktopRowSelected ? TIMELINE_CARD_DESKTOP_SELECTED_CLASS : ""}`}
                         aria-grabbed={isDragging}
                         onDragOver={(event) => {
                           if (!canEditTimeline || !draggingTimelineId) return;
@@ -24483,7 +24715,7 @@ export default function Home() {
                         data-timeline-id={item.id}
                       >
                         {isDropTarget && !isCoupleView ? <TimelineDropTargetMarker /> : null}
-                        {!rowExpanded && isCoupleView ? (
+                        {!inlineEditorOpen && isCoupleView ? (
                           <CoupleTimelineCard
                             title={item.title}
                             time={item.time ?? ""}
@@ -24495,7 +24727,7 @@ export default function Home() {
                             dragActive={timelineDragActive && !isDragging}
                             canEdit={canEditTimeline}
                             onEdit={() => {
-                              if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                              if (timelineRow) openReceptionTimelineEditor(timelineRow);
                             }}
                             onDelete={() =>
                               setPendingTimelineDelete({
@@ -24521,8 +24753,9 @@ export default function Home() {
                               touchDragTimelineSourceRef.current = item.id;
                               setDraggingTimelineId(item.id);
                             }}
+                            isEditing={desktopRowSelected}
                           />
-                        ) : !rowExpanded ? (
+                        ) : !inlineEditorOpen ? (
                           <>
                             <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
                               <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
@@ -24615,16 +24848,23 @@ export default function Home() {
                                       Edit Speeches / Toasts
                                     </button>
                                   ) : null}
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => {
-                                      if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
-                                    }}
-                                    disabled={!canEditTimeline}
-                                    className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
-                                  >
-                                    Edit
-                                  </PrimaryButton>
+                                  {desktopRowSelected ? (
+                                    <span className={TIMELINE_CARD_ACTIVE_EDITING_BADGE_CLASS}>
+                                      <span className="size-1.5 rounded-full bg-[#7F8F7A]" aria-hidden />
+                                      Editing
+                                    </span>
+                                  ) : (
+                                    <PrimaryButton
+                                      type="button"
+                                      onClick={() => {
+                                        if (timelineRow) openReceptionTimelineEditor(timelineRow);
+                                      }}
+                                      disabled={!canEditTimeline}
+                                      className={TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS}
+                                    >
+                                      Edit
+                                    </PrimaryButton>
+                                  )}
                                   <PrimaryButton
                                     type="button"
                                     onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
@@ -24667,7 +24907,7 @@ export default function Home() {
                               <CoupleScrollSafeTapSurface
                                 disabled={!canEditTimeline || !timelineRow}
                                 onTap={() => {
-                                  if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                  if (timelineRow) openReceptionTimelineEditor(timelineRow);
                                 }}
                                 className={`${TIMELINE_CARD_MOBILE_READ_SHELL_CLASS} ${canEditTimeline
                                   ? "cursor-pointer active:scale-[0.995]"
@@ -24793,7 +25033,7 @@ export default function Home() {
                                 <PrimaryButton
                                   type="button"
                                   onClick={() => {
-                                    if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
+                                    if (timelineRow) openReceptionTimelineEditor(timelineRow);
                                   }}
                                   disabled={!canEditTimeline}
                                   className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
@@ -24840,7 +25080,7 @@ export default function Home() {
                             </div>
                           </>
                         ) : null}
-                        {rowExpanded
+                        {inlineEditorOpen
                           ? renderReceptionTimelineExpandedEditor({
                             item,
                             timelineRow: timelineRow ?? null,
@@ -24881,7 +25121,7 @@ export default function Home() {
                               touchDragTimelineSourceRef.current = item.id;
                               setDraggingTimelineId(item.id);
                             }}
-                            className={`${TIMELINE_DRAG_HANDLE_CLASS} ${rowExpanded ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
+                            className={`${TIMELINE_DRAG_HANDLE_CLASS} ${inlineEditorOpen ? TIMELINE_DRAG_HANDLE_EDITING_CLASS : ""} ${isDragging ? "cursor-grabbing border-stone-600 bg-stone-200 shadow-sm ring-2 ring-stone-300/70" : ""}`}
                             disabled={!canEditTimeline}
                             aria-label={`Drag to reorder ${item.title}`}
                           >
@@ -24899,7 +25139,7 @@ export default function Home() {
                           />
                         </div>
                       </PremiumCard>
-                      {isCoupleView && !rowExpanded && (
+                      {isCoupleView && !inlineEditorOpen && (
                         <CoupleAddMomentStrip
                           onClick={() => prepareAddMomentAfterTimelineItem(item.id)}
                           disabled={!canEditTimeline}
@@ -24969,6 +25209,18 @@ export default function Home() {
                   ) : null}
                   </>
                 )}
+              </div>
+              {showUnifiedTimelineWorkspace && timelineDesktopEditorEnabled ? (
+                <aside className="no-print hidden xl:block">
+                  {receptionTimelineExpandedId ? (
+                    <div className={TIMELINE_DESKTOP_INSPECTOR_SHELL_CLASS}>
+                      {renderTimelineDesktopEditorPanel("reception")}
+                    </div>
+                  ) : (
+                    <div className="sticky top-[7.25rem] min-h-px" aria-hidden />
+                  )}
+                </aside>
+              ) : null}
               </div>
 
               {isCoupleView ? (
