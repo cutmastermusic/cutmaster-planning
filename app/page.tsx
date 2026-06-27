@@ -2879,14 +2879,15 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   // Guest Requests is surfaced inside Music Hub for couples, so drop the standalone nav entry.
   // The screen itself stays reachable (via Music Hub + dashboard), so no functionality is lost.
   coupleNav = coupleNav.filter((item) => item !== "Guest Requests");
-  // Client navigation follows the couple's planning journey, not the underlying data model.
+  // Client navigation prioritizes "what needs attention next" for returning couples.
   const coupleJourneyOrder: Screen[] = [
-    "Dashboard",
-    "Planning Assistant",
+    "Planning Checklist",
     "Timeline",
     "Music Hub",
     "Event Team",
     "Event Prep",
+    "Dashboard",
+    "Planning Assistant",
   ];
   const orderedJourney = coupleJourneyOrder.filter((item) => coupleNav.includes(item));
   // Keep any remaining allowed screens (e.g. Planning Checklist, Ceremony, Event Settings)
