@@ -7,7 +7,7 @@ import { CoupleFinalPlanningPrepDashboard } from "@/components/couple-final-plan
 import { WelcomePhotoHeroImage } from "@/components/welcome-photo-hero-image";
 import { couplePortalPrimaryButtonClass } from "@/components/planning-ui";
 import { WelcomePhotoOnboardingPill } from "@/components/couple-onboarding-glass-pill";
-import { resolveCoupleWelcomePhotoDisplay } from "@/lib/eventCover";
+import { DEFAULT_EVENT_HERO_SRC, resolveCoupleWelcomePhotoDisplay } from "@/lib/eventCover";
 import { logPhotoTrace } from "@/lib/welcomePhotoTrace";
 import type { CoverPhotoTransform } from "@/types/planning";
 import type {
@@ -421,7 +421,8 @@ function CoupleHeroPhoto({
     );
   }
 
-  if (!isEventSpecific && displayUrl && !globalDefaultLoadFailed) {
+  if (!isEventSpecific && displayUrl) {
+    const fallbackDisplayUrl = globalDefaultLoadFailed ? DEFAULT_EVENT_HERO_SRC : displayUrl;
     return (
       <button
         type="button"
@@ -431,11 +432,15 @@ function CoupleHeroPhoto({
         aria-label="Personalize your welcome photo"
       >
         <WelcomePhotoHeroImage
-          src={displayUrl}
-          transform={defaultWelcomePhotoTransform}
+          src={fallbackDisplayUrl}
+          transform={globalDefaultLoadFailed ? undefined : defaultWelcomePhotoTransform}
           imageClassName="cm-dashboard-v3-hero-photo-img--personalize"
           visible
-          onError={() => setGlobalDefaultLoadFailed(true)}
+          onError={
+            fallbackDisplayUrl === DEFAULT_EVENT_HERO_SRC
+              ? undefined
+              : () => setGlobalDefaultLoadFailed(true)
+          }
         />
         {showOnboardingPill ? <WelcomePhotoOnboardingPill /> : null}
       </button>

@@ -1,7 +1,9 @@
-import { DEFAULT_EVENT_HERO_SRC, hasCustomEventCover } from "@/lib/eventCover";
+import { resolveEventHeroImageDisplay } from "@/lib/eventCover";
 
 type EventHeroCoverProps = {
   coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
+  defaultWelcomePhotoDataUrl?: string;
   /** On compact cards, omit onboarding copy to keep the grid calm. */
   showPersonalizeGuidance?: boolean;
   /** Opens Event Settings cover section (no server upload in this build). */
@@ -14,15 +16,23 @@ type EventHeroCoverProps = {
  */
 export function EventHeroCover({
   coverPhotoDataUrl,
+  coverPhotoStoragePath,
+  defaultWelcomePhotoDataUrl,
   showPersonalizeGuidance = true,
   onRequestCoverPhoto,
   personalizeDisabled = false,
 }: EventHeroCoverProps) {
-  if (hasCustomEventCover(coverPhotoDataUrl)) {
+  const heroImage = resolveEventHeroImageDisplay({
+    coverPhotoDataUrl,
+    coverPhotoStoragePath,
+    defaultWelcomePhotoDataUrl,
+  });
+
+  if (heroImage.isEventSpecific) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={coverPhotoDataUrl}
+        src={heroImage.displayUrl}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />
@@ -33,7 +43,7 @@ export function EventHeroCover({
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={DEFAULT_EVENT_HERO_SRC}
+        src={heroImage.displayUrl}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />

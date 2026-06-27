@@ -31,8 +31,8 @@ function resolveEventSpecificCoverDisplayUrl(input: {
   return getEventCoverPhotoPublicUrl(input.coverPhotoStoragePath);
 }
 
-/** Resolve couple dashboard hero photo: event upload, then global default, then ivory placeholder. */
-export function resolveCoupleWelcomePhotoDisplay(input: {
+/** Resolve event hero photo: event upload, then global default, then built-in event default. */
+export function resolveEventHeroImageDisplay(input: {
   coverPhotoDataUrl?: string;
   coverPhotoStoragePath?: string;
   defaultWelcomePhotoDataUrl?: string;
@@ -57,9 +57,18 @@ export function resolveCoupleWelcomePhotoDisplay(input: {
   }
 
   return {
-    displayUrl: undefined,
+    displayUrl: DEFAULT_EVENT_HERO_SRC,
     isEventSpecific: false,
   };
+}
+
+/** Backward-compatible name for couple dashboard/welcome photo callers. */
+export function resolveCoupleWelcomePhotoDisplay(input: {
+  coverPhotoDataUrl?: string;
+  coverPhotoStoragePath?: string;
+  defaultWelcomePhotoDataUrl?: string;
+}): CoupleWelcomePhotoDisplay {
+  return resolveEventHeroImageDisplay(input);
 }
 
 export function hasPersonalizedWelcomePhotoFlag(settings: {

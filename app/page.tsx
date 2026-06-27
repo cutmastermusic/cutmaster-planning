@@ -13505,7 +13505,7 @@ export default function Home() {
     ? resolveCoupleWelcomePhotoDisplay({
         coverPhotoDataUrl: eventSettings.coverPhotoDataUrl,
         coverPhotoStoragePath: eventSettings.coverPhotoStoragePath,
-        defaultWelcomePhotoDataUrl: undefined,
+        defaultWelcomePhotoDataUrl: appSettings.defaultWelcomePhotoDataUrl,
       })
     : { displayUrl: undefined, isEventSpecific: false };
   const musicHubHeroImageSrc =
@@ -21268,6 +21268,7 @@ export default function Home() {
                       const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
                       const cardProgress = approximatePlanningProgressPercent(evt);
                       const cardCover = evt.settings?.coverPhotoDataUrl;
+                      const cardCoverStoragePath = evt.settings?.coverPhotoStoragePath;
                       const cardStatus = normalizeEventStatus(
                         evt.settings?.eventStatus,
                         (evt.settings as EventSettings & { eventLifecycleStatus?: string })
@@ -21279,6 +21280,8 @@ export default function Home() {
                           <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
                             <EventHeroCover
                               coverPhotoDataUrl={cardCover}
+                              coverPhotoStoragePath={cardCoverStoragePath}
+                              defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
                               showPersonalizeGuidance={false}
                             />
                             <div className="absolute inset-0 bg-[#1E1E1E]/55" />
@@ -21642,6 +21645,8 @@ export default function Home() {
                   <div className="relative aspect-[16/11] min-h-[168px] overflow-hidden sm:aspect-[21/9] sm:min-h-[200px]">
                     <EventHeroCover
                       coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                      coverPhotoStoragePath={eventSettings.coverPhotoStoragePath}
+                      defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
                       onRequestCoverPhoto={canEditEventCover ? openEventCoverSettings : undefined}
                       personalizeDisabled={!canEditEventCover}
                     />
@@ -26941,6 +26946,8 @@ export default function Home() {
                 <div className="relative aspect-[21/9] min-h-[140px] w-full sm:min-h-[160px]">
                   <EventHeroCover
                     coverPhotoDataUrl={eventSettings.coverPhotoDataUrl}
+                    coverPhotoStoragePath={eventSettings.coverPhotoStoragePath}
+                    defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
                     showPersonalizeGuidance={false}
                   />
                   <div className="absolute inset-0 bg-[#1E1E1E]/45" />
