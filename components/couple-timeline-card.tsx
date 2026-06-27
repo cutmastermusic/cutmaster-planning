@@ -38,17 +38,17 @@ export function CoupleAddMomentStrip({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2.5 px-1 py-1">
-      <div className="h-px flex-1 bg-[#2f4a3e]/12" />
+    <div className="flex items-center gap-2 px-2 py-0.5">
+      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#2f4a3e]/10 to-[#2f4a3e]/5" />
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="rounded-full border border-[#2f4a3e]/20 bg-white px-3 py-1 text-[11px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f7f5f1] disabled:opacity-40"
+        className="rounded-full border border-transparent bg-transparent px-2.5 py-1 text-[10px] font-medium text-[#2f4a3e]/60 transition hover:border-[#2f4a3e]/15 hover:bg-white/70 hover:text-[#2f4a3e] disabled:opacity-40"
       >
         + Add a moment
       </button>
-      <div className="h-px flex-1 bg-[#2f4a3e]/12" />
+      <div className="h-px flex-1 bg-gradient-to-l from-transparent via-[#2f4a3e]/10 to-[#2f4a3e]/5" />
     </div>
   );
 }
@@ -65,7 +65,7 @@ type CoupleTimelineCardProps = {
   isDropTarget: boolean;
   dragActive: boolean;
   canEdit: boolean;
-  onCustomize: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onDragStart: (e: DragEvent<HTMLButtonElement>) => void;
   onDragEnd: () => void;
@@ -82,7 +82,7 @@ export function CoupleTimelineCard({
   isDropTarget,
   dragActive,
   canEdit,
-  onCustomize,
+  onEdit,
   onDelete,
   onDragStart,
   onDragEnd,
@@ -108,7 +108,7 @@ export function CoupleTimelineCard({
       return (
         <button
           type="button"
-          onClick={canEdit ? onCustomize : undefined}
+          onClick={canEdit ? onEdit : undefined}
           disabled={!canEdit}
           className="mt-2 text-sm text-[#2f4a3e]/60 underline underline-offset-2 transition hover:text-[#2f4a3e] disabled:no-underline disabled:opacity-50"
         >
@@ -172,11 +172,11 @@ export function CoupleTimelineCard({
       <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
         <button
           type="button"
-          onClick={onCustomize}
+          onClick={onEdit}
           disabled={!canEdit}
           className="rounded-lg border border-[#2f4a3e]/22 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2f4a3e] transition hover:border-[#2f4a3e]/35 hover:bg-[#f0ece5] disabled:opacity-40"
         >
-          Customize
+          Edit
         </button>
         <button
           type="button"

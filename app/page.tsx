@@ -1586,7 +1586,7 @@ function ReceptionTimelineMomentForm({
 }: ReceptionTimelineMomentFormProps) {
   return (
     <form
-      className="space-y-3"
+      className="space-y-2.5"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -1597,7 +1597,7 @@ function ReceptionTimelineMomentForm({
           Adding after <span className="font-semibold text-stone-800">{anchorLabel}</span>
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2">
         <TextInput
           id={`${idPrefix}-timeline-time`}
           label="Time / order"
@@ -1623,7 +1623,7 @@ function ReceptionTimelineMomentForm({
           ) : null}
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2">
         <TextInput
           id={`${idPrefix}-timeline-song-title`}
           label="Song title"
@@ -1678,7 +1678,7 @@ function ReceptionTimelineMomentForm({
       >
         {timelineNeedsAttention ? "DJ/MC attention marked" : "Flag DJ/MC attention"}
       </PrimaryButton>
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-col gap-2 pt-0.5 sm:flex-row sm:justify-end">
         <PrimaryButton
           type="button"
           onClick={onCancel}
@@ -1741,13 +1741,13 @@ function CeremonyTimelineMomentForm({
   submitLabel,
 }: CeremonyTimelineMomentFormProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {anchorLabel ? (
         <p className="text-[11px] font-medium leading-snug text-stone-600">
           Adding after <span className="font-semibold text-stone-800">{anchorLabel}</span>
         </p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2">
         <TextInput
           id={`${idPrefix}-ceremony-time-order`}
           label="Time / order"
@@ -1765,7 +1765,7 @@ function CeremonyTimelineMomentForm({
           disabled={!canEdit}
         />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <TextInput
           id={`${idPrefix}-ceremony-song-title`}
           label="Song title"
@@ -1789,7 +1789,7 @@ function CeremonyTimelineMomentForm({
         value={notes}
         onChange={setNotes}
         placeholder="Cue notes, transitions, and callouts..."
-        rows={3}
+        rows={2}
         disabled={!canEdit}
       />
       <PrimaryButton
@@ -1803,7 +1803,7 @@ function CeremonyTimelineMomentForm({
       >
         {needsAttention ? "DJ/MC attention marked" : "Flag DJ/MC attention"}
       </PrimaryButton>
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-col gap-2 pt-0.5 sm:flex-row sm:justify-end">
         <PrimaryButton
           type="button"
           onClick={onCancel}
@@ -3405,9 +3405,9 @@ function VendorEventCard({
 const PERSPECTIVE_ROLES: UserRole[] = ["Couple", "Planner", "DJ", "Admin"];
 
 /** Desktop-only (md+) — timeline inline edit; mobile keeps default control sizing. */
-const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-12 md:px-4 md:py-3.5 md:text-base`;
-const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1.5 ${lightUiTextControlClass} min-h-[5.5rem] resize-y placeholder:text-[var(--cm-text-subtle)] md:min-h-[6.25rem] md:px-4 md:py-3.5 md:text-base`;
-const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[12px] md:tracking-[0.14em]`;
+const TIMELINE_DESKTOP_INPUT_CLASS = `${lightUiInputClass} md:min-h-10 md:px-3.5 md:py-2.5 md:text-sm`;
+const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1 ${lightUiTextControlClass} min-h-[4.75rem] resize-y placeholder:text-[var(--cm-text-subtle)] md:min-h-[5.25rem] md:px-3.5 md:py-2.5 md:text-sm`;
+const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[11px] md:tracking-[0.12em]`;
 /** Outer timeline row padding — tuned for phone, iPad landscape, and desktop scan density. */
 const TIMELINE_CARD_SHELL_CLASS =
   "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-5 md:py-4 lg:px-5 lg:py-4 xl:px-6";
@@ -3455,18 +3455,18 @@ const TIMELINE_CARD_MOBILE_ACTION_BTN_DELETE_CLASS =
 const TIMELINE_CARD_MOBILE_READ_SHELL_CLASS =
   "touch-manipulation touch-pan-y rounded-lg border border-stone-200/90 bg-stone-50/50 px-3.5 py-3.5 shadow-none outline-none ring-stone-900/10 transition-[box-shadow,transform] focus-visible:ring-2";
 const TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS =
-  "flex flex-wrap items-center justify-end gap-2.5";
+  "flex flex-wrap items-center justify-end gap-2";
 const TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS =
-  "min-h-10 rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-11 md:px-4 md:py-2.5 md:text-[13px]";
+  "min-h-9 rounded-lg border border-stone-300 bg-white px-3 py-2 text-[12px] font-medium text-stone-900 shadow-none hover:bg-stone-50 md:min-h-9 md:px-3.5 md:py-2 md:text-[12px]";
 const TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS =
-  "min-h-10 touch-manipulation rounded-lg border border-transparent bg-transparent px-3 py-2 text-[12px] font-medium text-rose-700/90 shadow-none transition hover:border-rose-200/90 hover:bg-rose-50/70 md:min-h-10 md:px-3.5 md:py-2 md:text-[13px]";
+  "min-h-9 touch-manipulation rounded-lg border border-transparent bg-transparent px-3 py-2 text-[12px] font-medium text-rose-700/90 shadow-none transition hover:border-rose-200/90 hover:bg-rose-50/70 md:min-h-9 md:px-3 md:py-2 md:text-[12px]";
 const TIMELINE_CARD_FOOTER_ACTIONS_CLASS =
   "ml-auto flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2.5";
-const TIMELINE_CARD_EDIT_FIELDS_CLASS = "space-y-2.5 md:space-y-3";
+const TIMELINE_CARD_EDIT_FIELDS_CLASS = "space-y-2 md:space-y-2.5";
 const TIMELINE_CARD_EDIT_DONE_ROW_CLASS =
-  "mt-4 flex flex-col items-stretch gap-2 border-t border-stone-200/70 pt-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 md:mt-4 md:pt-4";
+  "mt-3 flex flex-col items-stretch gap-2 border-t border-stone-200/70 pt-3 sm:flex-row sm:items-center sm:justify-end sm:gap-2 md:mt-3 md:pt-3";
 const TIMELINE_CARD_EDIT_DONE_BTN_CLASS =
-  "min-h-11 w-full rounded-lg border border-[#1f2724] bg-[#1f2724] px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5";
+  "min-h-10 w-full rounded-lg border border-[#1f2724] bg-[#1f2724] px-5 py-2 text-sm font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[8rem] md:min-h-9 md:py-2";
 const TIMELINE_DRAG_HANDLE_EDITING_CLASS =
   "border-solid border-stone-300/75 bg-stone-50/90 text-stone-600 max-md:min-h-9 max-md:py-2 sm:min-h-9 md:py-2.5 lg:min-h-8 lg:py-1.5 lg:text-[10px] lg:text-stone-500";
 /**
@@ -23356,7 +23356,7 @@ export default function Home() {
                           isDropTarget={isDropTarget}
                           dragActive={ceremonyDragActive && !isDragging}
                           canEdit={canEditTimeline}
-                          onCustomize={() => openCeremonyTimelineCardExpanded(item)}
+                          onEdit={() => openCeremonyTimelineCardExpanded(item)}
                           onDelete={() =>
                             setPendingTimelineDelete({
                               kind: "ceremony",
@@ -23516,7 +23516,7 @@ export default function Home() {
                                 disabled={!canEditTimeline}
                                 className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                               >
-                                Expand
+                                Edit
                               </PrimaryButton>
                               {canEditTimeline ? (
                                 <>
@@ -23693,7 +23693,7 @@ export default function Home() {
                           </div>
                         </div>
                       )}
-                      <div className={TIMELINE_CARD_FOOTER_CLASS}>
+                      <div className={`${TIMELINE_CARD_FOOTER_CLASS}${isCoupleView ? " hidden" : ""}`}>
                         <button
                           type="button"
                           draggable={canEditTimeline}
@@ -23780,11 +23780,11 @@ export default function Home() {
                   );
                 })}
                 {ceremonyTimelineItems.length >= 1 && ceremonyTimelineItems.length <= 3 ? (
-                  <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
-                    <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
+                  <div className="rounded-xl border border-stone-200/70 bg-white/45 px-4 py-2.5 text-center shadow-none sm:px-5">
+                    <p className="text-[11px] leading-relaxed text-stone-500 md:text-xs">
                       Add the next ceremony moment with{" "}
-                      <span className="font-semibold text-stone-800">+ Ceremony moment</span> above,
-                      or use <span className="font-semibold text-stone-800">+ After</span> on any row.
+                      <span className="font-medium text-stone-700">+ Ceremony moment</span> above,
+                      or use <span className="font-medium text-stone-700">+ After</span> on any row.
                     </p>
                   </div>
                 ) : null}
@@ -24171,7 +24171,7 @@ export default function Home() {
                             isDropTarget={isDropTarget}
                             dragActive={timelineDragActive && !isDragging}
                             canEdit={canEditTimeline}
-                            onCustomize={() => {
+                            onEdit={() => {
                               if (timelineRow) openReceptionTimelineCardExpanded(timelineRow);
                             }}
                             onDelete={() =>
@@ -24475,7 +24475,7 @@ export default function Home() {
                                   disabled={!canEditTimeline}
                                   className={`${TIMELINE_CARD_MOBILE_ACTION_BTN_PRIMARY_CLASS} ${!canEditTimeline ? "col-span-2" : ""}`}
                                 >
-                                  Expand
+                                  Edit
                                 </PrimaryButton>
                                 {canEditTimeline ? (
                                   <>
@@ -24867,11 +24867,11 @@ export default function Home() {
                     />
                   ) : null}
                   {receptionTimelineDisplayItems.length >= 1 && receptionTimelineDisplayItems.length <= 3 ? (
-                    <div className="rounded-xl border border-dashed border-stone-300/80 bg-stone-50/50 px-4 py-3 text-center sm:px-5">
-                      <p className="text-[12px] leading-relaxed text-stone-600 md:text-[13px]">
+                    <div className="rounded-xl border border-stone-200/70 bg-white/45 px-4 py-2.5 text-center shadow-none sm:px-5">
+                      <p className="text-[11px] leading-relaxed text-stone-500 md:text-xs">
                         Add the next reception moment with{" "}
-                        <span className="font-semibold text-stone-800">+ Reception moment</span> above,
-                        or use <span className="font-semibold text-stone-800">+ After</span> on any row.
+                        <span className="font-medium text-stone-700">+ Reception moment</span> above,
+                        or use <span className="font-medium text-stone-700">+ After</span> on any row.
                       </p>
                     </div>
                   ) : null}
@@ -24880,13 +24880,19 @@ export default function Home() {
               </div>
 
               {isCoupleView ? (
-                <PremiumCard className="border-stone-200 bg-stone-50/80 shadow-sm">
+                <PremiumCard className="overflow-hidden border-[#D8C9AD]/80 bg-[#fbf7ef] shadow-sm">
                   {eventSettings.timelineReviewRequestedAt && !timelineReviewHasUpdatesSinceRequest ? (
                     <div className="mx-auto max-w-[44rem] text-center">
-                      <p className="text-base font-semibold tracking-tight text-stone-950">
-                        You&apos;re all set!
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#2f4a3e]/20 bg-white text-[#2f4a3e] shadow-sm">
+                        ✓
+                      </div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+                        Timeline milestone
                       </p>
-                      <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                      <p className="mt-2 text-lg font-semibold tracking-tight text-stone-950">
+                        You&apos;re all set.
+                      </p>
+                      <p className="mx-auto mt-2 max-w-[34rem] text-sm leading-relaxed text-stone-600">
                         {timelineReviewConfirmationKind === "updated"
                           ? "We’ve notified your DJ that your updated planning is ready for review."
                           : "We’ve notified your DJ that your planning is ready for review. They’ll use this information to prepare for your final planning meeting."}
@@ -24895,13 +24901,13 @@ export default function Home() {
                   ) : eventSettings.timelineReviewRequestedAt && timelineReviewHasUpdatesSinceRequest ? (
                     <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="inline-flex rounded-full border border-[#2f4a3e]/25 bg-[#2f4a3e]/10 px-2.5 py-1 text-[11px] font-semibold text-[#2f4a3e]">
+                        <p className="inline-flex rounded-full border border-[#2f4a3e]/25 bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#2f4a3e] shadow-sm">
                           Updated after review request
                         </p>
-                        <p className="mt-3 text-base font-semibold tracking-tight text-stone-950">
+                        <p className="mt-3 text-lg font-semibold tracking-tight text-stone-950">
                           Ready to send your updates?
                         </p>
-                        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                        <p className="mt-2 max-w-[31rem] text-sm leading-relaxed text-stone-600">
                           Your DJ has the first review request. Send an updated review when you want them to see the latest planning changes.
                         </p>
                       </div>
@@ -24920,10 +24926,13 @@ export default function Home() {
                   ) : (
                     <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-base font-semibold tracking-tight text-stone-950">
-                          Your timeline is looking great.
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
+                          Final planning milestone
                         </p>
-                        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                        <p className="mt-2 text-lg font-semibold tracking-tight text-stone-950">
+                          Ready for your DJ to review?
+                        </p>
+                        <p className="mt-2 max-w-[31rem] text-sm leading-relaxed text-stone-600">
                           When you&apos;re ready, request a review and we&apos;ll take a look before your wedding.
                         </p>
                       </div>
