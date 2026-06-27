@@ -8,8 +8,8 @@
  * results with a version picker for ambiguous matches.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getIndexedTracks, getLibraryMeta } from "@/lib/serato-library";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getIndexedTracks, getLibraryMeta, recordTrackPick, getTrackPickCounts, getSeratoPlayCounts, getStoredMusicHandle, getMusicRootPath, readTrackPlayCount } from "@/lib/serato-library";
 import {
   matchSongsToLibrary,
   songEntryToClientSong,
@@ -96,15 +96,69 @@ function StatusBadge({ status }: { status: MatchResult["status"] }) {
 
 // ─── Single result row ────────────────────────────────────────────────────────
 
+function PlayCountBadge({ seratoCount, showflowCount }: { seratoCount?: number; showflowCount?: number }) {
+  const total = (seratoCount ?? 0) + (showflowCount ?? 0);
+  if (total === 0) return null;
+  const label = total === 1 ? "used 1×" : `used ${total}×`;
+  const isFrequent = total >= 10;
+  return (
+    <span
+      title={[
+        seratoCount ? `Serato plays: ${seratoCount}` : null,
+        showflowCount ? `ShowFlow picks: ${showflowCount}` : null,
+      ].filter(Boolean).join(" · ")}
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+        isFrequent
+          ? "bg-[#C79A5A]/18 text-[#7a5c1e]"
+          : "bg-stone-100 text-stone-500"
+      }`}
+    >
+      {isFrequent ? "★ " : ""}{label}
+    </span>
+  );
+}
+
 function ResultRow({
   result,
+  extraCounts,
+  musicHandle,
+  musicRoot,
   onSelectCandidate,
+  onCountsRead,
 }: {
   result: MatchResult;
+  extraCounts: Map<string, number>;
+  musicHandle: FileSystemDirectoryHandle | null;
+  musicRoot: string | null;
   onSelectCandidate: (songId: string, candidateId: string) => void;
+  onCountsRead: (counts: Map<string, number>) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [readingCounts, setReadingCounts] = useState(false);
+  const hasReadRef = useRef(false);
   const { clientSong, status, candidates, selectedCandidateId } = result;
+
+  // When expanded for the first time, read SERATO_PLAYCOUNT from ID3 tags
+  const handleExpand = useCallback(async () => {
+    setExpanded((v) => !v);
+    if (hasReadRef.current || !musicHandle || !musicRoot || status !== "multiple") return;
+    hasReadRef.current = true;
+    setReadingCounts(true);
+    try {
+      const results = await Promise.allSettled(
+        candidates.map((c) => readTrackPlayCount(c.filePath, musicHandle, musicRoot))
+      );
+      const newCounts = new Map<string, number>();
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled" && r.value !== undefined) {
+          newCounts.set(candidates[i].id, r.value);
+        }
+      });
+      if (newCounts.size > 0) onCountsRead(newCounts);
+    } finally {
+      setReadingCounts(false);
+    }
+  }, [candidates, musicHandle, musicRoot, onCountsRead, status]);
 
   const selectedTrack = candidates.find((c) => c.id === selectedCandidateId);
 
@@ -142,17 +196,23 @@ function ResultRow({
       {/* Multiple — version picker */}
       {status === "multiple" && (
         <div className="mt-2 space-y-1">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-[11px] font-medium text-[#2f4a3e] underline underline-offset-2"
-          >
-            {expanded ? "Hide versions" : `${candidates.length} versions — pick one`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExpand()}
+              className="text-[11px] font-medium text-[#2f4a3e] underline underline-offset-2"
+            >
+              {expanded ? "Hide versions" : `${candidates.length} versions — pick one`}
+            </button>
+            {readingCounts && (
+              <span className="text-[10px] text-stone-400">reading play counts…</span>
+            )}
+          </div>
           {expanded && (
             <div className="mt-1.5 space-y-1.5">
               {candidates.map((track) => {
                 const isSelected = track.id === selectedCandidateId;
+                const showflowCount = extraCounts.get(track.id) ?? 0;
                 return (
                   <button
                     key={track.id}
@@ -177,11 +237,14 @@ function ResultRow({
                           {track.durationMs ? ` · ${formatDuration(track.durationMs)}` : ""}
                         </p>
                       </div>
-                      {isSelected && (
-                        <span className="mt-0.5 shrink-0 text-[11px] font-semibold text-[#2f4a3e]">
-                          Selected
-                        </span>
-                      )}
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <PlayCountBadge seratoCount={track.playCount} showflowCount={showflowCount} />
+                        {isSelected && (
+                          <span className="text-[11px] font-semibold text-[#2f4a3e]">
+                            Selected
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -199,12 +262,20 @@ function ResultRow({
 function ResultSection({
   title,
   results,
+  extraCounts,
+  musicHandle,
+  musicRoot,
   onSelectCandidate,
+  onCountsRead,
   defaultOpen = true,
 }: {
   title: string;
   results: MatchResult[];
+  extraCounts: Map<string, number>;
+  musicHandle: FileSystemDirectoryHandle | null;
+  musicRoot: string | null;
   onSelectCandidate: (songId: string, candidateId: string) => void;
+  onCountsRead: (counts: Map<string, number>) => void;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -256,7 +327,11 @@ function ResultSection({
             <ResultRow
               key={result.clientSong.id}
               result={result}
+              extraCounts={extraCounts}
+              musicHandle={musicHandle}
+              musicRoot={musicRoot}
               onSelectCandidate={onSelectCandidate}
+              onCountsRead={onCountsRead}
             />
           ))}
         </div>
@@ -278,6 +353,12 @@ export function SeratoSongChecker({
 }: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "idle" });
   const [selections, setSelections] = useState<Record<string, string>>({});
+  // Combined counts (serato history + showflow picks) — keyed by track file path
+  const [showflowCounts, setShowflowCounts] = useState<Map<string, number>>(new Map());
+  const showflowCountsRef = useRef<Map<string, number>>(new Map());
+  // Music folder handle for on-demand ID3 play count reading
+  const [musicHandle, setMusicHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [musicRoot, setMusicRoot] = useState<string | null>(null);
 
   // Per-list crate names and export states
   const [crateNames, setCrateNames] = useState<Record<string, string>>(() => ({
@@ -311,8 +392,21 @@ export function SeratoSongChecker({
         setLoadState({ status: "no-library" });
         return;
       }
-      const library = await getIndexedTracks();
-      const summary = matchSongsToLibrary(allClientSongs, library);
+      // Load library + both count sources in parallel
+      const [library, showflowPicks, seratoCounts] = await Promise.all([
+        getIndexedTracks(),
+        getTrackPickCounts(),
+        getSeratoPlayCounts(),
+      ]);
+
+      // Merge: serato history counts + showflow pick counts (keyed by file path = track ID)
+      const merged = new Map<string, number>();
+      for (const [id, count] of seratoCounts) merged.set(id, count);
+      for (const [id, count] of showflowPicks) merged.set(id, (merged.get(id) ?? 0) + count);
+
+      showflowCountsRef.current = merged;
+      setShowflowCounts(merged);
+      const summary = matchSongsToLibrary(allClientSongs, library, merged);
       setLoadState({ status: "ready", summary });
       setSelections({});
     } catch (err) {
@@ -324,10 +418,34 @@ export function SeratoSongChecker({
   }, [allClientSongs]);
 
   // Auto-run on mount
-  useEffect(() => { void runCheck(); }, [runCheck]);
+  useEffect(() => {
+    void runCheck();
+    Promise.all([getStoredMusicHandle(), getMusicRootPath()]).then(([handle, root]) => {
+      if (handle) setMusicHandle(handle);
+      if (root) setMusicRoot(root);
+    }).catch(console.error);
+  }, [runCheck]);
 
   const handleSelectCandidate = useCallback((songId: string, candidateId: string) => {
     setSelections((prev) => ({ ...prev, [songId]: candidateId }));
+    // Record this pick in ShowFlow's history and bump the displayed count (fire-and-forget)
+    void recordTrackPick(candidateId).then(() => {
+      const updated = new Map(showflowCountsRef.current);
+      updated.set(candidateId, (updated.get(candidateId) ?? 0) + 1);
+      showflowCountsRef.current = updated;
+      setShowflowCounts(new Map(updated));
+    });
+  }, []);
+
+  // Merge newly-read ID3 counts into the combined counts map
+  const handleCountsRead = useCallback((newCounts: Map<string, number>) => {
+    const updated = new Map(showflowCountsRef.current);
+    for (const [id, count] of newCounts) {
+      // ID3 counts are the authoritative play count — replace (don't add) the serato portion
+      updated.set(id, count + (updated.get(id) ?? 0));
+    }
+    showflowCountsRef.current = updated;
+    setShowflowCounts(new Map(updated));
   }, []);
 
   const handleExport = useCallback(async (listType: string, results: MatchResult[]) => {
@@ -468,7 +586,11 @@ export function SeratoSongChecker({
             <ResultSection
               title={LIST_LABELS[listType]}
               results={results}
+              extraCounts={showflowCounts}
+              musicHandle={musicHandle}
+              musicRoot={musicRoot}
               onSelectCandidate={handleSelectCandidate}
+              onCountsRead={handleCountsRead}
               defaultOpen={false}
             />
 

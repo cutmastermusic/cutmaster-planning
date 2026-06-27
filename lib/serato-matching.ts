@@ -80,40 +80,44 @@ function findCandidates(
  * - "multiple" — more than one meaningful candidate
  * - "missing"  — no candidates
  */
-function resolveStatus(candidates: SeratoTrack[], title: string, artist: string): MatchStatus {
+function resolveStatus(candidates: SeratoTrack[]): MatchStatus {
   if (candidates.length === 0) return "missing";
-
-  // If only one candidate, it's a clean find.
-  if (candidates.length === 1) return "found";
-
-  // If one candidate has an exact title+artist match and others don't, treat as found.
-  const qTitle = normalizeForMatch(title);
-  const qArtist = normalizeForMatch(artist);
-  const exactMatches = candidates.filter(
-    (t) =>
-      normalizeForMatch(t.title) === qTitle &&
-      (!qArtist || normalizeForMatch(t.artist) === qArtist),
-  );
-  if (exactMatches.length === 1) return "found";
-
-  return "multiple";
+  // One candidate = clean find. Multiple = let the DJ pick the right version/edit.
+  return candidates.length === 1 ? "found" : "multiple";
 }
 
 /**
  * Run the full library check for a list of client songs.
  *
- * @param clientSongs - Songs from the client's Must Play, Dance Floor, or Avoid lists.
- * @param library     - Full indexed track list from IndexedDB.
+ * @param clientSongs  - Songs from the client's song lists.
+ * @param library      - Full indexed track list from IndexedDB.
+ * @param extraCounts  - Optional additional pick counts (e.g. from ShowFlow tracking)
+ *                       keyed by track ID. Merged with any playCount on the track itself.
  */
 export function matchSongsToLibrary(
   clientSongs: ClientSong[],
   library: SeratoTrack[],
+  extraCounts?: Map<string, number>,
 ): LibraryCheckSummary {
   const results: MatchResult[] = clientSongs.map((clientSong) => {
-    const candidates = findCandidates(clientSong.title, clientSong.artist, library);
-    const status = resolveStatus(candidates, clientSong.title, clientSong.artist);
+    let candidates = findCandidates(clientSong.title, clientSong.artist, library);
 
-    // Pre-select the best candidate for "found" and "multiple" rows.
+    // Sort candidates: highest play/pick count first, then preserve score order (stable sort).
+    const hasAnyCounts =
+      (extraCounts && extraCounts.size > 0) ||
+      candidates.some((c) => (c.playCount ?? 0) > 0);
+
+    if (hasAnyCounts) {
+      candidates = [...candidates].sort((a, b) => {
+        const countA = (a.playCount ?? 0) + (extraCounts?.get(a.id) ?? 0);
+        const countB = (b.playCount ?? 0) + (extraCounts?.get(b.id) ?? 0);
+        return countB - countA; // stable: ties keep original score-sorted order
+      });
+    }
+
+    const status = resolveStatus(candidates);
+
+    // Pre-select the top candidate (highest count + score).
     const selectedCandidateId = candidates[0]?.id ?? null;
 
     return { clientSong, status, candidates, selectedCandidateId };

@@ -402,7 +402,49 @@ export function mergeHydratedEventsPreservingLocalMusicHubTaste(
     if (!prior) return hydrated;
     const { event, mergedLocalTaste } = mergePriorMusicHubTasteIntoHydratedEvent(hydrated, prior);
     if (mergedLocalTaste) anyMerged = true;
-    return event;
+
+    // Safety net: if localStorage has song list data that the DB doesn't (e.g.,
+    // DB save was skipped due to a timing/guard condition), preserve the local
+    // copy so songs aren't silently wiped on reload.
+    let result = event;
+    const songLists = [
+      "mustPlaySongs",
+      "doNotPlaySongs",
+      "playIfPossibleSongs",
+      "cocktailHourSongs",
+      "dinnerSongs",
+    ] as const;
+    for (const key of songLists) {
+      const priorSongs = prior[key];
+      const hydratedSongs = hydrated[key];
+      if ((priorSongs?.length ?? 0) > 0 && (hydratedSongs?.length ?? 0) === 0) {
+        console.info(`[song-merge] preserving ${key} from localStorage (DB was empty)`, {
+          eventId: hydrated.id,
+          count: priorSongs!.length,
+        });
+        result = { ...result, [key]: priorSongs };
+        anyMerged = true;
+      }
+    }
+
+    // playlistVibeOverrides is never persisted to the DB — localStorage is
+    // always the source of truth. Preserve the local copy unconditionally so
+    // DB hydration can't silently wipe user-entered playlist lines.
+    const priorOverrides = prior.playlistVibeOverrides;
+    const hydratedOverrides = hydrated.playlistVibeOverrides;
+    const priorHasOverrides =
+      priorOverrides && Object.values(priorOverrides).some((v) => (v?.length ?? 0) > 0);
+    const hydratedHasOverrides =
+      hydratedOverrides && Object.values(hydratedOverrides).some((v) => (v?.length ?? 0) > 0);
+    if (priorHasOverrides && !hydratedHasOverrides) {
+      console.info("[song-merge] preserving playlistVibeOverrides from localStorage", {
+        eventId: hydrated.id,
+      });
+      result = { ...result, playlistVibeOverrides: priorOverrides };
+      anyMerged = true;
+    }
+
+    return result;
   });
   return { events, anyMerged };
 }

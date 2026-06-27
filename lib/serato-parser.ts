@@ -33,6 +33,10 @@ export type SeratoTrack = {
   key?: string;
   /** Track duration in milliseconds. */
   durationMs?: number;
+  /** Play count as stored in Serato's database (may be undefined if not analyzed). */
+  playCount?: number;
+  /** All unknown tag names found on this track — for diagnostics/reverse engineering. */
+  _unknownTags?: string[];
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -73,6 +77,8 @@ function parseTrackRecord(buffer: ArrayBuffer, start: number, end: number): Sera
   let bpm: string | undefined;
   let key: string | undefined;
   let durationMs: number | undefined;
+  let playCount: number | undefined;
+  const unknownTags: string[] = [];
 
   while (pos + 8 <= end) {
     const tag = readTag(buffer, pos);
@@ -119,7 +125,19 @@ function parseTrackRecord(buffer: ArrayBuffer, start: number, end: number): Sera
         if (!isNaN(ms) && ms > 0) durationMs = ms;
         break;
       }
-      // All other tags (uadd, utme, sbav, sdir, etc.) are intentionally skipped.
+      // Play count — "bply" confirmed present in Serato database V2 via _unknownTags inspection.
+      // "utpc" is the last-played unix timestamp (not a count, kept for future use).
+      case "bply":
+      case "plyc":
+      case "nply": {
+        const v = parseInt(decodeUtf16BE(fieldBuffer), 10);
+        if (!isNaN(v) && v >= 0) playCount = v;
+        break;
+      }
+      default:
+        // Collect unknown tag names (first 20 per track) for diagnostics.
+        if (unknownTags.length < 20) unknownTags.push(tag);
+        break;
     }
 
     pos += len;
@@ -138,6 +156,8 @@ function parseTrackRecord(buffer: ArrayBuffer, start: number, end: number): Sera
     bpm,
     key,
     durationMs,
+    ...(playCount !== undefined && { playCount }),
+    ...(unknownTags.length > 0 && { _unknownTags: unknownTags }),
   };
 }
 
@@ -175,6 +195,55 @@ export function parseSeratoDatabase(buffer: ArrayBuffer): SeratoTrack[] {
   return tracks;
 }
 
+// ─── Session history parser ───────────────────────────────────────────────────
+
+/**
+ * Parse a Serato ".session" history file and return every played track's file path.
+ *
+ * Session files use the same TLV format as database V2. The outer tag for each
+ * track record is "otrk" (same as the main database), and the file path is "pfil".
+ * We only care about paths — all other fields are skipped.
+ *
+ * READ ONLY — this function never modifies any data.
+ */
+export function parseSessionFilePaths(buffer: ArrayBuffer): string[] {
+  const view = new DataView(buffer);
+  const paths: string[] = [];
+  const total = buffer.byteLength;
+  let offset = 0;
+
+  while (offset + 8 <= total) {
+    const tag = readTag(buffer, offset);
+    const len = view.getUint32(offset + 4, false);
+    offset += 8;
+
+    if (offset + len > total) break;
+
+    if (tag === "otrk") {
+      // Walk nested TLV fields looking for pfil
+      let pos = offset;
+      const end = offset + len;
+      while (pos + 8 <= end) {
+        const innerTag = readTag(buffer, pos);
+        const innerLen = view.getUint32(pos + 4, false);
+        pos += 8;
+        if (pos + innerLen > end) break;
+        if (innerTag === "pfil") {
+          const path = decodeUtf16BE(buffer.slice(pos, pos + innerLen));
+          if (path) paths.push(path);
+          break; // Only one pfil per track — stop scanning this otrk
+        }
+        pos += innerLen;
+      }
+    }
+    // "vrsn" and all other top-level tags are skipped
+
+    offset += len;
+  }
+
+  return paths;
+}
+
 // ─── Normalisation helpers (used by matching layer) ───────────────────────────
 
 /**
@@ -194,8 +263,8 @@ export function normalizeForMatch(str: string): string {
  * Score how well a track matches a query (title + optional artist).
  * Returns a number 0–3:
  *   3 = exact title + artist match
- *   2 = exact title match only
- *   1 = title contains query or query contains title
+ *   2 = exact title match, OR track title starts with query title (remix/version prefix)
+ *   1 = title contains query or query contains title (loose)
  *   0 = no meaningful match
  */
 export function matchScore(
@@ -208,10 +277,24 @@ export function matchScore(
   const qTitle = normalizeForMatch(queryTitle);
   const qArtist = queryArtist ? normalizeForMatch(queryArtist) : "";
 
+  // Score 3: exact title + artist
   if (normTitle === qTitle) {
     if (qArtist && normArtist === qArtist) return 3;
     return 2;
   }
+
+  // Score 2: track title starts with the query title followed by a non-alphanumeric
+  // character — catches remixes like "Mr. Brightside (Deville Edit)" or "[Intro] Clean".
+  // The word-boundary check prevents "Loving You" from matching "Love".
+  if (normTitle.startsWith(qTitle)) {
+    const charAfter = normTitle[qTitle.length] ?? "";
+    if (charAfter === "" || /[^a-z0-9]/.test(charAfter)) {
+      if (qArtist && normArtist === qArtist) return 3;
+      return 2;
+    }
+  }
+
+  // Score 1: loose contains match (filtered out by default MIN_SCORE=2)
   if (normTitle.includes(qTitle) || qTitle.includes(normTitle)) return 1;
   return 0;
 }
