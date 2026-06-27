@@ -24882,21 +24882,113 @@ export default function Home() {
               {isCoupleView ? (
                 <PremiumCard className="overflow-hidden border-[#D8C9AD]/80 bg-[#fbf7ef] shadow-sm">
                   {eventSettings.timelineReviewRequestedAt && !timelineReviewHasUpdatesSinceRequest ? (
-                    <div className="mx-auto max-w-[44rem] text-center">
-                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#2f4a3e]/20 bg-white text-[#2f4a3e] shadow-sm">
+                    <div className="relative mx-auto max-w-[48rem] overflow-hidden rounded-[1.75rem] px-4 py-2 text-center sm:px-6 sm:py-4">
+                      <span className="pointer-events-none absolute left-5 top-4 text-lg text-[#C79A5A]/40" aria-hidden>
+                        ✧
+                      </span>
+                      <span className="pointer-events-none absolute right-7 top-8 text-xl text-[#C79A5A]/35" aria-hidden>
+                        ♡
+                      </span>
+                      <span className="pointer-events-none absolute bottom-16 left-1/2 hidden -translate-x-1/2 text-sm text-[#C79A5A]/35 sm:block" aria-hidden>
+                        ♡
+                      </span>
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#2f4a3e]/20 bg-white text-3xl font-light text-[#2f4a3e] shadow-[0_10px_30px_rgba(47,74,62,0.10)]">
                         ✓
                       </div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b08a45]">
-                        Timeline milestone
+                      <h3 className="mt-6 text-3xl font-semibold tracking-tight text-[#214637] sm:text-4xl">
+                        Your timeline is ready.
+                      </h3>
+                      <p className="mt-3 text-base font-semibold text-[#b08a45]">
+                        Nice work, {coupleDisplayName.trim() || "you two"}!
                       </p>
-                      <p className="mt-2 text-lg font-semibold tracking-tight text-stone-950">
-                        You&apos;re all set.
-                      </p>
-                      <p className="mx-auto mt-2 max-w-[34rem] text-sm leading-relaxed text-stone-600">
-                        {timelineReviewConfirmationKind === "updated"
-                          ? "We’ve notified your DJ that your updated planning is ready for review."
-                          : "We’ve notified your DJ that your planning is ready for review. They’ll use this information to prepare for your final planning meeting."}
-                      </p>
+                      <div className="mx-auto mt-4 max-w-[34rem] space-y-3 text-sm leading-relaxed text-stone-600">
+                        <p>Your DJ has been notified that your timeline is ready for review.</p>
+                        <p>
+                          Before your final planning meeting, we&apos;ll review everything, make sure the flow
+                          makes sense, and let you know if we recommend any adjustments.
+                        </p>
+                      </div>
+
+                      <div className="mx-auto mt-8 max-w-[44rem] rounded-2xl border border-stone-200/80 bg-white/70 p-4 text-left shadow-sm sm:p-5">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-[#214637]">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                            <rect x="2.5" y="3.5" width="11" height="10" rx="2" stroke="currentColor" strokeWidth="1.4" />
+                            <path d="M5 2v3M11 2v3M3 6.5h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                          </svg>
+                          What happens next?
+                        </p>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-3 sm:gap-0">
+                          {[
+                            {
+                              title: "DJ Review",
+                              body: "Your DJ will review your timeline for flow and timing.",
+                              icon: (
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                                  <path d="M6.75 8.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM1.75 15.25a5 5 0 0 1 10 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                                  <path d="M12.75 7.5a2.25 2.25 0 1 0 0-4.5M12.75 10.5a4 4 0 0 1 3.5 4.75" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                                </svg>
+                              ),
+                            },
+                            {
+                              title: "We’ll Reach Out",
+                              body: "If we recommend any adjustments, we’ll let you know before your final planning meeting.",
+                              icon: (
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                                  <path d="M3 8.75c0-3.04 2.63-5.5 5.88-5.5 3.24 0 5.87 2.46 5.87 5.5s-2.63 5.5-5.87 5.5c-.76 0-1.48-.14-2.14-.4L3.5 15l.84-2.55A5.24 5.24 0 0 1 3 8.75Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              ),
+                            },
+                            {
+                              title: "Keep Editing",
+                              body: "You can continue making changes anytime.",
+                              icon: (
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                                  <path d="m10.75 3.25 4 4-7.5 7.5H3.25v-4l7.5-7.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d="m9.5 4.5 4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                                </svg>
+                              ),
+                            },
+                          ].map((step, stepIndex) => (
+                            <div
+                              key={step.title}
+                              className={`flex gap-3 sm:block sm:px-4 ${stepIndex > 0 ? "sm:border-l sm:border-stone-200/80" : ""}`}
+                            >
+                              <div className="mt-0.5 shrink-0 text-[#2f4a3e]/75 sm:mb-2">{step.icon}</div>
+                              <p className="text-[13px] font-semibold text-[#214637]">{step.title}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-stone-600">{step.body}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#2f4a3e]/15 bg-white/80 px-4 py-2 text-sm font-semibold text-[#2f4a3e] shadow-sm">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2f4a3e] text-[11px] text-white">
+                          ✓
+                        </span>
+                        Timeline Review Requested
+                      </div>
+
+                      <div className="mx-auto mt-6 flex max-w-[34rem] flex-col-reverse items-stretch gap-3 border-t border-stone-200/80 pt-5 sm:flex-row sm:items-center sm:justify-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            document.getElementById("timeline-section-reception")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            })
+                          }
+                          className={`px-4 py-2.5 text-sm ${couplePortalTertiaryButtonClass}`}
+                        >
+                          Continue Editing
+                        </button>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => setActiveScreen("Dashboard")}
+                          className={`px-5 py-2.5 text-sm ${couplePortalPrimaryButtonClass}`}
+                        >
+                          Back to Event Home
+                        </PrimaryButton>
+                      </div>
                     </div>
                   ) : eventSettings.timelineReviewRequestedAt && timelineReviewHasUpdatesSinceRequest ? (
                     <div className="mx-auto flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
