@@ -391,6 +391,7 @@ import {
   isCeremonyMainTimelineMoment,
   isFirstDanceTimelineItem,
   resolveCoupleTimelineMomentWorkspaceId,
+  type CoupleTimelineMomentWorkspaceId,
 } from "@/lib/timelineMomentWorkspace";
 import {
   buildCoupleTimelineReviewGapLabels,
@@ -19400,6 +19401,449 @@ export default function Home() {
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const renderCeremonyTimelineExpandedEditor = ({
+    item,
+    cerTime,
+    cerMoment,
+    cerSong,
+    cerArtist,
+    cerNotes,
+    cerNeedsMc,
+    cerTeamCueFormat,
+  }: {
+    item: CeremonyTimelineItem;
+    cerTime: string;
+    cerMoment: string;
+    cerSong: string;
+    cerArtist: string;
+    cerNotes: string;
+    cerNeedsMc: boolean;
+    cerTeamCueFormat: TeamCueFormat;
+  }) => (
+    <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
+        <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
+          Edit moment
+        </p>
+        <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
+          {canEditTimeline ? (
+            <>
+              <PrimaryButton
+                type="button"
+                onClick={() => duplicateCeremonyTimelineItem(item)}
+                disabled={!canEditTimeline}
+                className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
+              >
+                Duplicate
+              </PrimaryButton>
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingTimelineDelete({
+                    kind: "ceremony",
+                    id: item.id,
+                    label: item.moment.trim() || "this moment",
+                  })
+                }
+                className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
+              >
+                Delete
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+      <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+          <TextInput
+            id={`ceremony-inline-time-${item.id}`}
+            label="Time / order"
+            value={cerTime}
+            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) =>
+              patchCeremonyTimelineInlineDraft(item.id, { timeOrOrder: value }, item)
+            }
+            disabled={!canEditTimeline}
+          />
+          <TextInput
+            id={`ceremony-inline-moment-${item.id}`}
+            label="Moment"
+            value={cerMoment}
+            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) =>
+              patchCeremonyTimelineInlineDraft(item.id, { moment: value }, item)
+            }
+            disabled={!canEditTimeline}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+          <TextInput
+            id={`ceremony-inline-song-${item.id}`}
+            label="Song title"
+            value={cerSong}
+            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) =>
+              patchCeremonyTimelineInlineDraft(item.id, { songTitle: value }, item)
+            }
+            disabled={!canEditTimeline}
+          />
+          <TextInput
+            id={`ceremony-inline-artist-${item.id}`}
+            label="Artist"
+            value={cerArtist}
+            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) =>
+              patchCeremonyTimelineInlineDraft(item.id, { artist: value }, item)
+            }
+            disabled={!canEditTimeline}
+          />
+        </div>
+        <TextArea
+          id={`ceremony-inline-notes-${item.id}`}
+          label="Shared team cue"
+          value={cerNotes}
+          textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+          onChange={(value) =>
+            patchCeremonyTimelineInlineDraft(item.id, { notes: value }, item)
+          }
+          rows={2}
+          disabled={!canEditTimeline}
+        />
+        <TeamCueFormatSelector
+          value={cerTeamCueFormat}
+          onChange={(next) =>
+            patchCeremonyTimelineInlineDraft(item.id, { teamCueFormat: next }, item)
+          }
+          disabled={!canEditTimeline}
+          labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+        />
+        <PrimaryButton
+          type="button"
+          onClick={() =>
+            patchCeremonyTimelineInlineDraft(
+              item.id,
+              { needsDjMcAttention: !cerNeedsMc },
+              item,
+            )
+          }
+          disabled={!canEditTimeline}
+          className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${cerNeedsMc
+            ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
+            : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+            }`}
+        >
+          {cerNeedsMc
+            ? "DJ/MC attention: On"
+            : "Flag DJ/MC attention"}
+        </PrimaryButton>
+        <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
+          <PrimaryButton
+            type="button"
+            onClick={() => closeCeremonyTimelineCardExpanded()}
+            className={
+              isCoupleView
+                ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
+                : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
+            }
+          >
+            Done
+          </PrimaryButton>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReceptionTimelineExpandedEditor = ({
+    item,
+    timelineRow,
+    coupleWorkspaceId,
+    recvTitle,
+    recvTime,
+    recvNotes,
+    recvSong,
+    recvArtist,
+    recvCategory,
+    recvNeedsMc,
+    recvFadeEarly,
+    recvFadeTs,
+    recvTeamCueFormat,
+    isToast,
+  }: {
+    item: TimelineItem;
+    timelineRow: TimelineItem | null;
+    coupleWorkspaceId: CoupleTimelineMomentWorkspaceId | null;
+    recvTitle: string;
+    recvTime: string;
+    recvNotes: string;
+    recvSong: string;
+    recvArtist: string;
+    recvCategory: TimelineCategory;
+    recvNeedsMc: boolean;
+    recvFadeEarly: boolean;
+    recvFadeTs: string;
+    recvTeamCueFormat: TeamCueFormat;
+    isToast: boolean;
+  }) => {
+    if (isCoupleView && coupleWorkspaceId) {
+      return (
+        <CoupleTimelineMomentWorkspace
+          workspaceId={coupleWorkspaceId}
+          title={recvTitle}
+          time={recvTime}
+          notes={recvNotes}
+          songTitle={recvSong}
+          artist={recvArtist}
+          momentType={item.momentType ?? "custom"}
+          canEdit={canEditTimeline}
+          toastsRaw={speechesToastsRaw}
+          musicHubRef={coupleMomentMusicHubRef}
+          ceremonyRef={coupleMomentCeremonyRef}
+          grandEntranceRef={coupleMomentGrandEntranceRef}
+          parentDanceRef={buildParentDanceMomentWorkspaceRef(
+            recvTitle,
+            formalDancesRaw,
+          )}
+          openDancingRef={coupleMomentOpenDancingRef}
+          onTimeChange={(value) =>
+            patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow)
+          }
+          onNotesChange={(value) =>
+            patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow)
+          }
+          onSongTitleChange={(value) =>
+            patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow)
+          }
+          onArtistChange={(value) =>
+            patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow)
+          }
+          onSpeechesToastsChange={(entries) => {
+            void persistSpeechesToastsEntries(entries);
+          }}
+          onOpenGrandEntranceLineup={openWeddingPartyLineupEditor}
+          onOpenMusicHub={() => selectActiveScreen("Music Hub")}
+          onOpenCeremonyPlanning={() => openCouplePlanningChapter("ceremony")}
+          onOpenCeremonyTimeline={scrollToCeremonyTimelineSection}
+          onDone={() => closeReceptionTimelineCardExpanded()}
+        />
+      );
+    }
+
+    return (
+      <div className="md:mx-auto md:w-full md:max-w-[44rem]">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
+          <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
+            Edit moment
+          </p>
+          <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
+            {canEditTimeline ? (
+              <>
+                <PrimaryButton
+                  type="button"
+                  onClick={() => {
+                    const row = timelineItems.find((t) => t.id === item.id);
+                    if (row) duplicateTimelineItem(row);
+                  }}
+                  disabled={!canEditTimeline}
+                  className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
+                >
+                  Duplicate
+                </PrimaryButton>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPendingTimelineDelete({
+                      kind: "reception",
+                      id: item.id,
+                      label: item.title.trim() || "this moment",
+                    })
+                  }
+                  className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
+                >
+                  Delete
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
+          <TextInput
+            id={`timeline-inline-title-${item.id}`}
+            label="Moment"
+            value={recvTitle}
+            inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow)}
+            disabled={!canEditTimeline}
+          />
+          <div className={`grid grid-cols-1 gap-2 ${!isCoupleView ? "sm:grid-cols-2" : ""} md:gap-3`}>
+            <TextInput
+              id={`timeline-inline-time-${item.id}`}
+              label="Time"
+              value={recvTime}
+              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+              onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow)}
+              disabled={!canEditTimeline}
+            />
+            {!isCoupleView ? (
+            <div>
+              <label
+                htmlFor={`timeline-inline-cat-${item.id}`}
+                className={TIMELINE_DESKTOP_LABEL_CLASS}
+              >
+                Category
+              </label>
+              <select
+                id={`timeline-inline-cat-${item.id}`}
+                value={recvCategory}
+                disabled={!canEditTimeline}
+                onChange={(event) => {
+                  const next = event.target.value as TimelineCategory;
+                  patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow);
+                }}
+                className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30 md:min-h-12 md:px-4 md:py-3 md:text-base"
+              >
+                {timelineCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+            <TextInput
+              id={`timeline-inline-song-${item.id}`}
+              label="Song"
+              value={recvSong}
+              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+              onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow)}
+              placeholder="Song title"
+              disabled={!canEditTimeline}
+            />
+            <TextInput
+              id={`timeline-inline-song-artist-${item.id}`}
+              label="Artist"
+              value={recvArtist}
+              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+              onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow)}
+              placeholder="Artist"
+              disabled={!canEditTimeline}
+            />
+          </div>
+          {isToast ? (
+            <SpeechesToastsPreview
+              toastsRaw={speechesToastsRaw}
+              onEdit={openSpeechesToastsEditor}
+              variant="timeline"
+            />
+          ) : null}
+          <TextArea
+            id={`timeline-inline-notes-${item.id}`}
+            label="Shared team cue"
+            value={recvNotes}
+            textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+            onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow)}
+            rows={2}
+            disabled={!canEditTimeline}
+          />
+          <TeamCueFormatSelector
+            value={recvTeamCueFormat}
+            onChange={(next) =>
+              patchReceptionTimelineInlineDraft(item.id, { teamCueFormat: next }, timelineRow)
+            }
+            disabled={!canEditTimeline}
+            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+          />
+          {!isCoupleView ? (
+          <PrimaryButton
+            type="button"
+            onClick={() =>
+              patchReceptionTimelineInlineDraft(
+                item.id,
+                { needsDjMcAttention: !recvNeedsMc },
+                timelineRow,
+              )
+            }
+            disabled={!canEditTimeline}
+            className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${recvNeedsMc
+              ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
+              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+              }`}
+          >
+            {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
+          </PrimaryButton>
+          ) : null}
+
+          <details className="rounded-lg border border-stone-200 bg-stone-50">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">
+              Fade / advanced timing
+            </summary>
+            <div className="space-y-2 border-t border-stone-200 bg-white p-3 md:space-y-3 md:p-4">
+              <p className="text-[10px] leading-relaxed text-stone-600 md:text-[11px] md:leading-relaxed">
+                Optional cue — common for introductions and formalities.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
+                <PrimaryButton
+                  type="button"
+                  onClick={() =>
+                    patchReceptionTimelineInlineDraft(
+                      item.id,
+                      { fadeOutEarly: !recvFadeEarly },
+                      timelineRow,
+                    )
+                  }
+                  disabled={!canEditTimeline}
+                  className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${recvFadeEarly
+                    ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
+                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                >
+                  {recvFadeEarly ? "Fade out early: On" : "Fade out early"}
+                </PrimaryButton>
+                <TextInput
+                  id={`timeline-inline-fade-${item.id}`}
+                  label="Fade timestamp"
+                  value={recvFadeTs}
+                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
+                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
+                  onChange={(value) =>
+                    patchReceptionTimelineInlineDraft(item.id, { fadeOutTimestamp: value }, timelineRow)
+                  }
+                  placeholder="e.g. 1:20"
+                  disabled={!canEditTimeline}
+                />
+              </div>
+            </div>
+          </details>
+          <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
+            <PrimaryButton
+              type="button"
+              onClick={() => closeReceptionTimelineCardExpanded()}
+              className={
+                isCoupleView
+                  ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
+                  : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
+              }
+            >
+              Done
+            </PrimaryButton>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const plannerTimelineImportCard = (
     <div className="no-print">
       <input
@@ -23561,142 +24005,16 @@ export default function Home() {
                         </>
                       )}
                       {rowExpanded && (
-                        <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
-                            <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
-                              Edit moment
-                            </p>
-                            <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
-                              {canEditTimeline ? (
-                                <>
-                                  <PrimaryButton
-                                    type="button"
-                                    onClick={() => duplicateCeremonyTimelineItem(item)}
-                                    disabled={!canEditTimeline}
-                                    className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
-                                  >
-                                    Duplicate
-                                  </PrimaryButton>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPendingTimelineDelete({
-                                        kind: "ceremony",
-                                        id: item.id,
-                                        label: item.moment.trim() || "this moment",
-                                      })
-                                    }
-                                    className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                            <TextInput
-                              id={`ceremony-inline-time-${item.id}`}
-                              label="Time / order"
-                              value={cerTime}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { timeOrOrder: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-moment-${item.id}`}
-                              label="Moment"
-                              value={cerMoment}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { moment: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                            <TextInput
-                              id={`ceremony-inline-song-${item.id}`}
-                              label="Song title"
-                              value={cerSong}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { songTitle: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                            <TextInput
-                              id={`ceremony-inline-artist-${item.id}`}
-                              label="Artist"
-                              value={cerArtist}
-                              inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                              labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              onChange={(value) =>
-                                patchCeremonyTimelineInlineDraft(item.id, { artist: value }, item)
-                              }
-                              disabled={!canEditTimeline}
-                            />
-                          </div>
-                          <TextArea
-                            id={`ceremony-inline-notes-${item.id}`}
-                            label="Shared team cue"
-                            value={cerNotes}
-                            textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                            onChange={(value) =>
-                              patchCeremonyTimelineInlineDraft(item.id, { notes: value }, item)
-                            }
-                            rows={2}
-                            disabled={!canEditTimeline}
-                          />
-                          <TeamCueFormatSelector
-                            value={cerTeamCueFormat}
-                            onChange={(next) =>
-                              patchCeremonyTimelineInlineDraft(item.id, { teamCueFormat: next }, item)
-                            }
-                            disabled={!canEditTimeline}
-                            labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                          />
-                          <PrimaryButton
-                            type="button"
-                            onClick={() =>
-                              patchCeremonyTimelineInlineDraft(
-                                item.id,
-                                { needsDjMcAttention: !cerNeedsMc },
-                                item,
-                              )
-                            }
-                            disabled={!canEditTimeline}
-                            className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${cerNeedsMc
-                              ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
-                              : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                              }`}
-                          >
-                            {cerNeedsMc
-                              ? "DJ/MC attention: On"
-                              : "Flag DJ/MC attention"}
-                          </PrimaryButton>
-                          <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => closeCeremonyTimelineCardExpanded()}
-                              className={
-                                isCoupleView
-                                  ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
-                                  : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
-                              }
-                            >
-                              Done
-                            </PrimaryButton>
-                          </div>
-                          </div>
-                        </div>
+                        renderCeremonyTimelineExpandedEditor({
+                          item,
+                          cerTime,
+                          cerMoment,
+                          cerSong,
+                          cerArtist,
+                          cerNotes,
+                          cerNeedsMc,
+                          cerTeamCueFormat,
+                        })
                       )}
                       <div className={`${TIMELINE_CARD_FOOTER_CLASS}${isCoupleView ? " hidden" : ""}`}>
                         <button
@@ -24522,255 +24840,24 @@ export default function Home() {
                             </div>
                           </>
                         ) : null}
-                        {rowExpanded && isCoupleView && coupleWorkspaceId ? (
-                          <CoupleTimelineMomentWorkspace
-                            workspaceId={coupleWorkspaceId}
-                            title={recvTitle}
-                            time={recvTime}
-                            notes={recvNotes}
-                            songTitle={recvSong}
-                            artist={recvArtist}
-                            momentType={item.momentType ?? "custom"}
-                            canEdit={canEditTimeline}
-                            toastsRaw={speechesToastsRaw}
-                            musicHubRef={coupleMomentMusicHubRef}
-                            ceremonyRef={coupleMomentCeremonyRef}
-                            grandEntranceRef={coupleMomentGrandEntranceRef}
-                            parentDanceRef={buildParentDanceMomentWorkspaceRef(
-                              recvTitle,
-                              formalDancesRaw,
-                            )}
-                            openDancingRef={coupleMomentOpenDancingRef}
-                            onTimeChange={(value) =>
-                              patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)
-                            }
-                            onNotesChange={(value) =>
-                              patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)
-                            }
-                            onSongTitleChange={(value) =>
-                              patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)
-                            }
-                            onArtistChange={(value) =>
-                              patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)
-                            }
-                            onSpeechesToastsChange={(entries) => {
-                              void persistSpeechesToastsEntries(entries);
-                            }}
-                            onOpenGrandEntranceLineup={openWeddingPartyLineupEditor}
-                            onOpenMusicHub={() => selectActiveScreen("Music Hub")}
-                            onOpenCeremonyPlanning={() => openCouplePlanningChapter("ceremony")}
-                            onOpenCeremonyTimeline={scrollToCeremonyTimelineSection}
-                            onDone={() => closeReceptionTimelineCardExpanded()}
-                          />
-                        ) : rowExpanded ? (
-                          <div className="md:mx-auto md:w-full md:max-w-[44rem]">
-                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200 pb-3.5 md:mb-5 md:gap-3 md:pb-4">
-                              <p className="text-[13px] font-semibold tracking-tight text-stone-900 md:text-sm">
-                                Edit moment
-                              </p>
-                              <div className={TIMELINE_CARD_EXPANDED_HEADER_ACTIONS_CLASS}>
-                                {canEditTimeline ? (
-                                  <>
-                                    <PrimaryButton
-                                      type="button"
-                                      onClick={() => {
-                                        const row = timelineItems.find((t) => t.id === item.id);
-                                        if (row) duplicateTimelineItem(row);
-                                      }}
-                                      disabled={!canEditTimeline}
-                                      className={TIMELINE_CARD_EXPANDED_HEADER_BTN_CLASS}
-                                    >
-                                      Duplicate
-                                    </PrimaryButton>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setPendingTimelineDelete({
-                                          kind: "reception",
-                                          id: item.id,
-                                          label: item.title.trim() || "this moment",
-                                        })
-                                      }
-                                      className={TIMELINE_CARD_EXPANDED_HEADER_DELETE_CLASS}
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            <div className={TIMELINE_CARD_EDIT_FIELDS_CLASS}>
-                              <TextInput
-                                id={`timeline-inline-title-${item.id}`}
-                                label="Moment"
-                                value={recvTitle}
-                                inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { title: value }, timelineRow ?? null)}
-                                disabled={!canEditTimeline}
-                              />
-                              <div className={`grid grid-cols-1 gap-2 ${!isCoupleView ? "sm:grid-cols-2" : ""} md:gap-3`}>
-                                <TextInput
-                                  id={`timeline-inline-time-${item.id}`}
-                                  label="Time"
-                                  value={recvTime}
-                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow ?? null)}
-                                  disabled={!canEditTimeline}
-                                />
-                                {!isCoupleView ? (
-                                <div>
-                                  <label
-                                    htmlFor={`timeline-inline-cat-${item.id}`}
-                                    className={TIMELINE_DESKTOP_LABEL_CLASS}
-                                  >
-                                    Category
-                                  </label>
-                                  <select
-                                    id={`timeline-inline-cat-${item.id}`}
-                                    value={recvCategory}
-                                    disabled={!canEditTimeline}
-                                    onChange={(event) => {
-                                      const next = event.target.value as TimelineCategory;
-                                      patchReceptionTimelineInlineDraft(item.id, { category: next }, timelineRow ?? null);
-                                    }}
-                                    className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none transition focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30 md:min-h-12 md:px-4 md:py-3 md:text-base"
-                                  >
-                                    {timelineCategories.map((category) => (
-                                      <option key={category} value={category}>
-                                        {category}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                ) : null}
-                              </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                                <TextInput
-                                  id={`timeline-inline-song-${item.id}`}
-                                  label="Song"
-                                  value={recvSong}
-                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { songTitle: value }, timelineRow ?? null)}
-                                  placeholder="Song title"
-                                  disabled={!canEditTimeline}
-                                />
-                                <TextInput
-                                  id={`timeline-inline-song-artist-${item.id}`}
-                                  label="Artist"
-                                  value={recvArtist}
-                                  inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                  labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                  onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { artist: value }, timelineRow ?? null)}
-                                  placeholder="Artist"
-                                  disabled={!canEditTimeline}
-                                />
-                              </div>
-                              {isToast ? (
-                                <SpeechesToastsPreview
-                                  toastsRaw={speechesToastsRaw}
-                                  onEdit={openSpeechesToastsEditor}
-                                  variant="timeline"
-                                />
-                              ) : null}
-                              <TextArea
-                                id={`timeline-inline-notes-${item.id}`}
-                                label="Shared team cue"
-                                value={recvNotes}
-                                textareaClassName={TIMELINE_DESKTOP_TEXTAREA_CLASS}
-                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                onChange={(value) => patchReceptionTimelineInlineDraft(item.id, { notes: value }, timelineRow ?? null)}
-                                rows={2}
-                                disabled={!canEditTimeline}
-                              />
-                              <TeamCueFormatSelector
-                                value={recvTeamCueFormat}
-                                onChange={(next) =>
-                                  patchReceptionTimelineInlineDraft(item.id, { teamCueFormat: next }, timelineRow ?? null)
-                                }
-                                disabled={!canEditTimeline}
-                                labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                              />
-                              {!isCoupleView ? (
-                              <PrimaryButton
-                                type="button"
-                                onClick={() =>
-                                  patchReceptionTimelineInlineDraft(
-                                    item.id,
-                                    { needsDjMcAttention: !recvNeedsMc },
-                                    timelineRow ?? null,
-                                  )
-                                }
-                                disabled={!canEditTimeline}
-                                className={`w-full rounded-lg border py-2.5 text-[12px] font-semibold shadow-none md:py-3 md:text-[13px] ${recvNeedsMc
-                                  ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
-                                  : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                                  }`}
-                              >
-                                {recvNeedsMc ? "DJ/MC flagged" : "Flag DJ / MC"}
-                              </PrimaryButton>
-                              ) : null}
-
-                              <details className="rounded-lg border border-stone-200 bg-stone-50">
-                                <summary className="flex min-h-10 cursor-pointer list-none items-center px-3 py-2 text-[11px] font-semibold text-stone-700 [&::-webkit-details-marker]:hidden hover:bg-white md:min-h-11 md:px-4 md:text-xs">
-                                  Fade / advanced timing
-                                </summary>
-                                <div className="space-y-2 border-t border-stone-200 bg-white p-3 md:space-y-3 md:p-4">
-                                  <p className="text-[10px] leading-relaxed text-stone-600 md:text-[11px] md:leading-relaxed">
-                                    Optional cue — common for introductions and formalities.
-                                  </p>
-                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:gap-3">
-                                    <PrimaryButton
-                                      type="button"
-                                      onClick={() =>
-                                        patchReceptionTimelineInlineDraft(
-                                          item.id,
-                                          { fadeOutEarly: !recvFadeEarly },
-                                          timelineRow ?? null,
-                                        )
-                                      }
-                                      disabled={!canEditTimeline}
-                                      className={`w-full rounded-lg border py-2 text-[12px] font-semibold shadow-none md:py-2.5 md:text-[13px] ${recvFadeEarly
-                                        ? "border-[#C79A5A] bg-[#C79A5A]/12 text-[#1E1E1E]"
-                                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                                        }`}
-                                    >
-                                      {recvFadeEarly ? "Fade out early: On" : "Fade out early"}
-                                    </PrimaryButton>
-                                    <TextInput
-                                      id={`timeline-inline-fade-${item.id}`}
-                                      label="Fade timestamp"
-                                      value={recvFadeTs}
-                                      inputClassName={TIMELINE_DESKTOP_INPUT_CLASS}
-                                      labelClassName={TIMELINE_DESKTOP_LABEL_CLASS}
-                                      onChange={(value) =>
-                                        patchReceptionTimelineInlineDraft(item.id, { fadeOutTimestamp: value }, timelineRow ?? null)
-                                      }
-                                      placeholder="e.g. 1:20"
-                                      disabled={!canEditTimeline}
-                                    />
-                                  </div>
-                                </div>
-                              </details>
-                              <div className={TIMELINE_CARD_EDIT_DONE_ROW_CLASS}>
-                                <PrimaryButton
-                                  type="button"
-                                  onClick={() => closeReceptionTimelineCardExpanded()}
-                                  className={
-                                    isCoupleView
-                                      ? `min-h-11 w-full px-5 py-2.5 text-sm sm:w-auto sm:min-w-[9rem] md:min-h-10 md:py-2.5 ${couplePortalPrimaryButtonClass}`
-                                      : TIMELINE_CARD_EDIT_DONE_BTN_CLASS
-                                  }
-                                >
-                                  Done
-                                </PrimaryButton>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null}
+                        {rowExpanded
+                          ? renderReceptionTimelineExpandedEditor({
+                            item,
+                            timelineRow: timelineRow ?? null,
+                            coupleWorkspaceId,
+                            recvTitle,
+                            recvTime,
+                            recvNotes,
+                            recvSong,
+                            recvArtist,
+                            recvCategory,
+                            recvNeedsMc,
+                            recvFadeEarly,
+                            recvFadeTs,
+                            recvTeamCueFormat,
+                            isToast,
+                          })
+                          : null}
                         {/* Footer: hidden in couple view — drag handle lives on the step badge instead */}
                         <div className={`${TIMELINE_CARD_FOOTER_CLASS}${isCoupleView ? " hidden" : ""}`}>
                           <button
