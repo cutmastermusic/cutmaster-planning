@@ -31,28 +31,29 @@ export function PlanningPortalInviteEmail({
     <Html>
       <Head />
       <Preview>
-        You&apos;re invited to access the Cutmaster Music Planning Portal for {eventTitle}
+        Open your ShowFlow planner for {eventTitle}
       </Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
-          <Text style={brandStyle}>Cutmaster Music</Text>
-          <Heading style={headingStyle}>Planning Portal Access</Heading>
+          <Text style={brandStyle}>ShowFlow by Cutmaster Music</Text>
+          <Heading style={headingStyle}>Your ShowFlow planner is ready</Heading>
           <Text style={textStyle}>{greeting}</Text>
           <Text style={textStyle}>
-            You&apos;ve been invited to access the planning portal for:
+            Your event team invited you to plan in ShowFlow for:
           </Text>
           <Text style={eventTitleStyle}>{eventTitle}</Text>
           <Text style={textStyle}>
-            Use the portal to review event details, share planning input, and collaborate with
-            your event team.
+            ShowFlow is where you&apos;ll review event details, build your timeline, share music
+            preferences, and keep everything organized before the celebration.
           </Text>
           <Section style={buttonSectionStyle}>
             <Button href={inviteUrl} style={buttonStyle}>
-              Open Planning Portal
+              Continue to Your Planner
             </Button>
           </Section>
           <Text style={textStyle}>
-            This link expires on <strong>{expiresAtLabel}</strong>.
+            For your privacy, we&apos;ll confirm your invited email before opening the planner.
+            This invitation link expires on <strong>{expiresAtLabel}</strong>.
           </Text>
           <Hr style={hrStyle} />
           <Text style={fallbackLabelStyle}>
@@ -62,7 +63,7 @@ export function PlanningPortalInviteEmail({
             {inviteUrl}
           </Link>
           <Hr style={hrStyle} />
-          <Text style={footerStyle}>— Cutmaster Music</Text>
+          <Text style={footerStyle}>ShowFlow is prepared for you by Cutmaster Music.</Text>
         </Container>
       </Body>
     </Html>

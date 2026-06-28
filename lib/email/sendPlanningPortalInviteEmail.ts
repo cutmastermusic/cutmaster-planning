@@ -10,7 +10,7 @@ import type {
 
 export type { InviteEmailDeliveryResult, SendPlanningPortalInviteEmailInput };
 
-const INVITE_EMAIL_SUBJECT = "You're invited to the Cutmaster Music Planning Portal";
+const INVITE_EMAIL_SUBJECT = "Your ShowFlow planner is ready";
 
 export async function sendPlanningPortalInviteEmail(
   input: SendPlanningPortalInviteEmailInput,

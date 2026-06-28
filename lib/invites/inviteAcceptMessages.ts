@@ -24,6 +24,7 @@ export type InviteAcceptPreviewResult =
       status: "unavailable";
       reason: InviteUnavailableReason;
       eventTitle?: string | null;
+      invitedEmail?: string | null;
     };
 
 export type InviteRecordForClassification = {
@@ -105,7 +106,12 @@ export function classifyInviteRecord(
   }
 
   if (invite.acceptedAt || invite.eventMember?.status === "ACTIVE") {
-    return { status: "unavailable", reason: "already_accepted", eventTitle };
+    return {
+      status: "unavailable",
+      reason: "already_accepted",
+      eventTitle,
+      invitedEmail: invite.email,
+    };
   }
 
   if (invite.expiresAt.getTime() <= now.getTime()) {

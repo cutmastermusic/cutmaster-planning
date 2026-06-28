@@ -25,6 +25,7 @@ type LoadState =
       kind: "unavailable";
       reason: InviteUnavailableReason;
       eventTitle?: string | null;
+      invitedEmail?: string | null;
     }
   | { kind: "ready"; preview: InviteAcceptPreview };
 
@@ -45,6 +46,14 @@ function buildLoginHref(token: string, invitedEmail: string): string {
     next: nextPath,
     email: invitedEmail,
   });
+  return `/login?${params.toString()}`;
+}
+
+function buildPlannerLoginHref(invitedEmail?: string | null): string {
+  const params = new URLSearchParams({ next: "/" });
+  if (invitedEmail?.trim()) {
+    params.set("email", invitedEmail.trim());
+  }
   return `/login?${params.toString()}`;
 }
 
@@ -123,6 +132,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
             kind: "unavailable",
             reason: result.reason,
             eventTitle: result.eventTitle,
+            invitedEmail: result.invitedEmail,
           });
           return;
         }
@@ -180,6 +190,16 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
     }
   };
 
+  useEffect(() => {
+    if (!authLoaded || loadState.kind !== "unavailable" || loadState.reason !== "already_accepted") {
+      return;
+    }
+
+    window.location.replace(
+      sessionEmail ? "/" : buildPlannerLoginHref(loadState.invitedEmail),
+    );
+  }, [authLoaded, loadState, sessionEmail]);
+
   if (loadState.kind === "loading" || !authLoaded) {
     return (
       <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
@@ -192,6 +212,19 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
   }
 
   if (loadState.kind === "unavailable") {
+    if (loadState.reason === "already_accepted") {
+      return (
+        <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
+          <PremiumCard variant="accent">
+            <SectionTitle>Opening your ShowFlow planner…</SectionTitle>
+            <p className="mt-2 text-xs leading-relaxed text-stone-600">
+              This invite has already been accepted. We&apos;re taking you to the right place.
+            </p>
+          </PremiumCard>
+        </section>
+      );
+    }
+
     return (
       <InviteUnavailableState reason={loadState.reason} eventTitle={loadState.eventTitle} />
     );
@@ -206,7 +239,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
   return (
     <section className="mx-auto w-full max-w-lg px-5 py-16 sm:px-6">
       <PremiumCard variant="accent">
-        <SectionTitle>You&apos;re invited to plan your celebration</SectionTitle>
+        <SectionTitle>Your ShowFlow planner is ready</SectionTitle>
         <div className="mt-3 space-y-2 text-xs text-stone-600">
           <p>
             <span className="font-semibold text-stone-900">Event: </span>
@@ -225,8 +258,8 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
         {!isAuthenticated ? (
           <div className="mt-5 space-y-3">
             <p className="text-xs leading-relaxed text-stone-600">
-              Sign in with <span className="font-semibold text-stone-900">{invitedEmail}</span> to
-              accept this invitation and open your planning portal.
+              Continue with <span className="font-semibold text-stone-900">{invitedEmail}</span>.
+              We&apos;ll email a secure access link so only the invited email can open this planner.
             </p>
             <PrimaryButton
               type="button"
@@ -235,7 +268,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               }}
               className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
             >
-              Sign in with invited email
+              Continue to your planner
             </PrimaryButton>
           </div>
         ) : emailMatches ? (
@@ -253,7 +286,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               disabled={accepting}
               className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
             >
-              {accepting ? "Accepting…" : "Accept invitation"}
+              {accepting ? "Opening planner…" : "Open my ShowFlow planner"}
             </PrimaryButton>
           </div>
         ) : (
@@ -276,8 +309,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               <p className="mt-1 font-semibold text-stone-900">{sessionEmail}</p>
             </div>
             <p className="text-xs leading-relaxed text-stone-600">
-              Sign out, then sign in again using the invited email address to accept this
-              invitation.
+              We&apos;ll send the secure access link to the invited email so this planner stays private.
             </p>
             <PrimaryButton
               type="button"
@@ -287,7 +319,7 @@ export function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
               disabled={signingOut}
               className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
             >
-              {signingOut ? "Signing out…" : `Sign in with ${invitedEmail}`}
+              {signingOut ? "Preparing access link…" : `Continue with ${invitedEmail}`}
             </PrimaryButton>
             <PrimaryButton
               type="button"

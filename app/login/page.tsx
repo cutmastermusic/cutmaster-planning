@@ -34,6 +34,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const bypassEnabled = isAuthBypassEnabled();
   const canUseSupabaseLogin = showSupabaseLogin();
   const canUsePrototypeLogin = showPrototypeLogin();
+  const showPrototypeFallback = canUsePrototypeLogin && (!supabaseConfigured || bypassEnabled || authMode === "prototype");
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-col justify-center px-5 py-16 sm:px-6">
@@ -48,7 +49,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             className="h-auto w-full object-contain"
           />
         </div>
-        <SectionTitle>Sign in to ShowFlow</SectionTitle>
+        <SectionTitle>Open your ShowFlow planner</SectionTitle>
 
         {authError === "auth_callback_failed" ? (
           <p className="mt-2 text-xs text-red-700">
@@ -71,10 +72,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ) : canUseSupabaseLogin ? (
           <div className="mt-4">
             <p className="mb-3 text-xs text-stone-600">
-              We&apos;ll email you a secure sign-in link. No password required.
+              Enter the email your planner invited. We&apos;ll send a secure access link so you can
+              open your planner without a password.
             </p>
             <MagicLinkLoginForm
-              showPrototypeLink={canUsePrototypeLogin}
+              showPrototypeLink={showPrototypeFallback}
               nextPath={nextPath}
               defaultEmail={defaultEmail}
             />
@@ -85,7 +87,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Auth mode is <span className="font-semibold text-stone-950">{authMode}</span>
               {bypassEnabled ? " with prototype bypass enabled" : ""}.
             </p>
-            {canUsePrototypeLogin ? (
+            {showPrototypeFallback ? (
               <Link
                 href="/"
                 className="inline-flex font-semibold text-stone-950 underline underline-offset-2"

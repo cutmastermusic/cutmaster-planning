@@ -8320,6 +8320,10 @@ export default function Home() {
     (effectiveRole === "Admin" || effectiveRole === "DJ") &&
     !authSession.isCouplePortalSession &&
     !isCoupleEditorialShell;
+  const showCustomerPortalEntry =
+    authSession.supabaseConfigured &&
+    !authSession.bypassEnabled &&
+    authSession.authMode !== "prototype";
   const showAdminClientPreviewChrome =
     showRolePreviewSwitcher && isCoupleEditorialShell && !isRealCoupleSession;
   const hideCoupleDashboardAppHeader =
@@ -20547,141 +20551,162 @@ export default function Home() {
         {authStage === "login" && (
           <section className={workspaceSectionClass}>
             <PremiumCard variant="accent">
-              <SectionTitle>Welcome to {appSettings.appName}</SectionTitle>
-              <p className="mt-2 text-xs text-stone-600">
-                Prototype login for role-based planning access.
-              </p>
-              {authSession.loaded && authSession.email ? (
-                <p className="mt-2 text-xs text-stone-600">Signed in as {authSession.email}</p>
-              ) : null}
-              {process.env.NEXT_PUBLIC_AUTH_MODE !== "prototype" ? (
-                <p className="mt-3 text-xs text-stone-600">
+              {showCustomerPortalEntry ? (
+                <>
+                  <SectionTitle>Welcome to ShowFlow</SectionTitle>
+                  <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                    Open your event planner with the email your planner invited. We&apos;ll send a
+                    secure access link so you can continue without a password.
+                  </p>
                   <a
                     href="/login"
-                    className="font-semibold text-stone-950 underline underline-offset-2"
+                    className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none transition hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
                   >
-                    Sign in with email
+                    Email me my secure access link
                   </a>
-                </p>
-              ) : null}
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {(["Admin", "DJ", "Couple", "Planner"] as UserRole[]).map((role) => (
-                  <PrimaryButton
-                    key={`login-${role}`}
-                    onClick={() => {
-                      setCurrentRole(role);
-                      setRolePreview(role);
+                  <p className="mt-3 text-center text-[11px] leading-relaxed text-stone-500">
+                    Invited by Cutmaster Music. Powered by ShowFlow.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <SectionTitle>Welcome to {appSettings.appName}</SectionTitle>
+                  <p className="mt-2 text-xs text-stone-600">
+                    Prototype login for role-based planning access.
+                  </p>
+                  {authSession.loaded && authSession.email ? (
+                    <p className="mt-2 text-xs text-stone-600">Signed in as {authSession.email}</p>
+                  ) : null}
+                  {process.env.NEXT_PUBLIC_AUTH_MODE !== "prototype" ? (
+                    <p className="mt-3 text-xs text-stone-600">
+                      <a
+                        href="/login"
+                        className="font-semibold text-stone-950 underline underline-offset-2"
+                      >
+                        Sign in with email
+                      </a>
+                    </p>
+                  ) : null}
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {(["Admin", "DJ", "Couple", "Planner"] as UserRole[]).map((role) => (
+                      <PrimaryButton
+                        key={`login-${role}`}
+                        onClick={() => {
+                          setCurrentRole(role);
+                          setRolePreview(role);
 
-                      const pinned = activeEventId ? events.find((e) => e.id === activeEventId) : undefined;
+                          const pinned = activeEventId ? events.find((e) => e.id === activeEventId) : undefined;
 
-                      let targetEvt: EventRecord | undefined;
+                          let targetEvt: EventRecord | undefined;
 
-                      if (pinned) {
-                        targetEvt = pinned;
-                      } else if (role === "Admin") {
-                        targetEvt = events[0];
-                      } else if (role === "DJ") {
-                        const activeDj = companyTeamMembers.find((m) => m.role === "DJ" && m.isActive);
-                        if (activeDj) {
-                          targetEvt = events.find(
-                            (evt) =>
-                              evt.settings?.assignedDj === activeDj.id ||
-                              evt.settings?.assignedDj === activeDj.name,
-                          );
-                        }
-                        if (!targetEvt) targetEvt = events[0];
-                      } else {
-                        targetEvt =
-                          events.find((evt) =>
-                            (evt.collaborators ?? []).some(
-                              (c) => c.role === role && c.status === "Accepted",
-                            ),
-                          ) ?? events[0];
-                      }
-
-                      if (targetEvt) {
-                        setActiveEventId(targetEvt.id);
-                        loadEventPlanningIntoWorkingState(targetEvt);
-                      }
-
-                      const sameEventAsBefore = Boolean(
-                        pinned && targetEvt && pinned.id === targetEvt.id,
-                      );
-
-                      const nextAppMode: AppMode =
-                        role === "Couple"
-                          ? "event"
-                          : sameEventAsBefore && appMode === "event"
-                            ? "event"
-                            : "events";
-
-                      setAppMode(nextAppMode);
-
-                      let nextScreen: Screen;
-
-                      if (sameEventAsBefore && targetEvt) {
-                        let m = activeScreen;
-                        const hubEligible =
-                          (targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
-                          (false);
-
-                        if (m === "Reception Hub") {
-                          m = hubEligible ? "Reception Timeline" : "Timeline";
-                        }
-                        if (m === "Event Settings" && role === "DJ") {
-                          m = "Dashboard";
-                        }
-
-                        if (nextAppMode === "event") {
-                          const flags = eventNavFlagsFromRecord(targetEvt);
-                          const eventNav = buildEventNavItemsForRole(role, flags);
-                          const extras: Screen[] = [];
-                          if (
-                            hubEligible &&
-                            ((targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
-                              (false))
-                          ) {
-                            extras.push("Reception Timeline");
+                          if (pinned) {
+                            targetEvt = pinned;
+                          } else if (role === "Admin") {
+                            targetEvt = events[0];
+                          } else if (role === "DJ") {
+                            const activeDj = companyTeamMembers.find((m) => m.role === "DJ" && m.isActive);
+                            if (activeDj) {
+                              targetEvt = events.find(
+                                (evt) =>
+                                  evt.settings?.assignedDj === activeDj.id ||
+                                  evt.settings?.assignedDj === activeDj.name,
+                              );
+                            }
+                            if (!targetEvt) targetEvt = events[0];
+                          } else {
+                            targetEvt =
+                              events.find((evt) =>
+                                (evt.collaborators ?? []).some(
+                                  (c) => c.role === role && c.status === "Accepted",
+                                ),
+                              ) ?? events[0];
                           }
-                          const allowed = [...eventNav, ...extras];
-                          nextScreen = allowed.includes(m)
-                            ? m
-                            : eventNav.includes("Dashboard")
-                              ? "Dashboard"
-                              : (eventNav[0] ?? "Dashboard");
-                        } else {
-                          const wsNav = getWorkspaceNavItemsForRole(role);
-                          nextScreen = wsNav.includes(m)
-                            ? m
-                            : role === "Admin" || role === "DJ"
-                              ? "Command Center"
-                              : "All Events";
-                        }
-                      } else {
-                        nextScreen =
-                          role === "Couple"
-                            ? "Dashboard"
-                            : role === "Admin" || role === "DJ"
-                              ? "Command Center"
-                              : "All Events";
-                      }
 
-                      setActiveScreen(nextScreen);
-                      setAuthStage("app");
-                    }}
-                    className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
-                  >
-                    Continue as {perspectiveRoleLabel(role)}
-                  </PrimaryButton>
-                ))}
-              </div>
-              {inviteAccessPreview && (
-                <PrimaryButton
-                  onClick={() => setAuthStage("invite")}
-                  className="mt-4 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
-                >
-                  Open Magic Invite Link
-                </PrimaryButton>
+                          if (targetEvt) {
+                            setActiveEventId(targetEvt.id);
+                            loadEventPlanningIntoWorkingState(targetEvt);
+                          }
+
+                          const sameEventAsBefore = Boolean(
+                            pinned && targetEvt && pinned.id === targetEvt.id,
+                          );
+
+                          const nextAppMode: AppMode =
+                            role === "Couple"
+                              ? "event"
+                              : sameEventAsBefore && appMode === "event"
+                                ? "event"
+                                : "events";
+
+                          setAppMode(nextAppMode);
+
+                          let nextScreen: Screen;
+
+                          if (sameEventAsBefore && targetEvt) {
+                            let m = activeScreen;
+                            const hubEligible =
+                              (targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
+                              (false);
+
+                            if (m === "Reception Hub") {
+                              m = hubEligible ? "Reception Timeline" : "Timeline";
+                            }
+                            if (m === "Event Settings" && role === "DJ") {
+                              m = "Dashboard";
+                            }
+
+                            if (nextAppMode === "event") {
+                              const flags = eventNavFlagsFromRecord(targetEvt);
+                              const eventNav = buildEventNavItemsForRole(role, flags);
+                              const extras: Screen[] = [];
+                              if (
+                                hubEligible &&
+                                ((targetEvt.settings?.sectionReceptionTimelineEnabled ?? true) ||
+                                  (false))
+                              ) {
+                                extras.push("Reception Timeline");
+                              }
+                              const allowed = [...eventNav, ...extras];
+                              nextScreen = allowed.includes(m)
+                                ? m
+                                : eventNav.includes("Dashboard")
+                                  ? "Dashboard"
+                                  : (eventNav[0] ?? "Dashboard");
+                            } else {
+                              const wsNav = getWorkspaceNavItemsForRole(role);
+                              nextScreen = wsNav.includes(m)
+                                ? m
+                                : role === "Admin" || role === "DJ"
+                                  ? "Command Center"
+                                  : "All Events";
+                            }
+                          } else {
+                            nextScreen =
+                              role === "Couple"
+                                ? "Dashboard"
+                                : role === "Admin" || role === "DJ"
+                                  ? "Command Center"
+                                  : "All Events";
+                          }
+
+                          setActiveScreen(nextScreen);
+                          setAuthStage("app");
+                        }}
+                        className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:border-stone-900 hover:bg-stone-50"
+                      >
+                        Continue as {perspectiveRoleLabel(role)}
+                      </PrimaryButton>
+                    ))}
+                  </div>
+                  {inviteAccessPreview && (
+                    <PrimaryButton
+                      onClick={() => setAuthStage("invite")}
+                      className="mt-4 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
+                    >
+                      Open Magic Invite Link
+                    </PrimaryButton>
+                  )}
+                </>
               )}
             </PremiumCard>
           </section>

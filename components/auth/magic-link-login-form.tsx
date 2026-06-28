@@ -84,13 +84,13 @@ export function MagicLinkLoginForm({
           disabled={status === "sending" || status === "sent"}
           className="w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2 disabled:opacity-60"
         >
-          {status === "sending" ? "Sending…" : status === "sent" ? "Link sent" : "Send magic link"}
+          {status === "sending" ? "Sending…" : status === "sent" ? "Access link sent" : "Email me my secure access link"}
         </PrimaryButton>
       </form>
 
       {status === "sent" ? (
         <p className="text-xs text-stone-600">
-          Check your email for a sign-in link. You can close this tab after clicking it.
+          Check your email for your secure ShowFlow access link. You can close this tab after clicking it.
         </p>
       ) : null}
 
