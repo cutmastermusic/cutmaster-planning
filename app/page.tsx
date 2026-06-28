@@ -3430,41 +3430,41 @@ const TIMELINE_DESKTOP_TEXTAREA_CLASS = `mt-1 ${lightUiTextControlClass} min-h-[
 const TIMELINE_DESKTOP_LABEL_CLASS = `${lightUiFormLabelClass} md:text-[11px] md:tracking-[0.12em]`;
 /** Outer timeline row padding — tuned for phone, iPad landscape, and desktop scan density. */
 const TIMELINE_CARD_SHELL_CLASS =
-  "!p-0 px-4 py-4 sm:px-5 sm:py-4 md:px-5 md:py-4 lg:px-5 lg:py-4 xl:px-6";
+  "!px-4 !py-4 sm:!px-5 sm:!py-5 md:!px-6 md:!py-5 lg:!px-6 lg:!py-5 xl:!px-7 xl:!py-6";
 const TIMELINE_STREAM_CLASS =
-  "min-w-0 space-y-2.5 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3 md:max-h-[min(72dvh,52rem)] md:space-y-2.5 md:overflow-y-auto md:overscroll-y-contain";
+  "min-w-0 space-y-3 overflow-x-hidden max-md:max-h-none max-md:overflow-y-visible sm:space-y-3.5 md:max-h-[min(72dvh,52rem)] md:space-y-3.5 md:overflow-y-auto md:overscroll-y-contain";
 const COUPLE_TIMELINE_STREAM_CLASS =
   "min-w-0 space-y-2.5 overflow-x-hidden sm:space-y-3 md:space-y-2.5";
 const TIMELINE_STREAM_UNIFIED_CLASS =
-  "min-w-0 space-y-2.5 overflow-x-hidden sm:space-y-3 md:space-y-2.5";
+  "min-w-0 space-y-3 overflow-x-hidden sm:space-y-3.5 md:space-y-3.5";
 const TIMELINE_SECTION_HEADER_CLASS =
   "scroll-mt-4 border-b border-stone-200/90 bg-white px-4 py-3 sm:px-5 sm:py-3";
 const TIMELINE_CARD_TIME_TITLE_ROW_CLASS =
-  "flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:gap-x-3.5";
+  "flex flex-wrap items-baseline gap-x-3.5 gap-y-1 sm:gap-x-4";
 const TIMELINE_CARD_TIME_INLINE_CLASS =
   "shrink-0 font-mono text-[13px] font-semibold tabular-nums tracking-tight text-stone-500 sm:text-sm lg:min-w-[5rem] lg:text-[13px]";
 const TIMELINE_CARD_TITLE_CLASS =
   "whitespace-normal break-words text-base font-semibold leading-snug tracking-tight text-stone-950 md:text-lg lg:text-[1.0625rem] lg:leading-tight";
 const TIMELINE_CARD_CUE_CLASS =
-  "text-sm leading-snug text-stone-700 [overflow-wrap:anywhere] md:text-[14px]";
+  "text-sm leading-relaxed text-stone-700 [overflow-wrap:anywhere] md:text-[14px]";
 const TIMELINE_CARD_NOTES_CLASS =
-  "line-clamp-2 mt-1 text-[11px] leading-snug text-stone-500 [overflow-wrap:anywhere] md:mt-1.5 md:text-xs";
+  "line-clamp-2 mt-1.5 text-[11px] leading-relaxed text-stone-500 [overflow-wrap:anywhere] md:mt-2 md:text-xs";
 const TIMELINE_CARD_FOOTER_CLASS =
-  "mt-4 flex flex-col gap-2.5 border-t border-stone-200/90 pt-3.5 max-md:mt-3.5 max-md:gap-2 max-md:pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-3.5 lg:flex-nowrap lg:gap-2.5 lg:pt-3";
+  "mt-5 flex flex-col gap-3 border-t border-stone-200/60 pt-4 max-md:mt-3.5 max-md:gap-2 max-md:pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 lg:mt-4 lg:flex-nowrap lg:gap-3 lg:pt-3.5";
 const GRAND_ENTRANCE_DETAIL_BTN_CLASS =
   "min-h-11 touch-manipulation rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-stone-800 shadow-sm transition hover:border-stone-400 hover:bg-stone-50 md:text-sm";
 const TIMELINE_CARD_POSITION_CLASS =
   "shrink-0 self-end text-right text-[10px] font-medium tabular-nums uppercase tracking-wide text-stone-500";
 const TIMELINE_CARD_ACTION_RAIL_CLASS =
-  "flex w-full min-w-0 shrink-0 flex-col gap-2.5 border-t border-stone-200/80 pt-3.5 md:pt-3.5 lg:w-auto lg:max-w-[min(22rem,100%)] lg:flex-none lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4 xl:pl-5";
+  "flex w-full min-w-0 shrink-0 flex-col gap-3 border-t border-stone-200/60 pt-4 md:pt-4 lg:w-auto lg:max-w-[min(24rem,100%)] lg:flex-none lg:border-t-0 lg:pt-0 lg:pl-5 xl:pl-6";
 const TIMELINE_CARD_ACTION_ROW_CLASS =
-  "flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2";
+  "flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2.5";
 const TIMELINE_CARD_ACTION_BTN_CLASS =
-  "min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+  "min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-[13px] font-medium text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:min-w-[5.25rem] lg:shrink-0 lg:px-3.5 lg:py-2 lg:text-[11px] xl:px-4 xl:text-xs";
 const TIMELINE_CARD_ACTION_BTN_PRIMARY_CLASS =
-  "min-h-11 w-full rounded-lg border border-stone-500 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+  "min-h-11 w-full rounded-lg border border-stone-500 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-stone-900 shadow-none hover:bg-stone-50 disabled:opacity-45 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-[13px] lg:min-h-9 lg:w-auto lg:min-w-[5.25rem] lg:shrink-0 lg:px-3.5 lg:py-2 lg:text-[11px] xl:px-4 xl:text-xs";
 const TIMELINE_CARD_ACTION_BTN_DELETE_CLASS =
-  "min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-9 lg:w-auto lg:shrink-0 lg:px-3 lg:py-2 lg:text-[11px] xl:px-3.5 xl:text-xs";
+  "min-h-11 w-full touch-manipulation rounded-lg border border-rose-300/80 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-rose-900/90 shadow-none transition hover:border-rose-400 hover:bg-rose-50/90 sm:min-h-10 sm:w-auto sm:px-3.5 sm:py-2.5 sm:text-[11px] md:min-h-11 md:px-4 md:py-2.5 md:text-sm lg:min-h-9 lg:w-auto lg:min-w-[5.25rem] lg:shrink-0 lg:px-3.5 lg:py-2 lg:text-[11px] xl:px-4 xl:text-xs";
 const TIMELINE_CARD_MOBILE_ACTION_GRID_CLASS = "grid grid-cols-2 gap-2";
 const TIMELINE_CARD_MOBILE_ACTION_BTN_CLASS =
   "min-h-11 min-w-0 touch-manipulation rounded-lg border border-stone-300 bg-white px-2.5 py-2.5 text-[11px] font-medium leading-tight text-stone-800 shadow-none hover:border-stone-500 hover:bg-stone-50 disabled:opacity-45";
@@ -24222,15 +24222,15 @@ export default function Home() {
                         />
                       ) : !inlineEditorOpen && (
                         <>
-                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                            <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
+                          <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-4 lg:max-w-[58rem] lg:flex-row lg:items-start lg:justify-between lg:gap-6 xl:max-w-[62rem] xl:gap-7">
+                            <div className="min-w-0 flex-1 space-y-2.5 lg:max-w-[41rem] xl:max-w-[43rem]">
                               <TimelineMomentHeadline
                                 timeLabel={item.timeOrOrder ?? ""}
                                 title={item.moment}
                               />
                               <TimelineSongCueLine kind="Song" preview={songLine || "—"} hasSong={Boolean(songLine)} />
                               {item.notes?.trim() ? (
-                                <div className="mt-1 md:mt-1.5">
+                                <div className="mt-2 md:mt-2.5">
                                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                                     Shared team cue
                                   </p>
@@ -24936,8 +24936,8 @@ export default function Home() {
                           />
                         ) : !inlineEditorOpen ? (
                           <>
-                            <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-3 lg:max-w-[56rem] lg:flex-row lg:items-start lg:justify-between lg:gap-4 xl:max-w-[60rem] xl:gap-5">
-                              <div className="min-w-0 flex-1 space-y-1.5 lg:max-w-[40rem] xl:max-w-[42rem]">
+                            <div className="hidden md:mx-auto md:flex md:w-full md:max-w-[44rem] md:flex-col md:gap-4 lg:max-w-[58rem] lg:flex-row lg:items-start lg:justify-between lg:gap-6 xl:max-w-[62rem] xl:gap-7">
+                              <div className="min-w-0 flex-1 space-y-2.5 lg:max-w-[41rem] xl:max-w-[43rem]">
                                 <TimelineMomentHeadline
                                   timeLabel={item.time ?? ""}
                                   title={item.title}
@@ -24971,7 +24971,7 @@ export default function Home() {
                                   />
                                 ) : null}
                                 {item.notes?.trim() ? (
-                                  <div className="mt-1 md:mt-1.5">
+                                  <div className="mt-2 md:mt-2.5">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                                       Shared team cue
                                     </p>

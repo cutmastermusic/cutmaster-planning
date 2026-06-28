@@ -123,7 +123,7 @@ export function CoupleTimelineCard({
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border bg-white px-4 py-3.5 transition-[transform,box-shadow,opacity,border-color,background-color] duration-200 ease-out ${
+      className={`flex items-start gap-3 rounded-xl border bg-white px-4 py-3.5 transition-[transform,box-shadow,opacity,border-color,background-color] duration-200 ease-out md:gap-4 md:px-5 md:py-4 lg:px-6 lg:py-5 ${
         isDragging
           ? "z-10 scale-[1.02] border-[#2f4a3e]/40 shadow-[0_14px_32px_rgba(15,23,42,0.14)]"
           : isDropTarget
@@ -143,7 +143,7 @@ export function CoupleTimelineCard({
         onDragEnd={onDragEnd}
         onTouchStart={onTouchStart}
         disabled={!canEdit}
-        className={`mt-0.5 flex shrink-0 touch-none select-none flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 transition disabled:cursor-default disabled:opacity-40 ${
+        className={`mt-0.5 flex shrink-0 touch-none select-none flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 transition disabled:cursor-default disabled:opacity-40 md:px-2.5 md:py-2.5 ${
           isDragging
             ? "cursor-grabbing bg-[#2f4a3e]/15"
             : "cursor-grab bg-[#2f4a3e]/8 hover:bg-[#2f4a3e]/15 active:cursor-grabbing"
@@ -153,8 +153,8 @@ export function CoupleTimelineCard({
       </button>
 
       {/* Content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+      <div className="min-w-0 flex-1 md:space-y-2">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 md:gap-x-3 md:gap-y-1">
           {time?.trim() ? (
             <span className="shrink-0 text-sm font-medium text-[#2f4a3e]/70">
               {time}
@@ -164,14 +164,14 @@ export function CoupleTimelineCard({
             {title}
           </h3>
         </div>
-        <p className="mt-1 text-[13px] leading-relaxed text-stone-500">
+        <p className="mt-1 text-[13px] leading-relaxed text-stone-500 md:mt-1.5">
           {guidance}
         </p>
         {songSection}
       </div>
 
       {/* Actions */}
-      <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
+      <div className="flex shrink-0 flex-col items-end gap-2 pt-0.5 md:gap-2.5">
         {isEditing ? (
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#7F8F7A]/35 bg-[#7F8F7A]/12 px-2.5 py-1.5 text-[11px] font-semibold text-[#2f4a3e]">
             <span className="size-1.5 rounded-full bg-[#7F8F7A]" aria-hidden />
