@@ -22,6 +22,14 @@ export const metadata: Metadata = {
   title: "ShowFlow",
   description: "Event-day planning and run of show workspace.",
   manifest: "/site.webmanifest",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },

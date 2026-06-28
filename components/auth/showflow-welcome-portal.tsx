@@ -133,7 +133,7 @@ export function ShowFlowWelcomePortal({
           className="h-auto w-[150px] sm:w-[190px]"
         />
         <a
-          href="mailto:hello@cutmastermusic.com"
+          href="mailto:info@cutmastermusic.com"
           className="text-[11px] font-medium text-stone-500 transition hover:text-stone-900 sm:text-xs"
         >
           Need help?
