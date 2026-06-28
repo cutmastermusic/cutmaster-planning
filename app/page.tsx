@@ -3167,6 +3167,22 @@ function resolveAccountRoleLabel(params: {
   return params.currentRole ?? params.effectiveRole;
 }
 
+function resolveAuthenticatedWorkspaceRole(params: {
+  platformRole: string | null;
+  readScope: string;
+  memberships: Array<{ role: string }>;
+}): UserRole | null {
+  if (params.platformRole === "ADMIN" || params.readScope === "all") return "Admin";
+  const membershipRoles = new Set(
+    params.memberships.map((membership) => membership.role.toUpperCase()),
+  );
+  if (membershipRoles.has("ADMIN")) return "Admin";
+  if (membershipRoles.has("DJ")) return "DJ";
+  if (membershipRoles.has("PLANNER")) return "Planner";
+  if (membershipRoles.has("COUPLE")) return "Couple";
+  return null;
+}
+
 /** Couple-facing label for the Planning Questions screen — internal screen id unchanged. */
 const COUPLE_ABOUT_YOUR_DAY_LABEL = "About your day";
 
@@ -8324,6 +8340,13 @@ export default function Home() {
     authSession.supabaseConfigured &&
     !authSession.bypassEnabled &&
     authSession.authMode !== "prototype";
+  const showProductionWorkspaceBootstrap =
+    authStage === "app" &&
+    authSession.supabaseConfigured &&
+    !authSession.bypassEnabled &&
+    (!authSession.loaded ||
+      authSession.mode === "anonymous" ||
+      (authSession.mode === "supabase" && !databaseEventsLoaded));
   const showAdminClientPreviewChrome =
     showRolePreviewSwitcher && isCoupleEditorialShell && !isRealCoupleSession;
   const hideCoupleDashboardAppHeader =
@@ -11277,6 +11300,11 @@ export default function Home() {
         ]);
 
         if (!databaseEvents.length) {
+          if (authSession.supabaseConfigured && !authSession.bypassEnabled) {
+            setEvents([]);
+            setActiveEventId("");
+            setAppMode("events");
+          }
           databaseHydrationCompleteRef.current = true;
           setDatabaseEventsLoaded(true);
           return;
@@ -11911,6 +11939,47 @@ export default function Home() {
   ]);
 
   useEffect(() => {
+    if (!authSession.loaded) return;
+    if (!authSession.supabaseConfigured || authSession.bypassEnabled) return;
+
+    const workspaceRole = resolveAuthenticatedWorkspaceRole({
+      platformRole: authSession.platformRole,
+      readScope: authSession.readScope,
+      memberships: authSession.memberships,
+    });
+
+    if (!workspaceRole) {
+      setCurrentRole(null);
+      setRolePreview("Admin");
+      setAppMode("events");
+      setActiveScreen("All Events");
+      setAuthStage("login");
+      return;
+    }
+
+    setCurrentRole(workspaceRole);
+    setRolePreview(workspaceRole);
+
+    if (workspaceRole === "Couple") {
+      return;
+    }
+
+    setAuthStage("app");
+    setAppMode("events");
+    setActiveScreen(workspaceRole === "Admin" || workspaceRole === "DJ" ? "Command Center" : "All Events");
+  }, [
+    authSession.bypassEnabled,
+    authSession.loaded,
+    authSession.memberships,
+    authSession.platformRole,
+    authSession.readScope,
+    authSession.supabaseConfigured,
+    setActiveScreen,
+    setAuthStage,
+    setCurrentRole,
+  ]);
+
+  useEffect(() => {
     if (!authSession.isCouplePortalSession || !couplePortalPickerResolved) return;
     if (appMode !== "events") return;
     window.setTimeout(() => {
@@ -12017,6 +12086,15 @@ export default function Home() {
     try {
       const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
       const rawGlobal = window.localStorage.getItem(GLOBAL_SETTINGS_STORAGE_KEY);
+      if (isSupabaseConfigured() && !isAuthBypassEnabled()) {
+        if (rawGlobal) {
+          const parsedGlobal = JSON.parse(rawGlobal) as Partial<AppSettings>;
+          setAppSettings((prev) => ({ ...prev, ...migrateLegacyBrandSettings(parsedGlobal) }));
+        }
+        persistUiSuppressBootCountRef.current = 1;
+        window.setTimeout(() => setHasHydrated(true), 0);
+        return;
+      }
       if (!raw) {
         if (rawGlobal) {
           const parsedGlobal = JSON.parse(rawGlobal) as Partial<AppSettings>;
@@ -20458,7 +20536,16 @@ export default function Home() {
       </div>
 
       <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
-        {showAuthSessionIssueState ? (
+        {showProductionWorkspaceBootstrap ? (
+          <section className={workspaceSectionClass}>
+            <PremiumCard variant="accent">
+              <SectionTitle>Opening ShowFlow…</SectionTitle>
+              <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                We&apos;re confirming your secure session and loading your workspace.
+              </p>
+            </PremiumCard>
+          </section>
+        ) : showAuthSessionIssueState ? (
           <NoEventAccessState
             email={authSession.email}
             variant={authSession.sessionIssue ?? "user_sync_failed"}

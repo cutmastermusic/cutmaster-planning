@@ -14,6 +14,16 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function platformRoleForEmail(email: string): "ADMIN" | null {
+  const configured = process.env.SHOWFLOW_PLATFORM_ADMIN_EMAILS?.trim();
+  const adminEmails = new Set(
+    (configured ? configured.split(",") : ["chris@cutmastermusic.com"])
+      .map((item) => normalizeEmail(item))
+      .filter(Boolean),
+  );
+  return adminEmails.has(normalizeEmail(email)) ? "ADMIN" : null;
+}
+
 function displayNameFromMetadata(supabaseUser: SupabaseUser): string | null {
   const metadata = supabaseUser.user_metadata;
   if (typeof metadata?.name === "string" && metadata.name.trim()) {
@@ -39,16 +49,22 @@ export async function getOrCreateUserFromSession(supabaseUser: SupabaseUser) {
 
   const normalizedEmail = normalizeEmail(rawEmail);
   const name = displayNameFromMetadata(supabaseUser);
+  const resolvedPlatformRole = platformRoleForEmail(normalizedEmail);
 
   const byAuthSubject = await prisma.user.findUnique({
     where: { authSubject },
   });
 
   if (byAuthSubject) {
-    if (!byAuthSubject.name && name) {
+    if ((!byAuthSubject.name && name) || (resolvedPlatformRole && byAuthSubject.platformRole !== resolvedPlatformRole)) {
       return prisma.user.update({
         where: { id: byAuthSubject.id },
-        data: { name },
+        data: {
+          ...(name && !byAuthSubject.name ? { name } : {}),
+          ...(resolvedPlatformRole && byAuthSubject.platformRole !== resolvedPlatformRole
+            ? { platformRole: resolvedPlatformRole }
+            : {}),
+        },
       });
     }
     return byAuthSubject;
@@ -72,6 +88,9 @@ export async function getOrCreateUserFromSession(supabaseUser: SupabaseUser) {
       data: {
         authSubject,
         ...(name && !byEmail.name ? { name } : {}),
+        ...(resolvedPlatformRole && byEmail.platformRole !== resolvedPlatformRole
+          ? { platformRole: resolvedPlatformRole }
+          : {}),
       },
     });
   }
@@ -82,6 +101,7 @@ export async function getOrCreateUserFromSession(supabaseUser: SupabaseUser) {
         email: normalizedEmail,
         authSubject,
         name,
+        platformRole: resolvedPlatformRole,
       },
     });
   } catch (error) {
