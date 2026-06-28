@@ -147,65 +147,55 @@ export function ShowFlowWelcomePortal({
       </header>
 
       <section className="w-full pb-14 lg:pb-20">
-        <div className="relative overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
-          <div className="absolute inset-y-0 right-0 hidden w-[48%] lg:block">
-            <Image
-              src="/images/showflow-welcome-hero.jpg"
-              alt=""
-              fill
-              priority
-              sizes="48vw"
-              className="scale-[1.07] object-cover object-[62%_50%]"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,#fbfaf7_6%,rgba(251,250,247,0.7)_15%,rgba(251,250,247,0.2)_24%,transparent_30%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.04)_0%,transparent_48%,rgba(31,39,36,0.12)_100%)]" />
-          </div>
+        <div className="overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
+          <div className="mx-auto grid w-full max-w-7xl lg:min-h-[28rem] lg:grid-cols-[minmax(0,0.56fr)_minmax(0,0.44fr)]">
+            <div className="relative z-10 flex flex-col justify-center bg-[#fbfaf7] px-5 py-12 sm:px-8 sm:py-14 lg:py-16 lg:pr-10 xl:pr-14">
+              <div className="max-w-[38rem]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#a07830]">
+                  Welcome to ShowFlow
+                </p>
+                <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em] text-stone-950 sm:text-5xl lg:text-6xl">
+                  Everything you need for an unforgettable event.
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-stone-600 sm:text-lg">
+                  A calm, connected planning hub for timelines, music, event details, and the team bringing it all to life.
+                </p>
+              </div>
 
-          <div className="relative z-10 mx-auto flex min-h-[28rem] w-full max-w-7xl flex-col justify-center px-5 py-12 sm:px-8 sm:py-14 lg:py-16">
-            <div className="max-w-[38rem]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#a07830]">
-                Welcome to ShowFlow
-              </p>
-              <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em] text-stone-950 sm:text-5xl lg:text-6xl">
-                Everything you need for an unforgettable event.
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-stone-600 sm:text-lg">
-                A calm, connected planning hub for timelines, music, event details, and the team bringing it all to life.
-              </p>
+              <div className="mt-10 grid max-w-[34rem] gap-x-8 gap-y-5 sm:grid-cols-2">
+                {FEATURE_POINTS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.title} className="flex min-w-0 items-start gap-2.5">
+                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-[#a07830]/80">
+                        <Icon />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-medium leading-snug tracking-tight text-stone-800">
+                          {item.title}
+                        </span>
+                        <span className="mt-1 block text-[10px] font-medium leading-snug text-stone-400">
+                          {item.description}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="mt-10 grid max-w-4xl gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-12">
-              {FEATURE_POINTS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.title} className="flex min-w-0 items-start gap-2.5">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-[#a07830]/80">
-                      <Icon />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[11px] font-medium leading-snug tracking-tight text-stone-800">
-                        {item.title}
-                      </span>
-                      <span className="mt-1 block text-[10px] font-medium leading-snug text-stone-400">
-                        {item.description}
-                      </span>
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="relative min-h-64 overflow-hidden border-t border-stone-200/70 lg:min-h-full lg:border-l-0 lg:border-t-0">
+              <Image
+                src="/images/showflow-welcome-hero.jpg"
+                alt=""
+                fill
+                priority
+                sizes="(min-width: 1024px) 44vw, 100vw"
+                className="scale-[1.06] object-cover object-[62%_50%]"
+              />
+              <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.7)_10%,rgba(251,250,247,0.18)_20%,transparent_30%)] lg:block" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.18)_22%,transparent_42%,rgba(31,39,36,0.12)_100%)] lg:bg-[linear-gradient(180deg,rgba(251,250,247,0.03)_0%,transparent_52%,rgba(31,39,36,0.12)_100%)]" />
             </div>
-          </div>
-
-          <div className="relative h-64 overflow-hidden border-t border-stone-200/70 lg:hidden">
-            <Image
-              src="/images/showflow-welcome-hero.jpg"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="scale-[1.03] object-cover object-[58%_50%]"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.24)_28%,rgba(31,39,36,0.18)_100%)]" />
           </div>
         </div>
 
