@@ -147,7 +147,23 @@ export function ShowFlowWelcomePortal({
       </header>
 
       <section className="w-full pb-14 lg:pb-20">
-        <div className="overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
+        <div className="relative overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
+          <div
+            className="absolute inset-y-0 right-0 hidden overflow-hidden lg:block"
+            style={{ width: "calc(max((100vw - 80rem) / 2, 0px) + 35.2rem)" }}
+          >
+            <Image
+              src="/images/showflow-welcome-hero.jpg"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 1280px) calc((100vw - 80rem) / 2 + 35.2rem), 44vw"
+              className="scale-[1.06] object-cover object-[62%_50%]"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.7)_10%,rgba(251,250,247,0.18)_20%,transparent_30%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.03)_0%,transparent_52%,rgba(31,39,36,0.12)_100%)]" />
+          </div>
+
           <div className="mx-auto grid w-full max-w-7xl lg:min-h-[28rem] lg:grid-cols-[minmax(0,0.56fr)_minmax(0,0.44fr)]">
             <div className="relative z-10 flex flex-col justify-center bg-[#fbfaf7] px-5 py-12 sm:px-8 sm:py-14 lg:py-16 lg:pr-10 xl:pr-14">
               <div className="max-w-[38rem]">
@@ -184,17 +200,18 @@ export function ShowFlowWelcomePortal({
               </div>
             </div>
 
-            <div className="relative min-h-64 overflow-hidden border-t border-stone-200/70 lg:min-h-full lg:border-l-0 lg:border-t-0">
+            <div className="hidden lg:block" aria-hidden />
+
+            <div className="relative min-h-64 overflow-hidden border-t border-stone-200/70 lg:hidden">
               <Image
                 src="/images/showflow-welcome-hero.jpg"
                 alt=""
                 fill
                 priority
-                sizes="(min-width: 1024px) 44vw, 100vw"
+                sizes="100vw"
                 className="scale-[1.06] object-cover object-[62%_50%]"
               />
-              <div className="absolute inset-0 hidden bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.7)_10%,rgba(251,250,247,0.18)_20%,transparent_30%)] lg:block" />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.18)_22%,transparent_42%,rgba(31,39,36,0.12)_100%)] lg:bg-[linear-gradient(180deg,rgba(251,250,247,0.03)_0%,transparent_52%,rgba(31,39,36,0.12)_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.18)_22%,transparent_42%,rgba(31,39,36,0.12)_100%)]" />
             </div>
           </div>
         </div>
