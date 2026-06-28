@@ -147,6 +147,7 @@ import {
   normalizeMusicTasteProfile,
 } from "@/data/musicTasteProfileCatalog";
 import { AccountMenu } from "@/components/auth/account-menu";
+import { ShowFlowWelcomePortal } from "@/components/auth/showflow-welcome-portal";
 import { CouplePortalAccountMenu } from "@/components/couple-portal-account-menu";
 import { CoupleEventChooser } from "@/components/auth/couple-event-chooser";
 import { EventInviteAdminSection } from "@/components/auth/event-invite-admin-section";
@@ -20638,26 +20639,13 @@ export default function Home() {
         )}
 
         {authStage === "login" && (
-          <section className={workspaceSectionClass}>
-            <PremiumCard variant="accent">
-              {showCustomerPortalEntry ? (
-                <>
-                  <SectionTitle>Welcome to ShowFlow</SectionTitle>
-                  <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                    Open your event planner with the email your planner invited. We&apos;ll send a
-                    secure access link so you can continue without a password.
-                  </p>
-                  <a
-                    href="/login"
-                    className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none transition hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
-                  >
-                    Email me my secure access link
-                  </a>
-                  <p className="mt-3 text-center text-[11px] leading-relaxed text-stone-500">
-                    Invited by Cutmaster Music. Powered by ShowFlow.
-                  </p>
-                </>
-              ) : (
+          showCustomerPortalEntry ? (
+            <div className="-mx-5 -mt-6 sm:-mx-6">
+              <ShowFlowWelcomePortal showPrototypeLink={false} />
+            </div>
+          ) : (
+            <section className={workspaceSectionClass}>
+              <PremiumCard variant="accent">
                 <>
                   <SectionTitle>Welcome to {appSettings.appName}</SectionTitle>
                   <p className="mt-2 text-xs text-stone-600">
@@ -20796,9 +20784,9 @@ export default function Home() {
                     </PrimaryButton>
                   )}
                 </>
-              )}
-            </PremiumCard>
-          </section>
+              </PremiumCard>
+            </section>
+          )
         )}
 
         {authStage === "invite" && inviteAccessPreview && (

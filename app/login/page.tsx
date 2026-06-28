@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { MagicLinkLoginForm } from "@/components/auth/magic-link-login-form";
+import { ShowFlowWelcomePortal } from "@/components/auth/showflow-welcome-portal";
 import { PremiumCard, SectionTitle } from "@/components/planning-ui";
 import {
   getAuthMode,
@@ -36,6 +36,18 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const canUsePrototypeLogin = showPrototypeLogin();
   const showPrototypeFallback = canUsePrototypeLogin && (!supabaseConfigured || bypassEnabled || authMode === "prototype");
 
+  if (canUseSupabaseLogin) {
+    return (
+      <ShowFlowWelcomePortal
+        authError={authError}
+        defaultEmail={defaultEmail}
+        nextPath={nextPath}
+        initialKind={defaultEmail ? "client" : null}
+        showPrototypeLink={showPrototypeFallback}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-full w-full max-w-lg flex-col justify-center px-5 py-16 sm:px-6">
       <PremiumCard variant="accent">
@@ -68,18 +80,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 Continue with prototype role picker
               </Link>
             ) : null}
-          </div>
-        ) : canUseSupabaseLogin ? (
-          <div className="mt-4">
-            <p className="mb-3 text-xs text-stone-600">
-              Enter the email your planner invited. We&apos;ll send a secure access link so you can
-              open your planner without a password.
-            </p>
-            <MagicLinkLoginForm
-              showPrototypeLink={showPrototypeFallback}
-              nextPath={nextPath}
-              defaultEmail={defaultEmail}
-            />
           </div>
         ) : (
           <div className="mt-3 space-y-3 text-xs text-stone-600">
