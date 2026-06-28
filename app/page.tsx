@@ -365,6 +365,13 @@ import {
   uploadEventCoverPhoto,
 } from "@/lib/eventCoverPhotoClient";
 import {
+  DEFAULT_STAFF_PROFILE_PHOTO_TRANSFORM,
+  type StaffProfilePhotoTransform,
+  getStaffProfilePhotoPublicUrl,
+  normalizeStaffProfilePhotoTransform,
+  staffProfilePhotoTransformFromDb,
+} from "@/lib/staffProfilePhoto";
+import {
   backfillWelcomePhotoPersonalizationFlag,
   DEFAULT_EVENT_HERO_SRC,
   hasPersonalizedWelcomePhotoFlag,
@@ -4490,6 +4497,15 @@ export default function Home() {
   const [teamModalOpen, setTeamModalOpen] = useState(false);
   const [teamSaving, setTeamSaving] = useState(false);
   const teamSavingRef = useRef(false);
+  const [staffProfilePhotoUploading, setStaffProfilePhotoUploading] = useState(false);
+  const [staffProfilePhotoStatus, setStaffProfilePhotoStatus] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [staffProfilePhotoOverride, setStaffProfilePhotoOverride] = useState<{
+    storagePath: string;
+    transform: StaffProfilePhotoTransform;
+  } | null>(null);
   const [teamFormStatus, setTeamFormStatus] = useState<{
     kind: "success" | "error";
     message: string;
@@ -9175,6 +9191,32 @@ export default function Home() {
     return "Good evening";
   }, [nowTick]);
 
+  const authenticatedStaffTeamMember = useMemo(() => {
+    const email = authSession.email?.trim().toLowerCase();
+    if (!email) return undefined;
+    return companyTeamMembers.find(
+      (member) => member.email?.trim().toLowerCase() === email,
+    );
+  }, [authSession.email, companyTeamMembers]);
+
+  const staffHomeHeroStoragePath =
+    staffProfilePhotoOverride?.storagePath ??
+    authSession.dbUser?.profilePhotoStoragePath ??
+    authenticatedStaffTeamMember?.profilePhotoStoragePath;
+  const staffHomeHeroImageSrc =
+    getStaffProfilePhotoPublicUrl(staffHomeHeroStoragePath) ??
+    "/images/showflow-welcome-hero.jpg";
+  const staffHomeHeroTransform =
+    staffProfilePhotoOverride?.transform ??
+    staffProfilePhotoTransformFromDb(authSession.dbUser?.profilePhotoTransform) ??
+    authenticatedStaffTeamMember?.profilePhotoTransform ??
+    DEFAULT_STAFF_PROFILE_PHOTO_TRANSFORM;
+  const staffHomeHeroImageStyle = {
+    objectPosition: `${staffHomeHeroTransform.positionX}% ${staffHomeHeroTransform.positionY}%`,
+    transformOrigin: `${staffHomeHeroTransform.positionX}% ${staffHomeHeroTransform.positionY}%`,
+    transform: `scale(${staffHomeHeroTransform.scale})`,
+  };
+
   const openCommandCenterEvent = (eventId: string, target: Screen) => {
     const next = events.find((e) => e.id === eventId);
     if (!next) return;
@@ -9339,6 +9381,8 @@ export default function Home() {
           email: member.email || null,
           phone: member.phone || null,
           notes: member.notes || null,
+          profilePhotoStoragePath: member.profilePhotoStoragePath || null,
+          profilePhotoTransform: member.profilePhotoTransform ?? null,
           isActive: member.isActive,
           order: index,
         })),
@@ -9360,6 +9404,9 @@ export default function Home() {
             email: row.email ?? "",
             phone: row.phone ?? "",
             notes: row.notes ?? "",
+            profilePhotoStoragePath: row.profilePhotoStoragePath ?? undefined,
+            profilePhotoTransform:
+              staffProfilePhotoTransformFromDb(row.profilePhotoTransform) ?? undefined,
             isActive: row.isActive,
           };
         });
@@ -9390,6 +9437,108 @@ export default function Home() {
     } catch (error) {
       console.error("replaceCompanyTeamMembers threw", error);
       return { ok: false, error };
+    }
+  };
+
+  const uploadMyStaffProfilePhoto = async (
+    file: File,
+    transform: StaffProfilePhotoTransform,
+  ) => {
+    setStaffProfilePhotoUploading(true);
+    setStaffProfilePhotoStatus({ kind: "success", message: "Uploading your profile photo…" });
+
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("transform", JSON.stringify(normalizeStaffProfilePhotoTransform(transform)));
+
+      const response = await fetch("/api/staff/profile-photo", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { storagePath?: string; transform?: StaffProfilePhotoTransform; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.storagePath) {
+        throw new Error(payload?.error || "Could not upload profile photo.");
+      }
+
+      const nextTransform = normalizeStaffProfilePhotoTransform(payload.transform);
+      setStaffProfilePhotoOverride({
+        storagePath: payload.storagePath,
+        transform: nextTransform,
+      });
+      const normalizedEmail = authSession.email?.trim().toLowerCase();
+      if (normalizedEmail) {
+        setCompanyTeamMembers((prev) =>
+          prev.map((member) =>
+            member.email?.trim().toLowerCase() === normalizedEmail
+              ? {
+                  ...member,
+                  profilePhotoStoragePath: payload.storagePath,
+                  profilePhotoTransform: nextTransform,
+                }
+              : member,
+          ),
+        );
+      }
+
+      void authSession.refresh();
+      setStaffProfilePhotoStatus({ kind: "success", message: "Profile photo updated." });
+    } catch (error) {
+      setStaffProfilePhotoStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Could not upload profile photo.",
+      });
+    } finally {
+      setStaffProfilePhotoUploading(false);
+    }
+  };
+
+  const updateMyStaffProfilePhotoTransform = async (transform: StaffProfilePhotoTransform) => {
+    const nextTransform = normalizeStaffProfilePhotoTransform(transform);
+    const currentStoragePath =
+      staffProfilePhotoOverride?.storagePath ??
+      authSession.dbUser?.profilePhotoStoragePath ??
+      authenticatedStaffTeamMember?.profilePhotoStoragePath;
+
+    if (currentStoragePath) {
+      setStaffProfilePhotoOverride({
+        storagePath: currentStoragePath,
+        transform: nextTransform,
+      });
+    }
+    const normalizedEmail = authSession.email?.trim().toLowerCase();
+    if (normalizedEmail) {
+      setCompanyTeamMembers((prev) =>
+        prev.map((member) =>
+          member.email?.trim().toLowerCase() === normalizedEmail
+            ? { ...member, profilePhotoTransform: nextTransform }
+            : member,
+        ),
+      );
+    }
+
+    try {
+      const response = await fetch("/api/staff/profile-photo", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transform: nextTransform }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not save profile photo crop.");
+      }
+      void authSession.refresh();
+      setStaffProfilePhotoStatus({ kind: "success", message: "Profile crop saved." });
+    } catch (error) {
+      setStaffProfilePhotoStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Could not save profile photo crop.",
+      });
     }
   };
 
@@ -13276,6 +13425,8 @@ export default function Home() {
         email: member.email || null,
         phone: member.phone || null,
         notes: member.notes || null,
+        profilePhotoStoragePath: member.profilePhotoStoragePath || null,
+        profilePhotoTransform: member.profilePhotoTransform ?? null,
         isActive: member.isActive,
         order: index,
       })),
@@ -13293,6 +13444,9 @@ export default function Home() {
                 ...restoredCompanyTeamMembers[index],
                 id: row.id,
                 isActive: row.isActive,
+                profilePhotoStoragePath: row.profilePhotoStoragePath ?? undefined,
+                profilePhotoTransform:
+                  staffProfilePhotoTransformFromDb(row.profilePhotoTransform) ?? undefined,
               })),
           );
         }
@@ -19503,6 +19657,12 @@ export default function Home() {
     <AccountMenu
       email={authSession.email}
       roleLabel={accountRoleLabel}
+      profilePhotoUrl={getStaffProfilePhotoPublicUrl(staffHomeHeroStoragePath)}
+      profilePhotoTransform={staffHomeHeroTransform}
+      profilePhotoUploading={staffProfilePhotoUploading}
+      profilePhotoStatus={staffProfilePhotoStatus}
+      onProfilePhotoUpload={uploadMyStaffProfilePhoto}
+      onProfilePhotoTransformChange={updateMyStaffProfilePhotoTransform}
       onSignOut={handleSignOut}
     />
   ) : null;
@@ -21991,51 +22151,76 @@ export default function Home() {
             <PremiumCard>
               <SectionTitle className="text-stone-950">Team Members</SectionTitle>
               <div className="mt-3 space-y-2">
-                {companyTeamMembers.map((member) => (
-                  <div key={`team-member-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-stone-950">{member.name}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                          <span className="font-medium text-stone-800">{member.role}</span>
-                          {" · "}
-                          <span className="break-all">{member.email}</span>
-                          {member.phone ? (
-                            <>
+                {companyTeamMembers.map((member) => {
+                  const photoUrl = getStaffProfilePhotoPublicUrl(member.profilePhotoStoragePath);
+                  const initials = member.name
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase())
+                    .join("") || "SF";
+                  return (
+                    <div key={`team-member-${member.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 gap-3">
+                          <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-[#f1eadf]">
+                            {photoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={photoUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#8a6938]">
+                                {initials}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-stone-950">{member.name}</p>
+                            <p className="mt-1 text-xs leading-relaxed text-stone-600">
+                              <span className="font-medium text-stone-800">{member.role}</span>
                               {" · "}
-                              <span>{member.phone}</span>
-                            </>
-                          ) : null}
-                        </p>
-                        {member.notes && <p className="mt-1 text-xs text-stone-600">{member.notes}</p>}
+                              <span className="break-all">{member.email}</span>
+                              {member.phone ? (
+                                <>
+                                  {" · "}
+                                  <span>{member.phone}</span>
+                                </>
+                              ) : null}
+                            </p>
+                            {member.notes && <p className="mt-1 text-xs text-stone-600">{member.notes}</p>}
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
+                            ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/15 text-[#3f4d3d]"
+                            : "border border-[#E7E3DC] bg-[#F7F5F1] text-stone-600"
+                            }`}
+                        >
+                          {member.isActive ? "Active" : "Inactive"}
+                        </span>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${member.isActive
-                          ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/15 text-[#3f4d3d]"
-                          : "border border-[#E7E3DC] bg-[#F7F5F1] text-stone-600"
-                          }`}
-                      >
-                        {member.isActive ? "Active" : "Inactive"}
-                      </span>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <PrimaryButton
+                          onClick={() => startEditingTeamMember(member)}
+                          disabled={!canManageEvents}
+                          className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
+                        >
+                          Edit
+                        </PrimaryButton>
+                        <PrimaryButton
+                          onClick={() => deleteTeamMember(member.id)}
+                          disabled={!canManageEvents}
+                          className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
+                        >
+                          Delete from Team
+                        </PrimaryButton>
+                      </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <PrimaryButton
-                        onClick={() => startEditingTeamMember(member)}
-                        disabled={!canManageEvents}
-                        className="rounded-lg border border-stone-300 bg-white px-2 py-2.5 text-[11px] font-semibold text-stone-900 shadow-sm hover:bg-stone-50 sm:py-2"
-                      >
-                        Edit
-                      </PrimaryButton>
-                      <PrimaryButton
-                        onClick={() => deleteTeamMember(member.id)}
-                        disabled={!canManageEvents}
-                        className="rounded-lg border border-rose-300/90 bg-rose-50 px-2 py-2.5 text-[11px] font-semibold text-rose-950 hover:bg-rose-100/90 sm:py-2"
-                      >
-                        Delete from Team
-                      </PrimaryButton>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {companyTeamMembers.length === 0 && (
                   <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs text-stone-600">
                     No team members yet.
@@ -22513,9 +22698,10 @@ export default function Home() {
             <div className="overflow-hidden rounded-[2rem] border border-stone-200/80 bg-[#12120f] shadow-[0_34px_120px_-82px_rgba(31,39,36,0.72)]">
               <div className="relative min-h-[18rem]">
                 <img
-                  src="/images/showflow-welcome-hero.jpg"
+                  src={staffHomeHeroImageSrc}
                   alt=""
                   className="absolute inset-0 h-full w-full object-cover object-[62%_50%]"
+                  style={staffHomeHeroImageStyle}
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(18,18,15,0.92)_0%,rgba(18,18,15,0.78)_34%,rgba(18,18,15,0.36)_62%,rgba(18,18,15,0.18)_100%)]" />
                 <div className="relative z-10 flex min-h-[18rem] flex-col justify-end p-6 sm:p-8 lg:p-10">
