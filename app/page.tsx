@@ -20365,6 +20365,15 @@ export default function Home() {
     </div>
   );
 
+  const shouldRenderSignedOutWelcomePortal =
+    showCustomerPortalEntry &&
+    authStage === "login" &&
+    (!authSession.loaded || !authSession.isAuthenticated);
+
+  if (shouldRenderSignedOutWelcomePortal) {
+    return <ShowFlowWelcomePortal showPrototypeLink={false} />;
+  }
+
   if (!hasHydrated) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] text-stone-900">
@@ -20639,11 +20648,7 @@ export default function Home() {
         )}
 
         {authStage === "login" && (
-          showCustomerPortalEntry ? (
-            <div className="-mx-5 -mt-6 sm:-mx-6">
-              <ShowFlowWelcomePortal showPrototypeLink={false} />
-            </div>
-          ) : (
+          !showCustomerPortalEntry ? (
             <section className={workspaceSectionClass}>
               <PremiumCard variant="accent">
                 <>
@@ -20786,7 +20791,7 @@ export default function Home() {
                 </>
               </PremiumCard>
             </section>
-          )
+          ) : null
         )}
 
         {authStage === "invite" && inviteAccessPreview && (
