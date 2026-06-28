@@ -160,6 +160,10 @@ import {
   stripStaffOnlyFieldsFromClientEventRecord,
 } from "@/lib/eventAccess/shapeEventForActor";
 import { userRoleHasEventCapability } from "@/lib/eventAccess/capabilities";
+import {
+  accessProfileFromPlatformAndMemberships,
+  legacyUserRoleFromAccessProfile,
+} from "@/lib/auth/roles";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePlanningApp } from "@/hooks/usePlanningApp";
 import type {
@@ -3172,15 +3176,13 @@ function resolveAuthenticatedWorkspaceRole(params: {
   readScope: string;
   memberships: Array<{ role: string }>;
 }): UserRole | null {
-  if (params.platformRole === "ADMIN" || params.readScope === "all") return "Admin";
-  const membershipRoles = new Set(
-    params.memberships.map((membership) => membership.role.toUpperCase()),
-  );
-  if (membershipRoles.has("ADMIN")) return "Admin";
-  if (membershipRoles.has("DJ")) return "DJ";
-  if (membershipRoles.has("PLANNER")) return "Planner";
-  if (membershipRoles.has("COUPLE")) return "Couple";
-  return null;
+  const profile = accessProfileFromPlatformAndMemberships({
+    platformRole: params.platformRole === "ADMIN" || params.readScope === "all"
+      ? "ADMIN"
+      : params.platformRole,
+    membershipRoles: params.memberships.map((membership) => membership.role),
+  });
+  return legacyUserRoleFromAccessProfile(profile);
 }
 
 /** Couple-facing label for the Planning Questions screen — internal screen id unchanged. */
