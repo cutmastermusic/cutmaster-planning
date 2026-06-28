@@ -11449,13 +11449,11 @@ export default function Home() {
 
   const returnToStaffWorkspace = useCallback(
     (screen: "Command Center" | "All Events") => {
+      setAppMode("events");
+      setActiveScreen(screen);
       void commitActiveEventPlanningToEventsState()
         .catch((error) => {
           console.error(`Background save before opening ${screen} failed:`, error);
-        })
-        .finally(() => {
-          setAppMode("events");
-          setActiveScreen(screen);
         });
     },
     [commitActiveEventPlanningToEventsState, setActiveScreen],
