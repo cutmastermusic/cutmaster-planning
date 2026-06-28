@@ -20909,9 +20909,10 @@ export default function Home() {
               <PrimaryButton
                 type="button"
                 onClick={() => returnToStaffWorkspace("Command Center")}
-                className="min-h-0 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[11px] font-semibold text-stone-700 shadow-none hover:bg-stone-100 hover:text-stone-950"
+                className="min-h-0 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-[11px] font-semibold text-stone-700 shadow-none hover:bg-stone-100 hover:text-stone-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A5A]/45"
               >
-                Command Center
+                <span aria-hidden className="mr-1">←</span>
+                Home
               </PrimaryButton>
               <span aria-hidden className="text-stone-300">
                 /
