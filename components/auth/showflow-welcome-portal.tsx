@@ -123,27 +123,21 @@ export function ShowFlowWelcomePortal({
     <div className="relative isolate min-h-screen overflow-hidden bg-[#fbfaf7] text-[#1f2724]">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(199,154,90,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(127,143,122,0.10),transparent_34%),linear-gradient(180deg,#fffdf9_0%,#f8f3eb_100%)]" />
 
-      <header className="mx-auto flex w-full max-w-7xl items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-6">
-        <div>
-          <Image
-            src="/branding/showflow-logo.svg"
-            alt="ShowFlow"
-            width={220}
-            height={56}
-            priority
-            className="h-auto w-[150px] sm:w-[190px]"
-          />
-          <p className="mt-1.5 pl-[3.45rem] text-[8px] font-semibold uppercase tracking-[0.24em] text-stone-400 sm:pl-[4.35rem] sm:text-[9px]">
-            Ready for your best day.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-[11px] font-medium text-stone-500 sm:text-xs">
-          <a href="mailto:hello@cutmastermusic.com" className="hidden transition hover:text-stone-900 sm:inline">
-            Need help?
-          </a>
-          <span className="hidden h-4 w-px bg-stone-200 sm:block" aria-hidden />
-          <span className="text-stone-700">Cutmaster Music</span>
-        </div>
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-8 sm:py-6">
+        <Image
+          src="/branding/showflow-logo.svg"
+          alt="ShowFlow"
+          width={220}
+          height={56}
+          priority
+          className="h-auto w-[150px] sm:w-[190px]"
+        />
+        <a
+          href="mailto:hello@cutmastermusic.com"
+          className="text-[11px] font-medium text-stone-500 transition hover:text-stone-900 sm:text-xs"
+        >
+          Need help?
+        </a>
       </header>
 
       <section className="w-full pb-14 lg:pb-20">
@@ -335,7 +329,7 @@ export function ShowFlowWelcomePortal({
 
         <footer className="mt-8 text-center">
           <p className="text-[11px] font-medium text-stone-400">
-            Invited by Cutmaster Music. Powered by ShowFlow.
+            ShowFlow by Cutmaster Music
           </p>
         </footer>
       </section>
