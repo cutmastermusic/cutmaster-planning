@@ -376,7 +376,7 @@ import {
   mergeStoredEventCoversIntoEvents,
   persistEventCoverPhotoToLocalStorage,
 } from "@/lib/eventCoverStorage";
-import { isAuthBypassEnabled, isSupabaseConfigured } from "@/lib/auth/authConfig";
+import { getAuthMode, isAuthBypassEnabled, isSupabaseConfigured } from "@/lib/auth/authConfig";
 import {
   buildCoupleFinalPlanningHints,
   type CoupleFinalPlanningQuickLink,
@@ -1490,6 +1490,19 @@ function TimelineDropTargetMarker() {
     <div className="mb-3 flex items-center gap-2 px-0.5" aria-hidden>
       <div className="h-1 flex-1 rounded-full bg-[#C79A5A] shadow-[0_0_10px_rgba(199,154,90,0.28)]" />
     </div>
+  );
+}
+
+function ShowFlowBootstrapLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#fbfaf7] px-6 text-[#1f2724]">
+      <div className="w-full max-w-sm rounded-[1.75rem] border border-stone-200/70 bg-white/70 px-6 py-6 text-center shadow-[0_24px_80px_-68px_rgba(31,39,36,0.55)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a07830]">
+          ShowFlow
+        </p>
+        <p className="mt-3 text-sm font-medium text-stone-700">Opening your workspace…</p>
+      </div>
+    </main>
   );
 }
 
@@ -8339,14 +8352,18 @@ export default function Home() {
     (effectiveRole === "Admin" || effectiveRole === "DJ") &&
     !authSession.isCouplePortalSession &&
     !isCoupleEditorialShell;
+  const productionSupabaseEntry =
+    isSupabaseConfigured() &&
+    !isAuthBypassEnabled() &&
+    getAuthMode() !== "prototype";
   const showCustomerPortalEntry =
-    authSession.supabaseConfigured &&
-    !authSession.bypassEnabled &&
-    authSession.authMode !== "prototype";
+    productionSupabaseEntry ||
+    (authSession.supabaseConfigured &&
+      !authSession.bypassEnabled &&
+      authSession.authMode !== "prototype");
   const showProductionWorkspaceBootstrap =
     authStage === "app" &&
-    authSession.supabaseConfigured &&
-    !authSession.bypassEnabled &&
+    productionSupabaseEntry &&
     (!authSession.loaded ||
       authSession.mode === "anonymous" ||
       (authSession.mode === "supabase" && !databaseEventsLoaded));
@@ -20366,12 +20383,25 @@ export default function Home() {
   );
 
   const shouldRenderSignedOutWelcomePortal =
-    showCustomerPortalEntry &&
+    productionSupabaseEntry &&
     authStage === "login" &&
-    (!authSession.loaded || !authSession.isAuthenticated);
+    authSession.loaded &&
+    !authSession.isAuthenticated;
 
   if (shouldRenderSignedOutWelcomePortal) {
     return <ShowFlowWelcomePortal showPrototypeLink={false} />;
+  }
+
+  const shouldRenderProductionBootstrapLoading =
+    productionSupabaseEntry &&
+    (!authSession.loaded ||
+      !hasHydrated ||
+      (authSession.isAuthenticated &&
+        ((authStage !== "app" && !showAuthSessionIssueState && !showCoupleNoEventState) ||
+          (authSession.mode === "supabase" && !databaseEventsLoaded))));
+
+  if (shouldRenderProductionBootstrapLoading) {
+    return <ShowFlowBootstrapLoading />;
   }
 
   if (!hasHydrated) {
