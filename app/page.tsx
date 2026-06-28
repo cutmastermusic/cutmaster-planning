@@ -9218,11 +9218,15 @@ export default function Home() {
   };
 
   const openCommandCenterEvent = (eventId: string, target: Screen) => {
-    const next = events.find((e) => e.id === eventId);
+    const next = events.find((e) => e.id === eventId) as
+      | (EventRecord & { eventTeamMembers?: TeamMember[] })
+      | undefined;
     if (!next) return;
-    commitActiveEventPlanningToEventsState();
-    loadEventPlanningIntoWorkingState(next);
+    if (appMode === "event" && activeEventId !== eventId) {
+      void commitActiveEventPlanningToEventsState();
+    }
     setActiveEventId(eventId);
+    loadEventPlanningIntoWorkingState(next);
     setAppMode("event");
     setActiveScreen(target);
   };
