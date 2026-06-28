@@ -291,6 +291,14 @@ export type TeamMember = {
   email: string;
   phone: string;
   notes: string;
+  /** Supabase Storage path for an internal staff profile/hero photo. */
+  profilePhotoStoragePath?: string;
+  /** Non-destructive staff hero crop/framing. */
+  profilePhotoTransform?: {
+    scale: number;
+    positionX: number;
+    positionY: number;
+  };
   /** Vendor company name (blank for internal staff). */
   company?: string;
   /** Optional vendor URL. */

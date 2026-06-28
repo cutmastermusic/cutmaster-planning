@@ -10,6 +10,8 @@ export type AuthContextDbUser = {
   email: string;
   name: string | null;
   platformRole: string | null;
+  profilePhotoStoragePath: string | null;
+  profilePhotoTransform: unknown;
 };
 
 export type AuthContextResult = {

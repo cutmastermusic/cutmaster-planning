@@ -17,6 +17,8 @@ export type SessionAccessDbUser = {
   email: string;
   name: string | null;
   platformRole: string | null;
+  profilePhotoStoragePath: string | null;
+  profilePhotoTransform: unknown;
 };
 
 export type SessionAccessProfile = {

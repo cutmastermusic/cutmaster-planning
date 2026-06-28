@@ -92,6 +92,8 @@ export async function resolveSessionAccess(): Promise<SessionAccessProfile> {
       email: row.email,
       name: row.name,
       platformRole: row.platformRole,
+      profilePhotoStoragePath: row.profilePhotoStoragePath,
+      profilePhotoTransform: row.profilePhotoTransform,
     };
 
     if (row.platformRole === "ADMIN") {

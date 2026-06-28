@@ -4,6 +4,7 @@ import {
   authorizePlatformMutation,
 } from "@/lib/eventAccess/authorize";
 import { resolveSessionAccess } from "@/lib/eventAccess/resolveSessionAccess";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_COMPANY_TEAM_SEED = [
@@ -88,6 +89,8 @@ export async function replaceCompanyTeamMembers(
     email?: string | null;
     phone?: string | null;
     notes?: string | null;
+    profilePhotoStoragePath?: string | null;
+    profilePhotoTransform?: unknown;
     isActive?: boolean;
     order: number;
   }>,
@@ -123,6 +126,11 @@ export async function replaceCompanyTeamMembers(
       email: member.email ?? null,
       phone: member.phone ?? null,
       notes: member.notes ?? null,
+      profilePhotoStoragePath: member.profilePhotoStoragePath ?? null,
+      profilePhotoTransform:
+        member.profilePhotoTransform === undefined
+          ? Prisma.JsonNull
+          : (member.profilePhotoTransform as Prisma.InputJsonValue),
       isActive: member.isActive ?? true,
       order: member.order,
     };
