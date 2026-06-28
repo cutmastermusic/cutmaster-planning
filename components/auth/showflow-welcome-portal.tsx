@@ -152,7 +152,7 @@ export function ShowFlowWelcomePortal({
               fill
               priority
               sizes="(min-width: 1280px) calc((100vw - 80rem) / 2 + 35.2rem), 44vw"
-              className="scale-[1.06] object-cover object-[62%_50%]"
+              className="scale-[1.02] object-cover object-[62%_50%]"
             />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.7)_10%,rgba(251,250,247,0.18)_20%,transparent_30%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.03)_0%,transparent_52%,rgba(31,39,36,0.12)_100%)]" />
@@ -203,7 +203,7 @@ export function ShowFlowWelcomePortal({
                 fill
                 priority
                 sizes="100vw"
-                className="scale-[1.06] object-cover object-[62%_50%]"
+                className="scale-[1.02] object-cover object-[62%_50%]"
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.18)_22%,transparent_42%,rgba(31,39,36,0.12)_100%)]" />
             </div>
