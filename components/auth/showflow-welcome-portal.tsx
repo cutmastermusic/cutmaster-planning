@@ -41,10 +41,10 @@ const FEATURE_POINTS = [
 const PORTAL_CARDS = [
   {
     kind: "staff",
-    title: "I'm a ShowFlow Pro",
-    label: "STAFF ACCESS",
+    title: "I'm a DJ or Planner",
+    label: "SHOWFLOW PRO",
     description: "Manage events, timelines, music, and prepare for amazing shows.",
-    buttonLabel: "Continue as Staff",
+    buttonLabel: "Continue as ShowFlow Pro",
     accentClass: "bg-[#efe7d9] text-[#8a6938]",
     ringClass: "border-[#b08a45]/35 bg-[#fffaf1] shadow-[0_24px_70px_-52px_rgba(84,60,32,0.5)]",
     icon: StaffIcon,
@@ -141,60 +141,66 @@ export function ShowFlowWelcomePortal({
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-7xl px-5 pb-10 pt-3 sm:px-8 lg:pb-16">
-        <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/78 shadow-[0_26px_90px_-72px_rgba(31,39,36,0.65)] ring-1 ring-stone-200/60 backdrop-blur">
-          <div className="grid min-h-[25rem] lg:grid-cols-[minmax(0,1.02fr)_minmax(24rem,0.98fr)]">
-            <div className="flex flex-col justify-center px-6 py-9 sm:px-10 sm:py-12 lg:px-14">
+      <section className="w-full pb-10 lg:pb-16">
+        <div className="relative overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
+          <div className="absolute inset-y-0 right-0 hidden w-[55%] lg:block">
+            <Image
+              src="/images/showflow-welcome-hero.jpg"
+              alt=""
+              fill
+              priority
+              sizes="55vw"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.98)_15%,rgba(251,250,247,0.62)_34%,rgba(251,250,247,0.16)_52%,transparent_70%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.14)_0%,transparent_42%,rgba(31,39,36,0.18)_100%)]" />
+          </div>
+
+          <div className="relative z-10 mx-auto flex min-h-[26rem] w-full max-w-7xl flex-col justify-center px-5 py-10 sm:px-8 sm:py-12 lg:py-14">
+            <div className="max-w-[39rem]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#a07830]">
                 Welcome to ShowFlow
               </p>
-              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.055em] text-stone-950 sm:text-5xl lg:text-6xl">
+              <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em] text-stone-950 sm:text-5xl lg:text-6xl">
                 Everything you need for an unforgettable event.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-stone-600 sm:text-lg">
                 A calm, connected planning hub for timelines, music, event details, and the team bringing it all to life.
               </p>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {FEATURE_POINTS.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-stone-200/70 bg-white/70 px-3.5 py-3">
-                      <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#f2eadc] text-[#a07830]">
-                        <Icon />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold tracking-tight text-stone-900">
-                          {item.title}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] font-medium text-stone-500">
-                          {item.description}
-                        </span>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
-            <div className="relative min-h-[18rem] overflow-hidden border-t border-white/80 bg-[#e9dfd2] lg:border-l lg:border-t-0">
-              <Image
-                src="/images/default-event-hero.svg"
-                alt=""
-                fill
-                priority
-                className="object-cover opacity-80 mix-blend-luminosity"
-              />
-              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(251,250,247,0.88)_0%,rgba(251,250,247,0.45)_32%,rgba(251,250,247,0.1)_100%),radial-gradient(circle_at_70%_35%,rgba(255,255,255,0.72),transparent_34%),linear-gradient(180deg,rgba(199,154,90,0.12),rgba(31,39,36,0.18))]" />
-              <div className="absolute bottom-6 left-6 right-6 rounded-3xl border border-white/70 bg-white/55 p-4 shadow-[0_18px_60px_-42px_rgba(31,39,36,0.8)] backdrop-blur-md sm:left-auto sm:w-80">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a6938]">
-                  Planning, in flow
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                  One polished place for clients and pros to stay aligned before showtime.
-                </p>
-              </div>
+            <div className="mt-8 grid max-w-4xl gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+              {FEATURE_POINTS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center text-[#a07830]">
+                      <Icon />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[12px] font-semibold leading-snug tracking-tight text-stone-900">
+                        {item.title}
+                      </span>
+                      <span className="mt-1 block text-[11px] font-medium leading-snug text-stone-500">
+                        {item.description}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
+          </div>
+
+          <div className="relative h-64 overflow-hidden border-t border-stone-200/70 lg:hidden">
+            <Image
+              src="/images/showflow-welcome-hero.jpg"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.24)_28%,rgba(31,39,36,0.18)_100%)]" />
           </div>
         </div>
 
