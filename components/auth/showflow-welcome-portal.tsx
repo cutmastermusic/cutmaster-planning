@@ -41,22 +41,22 @@ const FEATURE_POINTS = [
 const PORTAL_CARDS = [
   {
     kind: "staff",
-    title: "I'm a DJ or Planner",
+    title: "I'm on the ShowFlow Team",
     label: "SHOWFLOW PRO",
-    description: "Manage events, timelines, music, and prepare for amazing shows.",
+    description: "DJs, planners, and staff managing amazing events.",
     buttonLabel: "Continue as ShowFlow Pro",
-    accentClass: "bg-[#efe7d9] text-[#8a6938]",
-    ringClass: "border-[#b08a45]/35 bg-[#fffaf1] shadow-[0_24px_70px_-52px_rgba(84,60,32,0.5)]",
+    accentClass: "bg-[#f1eadf] text-[#8a6938]",
+    ringClass: "border-[#b08a45]/35 bg-[#fffaf6] shadow-[0_28px_90px_-64px_rgba(84,60,32,0.55)]",
     icon: StaffIcon,
   },
   {
     kind: "client",
-    title: "I'm Planning an Event",
+    title: "I'm Planning My Event",
     label: "PLANNING PORTAL",
     description: "Continue planning your event, review your timeline, and collaborate with your DJ.",
     buttonLabel: "Continue to My Planner",
-    accentClass: "bg-[#efe6f4] text-[#7E52A0]",
-    ringClass: "border-[#7E52A0]/25 bg-white shadow-[0_24px_70px_-52px_rgba(83,53,107,0.45)]",
+    accentClass: "bg-[#edf1e8] text-[#2f4a3e]",
+    ringClass: "border-[#7F8F7A]/35 bg-white shadow-[0_28px_90px_-64px_rgba(47,74,62,0.48)]",
     icon: ClientIcon,
   },
 ] as const;
@@ -121,17 +121,22 @@ export function ShowFlowWelcomePortal({
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-[#fbfaf7] text-[#1f2724]">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(199,154,90,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(126,82,160,0.10),transparent_34%),linear-gradient(180deg,#fffdf9_0%,#f8f3eb_100%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(199,154,90,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(127,143,122,0.10),transparent_34%),linear-gradient(180deg,#fffdf9_0%,#f8f3eb_100%)]" />
 
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Image
-          src="/branding/showflow-logo.svg"
-          alt="ShowFlow"
-          width={220}
-          height={56}
-          priority
-          className="h-auto w-[150px] sm:w-[190px]"
-        />
+      <header className="mx-auto flex w-full max-w-7xl items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-6">
+        <div>
+          <Image
+            src="/branding/showflow-logo.svg"
+            alt="ShowFlow"
+            width={220}
+            height={56}
+            priority
+            className="h-auto w-[150px] sm:w-[190px]"
+          />
+          <p className="mt-1.5 pl-[3.45rem] text-[8px] font-semibold uppercase tracking-[0.24em] text-stone-400 sm:pl-[4.35rem] sm:text-[9px]">
+            Ready for your best day.
+          </p>
+        </div>
         <div className="flex items-center gap-3 text-[11px] font-medium text-stone-500 sm:text-xs">
           <a href="mailto:hello@cutmastermusic.com" className="hidden transition hover:text-stone-900 sm:inline">
             Need help?
@@ -141,23 +146,23 @@ export function ShowFlowWelcomePortal({
         </div>
       </header>
 
-      <section className="w-full pb-10 lg:pb-16">
+      <section className="w-full pb-14 lg:pb-20">
         <div className="relative overflow-hidden border-y border-stone-200/70 bg-[#fbfaf7]">
-          <div className="absolute inset-y-0 right-0 hidden w-[55%] lg:block">
+          <div className="absolute inset-y-0 right-0 hidden w-[48%] lg:block">
             <Image
               src="/images/showflow-welcome-hero.jpg"
               alt=""
               fill
               priority
-              sizes="55vw"
-              className="object-cover object-center"
+              sizes="48vw"
+              className="scale-[1.07] object-cover object-[62%_50%]"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,rgba(251,250,247,0.98)_15%,rgba(251,250,247,0.62)_34%,rgba(251,250,247,0.16)_52%,transparent_70%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.14)_0%,transparent_42%,rgba(31,39,36,0.18)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#fbfaf7_0%,#fbfaf7_6%,rgba(251,250,247,0.7)_15%,rgba(251,250,247,0.2)_24%,transparent_30%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(251,250,247,0.04)_0%,transparent_48%,rgba(31,39,36,0.12)_100%)]" />
           </div>
 
-          <div className="relative z-10 mx-auto flex min-h-[26rem] w-full max-w-7xl flex-col justify-center px-5 py-10 sm:px-8 sm:py-12 lg:py-14">
-            <div className="max-w-[39rem]">
+          <div className="relative z-10 mx-auto flex min-h-[28rem] w-full max-w-7xl flex-col justify-center px-5 py-12 sm:px-8 sm:py-14 lg:py-16">
+            <div className="max-w-[38rem]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#a07830]">
                 Welcome to ShowFlow
               </p>
@@ -169,19 +174,19 @@ export function ShowFlowWelcomePortal({
               </p>
             </div>
 
-            <div className="mt-8 grid max-w-4xl gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid max-w-4xl gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-12">
               {FEATURE_POINTS.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.title} className="flex min-w-0 items-start gap-3">
-                    <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center text-[#a07830]">
+                  <div key={item.title} className="flex min-w-0 items-start gap-2.5">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-[#a07830]/80">
                       <Icon />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[12px] font-semibold leading-snug tracking-tight text-stone-900">
+                      <span className="block text-[11px] font-medium leading-snug tracking-tight text-stone-800">
                         {item.title}
                       </span>
-                      <span className="mt-1 block text-[11px] font-medium leading-snug text-stone-500">
+                      <span className="mt-1 block text-[10px] font-medium leading-snug text-stone-400">
                         {item.description}
                       </span>
                     </span>
@@ -198,19 +203,19 @@ export function ShowFlowWelcomePortal({
               fill
               priority
               sizes="100vw"
-              className="object-cover object-center"
+              className="scale-[1.03] object-cover object-[58%_50%]"
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,#fbfaf7_0%,rgba(251,250,247,0.24)_28%,rgba(31,39,36,0.18)_100%)]" />
           </div>
         </div>
 
-        <section className="mx-auto mt-9 max-w-5xl">
+        <section className="mx-auto mt-12 max-w-5xl px-5 sm:px-8 lg:mt-14">
           <div className="text-center">
             <h2 className="text-xl font-semibold tracking-tight text-stone-950">
               Choose how you&apos;d like to continue
             </h2>
             <p className="mt-2 text-sm text-stone-500">
-              We&apos;ll send a secure access link to the email connected to your ShowFlow account.
+              We&apos;ll email you a secure sign-in link.
             </p>
           </div>
 
@@ -220,7 +225,7 @@ export function ShowFlowWelcomePortal({
             </p>
           ) : null}
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
             {PORTAL_CARDS.map((card) => {
               const Icon = card.icon;
               const expanded = activeKind === card.kind;
@@ -237,14 +242,14 @@ export function ShowFlowWelcomePortal({
                       setActiveKind(card.kind);
                     }
                   }}
-                  className={`cursor-pointer rounded-[1.75rem] border p-5 transition-[border-color,box-shadow,background-color,transform] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/35 sm:p-6 ${
+                  className={`cursor-pointer rounded-[2rem] border p-6 transition-[border-color,box-shadow,background-color,transform] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/35 sm:p-7 ${
                     expanded
                       ? card.ringClass
-                      : "border-stone-200/90 bg-white/72 shadow-[0_20px_70px_-60px_rgba(31,39,36,0.45)] hover:border-[#b08a45]/35 hover:bg-white"
+                      : "border-stone-200/90 bg-white/76 shadow-[0_24px_82px_-66px_rgba(31,39,36,0.5)] hover:border-[#b08a45]/35 hover:bg-white"
                   }`}
                 >
-                  <div className="flex items-start gap-4">
-                    <span className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${card.accentClass}`}>
+                  <div className="flex items-start gap-5">
+                    <span className={`flex size-14 shrink-0 items-center justify-center rounded-[1.25rem] ${card.accentClass}`}>
                       <Icon />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -283,7 +288,7 @@ export function ShowFlowWelcomePortal({
                       className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                         card.kind === "staff"
                           ? "border border-[#1f2724] bg-[#1f2724] text-white shadow-none hover:bg-[#2b3531]"
-                          : "border border-[#7E52A0]/24 bg-white text-[#6d477f] hover:border-[#7E52A0]/35 hover:bg-[#fbf6ff]"
+                          : "border border-[#2f4a3e]/24 bg-white text-[#2f4a3e] hover:border-[#2f4a3e]/35 hover:bg-[#f4f7ef]"
                       }`}
                     >
                       {card.buttonLabel}
@@ -304,7 +309,7 @@ export function ShowFlowWelcomePortal({
           ) : null}
         </section>
 
-        <section className="mx-auto mt-7 grid max-w-5xl gap-3 rounded-[1.5rem] border border-stone-200/70 bg-white/58 p-4 shadow-[0_18px_70px_-62px_rgba(31,39,36,0.55)] sm:grid-cols-3 sm:p-5">
+        <section className="mx-auto mt-8 grid max-w-5xl gap-4 rounded-[1.75rem] border border-stone-200/70 bg-white/56 p-5 shadow-[0_18px_70px_-62px_rgba(31,39,36,0.55)] sm:grid-cols-3 sm:p-6">
           {TRUST_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
