@@ -8,6 +8,7 @@ export type ChecklistDueDate =
 
 export type Screen =
   | "All Events"
+  | "Archive"
   | "Team"
   | "Dashboard"
   | "Command Center"

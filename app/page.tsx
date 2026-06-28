@@ -2762,6 +2762,7 @@ function isCoupleAdminOnlyScreen(screen: Screen): boolean {
     screen === "Notes" ||
     screen === "Command Center" ||
     screen === "All Events" ||
+    screen === "Archive" ||
     screen === "Team" ||
     screen === "Settings"
   );
@@ -3150,12 +3151,12 @@ function mergeHydratedEventsPreservingLocalPlanningData(
 
 function getWorkspaceNavItemsForRole(role: UserRole): Screen[] {
   if (role === "Admin") {
-    return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
+    return ["Command Center", "All Events", "Timeline Templates", "Team", "Archive", "Settings"];
   }
   if (role === "DJ") {
-    return ["Command Center", "All Events", "Notification Center"];
+    return ["Command Center", "All Events", "Timeline Templates", "Team", "Archive", "Settings"];
   }
-  return ["All Events", "Notification Center"];
+  return ["All Events"];
 }
 
 function perspectiveRoleLabel(role: UserRole): string {
@@ -9080,8 +9081,18 @@ export default function Home() {
   ]);
 
   const commandCenterEvents = useMemo(() => {
-    return [...visibleEvents].sort(
-      (a, b) => parseEventDateTime(a.settings?.weddingDate || a.meta.date) - parseEventDateTime(b.settings?.weddingDate || b.meta.date),
+    return visibleEvents
+      .filter((evt) => {
+        const status = normalizeEventStatus(
+          evt.settings?.eventStatus,
+          (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        );
+        return !isArchivedEventStatus(status);
+      })
+      .sort(
+        (a, b) =>
+          parseEventDateTime(a.settings?.weddingDate || a.meta.date) -
+          parseEventDateTime(b.settings?.weddingDate || b.meta.date),
     );
   }, [parseEventDateTime, visibleEvents]);
 
@@ -9105,12 +9116,64 @@ export default function Home() {
           !evtMusicTaste,
           evt.timelineItems.length === 0,
         ].filter(Boolean).length;
-        return { evt, pendingGuestRequests, incompleteChecklistCount };
+        const timelineReviewRequested = Boolean(evt.settings?.timelineReviewRequestedAt);
+        return { evt, pendingGuestRequests, incompleteChecklistCount, timelineReviewRequested };
       })
-      .filter((item) => item.pendingGuestRequests > 0 || item.incompleteChecklistCount > 0);
+      .filter(
+        (item) =>
+          item.pendingGuestRequests > 0 ||
+          item.incompleteChecklistCount > 0 ||
+          item.timelineReviewRequested,
+      );
   }, [commandCenterEvents]);
 
-  const commandCenterUpcomingEvents = commandCenterEvents.slice(0, 6);
+  const commandCenterUpcomingEvents = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayMs = todayStart.getTime();
+    return commandCenterEvents
+      .filter((evt) => {
+        const eventMs = Date.parse(evt.settings?.weddingDate || evt.meta.date || "");
+        return Number.isNaN(eventMs) || eventMs >= todayMs;
+      })
+      .slice(0, 6);
+  }, [commandCenterEvents]);
+
+  const commandCenterArchivedEvents = useMemo(() => {
+    return visibleEvents
+      .filter((evt) => {
+        const status = normalizeEventStatus(
+          evt.settings?.eventStatus,
+          (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+        );
+        return isArchivedEventStatus(status);
+      })
+      .sort((a, b) => (b.lastUpdatedAt ?? 0) - (a.lastUpdatedAt ?? 0));
+  }, [visibleEvents]);
+
+  const commandCenterRecentActivity = useMemo(
+    () => activities.filter((item) => commandCenterEvents.some((evt) => evt.id === item.eventId)).slice(0, 6),
+    [activities, commandCenterEvents],
+  );
+
+  const commandCenterContinueEvent =
+    commandCenterEvents.find((evt) => evt.id === activeEventId) ??
+    commandCenterEvents.find((evt) => typeof evt.lastUpdatedAt === "number") ??
+    commandCenterUpcomingEvents[0] ??
+    commandCenterEvents[0];
+
+  const commandCenterDisplayName = useMemo(() => {
+    const emailName = authSession.email?.split("@")[0]?.split(/[._-]/)[0]?.trim();
+    if (emailName) return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    return effectiveRole === "DJ" ? "DJ" : "there";
+  }, [authSession.email, effectiveRole]);
+
+  const commandCenterGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, [nowTick]);
 
   const openCommandCenterEvent = (eventId: string, target: Screen) => {
     const next = events.find((e) => e.id === eventId);
@@ -10310,15 +10373,15 @@ export default function Home() {
       return ["Notification Center"];
     }
     if (effectiveRole === "Admin") {
-      return ["Command Center", "All Events", "Team", "Settings", "Notification Center"];
+      return ["Command Center", "All Events", "Timeline Templates", "Team", "Archive", "Settings"];
     }
     if (effectiveRole === "DJ") {
-      return ["Command Center", "All Events", "Notification Center"];
+      return ["Command Center", "All Events", "Timeline Templates", "Team", "Archive", "Settings"];
     }
     if (effectiveRole === "Planner") {
-      return ["All Events", "Notification Center"];
+      return ["All Events"];
     }
-    return ["All Events", "Notification Center"];
+    return ["All Events"];
   }, [effectiveRole, authSession.isCouplePortalSession]);
 
   const eventNavItems: Screen[] = useMemo(() => {
@@ -11221,6 +11284,9 @@ export default function Home() {
   );
 
   const navLabel = (screen: Screen) => {
+    if (screen === "Command Center") return "Home";
+    if (screen === "All Events") return "Events";
+    if (screen === "Timeline Templates") return "Templates";
     if (screen === "Dashboard") return "Event Dashboard";
     if (screen === "Settings") return "Global Settings";
     if (screen === "Reception Hub") return "Reception & timeline";
@@ -11255,6 +11321,11 @@ export default function Home() {
     : appMode === "event" && effectiveRole === "Couple"
       ? coupleDisplayName || "Your celebration"
       : screenTitle;
+  const showStaffWorkspaceSidebar =
+    authStage === "app" &&
+    isWorkspaceContext &&
+    !authSession.isCouplePortalSession &&
+    (effectiveRole === "Admin" || effectiveRole === "DJ");
 
   const getTeamMemberName = (value: string) => {
     if (!value.trim()) return "TBD";
@@ -20466,8 +20537,55 @@ export default function Home() {
           accountMenu={accountMenu}
         />
       ) : null}
+      {showStaffWorkspaceSidebar ? (
+        <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-stone-200/80 bg-[#fbfaf7]/95 px-4 py-5 shadow-[24px_0_90px_-78px_rgba(31,39,36,0.55)] backdrop-blur xl:block">
+          <div className="flex h-full flex-col">
+            <div className="px-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/branding/showflow-app-logo.svg"
+                alt="ShowFlow"
+                className="h-auto w-40"
+              />
+              <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#a07830]">
+                {perspectiveRoleLabel(effectiveRole)} Workspace
+              </p>
+            </div>
+            <nav className="mt-8 space-y-1" aria-label="Workspace navigation">
+              {workspaceNavItems.map((screen) => {
+                const isActive = shellNavActiveScreen === screen;
+                return (
+                  <button
+                    key={`workspace-side-${screen}`}
+                    type="button"
+                    onClick={() => selectActiveScreen(screen)}
+                    className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                      isActive
+                        ? "bg-[#f1eadf] text-stone-950 shadow-[0_18px_60px_-52px_rgba(84,60,32,0.7)]"
+                        : "text-stone-600 hover:bg-white/80 hover:text-stone-950"
+                    }`}
+                  >
+                    <span>{navLabel(screen)}</span>
+                    {screen === "Command Center" && commandCenterAttentionEvents.length > 0 ? (
+                      <span className="rounded-full bg-[#c79a5a] px-2 py-0.5 text-[10px] font-bold text-[#1f2724]">
+                        {commandCenterAttentionEvents.length}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="mt-auto rounded-2xl border border-stone-200/80 bg-white/70 p-4">
+              <p className="text-xs font-semibold text-stone-950">{commandCenterDisplayName}</p>
+              <p className="mt-1 truncate text-[11px] text-stone-500">{authSession.email || "ShowFlow"}</p>
+            </div>
+          </div>
+        </aside>
+      ) : null}
       <div
         className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 sm:px-6 ${
+          showStaffWorkspaceSidebar ? "xl:ml-72 xl:max-w-[calc(100%-18rem)]" : ""
+        } ${
           hideCoupleDashboardAppHeader ? "pt-3 sm:pt-4" : "pt-6"
         }`}
       >
@@ -20505,7 +20623,7 @@ export default function Home() {
           />
         ) : null}
 
-        {authStage === "app" && showStaffWorkspaceChrome && !isCoupleEditorialShell && (
+        {authStage === "app" && appMode === "event" && showStaffWorkspaceChrome && !isCoupleEditorialShell && (
           <div className="no-print mt-4 flex flex-col gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-xs shadow-none sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-stone-600">
@@ -20577,7 +20695,9 @@ export default function Home() {
         ) : null}
       </div>
 
-      <main className="mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10">
+      <main className={`mx-auto w-full min-w-0 max-w-[1400px] overflow-visible px-5 pb-28 sm:px-6 md:pb-10 ${
+        showStaffWorkspaceSidebar ? "xl:ml-72 xl:max-w-[calc(100%-18rem)]" : ""
+      }`}>
         {showProductionWorkspaceBootstrap ? (
           <section className={workspaceSectionClass}>
             <PremiumCard variant="accent">
@@ -20668,14 +20788,38 @@ export default function Home() {
           </div>
         ) : null}
 
-        {authStage === "app" && (
+        {authStage === "app" && appMode === "event" ? (
           <EventNavSegmented
             items={currentNavItems.map((screen) => ({ screen, label: navLabel(screen) }))}
             activeScreen={shellNavActiveScreen}
             onSelect={selectActiveScreen}
             variant={isCoupleEditorialShell ? "couple" : "default"}
           />
-        )}
+        ) : null}
+
+        {showStaffWorkspaceSidebar ? (
+          <div className="no-print sticky top-0 z-30 -mx-5 mt-3 hidden border-b border-stone-200/70 bg-[var(--cm-canvas)] px-5 pb-2 pt-0.5 backdrop-blur md:block sm:-mx-6 sm:px-6 xl:hidden">
+            <nav aria-label="Workspace navigation" className="flex gap-1 overflow-x-auto rounded-xl border border-stone-200/90 bg-stone-100/70 p-1 no-scrollbar">
+              {workspaceNavItems.map((screen) => {
+                const isActive = shellNavActiveScreen === screen;
+                return (
+                  <button
+                    key={`workspace-tab-${screen}`}
+                    type="button"
+                    onClick={() => selectActiveScreen(screen)}
+                    className={`min-h-9 shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ${
+                      isActive
+                        ? "bg-white text-stone-950 shadow-sm ring-1 ring-stone-200/90"
+                        : "text-stone-700 hover:bg-white/70 hover:text-stone-900"
+                    }`}
+                  >
+                    {navLabel(screen)}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        ) : null}
 
         {authStage === "login" && (
           !showCustomerPortalEntry ? (
@@ -22294,155 +22438,312 @@ export default function Home() {
             </div>
           )}
 
+        {authStage === "app" && appMode === "events" && activeScreen === "Archive" && !authSession.isCouplePortalSession && (
+          <section className={workspaceSectionClass}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <SectionTitle className="text-stone-950">Archive</SectionTitle>
+                <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                  Completed and archived events stay here for reference.
+                </p>
+              </div>
+              <PrimaryButton
+                type="button"
+                onClick={() => setActiveScreen("All Events")}
+                className={lightUiSecondaryButtonClass}
+              >
+                Back to Events
+              </PrimaryButton>
+            </div>
+
+            {commandCenterArchivedEvents.length === 0 ? (
+              <PremiumCard variant="accentDashed">
+                <div className="py-10 text-center">
+                  <p className="text-sm font-semibold text-stone-900">No archived events yet</p>
+                  <p className="mt-2 text-xs leading-relaxed text-stone-600">
+                    Events marked archived in Event Settings will appear here.
+                  </p>
+                </div>
+              </PremiumCard>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {commandCenterArchivedEvents.map((evt) => {
+                  const cardStatus = normalizeEventStatus(
+                    evt.settings?.eventStatus,
+                    (evt.settings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+                  );
+                  return (
+                    <PremiumCard key={`archive-${evt.id}`} className="overflow-hidden !p-0">
+                      <div className="relative aspect-[2.1/1] min-h-[8rem] overflow-hidden grayscale">
+                        <EventHeroCover
+                          coverPhotoDataUrl={evt.settings?.coverPhotoDataUrl}
+                          coverPhotoStoragePath={evt.settings?.coverPhotoStoragePath}
+                          defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                          showPersonalizeGuidance={false}
+                        />
+                        <div className="absolute inset-0 bg-[#1E1E1E]/45" />
+                        <span className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${eventStatusPillClassOnCover(cardStatus)}`}>
+                          {cardStatus}
+                        </span>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-base font-semibold text-stone-950">{evt.settings.eventName || evt.meta.couple || "Untitled Event"}</p>
+                        <p className="mt-1 text-xs text-stone-600">
+                          {formatEventDateForDisplay(evt.settings?.weddingDate || evt.meta.date || "", "Date TBD")}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs text-stone-500">{evt.settings.venue || evt.meta.venue || "Venue TBD"}</p>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                          className={`mt-4 w-full ${lightUiSecondaryButtonClass}`}
+                        >
+                          Open Event
+                        </PrimaryButton>
+                      </div>
+                    </PremiumCard>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {authStage === "app" && appMode === "events" && activeScreen === "Command Center" && (effectiveRole === "Admin" || effectiveRole === "DJ") && !authSession.isCouplePortalSession && (
-          <section className={`${workspaceSectionClass} cm-section-enter`}>
-            <div className="grid gap-3 xl:grid-cols-[1.8fr_1fr]">
-              <div className="space-y-3">
-                <PremiumCard variant="accent">
-                  <div className="flex items-center justify-between gap-2">
-                    <SectionTitle>Command Center</SectionTitle>
-                    <span className="rounded-full border border-stone-200 bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
-                      {commandCenterEvents.length} events
+          <section className={`${workspaceSectionClass} cm-section-enter space-y-6`}>
+            <div className="overflow-hidden rounded-[2rem] border border-stone-200/80 bg-[#12120f] shadow-[0_34px_120px_-82px_rgba(31,39,36,0.72)]">
+              <div className="relative min-h-[18rem]">
+                <img
+                  src="/images/showflow-welcome-hero.jpg"
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover object-[62%_50%]"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(18,18,15,0.92)_0%,rgba(18,18,15,0.78)_34%,rgba(18,18,15,0.36)_62%,rgba(18,18,15,0.18)_100%)]" />
+                <div className="relative z-10 flex min-h-[18rem] flex-col justify-end p-6 sm:p-8 lg:p-10">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#d7b979]">
+                    ShowFlow Home
+                  </p>
+                  <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-[-0.045em] text-white sm:text-5xl">
+                    {commandCenterGreeting}, {commandCenterDisplayName}
+                  </h1>
+                  <p className="mt-4 max-w-xl text-sm leading-6 text-white/72 sm:text-base">
+                    {commandCenterUpcomingEvents.length} upcoming show{commandCenterUpcomingEvents.length === 1 ? "" : "s"} and{" "}
+                    {commandCenterAttentionEvents.length} item{commandCenterAttentionEvents.length === 1 ? "" : "s"} needing attention.
+                  </p>
+                  <div className="mt-6 grid max-w-md grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3 backdrop-blur">
+                      <p className="text-3xl font-semibold text-white">{commandCenterUpcomingEvents.length}</p>
+                      <p className="mt-1 text-[11px] font-medium text-white/64">Upcoming shows</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#d7b979]/24 bg-[#d7b979]/12 px-4 py-3 backdrop-blur">
+                      <p className="text-3xl font-semibold text-white">{commandCenterAttentionEvents.length}</p>
+                      <p className="mt-1 text-[11px] font-medium text-white/64">Need attention</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.75fr)]">
+              <div className="space-y-6">
+                <section>
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle className="text-stone-950">Needs Attention</SectionTitle>
+                    <span className="rounded-full bg-[#f1eadf] px-2.5 py-1 text-[11px] font-semibold text-[#8a6938]">
+                      {commandCenterAttentionEvents.length}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-stone-600">
-                    {effectiveRole === "Admin"
-                      ? "Operational overview across all events."
-                      : "Operational overview across your assigned events."}
-                  </p>
-                </PremiumCard>
-
-                <PremiumCard>
-                  <SectionTitle className="text-stone-950">Upcoming Events</SectionTitle>
-                  <div className="mt-3 space-y-2">
-                    {commandCenterUpcomingEvents.map((evt) => {
-                      const cmdProfile = resolveLayoutProfileForDisplay(
-                        evt.settings,
-                        appSettings.defaultEventType,
-                      );
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {commandCenterAttentionEvents.slice(0, 4).map(({ evt, pendingGuestRequests, incompleteChecklistCount, timelineReviewRequested }) => {
+                      const reason = timelineReviewRequested
+                        ? "Timeline review requested"
+                        : pendingGuestRequests > 0
+                          ? `${pendingGuestRequests} guest song request${pendingGuestRequests === 1 ? "" : "s"} pending`
+                          : `${incompleteChecklistCount} planning area${incompleteChecklistCount === 1 ? "" : "s"} incomplete`;
+                      const target: Screen = timelineReviewRequested
+                        ? "Timeline"
+                        : pendingGuestRequests > 0
+                          ? "Guest Requests"
+                          : "Event Settings";
                       return (
-                        <div key={`cmd-upcoming-${evt.id}`} className="rounded-xl border border-stone-200 bg-stone-50 p-3 shadow-sm">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
-                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
-                                {PRIMARY_PARTY_SHORT_LABEL[cmdProfile]}:{" "}
-                                <span className="font-semibold text-stone-800">
-                                  {evt.settings.coupleNames || evt.meta.couple || "TBD"}
-                                </span>
-                              </p>
-                              <p className="mt-1 text-xs text-stone-600">
-                                {formatEventDateForDisplay(
-                                  evt.settings.weddingDate || evt.meta.date || "",
-                                  "TBD",
-                                )}{" "}
-                                · {evt.settings.venue || evt.meta.venue || "TBD"}
-                              </p>
-                              <p className="mt-1 text-xs text-stone-600">
-                                DJ: {getTeamMemberName(evt.settings.assignedDj || "")} · Planner: {evt.settings.plannerName || "TBD"}
-                              </p>
-                            </div>
-                            <PrimaryButton
-                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                              className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[11px] font-semibold text-stone-900 shadow-none hover:bg-stone-50"
-                            >
-                              View Event
-                            </PrimaryButton>
-                          </div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                            <PrimaryButton
-                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                            >
-                              View Event
-                            </PrimaryButton>
-                            <PrimaryButton
-                              onClick={() => openCommandCenterEvent(evt.id, "Event Prep")}
-                              className="rounded-lg border border-[#1f2724] bg-[#1f2724] px-2 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-[#2b3531] active:bg-[#171d1b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b08a45]/45 focus-visible:ring-offset-2"
-                            >
-                              Open Brief
-                            </PrimaryButton>
-                            <PrimaryButton
-                              onClick={() => openCommandCenterEvent(evt.id, "Timeline")}
-                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                            >
-                              Review Timeline
-                            </PrimaryButton>
-                            <PrimaryButton
-                              onClick={() => openCommandCenterEvent(evt.id, "Guest Requests")}
-                              className="rounded-lg border border-stone-300 bg-white px-2 py-2 text-[11px] font-medium text-stone-900 shadow-none hover:bg-stone-50"
-                            >
-                              Review Guest Song Requests
-                            </PrimaryButton>
-                          </div>
-                        </div>
+                        <button
+                          key={`home-attention-${evt.id}`}
+                          type="button"
+                          onClick={() => openCommandCenterEvent(evt.id, target)}
+                          className="group rounded-[1.5rem] border border-[#e5d1ac] bg-[#fffaf3] p-4 text-left shadow-[0_22px_72px_-64px_rgba(84,60,32,0.66)] transition hover:-translate-y-0.5 hover:border-[#c79a5a]/70 hover:bg-white"
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#a07830]">
+                            Priority
+                          </p>
+                          <p className="mt-2 text-base font-semibold text-stone-950">{evt.settings.eventName || evt.meta.couple || "Untitled Event"}</p>
+                          <p className="mt-1 text-sm text-stone-600">{reason}</p>
+                          <p className="mt-4 text-xs font-semibold text-[#8a6938] group-hover:text-stone-950">Open event</p>
+                        </button>
                       );
                     })}
-                    {commandCenterUpcomingEvents.length === 0 && (
-                      <p className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs font-medium text-stone-600">
-                        No upcoming events available for this role.
-                      </p>
-                    )}
+                    {commandCenterAttentionEvents.length === 0 ? (
+                      <div className="rounded-[1.5rem] border border-[#d8e0d0] bg-[#f7faf4] p-5 text-sm font-medium text-[#3f4d3d] md:col-span-2">
+                        Nothing needs attention right now. Upcoming shows are ready when you are.
+                      </div>
+                    ) : null}
                   </div>
+                </section>
+
+                <section>
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle className="text-stone-950">Upcoming Shows</SectionTitle>
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => setActiveScreen("All Events")}
+                      className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-[11px] font-semibold text-stone-700 shadow-none hover:bg-stone-50"
+                    >
+                      View all
+                    </PrimaryButton>
+                  </div>
+                  <div className="mt-3 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                    {commandCenterUpcomingEvents.slice(0, 3).map((evt) => {
+                      const rawDate = evt.settings?.weddingDate || evt.meta.date || "";
+                      const eventMs = Date.parse(rawDate);
+                      const daysUntil = Number.isNaN(eventMs)
+                        ? null
+                        : Math.max(0, Math.ceil((eventMs - Date.now()) / 86400000));
+                      return (
+                        <PremiumCard key={`home-show-${evt.id}`} className="overflow-hidden !p-0">
+                          <div className="relative aspect-[1.9/1] min-h-[10rem] overflow-hidden">
+                            <EventHeroCover
+                              coverPhotoDataUrl={evt.settings?.coverPhotoDataUrl}
+                              coverPhotoStoragePath={evt.settings?.coverPhotoStoragePath}
+                              defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                              showPersonalizeGuidance={false}
+                            />
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,15,0.05)_0%,rgba(18,18,15,0.58)_100%)]" />
+                            <div className="absolute bottom-3 left-3 rounded-full border border-white/16 bg-black/38 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur">
+                              {daysUntil === null ? "Date TBD" : `${daysUntil} day${daysUntil === 1 ? "" : "s"}`}
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <p className="text-lg font-semibold tracking-tight text-stone-950">{evt.settings.eventName || evt.meta.couple || "Untitled Event"}</p>
+                            <p className="mt-2 text-xs font-medium text-stone-600">
+                              {formatEventDateForDisplay(rawDate, "Date TBD")}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs text-stone-500">{evt.settings.venue || evt.meta.venue || "Venue TBD"}</p>
+                            <p className="mt-3 text-xs text-stone-600">
+                              Planner: <span className="font-semibold text-stone-900">{evt.settings.plannerName || "TBD"}</span>
+                            </p>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                              className="mt-4 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531]"
+                            >
+                              Open Event
+                            </PrimaryButton>
+                          </div>
+                        </PremiumCard>
+                      );
+                    })}
+                    {commandCenterUpcomingEvents.length === 0 ? (
+                      <PremiumCard variant="accentDashed" className="md:col-span-2 2xl:col-span-3">
+                        <p className="text-sm font-semibold text-stone-900">No upcoming shows</p>
+                        <p className="mt-2 text-xs text-stone-600">Create a new event or adjust event dates to build your upcoming queue.</p>
+                      </PremiumCard>
+                    ) : null}
+                  </div>
+                </section>
+              </div>
+
+              <aside className="space-y-6">
+                <PremiumCard className="border-stone-200/90 bg-white/82">
+                  <SectionTitle className="text-stone-950">Continue Working</SectionTitle>
+                  {commandCenterContinueEvent ? (
+                    <div className="mt-4 flex gap-4">
+                      <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-stone-100">
+                        <EventHeroCover
+                          coverPhotoDataUrl={commandCenterContinueEvent.settings?.coverPhotoDataUrl}
+                          coverPhotoStoragePath={commandCenterContinueEvent.settings?.coverPhotoStoragePath}
+                          defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                          showPersonalizeGuidance={false}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-stone-950">
+                          {commandCenterContinueEvent.settings.eventName || commandCenterContinueEvent.meta.couple || "Untitled Event"}
+                        </p>
+                        <p className="mt-1 text-xs text-stone-500">Resume at Event Dashboard</p>
+                        <PrimaryButton
+                          type="button"
+                          onClick={() => openCommandCenterEvent(commandCenterContinueEvent.id, "Dashboard")}
+                          className="mt-3 rounded-xl border border-[#2f4a3e]/24 bg-[#f4f7ef] px-3 py-2 text-[11px] font-semibold text-[#2f4a3e] shadow-none hover:bg-white"
+                        >
+                          Continue
+                        </PrimaryButton>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-stone-500">No event history yet.</p>
+                  )}
                 </PremiumCard>
 
-                <PremiumCard>
-                  <SectionTitle className="text-stone-950">Events Needing Attention</SectionTitle>
-                  <div className="mt-3 space-y-2">
-                    {commandCenterAttentionEvents.map(({ evt, pendingGuestRequests, incompleteChecklistCount }) => (
-                      <div key={`cmd-attention-${evt.id}`} className="rounded-xl border border-[#C79A5A]/45 bg-[#C79A5A]/12 px-3 py-2.5 shadow-sm">
-                        <p className="text-sm font-semibold text-stone-900">{evt.settings.eventName || evt.meta.couple}</p>
-                        <p className="mt-1 text-xs font-medium text-stone-700">
-                          {pendingGuestRequests} pending guest song request{pendingGuestRequests === 1 ? "" : "s"} · {incompleteChecklistCount} incomplete planning areas
-                        </p>
+                <PremiumCard className="border-stone-200/90 bg-white/82">
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle className="text-stone-950">Recent Activity</SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => setActiveScreen("Notification Center")}
+                      className="text-[11px] font-semibold text-stone-500 hover:text-stone-950"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {commandCenterRecentActivity.map((item) => (
+                      <div key={`home-activity-${item.id}`} className="flex gap-3 rounded-2xl border border-stone-100 bg-stone-50/70 px-3 py-2.5">
+                        <span className="mt-0.5 size-2 rounded-full bg-[#c79a5a]" aria-hidden />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-snug text-stone-900">{item.summary}</p>
+                          <p className="mt-1 text-[11px] text-stone-500">{item.eventName} · {formatRelativeTime(item.timestamp)}</p>
+                        </div>
                       </div>
                     ))}
-                    {commandCenterAttentionEvents.length === 0 && (
-                      <p className="rounded-xl border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 px-3 py-2.5 text-xs font-medium text-[#3f4d3d]">
-                        No urgent attention items across your events.
+                    {commandCenterRecentActivity.length === 0 ? (
+                      <p className="rounded-2xl border border-stone-100 bg-stone-50 px-3 py-3 text-sm text-stone-500">
+                        Activity will appear here as planners, DJs, and clients update events.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </PremiumCard>
-              </div>
 
-              <div className="space-y-3">
-                <PremiumCard variant="accent">
-                  <SectionTitle>Recent Activity</SectionTitle>
-                  <div className="mt-3 space-y-2">
-                    {activities
-                      .filter((item) => commandCenterEvents.some((evt) => evt.id === item.eventId))
-                      .slice(0, 8)
-                      .map((item) => (
-                        <div key={`cmd-activity-${item.id}`} className="rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs">
-                          <p className="text-stone-900">
-                            <span className="mr-1">{activityTypeIcon(item.type)}</span>
-                            {item.summary}
-                          </p>
-                          <p className="mt-1 text-stone-600">
-                            {item.eventName} · {formatRelativeTime(item.timestamp)}
-                          </p>
-                        </div>
-                      ))}
+                <PremiumCard className="border-stone-200/90 bg-white/82">
+                  <SectionTitle className="text-stone-950">Quick Actions</SectionTitle>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {canManageEvents ? (
+                      <PrimaryButton
+                        type="button"
+                        onClick={() => {
+                          setEventModalMode("new");
+                          setEventEditingId(null);
+                          setEventDraft(buildNewEventDraft());
+                          setEventModalStatus(null);
+                          setEventModalOpen(true);
+                        }}
+                        className="rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531]"
+                      >
+                        New Event
+                      </PrimaryButton>
+                    ) : null}
+                    <PrimaryButton type="button" onClick={() => setActiveScreen("Timeline Templates")} className={lightUiSecondaryButtonClass}>
+                      Templates
+                    </PrimaryButton>
+                    <PrimaryButton type="button" onClick={() => setActiveScreen("Team")} className={lightUiSecondaryButtonClass}>
+                      Team
+                    </PrimaryButton>
+                    <PrimaryButton type="button" onClick={() => setActiveScreen("Archive")} className={lightUiSecondaryButtonClass}>
+                      Archive
+                    </PrimaryButton>
+                    <PrimaryButton type="button" onClick={() => setActiveScreen("Settings")} className={lightUiSecondaryButtonClass}>
+                      Settings
+                    </PrimaryButton>
                   </div>
                 </PremiumCard>
-                <PremiumCard variant="accent">
-                  <SectionTitle>Notifications</SectionTitle>
-                  <div className="mt-3 space-y-2">
-                    {notifications
-                      .filter((notice) => commandCenterEvents.some((evt) => evt.id === notice.eventId))
-                      .slice(0, 6)
-                      .map((notice) => (
-                        <div key={`cmd-notice-${notice.id}`} className="rounded-xl border border-stone-200 bg-stone-50/90 px-3 py-2 text-xs">
-                          <p className="text-stone-900">{notice.summary}</p>
-                          <p className="mt-1 text-stone-600">
-                            {notice.eventName} · {formatRelativeTime(notice.timestamp)}
-                          </p>
-                        </div>
-                      ))}
-                  </div>
-                </PremiumCard>
-              </div>
+              </aside>
             </div>
           </section>
         )}
