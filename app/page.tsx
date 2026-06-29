@@ -6357,6 +6357,9 @@ export default function Home() {
         internalNotes: draft.internalNotes.trim(),
         ...profileDefaults,
         ...getLiveEventDocumentDefaults(createLayoutProfile),
+        coverPhotoDataUrl: undefined,
+        coverPhotoStoragePath: undefined,
+        coverPhotoTransform: undefined,
         eventStatus: "Planning",
         ceremonyCoverageStatus: defaultCeremonyCoverageStatus(createLayoutProfile),
       };

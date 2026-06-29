@@ -369,7 +369,8 @@ function CoupleHeroPhoto({
     coverPhotoStoragePath,
     defaultWelcomePhotoDataUrl: coverPhotoHydrationReady ? defaultWelcomePhotoDataUrl : undefined,
   });
-  const { displayUrl, isEventSpecific } = welcomePhoto;
+  const { isEventSpecific } = welcomePhoto;
+  const displayUrl = welcomePhoto.displayUrl || DEFAULT_EVENT_HERO_SRC;
   logPhotoTrace(
     7,
     {
@@ -451,11 +452,16 @@ function CoupleHeroPhoto({
     return (
       <button
         type="button"
-        className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--placeholder"
+        className="cm-dashboard-v3-hero-photo cm-dashboard-v3-hero-photo--default"
         {...mobileActionHandlers}
         disabled={!onRequestCoverPhoto}
         aria-label="Personalize your welcome photo"
       >
+        <WelcomePhotoHeroImage
+          src={DEFAULT_EVENT_HERO_SRC}
+          imageClassName="cm-dashboard-v3-hero-photo-img--personalize"
+          visible
+        />
         {showOnboardingPill ? <WelcomePhotoOnboardingPill /> : null}
       </button>
     );

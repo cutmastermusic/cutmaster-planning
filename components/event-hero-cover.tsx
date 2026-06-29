@@ -1,4 +1,4 @@
-import { resolveEventHeroImageDisplay } from "@/lib/eventCover";
+import { DEFAULT_EVENT_HERO_SRC, resolveEventHeroImageDisplay } from "@/lib/eventCover";
 
 type EventHeroCoverProps = {
   coverPhotoDataUrl?: string;
@@ -28,11 +28,13 @@ export function EventHeroCover({
     defaultWelcomePhotoDataUrl,
   });
 
+  const displayUrl = heroImage.displayUrl || DEFAULT_EVENT_HERO_SRC;
+
   if (heroImage.isEventSpecific) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={heroImage.displayUrl}
+        src={displayUrl}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />
@@ -43,7 +45,7 @@ export function EventHeroCover({
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={heroImage.displayUrl}
+        src={displayUrl}
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />
