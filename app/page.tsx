@@ -22437,7 +22437,7 @@ export default function Home() {
                     </div>
                   </PremiumCard>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-3">
                     {allEventsFilteredAndSorted.map((evt) => {
                       const isActive = evt.id === activeEventId;
                       const cardProfile = resolveLayoutProfileForDisplay(
@@ -22447,10 +22447,15 @@ export default function Home() {
                       const cardEventName = evt.settings?.eventName || evt.meta.couple || "Untitled Event";
                       const cardEventType = evt.settings?.eventType || "Event";
                       const cardCoupleNames = evt.settings?.coupleNames || evt.meta.couple || "TBD";
+                      const cardRawDate = evt.settings?.weddingDate || evt.meta.date || "";
                       const cardEventDate = formatEventDateForDisplay(
-                        evt.settings?.weddingDate || evt.meta.date || "",
+                        cardRawDate,
                         "Date TBD",
                       );
+                      const cardEventMs = Date.parse(cardRawDate);
+                      const cardDaysUntil = Number.isNaN(cardEventMs)
+                        ? null
+                        : Math.max(0, Math.ceil((cardEventMs - Date.now()) / 86400000));
                       const cardVenue = evt.settings?.venue || evt.meta.venue || "Venue TBD";
                       const cardProgress = approximatePlanningProgressPercent(evt);
                       const cardCover = evt.settings?.coverPhotoDataUrl;
@@ -22462,71 +22467,105 @@ export default function Home() {
                       );
                       const viewerBadge = viewerRoleBadgeForEvent(evt);
                       return (
-                        <PremiumCard key={evt.id} className="overflow-hidden p-0">
-                          <div className="relative aspect-[2.15/1] min-h-[118px] overflow-hidden">
-                            <EventHeroCover
-                              coverPhotoDataUrl={cardCover}
-                              coverPhotoStoragePath={cardCoverStoragePath}
-                              defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
-                              showPersonalizeGuidance={false}
-                            />
-                            <div className="absolute inset-0 bg-[#1E1E1E]/55" />
-                            <div className="absolute right-2 top-2 flex max-w-[calc(100%-1rem)] flex-wrap justify-end gap-1.5">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-white/15 ${eventStatusPillClassOnCover(cardStatus)}`}
-                              >
-                                {cardStatus}
-                              </span>
-                              {viewerBadge ? (
-                                <span className="rounded-full bg-[#C79A5A]/30 px-2 py-0.5 text-[10px] font-medium text-[#fff8e8] ring-1 ring-[#C79A5A]/40">
-                                  {viewerBadge}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
-                              <p className="text-[10px] uppercase tracking-[0.15em] text-white/75">{cardEventType}</p>
-                              <p className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-white">
-                                {cardEventName}
-                              </p>
-                              <p className="mt-1 text-[11px] text-white/85">{cardEventDate}</p>
+                        <PremiumCard
+                          key={evt.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => switchToEvent(evt.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              switchToEvent(evt.id);
+                            }
+                          }}
+                          className={`group cursor-pointer overflow-hidden !p-0 transition hover:-translate-y-0.5 hover:border-[#d7b979]/80 hover:bg-white ${
+                            isActive ? "border-[#C79A5A]/70 bg-[#fffaf3]" : "border-stone-200/90 bg-white/86"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3 p-3 pb-2 sm:grid sm:min-h-[8.5rem] sm:grid-cols-[8.25rem_minmax(0,1fr)_minmax(9.75rem,auto)] sm:items-center sm:gap-4 sm:p-3.5 sm:pb-2">
+                            <div className="relative h-28 overflow-hidden rounded-2xl bg-stone-100 sm:h-[6.5rem] sm:w-[8.25rem]">
+                              <EventHeroCover
+                                coverPhotoDataUrl={cardCover}
+                                coverPhotoStoragePath={cardCoverStoragePath}
+                                defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                                showPersonalizeGuidance={false}
+                              />
+                              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,15,0.02)_0%,rgba(18,18,15,0.28)_100%)]" />
                               {isActive ? (
-                                <span className="mt-2 inline-flex rounded-full bg-[#C79A5A]/42 px-2 py-0.5 text-[10px] font-semibold text-[#fff8ea] ring-1 ring-[#C79A5A]/45">
+                                <span className="absolute left-2 top-2 rounded-full bg-[#C79A5A]/88 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
                                   Selected
                                 </span>
                               ) : null}
                             </div>
-                          </div>
 
-                          <div className="space-y-3 p-4">
-                            <p className="line-clamp-2 text-xs text-stone-600">{cardVenue}</p>
-                            <p className="text-[11px] text-stone-600">
-                              {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
-                            </p>
-                            <div>
-                              <div className="mb-1 flex items-center justify-between text-[11px] text-stone-600">
-                                <span>Planning progress</span>
-                                <span className="font-semibold tabular-nums text-stone-800">{cardProgress}%</span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-[#f5efe3] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8a6938]">
+                                  {cardEventType}
+                                </span>
+                                {viewerBadge ? (
+                                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-600 ring-1 ring-stone-200">
+                                    {viewerBadge}
+                                  </span>
+                                ) : null}
                               </div>
-                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
-                                <div
-                                  className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-500"
-                                  style={{ width: `${cardProgress}%` }}
-                                />
+                              <p className="mt-2 line-clamp-1 text-xl font-semibold tracking-[-0.035em] text-stone-950">
+                                {cardEventName}
+                              </p>
+                              <p className="mt-1 text-xs font-medium text-stone-600">
+                                {PRIMARY_PARTY_SHORT_LABEL[cardProfile]} · {cardCoupleNames}
+                              </p>
+                              <p className="mt-1.5 line-clamp-1 text-xs text-stone-500">{cardVenue}</p>
+                              <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
+                                <span className="rounded-full border border-[#d7b979]/50 bg-[#fff8ea] px-2.5 py-1 text-[11px] font-semibold text-[#8a6938]">
+                                  {cardDaysUntil === null
+                                    ? "Date TBD"
+                                    : cardDaysUntil === 0
+                                      ? "Today"
+                                      : `${cardDaysUntil}d out`}
+                                </span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnLight(cardStatus)}`}>
+                                  {cardStatus}
+                                </span>
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                              <PrimaryButton
-                                onClick={() => {
-                                  switchToEvent(evt.id);
-                                }}
-                                className={lightUiCyanPrimaryButtonClass}
-                              >
-                                Select
-                              </PrimaryButton>
+                            <div className="space-y-3 sm:text-right">
+                              <div className="hidden justify-end gap-2 sm:flex">
+                                <span className="rounded-full border border-[#d7b979]/50 bg-[#fff8ea] px-2.5 py-1 text-[11px] font-semibold text-[#8a6938]">
+                                  {cardDaysUntil === null
+                                    ? "Date TBD"
+                                    : cardDaysUntil === 0
+                                      ? "Today"
+                                      : `${cardDaysUntil}d out`}
+                                </span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnLight(cardStatus)}`}>
+                                  {cardStatus}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-stone-950">{cardEventDate}</p>
+                              </div>
+                              <div>
+                                <div className="mb-1 flex items-center justify-end gap-2">
+                                  <span className="text-sm font-semibold tabular-nums text-stone-900">{cardProgress}%</span>
+                                </div>
+                                <div className="h-1 overflow-hidden rounded-full bg-stone-200/80 sm:ml-auto sm:w-32">
+                                  <div
+                                    className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-500"
+                                    style={{ width: `${cardProgress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 px-3 pb-3 pt-0 sm:justify-end sm:px-3.5">
                               {canManageEvents ? (
-                                <PrimaryButton
-                                  onClick={() => {
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     setEventModalMode("edit");
                                     setEventEditingId(evt.id);
                                     const migratedProfile = migrateLegacyLayoutProfile(
@@ -22552,54 +22591,48 @@ export default function Home() {
                                     setEventModalStatus(null);
                                     setEventModalOpen(true);
                                   }}
-                                  className={lightUiSecondaryButtonClass}
+                                  className="min-h-8 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-stone-500 transition hover:bg-stone-100/80 hover:text-stone-900 active:scale-[0.99]"
                                 >
                                   Edit
-                                </PrimaryButton>
-                              ) : (
-                                <PrimaryButton
-                                  onClick={() => switchToEvent(evt.id)}
-                                  className={lightUiSecondaryButtonClass}
-                                >
-                                  Open
-                                </PrimaryButton>
-                              )}
+                                </button>
+                              ) : null}
                               {canManageEvents && (
-                                <PrimaryButton
-                                  onClick={() => {
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     void deleteEventFromWorkspace(evt.id);
                                   }}
-                                  className={`col-span-2 ${lightUiDestructiveButtonClass}`}
+                                  className="min-h-8 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-stone-400 transition hover:bg-rose-50 hover:text-rose-700 active:scale-[0.99]"
                                 >
                                   Delete
-                                </PrimaryButton>
+                                </button>
                               )}
-                            </div>
-                            <div className="mt-2">
-                              <PrimaryButton
-                                onClick={async () => {
-                                  const token = Math.random().toString(36).slice(2, 14);
-                                  const link = `https://app.cutmastermusic.com/invite?event=${encodeURIComponent(evt.id)}&role=Couple&token=${token}`;
-                                  try {
-                                    await navigator.clipboard.writeText(link);
-                                    setCopyStatus("copied");
-                                    setTimeout(() => setCopyStatus(""), 1800);
-                                  } catch {
-                                    setCopyStatus("error");
-                                    setTimeout(() => setCopyStatus(""), 2200);
-                                  }
-                                  setInviteAccessPreview({
-                                    eventId: evt.id,
-                                    role: "Couple",
-                                    token,
-                                    link,
-                                  });
-                                }}
-                                className={`w-full ${lightUiCyanPrimaryButtonClass} py-2.5 text-[11px]`}
-                              >
-                                {COPY_INVITE_LINK_LABEL[cardProfile]}
-                              </PrimaryButton>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                const token = Math.random().toString(36).slice(2, 14);
+                                const link = `https://app.cutmastermusic.com/invite?event=${encodeURIComponent(evt.id)}&role=Couple&token=${token}`;
+                                try {
+                                  await navigator.clipboard.writeText(link);
+                                  setCopyStatus("copied");
+                                  setTimeout(() => setCopyStatus(""), 1800);
+                                } catch {
+                                  setCopyStatus("error");
+                                  setTimeout(() => setCopyStatus(""), 2200);
+                                }
+                                setInviteAccessPreview({
+                                  eventId: evt.id,
+                                  role: "Couple",
+                                  token,
+                                  link,
+                                });
+                              }}
+                              className="min-h-8 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-stone-500 transition hover:bg-[#f5efe3] hover:text-[#8a6938] active:scale-[0.99]"
+                            >
+                              {COPY_INVITE_LINK_LABEL[cardProfile]}
+                            </button>
                           </div>
                         </PremiumCard>
                       );
@@ -22788,43 +22821,92 @@ export default function Home() {
                       View all
                     </PrimaryButton>
                   </div>
-                  <div className="mt-3 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="mt-3 grid gap-3">
                     {commandCenterUpcomingEvents.slice(0, 3).map((evt) => {
                       const rawDate = evt.settings?.weddingDate || evt.meta.date || "";
                       const eventMs = Date.parse(rawDate);
                       const daysUntil = Number.isNaN(eventMs)
                         ? null
                         : Math.max(0, Math.ceil((eventMs - Date.now()) / 86400000));
+                      const homeStatus = normalizeEventStatus(
+                        evt.settings?.eventStatus,
+                        (evt.settings as EventSettings & { eventLifecycleStatus?: string })
+                          .eventLifecycleStatus,
+                      );
+                      const homeProgress = approximatePlanningProgressPercent(evt);
                       return (
-                        <PremiumCard key={`home-show-${evt.id}`} className="overflow-hidden !p-0">
-                          <div className="relative aspect-[1.9/1] min-h-[10rem] overflow-hidden">
-                            <EventHeroCover
-                              coverPhotoDataUrl={evt.settings?.coverPhotoDataUrl}
-                              coverPhotoStoragePath={evt.settings?.coverPhotoStoragePath}
-                              defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
-                              showPersonalizeGuidance={false}
-                            />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,15,0.05)_0%,rgba(18,18,15,0.58)_100%)]" />
-                            <div className="absolute bottom-3 left-3 rounded-full border border-white/16 bg-black/38 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur">
-                              {daysUntil === null ? "Date TBD" : `${daysUntil} day${daysUntil === 1 ? "" : "s"}`}
+                        <PremiumCard
+                          key={`home-show-${evt.id}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openCommandCenterEvent(evt.id, "Dashboard");
+                            }
+                          }}
+                          className="group cursor-pointer overflow-hidden border-stone-200/90 bg-white/86 !p-0 transition hover:-translate-y-0.5 hover:border-[#d7b979]/80 hover:bg-white"
+                        >
+                          <div className="flex flex-col gap-3 p-3 sm:grid sm:min-h-[8rem] sm:grid-cols-[7.25rem_minmax(0,1fr)_minmax(8.75rem,auto)] sm:items-center sm:gap-4 sm:p-3.5">
+                            <div className="relative h-24 overflow-hidden rounded-2xl bg-stone-100 sm:h-[5.75rem] sm:w-[7.25rem]">
+                              <EventHeroCover
+                                coverPhotoDataUrl={evt.settings?.coverPhotoDataUrl}
+                                coverPhotoStoragePath={evt.settings?.coverPhotoStoragePath}
+                                defaultWelcomePhotoDataUrl={appSettings.defaultWelcomePhotoDataUrl}
+                                showPersonalizeGuidance={false}
+                              />
+                              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,15,0.02)_0%,rgba(18,18,15,0.28)_100%)]" />
                             </div>
-                          </div>
-                          <div className="p-4">
-                            <p className="text-lg font-semibold tracking-tight text-stone-950">{evt.settings.eventName || evt.meta.couple || "Untitled Event"}</p>
-                            <p className="mt-2 text-xs font-medium text-stone-600">
-                              {formatEventDateForDisplay(rawDate, "Date TBD")}
-                            </p>
-                            <p className="mt-1 line-clamp-2 text-xs text-stone-500">{evt.settings.venue || evt.meta.venue || "Venue TBD"}</p>
-                            <p className="mt-3 text-xs text-stone-600">
-                              Planner: <span className="font-semibold text-stone-900">{evt.settings.plannerName || "TBD"}</span>
-                            </p>
-                            <PrimaryButton
-                              type="button"
-                              onClick={() => openCommandCenterEvent(evt.id, "Dashboard")}
-                              className="mt-4 w-full rounded-xl border border-[#1f2724] bg-[#1f2724] px-3 py-2.5 text-xs font-semibold text-white shadow-none hover:bg-[#2b3531]"
-                            >
-                              Open Event
-                            </PrimaryButton>
+                            <div className="min-w-0">
+                              <p className="line-clamp-1 text-lg font-semibold tracking-[-0.035em] text-stone-950">
+                                {evt.settings.eventName || evt.meta.couple || "Untitled Event"}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2 sm:hidden">
+                                <span className="rounded-full border border-[#d7b979]/50 bg-[#fff8ea] px-2.5 py-1 text-[11px] font-semibold text-[#8a6938]">
+                                  {daysUntil === null
+                                    ? "Date TBD"
+                                    : daysUntil === 0
+                                      ? "Today"
+                                      : `${daysUntil}d out`}
+                                </span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnLight(homeStatus)}`}>
+                                  {homeStatus}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-xs font-medium text-stone-600">
+                                {formatEventDateForDisplay(rawDate, "Date TBD")}
+                              </p>
+                              <p className="mt-1 line-clamp-1 text-xs text-stone-500">{evt.settings.venue || evt.meta.venue || "Venue TBD"}</p>
+                            </div>
+                            <div className="space-y-3 sm:text-right">
+                              <div className="hidden justify-end gap-2 sm:flex">
+                                <span className="rounded-full border border-[#d7b979]/50 bg-[#fff8ea] px-2.5 py-1 text-[11px] font-semibold text-[#8a6938]">
+                                  {daysUntil === null
+                                    ? "Date TBD"
+                                    : daysUntil === 0
+                                      ? "Today"
+                                      : `${daysUntil}d out`}
+                                </span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnLight(homeStatus)}`}>
+                                  {homeStatus}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="mb-1 flex items-center justify-end gap-2">
+                                  <span className="text-sm font-semibold tabular-nums text-stone-900">{homeProgress}%</span>
+                                </div>
+                                <div className="h-1 overflow-hidden rounded-full bg-stone-200/80 sm:ml-auto sm:w-28">
+                                  <div
+                                    className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-500"
+                                    style={{ width: `${homeProgress}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-[11px] font-semibold text-[#8a6938] transition group-hover:text-stone-950">
+                                Open event
+                              </p>
+                            </div>
                           </div>
                         </PremiumCard>
                       );
