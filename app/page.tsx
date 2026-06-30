@@ -2180,6 +2180,10 @@ function normalizeTeamSyncValue(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+function looksLikeInternalId(value: string): boolean {
+  return /^[a-z0-9_-]{12,}$/i.test(value.trim()) && !/\s/.test(value.trim());
+}
+
 function mapTeamMembersForDatabase(teamMembers: TeamMember[]) {
   return teamMembers.map((member, index) => ({
     name: member.name,
@@ -2197,6 +2201,15 @@ function mapTeamMembersForDatabase(teamMembers: TeamMember[]) {
   }));
 }
 
+function eventTeamMemberDisplayRole(member: TeamMember): string {
+  const roleLabel =
+    member.role === "DJ" && member.notes.trim() === "Lead DJ"
+      ? "Lead DJ"
+      : teamMemberRoleLabel(member.role);
+  const scopeLabel = isCutmasterEventTeamMember(member) ? "Internal" : "";
+  return [roleLabel, scopeLabel].filter(Boolean).join(" • ");
+}
+
 function syncAssignedDjIntoEventTeamRoster(params: {
   assignedDj: string;
   eventTeamMembers: TeamMember[];
@@ -2210,8 +2223,8 @@ function syncAssignedDjIntoEventTeamRoster(params: {
   const source =
     params.companyTeamMembers.find(
       (member) =>
-        member.role === "DJ" &&
-        (member.id === assignedDj || normalizeTeamSyncValue(member.name) === normalizeTeamSyncValue(assignedDj)),
+        member.id === assignedDj ||
+        normalizeTeamSyncValue(member.name) === normalizeTeamSyncValue(assignedDj),
     ) ??
     params.eventTeamMembers.find(
       (member) =>
@@ -2223,6 +2236,30 @@ function syncAssignedDjIntoEventTeamRoster(params: {
   const candidateNameKey = normalizeTeamSyncValue(candidateName);
   const assignedKey = normalizeTeamSyncValue(assignedDj);
 
+  if (source?.name?.trim() && candidateNameKey !== assignedKey) {
+    let repaired = false;
+    const repairedTeamMembers = params.eventTeamMembers.map((member) => {
+      const isAssignedDjPlaceholder =
+        member.role === "DJ" &&
+        normalizeTeamSyncValue(member.name) === assignedKey &&
+        member.notes.trim() === "Lead DJ";
+      if (!isAssignedDjPlaceholder) return member;
+      repaired = true;
+      return {
+        ...member,
+        name: source.name.trim(),
+        company: member.company || source.company || "",
+        email: member.email || source.email || "",
+        phone: member.phone || source.phone || "",
+        website: member.website || source.website || "",
+        instagram: member.instagram || source.instagram || "",
+      };
+    });
+    if (repaired) {
+      return { teamMembers: repairedTeamMembers, changed: true };
+    }
+  }
+
   const alreadyPresent = params.eventTeamMembers.some((member) => {
     if (member.id === assignedDj) return true;
     if (normalizeTeamSyncValue(member.name) === candidateNameKey) return true;
@@ -2232,6 +2269,10 @@ function syncAssignedDjIntoEventTeamRoster(params: {
   });
 
   if (alreadyPresent) {
+    return { teamMembers: params.eventTeamMembers, changed: false };
+  }
+
+  if (!source?.name?.trim() && assignedDj === candidateName && looksLikeInternalId(assignedDj)) {
     return { teamMembers: params.eventTeamMembers, changed: false };
   }
 
@@ -26518,7 +26559,7 @@ export default function Home() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-stone-950 [overflow-wrap:anywhere]">
-                          {member.name}
+                          {getTeamMemberName(member.name)}
                           {member.company ? (
                             <span className="ml-1 font-normal text-stone-600">
                               · {member.company}
@@ -26527,7 +26568,7 @@ export default function Home() {
                         </p>
                         <p className="mt-1 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
                           <span className="font-medium text-stone-800">
-                            {teamMemberRoleLabel(member.role)}
+                            {eventTeamMemberDisplayRole(member)}
                           </span>
                           {member.email ? (
                             <>
@@ -26563,7 +26604,7 @@ export default function Home() {
                             {member.specialCoordinationNotes}
                           </p>
                         )}
-                        {member.notes && (
+                        {member.notes && member.notes.trim() !== "Lead DJ" && (
                           <p className="mt-1 text-xs leading-relaxed text-stone-600 [overflow-wrap:anywhere]">
                             {member.notes}
                           </p>
