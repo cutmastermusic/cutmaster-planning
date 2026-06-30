@@ -412,6 +412,7 @@ import {
   computeCoupleWeddingChapterCompletionPct,
   coupleWeddingChapterDashboardCtaLabel,
   coupleWeddingChapterNavLabel,
+  coupleWeddingExternalScreenForChapter,
   firstIncompleteCoupleWeddingChapter,
   firstIncompleteCoupleWeddingStoryChapter,
   hasAnyCoupleWeddingStoryChapterStarted,
@@ -2949,6 +2950,18 @@ function resolveCouplePortalNavRestore(params: {
           ? storedChapterId
           : null;
       if (validStored) {
+        const externalScreen = coupleWeddingExternalScreenForChapter(validStored);
+        if (externalScreen) {
+          console.info("[couple-nav] restore external journey chapter", {
+            chapterId: validStored,
+            screen: externalScreen,
+          });
+          return {
+            screen: externalScreen,
+            chapterId: null,
+            reason: `restored ${validStored} as ${externalScreen}`,
+          };
+        }
         console.info("[couple-nav] restore Planning Questions with stored chapter", {
           chapterId: validStored,
         });
@@ -7697,6 +7710,18 @@ export default function Home() {
   const sectionMusicNotesEnabled = eventSettings.sectionMusicNotesEnabled;
   const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
+  const coupleTimelineReviewGapLabels = useMemo(
+    () =>
+      buildCoupleTimelineReviewGapLabels({
+        timelineItems,
+        planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
+      }),
+    [eventSettings.planningQuestionAnswers, timelineItems],
+  );
+  const coupleTimelineNeedsDashboardAttention =
+    sectionReceptionTimelineEnabled &&
+    (timelineItems.length === 0 || coupleTimelineReviewGapLabels.length > 0);
+  const hasKeyTimelineMoments = timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention;
   const musicHubHasCoupleSignal =
     musicPlaylistLinks.length > 0 ||
     musicGenreEraSelections.length > 0 ||
@@ -7721,17 +7746,24 @@ export default function Home() {
           ? Math.max(vendors.length, externalTeamCount)
           : 0,
         collaboratorCount: activeEvent?.collaborators?.length ?? 0,
+        receptionTimelineEnabled: sectionReceptionTimelineEnabled,
+        timelineItemsCount: timelineItems.length,
+        timelineChapterComplete:
+          !sectionReceptionTimelineEnabled || hasKeyTimelineMoments,
       };
     },
     [
       activeEvent?.collaborators?.length,
       eventSettings.planningQuestionAnswers,
+      hasKeyTimelineMoments,
       musicHubHasCoupleSignal,
       planningQuestionsGroupedBySection,
+      sectionReceptionTimelineEnabled,
       sectionVendorContactsEnabled,
       showSpeechesToastsSection,
       showWeddingPartyLineupSection,
       teamMembers,
+      timelineItems.length,
       vendors.length,
     ],
   );
@@ -7831,20 +7863,6 @@ export default function Home() {
     activeScreen === "Timeline" &&
     sectionReceptionTimelineEnabled;
 
-  const coupleTimelineReviewGapLabels = useMemo(
-    () =>
-      buildCoupleTimelineReviewGapLabels({
-        timelineItems,
-        planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
-      }),
-    [eventSettings.planningQuestionAnswers, timelineItems],
-  );
-  const coupleTimelineNeedsDashboardAttention =
-    sectionReceptionTimelineEnabled &&
-    (timelineItems.length === 0 || coupleTimelineReviewGapLabels.length > 0);
-
-  const hasKeyTimelineMoments = timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention;
-  const hasKeyFormalDanceSongs = hasKeyTimelineMoments;
   const hasMusicTasteSignal =
     mustPlaySongs.length > 0 ||
     playIfPossibleSongs.length > 0 ||
@@ -8145,6 +8163,16 @@ export default function Home() {
       setYourTeamContinueBlockedMessage(null);
       setGuidedChapterResumeMode(options?.resumeMode ?? "restore");
 
+      const externalScreen = coupleWeddingExternalScreenForChapter(chapterId);
+      if (externalScreen) {
+        setActivePlanningChapterId(null);
+        if (externalScreen === "Music Hub") {
+          setCoupleMusicHubScreen("landing");
+        }
+        setActiveScreen(externalScreen);
+        return;
+      }
+
       if (chapterId === "your_team") {
         setYourTeamContinueBlockedMessage(null);
         const answers = eventSettings.planningQuestionAnswers ?? {};
@@ -8174,6 +8202,7 @@ export default function Home() {
       eventSettings.plannerName,
       officiantName,
       setActiveScreen,
+      setCoupleMusicHubScreen,
       teamMembers,
     ],
   );
@@ -8199,6 +8228,18 @@ export default function Home() {
     },
     [openCouplePlanningChapter, setActiveScreen],
   );
+  const continueCoupleJourneyToTimeline = useCallback(() => {
+    openCouplePlanningChapter("reception_moments", {
+      resumeMode: "first-incomplete",
+      bypassNavLock: true,
+    });
+  }, [openCouplePlanningChapter]);
+  const continueCoupleJourneyToFinalReview = useCallback(() => {
+    openCouplePlanningChapter("final_review", {
+      resumeMode: "first-incomplete",
+      bypassNavLock: true,
+    });
+  }, [openCouplePlanningChapter]);
   const handlePlanningGuidedResumeChange = useCallback(
     (chapterId: CoupleWeddingChapterId, resume: CoupleGuidedQuestionResume) => {
       setPlanningChapterGuidedResume((prev) => {
@@ -8320,6 +8361,21 @@ export default function Home() {
         firstIncompleteCoupleChapter ?? coupleWeddingChapterCards[0]?.id ?? null;
       window.setTimeout(() => {
         if (fallbackChapter) {
+          const externalScreen = coupleWeddingExternalScreenForChapter(fallbackChapter);
+          if (externalScreen) {
+            console.info(
+              "[couple-nav] Planning Questions opened without chapter — routing to",
+              externalScreen,
+              "for",
+              fallbackChapter,
+            );
+            setActivePlanningChapterId(null);
+            if (externalScreen === "Music Hub") {
+              setCoupleMusicHubScreen("landing");
+            }
+            setActiveScreen(externalScreen);
+            return;
+          }
           console.info(
             "[couple-nav] Planning Questions opened without chapter — selecting",
             fallbackChapter,
@@ -8342,6 +8398,7 @@ export default function Home() {
     hasHydrated,
     isCoupleWeddingPlanningView,
     setActiveScreen,
+    setCoupleMusicHubScreen,
   ]);
 
   useLayoutEffect(() => {
@@ -13701,6 +13758,46 @@ export default function Home() {
     musicJourneyStep === "complete" ||
     (!musicJourneyInlineActive && musicJourneyInferredComplete);
   const musicJourneyCardComplete = musicJourneyLooksComplete && !musicJourneyInlineActive;
+  const showCoupleMusicHubContinueToTimeline =
+    isCoupleView &&
+    isCoupleWeddingPlanningView &&
+    sectionPlanningQuestionsEnabled &&
+    firstIncompleteCoupleChapter === "reception_moments" &&
+    (musicJourneyLooksComplete || musicHubHasCoupleSignal);
+  const showCoupleTimelineContinueToFinalReview =
+    isCoupleView &&
+    isCoupleWeddingPlanningView &&
+    sectionPlanningQuestionsEnabled &&
+    firstIncompleteCoupleChapter === "final_review" &&
+    hasKeyTimelineMoments;
+  const renderCoupleJourneyHandoffBanner = ({
+    eyebrow,
+    title,
+    body,
+    ctaLabel,
+    onContinue,
+  }: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    ctaLabel: string;
+    onContinue: () => void;
+  }) => (
+    <PremiumCard className="border-[#2f4a3e]/18 bg-[#f7f5f1] shadow-sm ring-1 ring-[#2f4a3e]/10">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f4a3e]/75">
+        {eyebrow}
+      </p>
+      <h2 className="mt-2 text-xl font-semibold tracking-tight text-[#214637] sm:text-2xl">{title}</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">{body}</p>
+      <PrimaryButton
+        type="button"
+        onClick={onContinue}
+        className={`mt-5 ${couplePortalPrimaryButtonClass}`}
+      >
+        {ctaLabel}
+      </PrimaryButton>
+    </PremiumCard>
+  );
   const musicHubHeroStyleComplete = musicJourneyHasStyle;
   const musicHubHeroHasSoundtrackProgress =
     musicHubHeroStyleComplete &&
@@ -14574,13 +14671,23 @@ export default function Home() {
             </p>
             <div className="mx-auto mt-6 max-w-2xl text-left">{renderMusicJourneySummary()}</div>
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-              <PrimaryButton
-                type="button"
-                onClick={() => setCoupleMusicHubScreen("landing")}
-                className={couplePortalPrimaryButtonClass}
-              >
-                Go to Music Hub
-              </PrimaryButton>
+              {showCoupleMusicHubContinueToTimeline ? (
+                <PrimaryButton
+                  type="button"
+                  onClick={continueCoupleJourneyToTimeline}
+                  className={couplePortalPrimaryButtonClass}
+                >
+                  Continue to Timeline
+                </PrimaryButton>
+              ) : (
+                <PrimaryButton
+                  type="button"
+                  onClick={() => setCoupleMusicHubScreen("landing")}
+                  className={couplePortalPrimaryButtonClass}
+                >
+                  Go to Music Hub
+                </PrimaryButton>
+              )}
               <PrimaryButton
                 type="button"
                 onClick={goBackMusicJourney}
@@ -16662,8 +16769,9 @@ export default function Home() {
     const storyChapterIds: CoupleWeddingChapterId[] = [
       "about_you",
       "ceremony",
-      "music_vibe",
       "your_team",
+      "music_vibe",
+      "reception_moments",
     ];
     return storyChapterIds.map((id) => {
       const card = coupleWeddingChapterCards.find((entry) => entry.id === id);
@@ -17489,9 +17597,9 @@ export default function Home() {
       sectionPlanningQuestionsEnabled &&
       hasEventDetailsComplete &&
       !firstIncompleteCoupleStoryChapter;
-    const storyCompleteTitle = "Chapters 1–4 complete";
+    const storyCompleteTitle = "Chapters 1–3 complete";
     const storyCompleteBody =
-      "Nice work on About You through Find Your Sound. Your Team and Final Review are next when you're ready.";
+      "Nice work on Your Story, Ceremony, and Your Team. Find Your Sound, Timeline, and Final Review are next when you're ready.";
 
     type CoupleNextStepResult = {
       body: string;
@@ -23056,6 +23164,15 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
+            {showCoupleMusicHubContinueToTimeline
+              ? renderCoupleJourneyHandoffBanner({
+                  eyebrow: "Next chapter",
+                  title: "Timeline is up next",
+                  body: "Your sound is saved. Build your run of show—cocktail hour, dinner, dances, and key moments.",
+                  ctaLabel: "Continue to Timeline",
+                  onContinue: continueCoupleJourneyToTimeline,
+                })
+              : null}
 
             {isCoupleView ? (
               <>
@@ -24171,6 +24288,15 @@ export default function Home() {
                 {showCouplePostJourneyTimelineGuidance ? (
                   <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
                 ) : null}
+                {showCoupleTimelineContinueToFinalReview
+                  ? renderCoupleJourneyHandoffBanner({
+                      eyebrow: "Next chapter",
+                      title: "Final Review is up next",
+                      body: "Your timeline looks ready. Take a calm pass to confirm your story before the big day.",
+                      ctaLabel: "Continue to Final Review",
+                      onContinue: continueCoupleJourneyToFinalReview,
+                    })
+                  : null}
                 {!canEditTimeline && (
                   <PremiumCard className="border-[#C79A5A]/25 bg-[#C79A5A]/10">
                     <p className="text-xs font-medium text-amber-950">
@@ -24806,6 +24932,15 @@ export default function Home() {
               {showCouplePostJourneyTimelineGuidance && !showUnifiedTimelineWorkspace ? (
                 <CoupleTimelineGuidancePanel gapLabels={coupleTimelineReviewGapLabels} />
               ) : null}
+              {showCoupleTimelineContinueToFinalReview && !showUnifiedTimelineWorkspace
+                ? renderCoupleJourneyHandoffBanner({
+                    eyebrow: "Next chapter",
+                    title: "Final Review is up next",
+                    body: "Your timeline looks ready. Take a calm pass to confirm your story before the big day.",
+                    ctaLabel: "Continue to Final Review",
+                    onContinue: continueCoupleJourneyToFinalReview,
+                  })
+                : null}
               {showUnifiedTimelineWorkspace ? (
                 <>
                   <div className="scroll-mt-6 mt-4 border-t border-stone-200/90 sm:mt-5">

@@ -1,11 +1,6 @@
 import type { PlanningQuestionDef } from "@/types/planning";
 import { computePlanningQuestionGroupCompletion } from "@/data/planningQuestionGroups";
 import {
-  computeReceptionMomentsChapterCompletionPct,
-  countReceptionMomentsRequiredStepsAnswered,
-  countReceptionMomentsRequiredStepsTotal,
-} from "@/lib/coupleReceptionMomentsPlanning";
-import {
   computeCeremonyChapterCompletionPct,
   countCeremonyRequiredStepsAnswered,
   countCeremonyRequiredStepsTotal,
@@ -29,8 +24,9 @@ export type CoupleWeddingChapterId =
 export const COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER: CoupleWeddingChapterId[] = [
   "about_you",
   "ceremony",
-  "music_vibe",
   "your_team",
+  "music_vibe",
+  "reception_moments",
   "final_review",
 ];
 
@@ -38,7 +34,7 @@ export const COUPLE_WEDDING_JOURNEY_CHAPTER_ORDER: CoupleWeddingChapterId[] = [
 export const COUPLE_WEDDING_STORY_CHAPTER_IDS: CoupleWeddingChapterId[] = [
   "about_you",
   "ceremony",
-  "music_vibe",
+  "your_team",
 ];
 
 export type CoupleWeddingChapterStatus = "Not Started" | "In Progress" | "Complete";
@@ -66,6 +62,9 @@ export type CoupleWeddingJourneyProgressInput = {
   musicHubHasSignal: boolean;
   vendorContactCount: number;
   collaboratorCount: number;
+  receptionTimelineEnabled: boolean;
+  timelineItemsCount: number;
+  timelineChapterComplete: boolean;
 };
 
 function visibleQuestionsForGroup(questions: PlanningQuestionDef[]): PlanningQuestionDef[] {
@@ -101,13 +100,9 @@ export function computeCoupleWeddingChapterCompletionPct(
   }
 
   if (chapterId === "reception_moments") {
-    const row = planningQuestionsGroupedBySection.find((entry) => entry.group.id === chapterId);
-    return computeReceptionMomentsChapterCompletionPct({
-      answers,
-      showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
-      showSpeechesToastsSection: input.showSpeechesToastsSection,
-      rowQuestions: row?.questions,
-    });
+    if (!input.receptionTimelineEnabled || input.timelineChapterComplete) return 100;
+    if (input.timelineItemsCount > 0) return 50;
+    return 0;
   }
 
   if (chapterId === "final_review") {
@@ -150,25 +145,25 @@ const CHAPTER_CARD_COPY: Record<
     isPlaceholder: false,
   },
   reception_moments: {
-    kicker: "Chapter 3",
-    title: "Reception Moments",
-    description: "Entrance, toasts, dances, traditions, and your last dance.",
+    kicker: "Chapter 5",
+    title: "Timeline",
+    description: "Build your run of show—cocktail hour, dinner, dances, and key moments.",
     isPlaceholder: false,
   },
   music_vibe: {
-    kicker: "Chapter 3",
-    title: "Music Profile",
+    kicker: "Chapter 4",
+    title: "Find Your Sound",
     description: "Your musical identity—energy, genres, and dance-floor vision before playlists.",
     isPlaceholder: false,
   },
   your_team: {
-    kicker: "Chapter 4",
+    kicker: "Chapter 3",
     title: "Your Team",
     description: "Who you've booked—and who's still on your list.",
     isPlaceholder: false,
   },
   final_review: {
-    kicker: "Chapter 5",
+    kicker: "Chapter 6",
     title: "Final Review",
     description: "A calm pass to confirm your story is ready for the big day.",
     isPlaceholder: false,
@@ -189,24 +184,15 @@ export function buildCoupleWeddingChapterCards(
     let statSubline = "Short answers are enough—you can update anytime";
 
     if (id === "reception_moments") {
-      const requiredTotal = countReceptionMomentsRequiredStepsTotal({
-        answers: input.answers,
-        showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
-        showSpeechesToastsSection: input.showSpeechesToastsSection,
-        rowQuestions: visibleQuestions,
-      });
-      const answered = countReceptionMomentsRequiredStepsAnswered({
-        answers: input.answers,
-        showWeddingPartyLineupSection: input.showWeddingPartyLineupSection,
-        showSpeechesToastsSection: input.showSpeechesToastsSection,
-        rowQuestions: visibleQuestions,
-      });
-      const stepLabel = requiredTotal === 1 ? "step" : "steps";
-      statLine = `${completionPct}% complete · ${answered}/${requiredTotal} ${stepLabel}`;
-      statSubline = "Not sure yet is fine—you can revisit wedding party and toasts anytime";
+      statLine = input.timelineChapterComplete
+        ? "Timeline ready"
+        : input.timelineItemsCount > 0
+          ? `${completionPct}% complete · ${input.timelineItemsCount} moment${input.timelineItemsCount === 1 ? "" : "s"} added`
+          : `${completionPct}% complete`;
+      statSubline = "Add cocktail, dinner, and dancing moments when you're ready";
     } else if (id === "music_vibe") {
       statLine = `${completionPct}% complete · ${MUSIC_PROFILE_GUIDED_STEP_COUNT} steps`;
-      statSubline = "Capture your vibe before building playlists in Music Hub";
+      statSubline = "Complete Find Your Sound in Music Hub, then build playlists";
     } else if (id === "ceremony") {
       const requiredTotal = countCeremonyRequiredStepsTotal(input.answers);
       const answered = countCeremonyRequiredStepsAnswered(input.answers);
@@ -221,7 +207,7 @@ export function buildCoupleWeddingChapterCards(
       statLine =
         completionPct >= 100
           ? "Ready for your final pass"
-          : "Opens for a final pass once Chapters 1–4 are complete";
+          : "Opens for a final pass once Chapters 1–5 are complete";
       statSubline = "Tap anytime to see what still needs attention";
     } else if (visibleQuestions.length > 0) {
       const answered = visibleQuestions.filter((q) => (input.answers[q.id] ?? "").trim()).length;
@@ -371,5 +357,19 @@ export function coupleWeddingChapterNavLabel(chapterId: CoupleWeddingChapterId):
 }
 
 export function isCoupleWeddingGuidedChapter(chapterId: CoupleWeddingChapterId): boolean {
-  return chapterId !== "your_team" && chapterId !== "final_review";
+  return (
+    chapterId !== "your_team" &&
+    chapterId !== "final_review" &&
+    chapterId !== "music_vibe" &&
+    chapterId !== "reception_moments"
+  );
+}
+
+/** Chapters that open Music Hub or Timeline instead of Planning Questions. */
+export function coupleWeddingExternalScreenForChapter(
+  chapterId: CoupleWeddingChapterId,
+): "Music Hub" | "Timeline" | null {
+  if (chapterId === "music_vibe") return "Music Hub";
+  if (chapterId === "reception_moments") return "Timeline";
+  return null;
 }

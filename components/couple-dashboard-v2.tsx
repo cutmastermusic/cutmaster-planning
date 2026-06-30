@@ -39,7 +39,7 @@ const JOURNEY_DISPLAY_NAMES: Record<CoupleWeddingChapterId, string> = {
   about_you: "Your Story",
   ceremony: "Ceremony",
   reception_moments: "Timeline",
-  music_vibe: "Music Profile",
+  music_vibe: "Find Your Sound",
   your_team: "Wedding Team",
   final_review: "Final Review",
 };
