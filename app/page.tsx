@@ -14117,13 +14117,6 @@ export default function Home() {
             </span>
           )}
         </div>
-        {isCoupleView ? (
-          <CouplePlanningReceptionAtmosphereSection
-            answers={eventSettings.planningQuestionAnswers ?? {}}
-            onAnswerChange={updatePlanningQuestionAnswer}
-            muted={muted}
-          />
-        ) : null}
         {renderMusicHubActionCards(muted)}
       </section>
     );
@@ -22972,6 +22965,14 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
+
+            {isCoupleView ? (
+              <CouplePlanningReceptionAtmosphereSection
+                answers={eventSettings.planningQuestionAnswers ?? {}}
+                onAnswerChange={updatePlanningQuestionAnswer}
+                muted={!musicJourneyLooksComplete}
+              />
+            ) : null}
 
             {isCoupleView ? (
               <>
