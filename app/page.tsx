@@ -2176,6 +2176,87 @@ type EventModalDraft = {
   internalNotes: string;
 };
 
+function normalizeTeamSyncValue(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function mapTeamMembersForDatabase(teamMembers: TeamMember[]) {
+  return teamMembers.map((member, index) => ({
+    name: member.name,
+    role: member.role,
+    company: member.company || null,
+    email: member.email || null,
+    phone: member.phone || null,
+    notes: member.notes || null,
+    website: member.website || null,
+    instagram: member.instagram || null,
+    arrivalTime: member.arrivalTime || null,
+    specialCoordinationNotes: member.specialCoordinationNotes || null,
+    isActive: member.isActive,
+    order: index,
+  }));
+}
+
+function syncAssignedDjIntoEventTeamRoster(params: {
+  assignedDj: string;
+  eventTeamMembers: TeamMember[];
+  companyTeamMembers: TeamMember[];
+}): { teamMembers: TeamMember[]; changed: boolean } {
+  const assignedDj = params.assignedDj.trim();
+  if (!assignedDj) {
+    return { teamMembers: params.eventTeamMembers, changed: false };
+  }
+
+  const source =
+    params.companyTeamMembers.find(
+      (member) =>
+        member.role === "DJ" &&
+        (member.id === assignedDj || normalizeTeamSyncValue(member.name) === normalizeTeamSyncValue(assignedDj)),
+    ) ??
+    params.eventTeamMembers.find(
+      (member) =>
+        member.role === "DJ" &&
+        (member.id === assignedDj || normalizeTeamSyncValue(member.name) === normalizeTeamSyncValue(assignedDj)),
+    );
+  const candidateName = source?.name?.trim() || assignedDj;
+  const candidateEmail = normalizeTeamSyncValue(source?.email);
+  const candidateNameKey = normalizeTeamSyncValue(candidateName);
+  const assignedKey = normalizeTeamSyncValue(assignedDj);
+
+  const alreadyPresent = params.eventTeamMembers.some((member) => {
+    if (member.id === assignedDj) return true;
+    if (normalizeTeamSyncValue(member.name) === candidateNameKey) return true;
+    if (normalizeTeamSyncValue(member.name) === assignedKey) return true;
+    if (candidateEmail && normalizeTeamSyncValue(member.email) === candidateEmail) return true;
+    return false;
+  });
+
+  if (alreadyPresent) {
+    return { teamMembers: params.eventTeamMembers, changed: false };
+  }
+
+  return {
+    changed: true,
+    teamMembers: [
+      ...params.eventTeamMembers,
+      {
+        id: `team-assigned-dj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: candidateName,
+        role: "DJ",
+        company: source?.company ?? "",
+        email: source?.email ?? "",
+        phone: source?.phone ?? "",
+        notes: "Lead DJ",
+        website: source?.website ?? "",
+        instagram: source?.instagram ?? "",
+        arrivalTime: "",
+        specialCoordinationNotes: "",
+        isActive: true,
+      },
+    ],
+  };
+}
+
 const EVENT_TYPES: EventLayoutProfile[] = [
   "Wedding",
   "Gender-Neutral Wedding",
@@ -5252,15 +5333,7 @@ export default function Home() {
           });
           await replaceEventTeamMembers(
             activeEventId,
-            teamMembers.map((member, index) => ({
-              name: member.name,
-              role: member.role,
-              email: member.email || null,
-              phone: member.phone || null,
-              notes: member.notes || null,
-              isActive: member.isActive,
-              order: index,
-            })),
+            mapTeamMembersForDatabase(teamMembers),
           );
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
 
@@ -6115,6 +6188,11 @@ export default function Home() {
         venue,
       };
       newEvent.guestRequests = [];
+      let initialEventTeamMembers = syncAssignedDjIntoEventTeamRoster({
+        assignedDj: draft.assignedDj,
+        eventTeamMembers: [],
+        companyTeamMembers,
+      }).teamMembers;
       const timelinePresetDefaults =
         appSettings.timelinePresetSets?.[createLayoutProfile] ??
         getDefaultTimelinePresetSets()[createLayoutProfile] ??
@@ -6196,6 +6274,25 @@ export default function Home() {
             eventId: savedDatabaseEvent.id,
             count: 0,
           });
+          if (initialEventTeamMembers.length > 0) {
+            const savedTeamRows = await replaceEventTeamMembers(
+              savedDatabaseEvent.id,
+              mapTeamMembersForDatabase(initialEventTeamMembers),
+            );
+            if (
+              Array.isArray(savedTeamRows) &&
+              savedTeamRows.length === initialEventTeamMembers.length
+            ) {
+              initialEventTeamMembers = savedTeamRows
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((row, index) => ({
+                  ...initialEventTeamMembers[index],
+                  id: row.id,
+                  isActive: row.isActive,
+                }));
+            }
+          }
         } catch (error) {
           console.error("Failed to save event to database:", error);
           const detail =
@@ -6211,7 +6308,8 @@ export default function Home() {
 
       // Initialize the per-event team-member shadow field so this event has a
       // consistent shape across selection, hydration, and persistence cycles.
-      (newEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers = [];
+      (newEvent as EventRecord & { eventTeamMembers: TeamMember[] }).eventTeamMembers =
+        initialEventTeamMembers;
       (newEvent as EventRecord & { eventNotes: EventNote[] }).eventNotes = [];
 
       setEvents((prev) => [...prev, newEvent]);
@@ -6234,6 +6332,20 @@ export default function Home() {
           ?.eventLifecycleStatus,
       );
       const inferredProfile = draft.eventLayoutProfile;
+      let editedEventTeamMembers: TeamMember[] | undefined;
+      const existingEventTeamMembers = (editingEvent as EventRecord & {
+        eventTeamMembers?: TeamMember[];
+      } | undefined)?.eventTeamMembers;
+      const teamSync = syncAssignedDjIntoEventTeamRoster({
+        assignedDj: draft.assignedDj,
+        eventTeamMembers: Array.isArray(existingEventTeamMembers)
+          ? cloneJson(existingEventTeamMembers)
+          : [],
+        companyTeamMembers,
+      });
+      if (teamSync.changed) {
+        editedEventTeamMembers = teamSync.teamMembers;
+      }
       console.log("Updating database event:", eventEditingId);
       try {
         await updateDatabaseEvent(eventEditingId, {
@@ -6251,6 +6363,25 @@ export default function Home() {
           internalNotes: draft.internalNotes.trim(),
           eventStatus: editingEventStatus,
         });
+        if (editedEventTeamMembers) {
+          const savedTeamRows = await replaceEventTeamMembers(
+            eventEditingId,
+            mapTeamMembersForDatabase(editedEventTeamMembers),
+          );
+          if (
+            Array.isArray(savedTeamRows) &&
+            savedTeamRows.length === editedEventTeamMembers.length
+          ) {
+            editedEventTeamMembers = savedTeamRows
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((row, index) => ({
+                ...editedEventTeamMembers![index],
+                id: row.id,
+                isActive: row.isActive,
+              }));
+          }
+        }
       } catch (error) {
         console.error("Failed to update event in database:", error);
         setEventModalStatus({
@@ -6263,6 +6394,9 @@ export default function Home() {
           evt.id === eventEditingId
             ? {
               ...evt,
+              ...(editedEventTeamMembers
+                ? { eventTeamMembers: cloneJson(editedEventTeamMembers) }
+                : {}),
               meta: { couple, date, venue },
               settings: {
                 ...evt.settings,
@@ -6286,6 +6420,9 @@ export default function Home() {
             : evt,
         ),
       );
+      if (editedEventTeamMembers && activeEventId === eventEditingId) {
+        setTeamMembers(editedEventTeamMembers);
+      }
       setEventModalStatus(null);
     }
 
@@ -9032,20 +9169,7 @@ export default function Home() {
       });
       const savedRows = await replaceEventTeamMembers(
         activeEventId,
-        nextTeamMembers.map((member, index) => ({
-          name: member.name,
-          role: member.role,
-          company: member.company || null,
-          email: member.email || null,
-          phone: member.phone || null,
-          notes: member.notes || null,
-          website: member.website || null,
-          instagram: member.instagram || null,
-          arrivalTime: member.arrivalTime || null,
-          specialCoordinationNotes: member.specialCoordinationNotes || null,
-          isActive: member.isActive,
-          order: index,
-        })),
+        mapTeamMembersForDatabase(nextTeamMembers),
       );
       console.log("replaceEventTeamMembers returned", {
         activeEventId,
@@ -9135,6 +9259,42 @@ export default function Home() {
     [activeEventId, writeTeamMembersToDatabase],
   );
   applyYourTeamChapterToEventTeamRef.current = applyYourTeamChapterToEventTeam;
+
+  useEffect(() => {
+    if (!activeEventId) return;
+    if (effectiveRole !== "Admin" && effectiveRole !== "DJ") return;
+    if (!eventSettings.assignedDj?.trim()) return;
+
+    const synced = syncAssignedDjIntoEventTeamRoster({
+      assignedDj: eventSettings.assignedDj,
+      eventTeamMembers: teamMembersRef.current,
+      companyTeamMembers,
+    });
+    if (!synced.changed) return;
+
+    teamMembersRef.current = synced.teamMembers;
+    setTeamMembers(synced.teamMembers);
+    setEvents((prev) =>
+      prev.map((evt) =>
+        evt.id === activeEventId
+          ? ({
+              ...evt,
+              eventTeamMembers: cloneJson(synced.teamMembers),
+            } as EventRecord)
+          : evt,
+      ),
+    );
+    if (databaseEventIdsRef.current.has(activeEventId)) {
+      void writeTeamMembersToDatabase(synced.teamMembers);
+    }
+  }, [
+    activeEventId,
+    companyTeamMembers,
+    effectiveRole,
+    eventSettings.assignedDj,
+    teamMembers,
+    writeTeamMembersToDatabase,
+  ]);
 
   const saveTeamMember = async () => {
     console.log("SAVE TEAM MEMBER CLICKED");
@@ -9300,20 +9460,7 @@ export default function Home() {
       // *** The single, direct DB call the user asked for. ***
       const savedRows = await replaceEventTeamMembers(
         activeEventId,
-        nextTeamMembers.map((member, index) => ({
-          name: member.name,
-          role: member.role,
-          company: member.company || null,
-          email: member.email || null,
-          phone: member.phone || null,
-          notes: member.notes || null,
-          website: member.website || null,
-          instagram: member.instagram || null,
-          arrivalTime: member.arrivalTime || null,
-          specialCoordinationNotes: member.specialCoordinationNotes || null,
-          isActive: member.isActive,
-          order: index,
-        })),
+        mapTeamMembersForDatabase(nextTeamMembers),
       );
       console.log("replaceEventTeamMembers returned", {
         activeEventId,
@@ -27817,6 +27964,26 @@ export default function Home() {
                       const nextId = event.target.value;
                       const nextName = getTeamMemberName(nextId);
                       setEventSettings((prev) => ({ ...prev, assignedDj: nextId }));
+                      const synced = syncAssignedDjIntoEventTeamRoster({
+                        assignedDj: nextId,
+                        eventTeamMembers: teamMembersRef.current,
+                        companyTeamMembers,
+                      });
+                      if (synced.changed) {
+                        teamMembersRef.current = synced.teamMembers;
+                        setTeamMembers(synced.teamMembers);
+                        setEvents((prev) =>
+                          prev.map((evt) =>
+                            evt.id === activeEventId
+                              ? ({
+                                  ...evt,
+                                  eventTeamMembers: cloneJson(synced.teamMembers),
+                                } as EventRecord)
+                              : evt,
+                          ),
+                        );
+                        void writeTeamMembersToDatabase(synced.teamMembers);
+                      }
                       if (nextId && nextId !== eventSettings.assignedDj) {
                         logActivity("team_member_assigned", `Assigned DJ: ${nextName}`);
                       }
