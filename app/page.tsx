@@ -11131,14 +11131,14 @@ export default function Home() {
     !authSession.isCouplePortalSession &&
     (effectiveRole === "Admin" || effectiveRole === "DJ");
 
-  const getTeamMemberName = (value: string) => {
+  const getTeamMemberName = useCallback((value: string) => {
     if (!value.trim()) return "TBD";
     return (
       companyTeamMembers.find((member) => member.id === value)?.name ||
       teamMembers.find((member) => member.id === value)?.name ||
       value
     );
-  };
+  }, [companyTeamMembers, teamMembers]);
   const assignedDjValue = eventSettings.assignedDj?.trim() ?? "";
   const legacyOperationsLeadDj = eventOperations.team.leadDj.trim();
   const operationsLeadDjValue = assignedDjValue
@@ -17695,9 +17695,9 @@ export default function Home() {
   const assignedDjBriefName = useMemo(() => {
     const value = eventSettings.assignedDj?.trim() ?? "";
     if (!value) return "Not Assigned";
-    const member = teamMembers.find((teamMember) => teamMember.id === value || teamMember.name === value);
-    return member?.name?.trim() || "Not Assigned";
-  }, [eventSettings.assignedDj, teamMembers]);
+    const resolvedName = getTeamMemberName(value).trim();
+    return resolvedName && resolvedName !== "TBD" ? resolvedName : "Not Assigned";
+  }, [eventSettings.assignedDj, getTeamMemberName]);
   const briefOverviewMetaLines = useMemo(() => {
     const lines: string[] = [];
     const couple = (eventSettings.coupleNames || weddingDetails.couple).trim();
@@ -17833,7 +17833,8 @@ export default function Home() {
     const assignedDjLabel = (() => {
       const value = eventSettings.assignedDj || "";
       if (!value.trim()) return "Not Assigned";
-      return teamMembers.find((member) => member.id === value || member.name === value)?.name || "Not Assigned";
+      const resolvedName = getTeamMemberName(value).trim();
+      return resolvedName && resolvedName !== "TBD" ? resolvedName : "Not Assigned";
     })();
 
     const showMc = sectionMcScriptEnabled && eventSettings.liveEventShowMcScript;
@@ -18175,6 +18176,7 @@ export default function Home() {
     formalDanceDocumentLines,
     generalDjNotes,
     getPlaylistLines,
+    getTeamMemberName,
     grandEntranceDocumentDetail,
     grandEntranceDocumentHasContent,
     grandEntranceLineupDisplay,
