@@ -10951,6 +10951,12 @@ export default function Home() {
       value
     );
   };
+  const assignedDjValue = eventSettings.assignedDj?.trim() ?? "";
+  const legacyOperationsLeadDj = eventOperations.team.leadDj.trim();
+  const operationsLeadDjValue = assignedDjValue
+    ? getTeamMemberName(assignedDjValue)
+    : legacyOperationsLeadDj;
+  const operationsLeadDjDisplayName = operationsLeadDjValue || "Not assigned";
   const activeDjTeamMembers = useMemo(
     () => companyTeamMembers.filter((member) => member.role === "DJ" && member.isActive),
     [companyTeamMembers],
@@ -17526,6 +17532,56 @@ export default function Home() {
     weddingDetails.date,
     weddingDetails.venue,
   ]);
+  const operationsProductionScheduleRows = useMemo(
+    () =>
+      [
+        {
+          label: "DJ Arrival Time",
+          value: eventOperations.productionSchedule.djArrivalTime.trim(),
+        },
+        {
+          label: "Guest Arrival Time",
+          value: eventOperations.productionSchedule.guestArrivalTime.trim(),
+        },
+        {
+          label: "Ceremony Sound Check",
+          value: eventOperations.productionSchedule.ceremonySoundCheckTime.trim(),
+        },
+        {
+          label: "Doors Open",
+          value: eventOperations.productionSchedule.doorsOpenTime.trim(),
+        },
+      ].filter((row) => row.value),
+    [eventOperations.productionSchedule],
+  );
+  const operationsTeamRows = useMemo(
+    () =>
+      [
+        {
+          label: "Lead DJ",
+          value: operationsLeadDjValue.trim(),
+        },
+        {
+          label: "Assistant DJ",
+          value: eventOperations.team.assistantDj.trim(),
+        },
+        {
+          label: "Photobooth Attendant",
+          value: eventOperations.team.photoboothAttendant.trim(),
+        },
+      ].filter((row) => row.value),
+    [
+      eventOperations.team.assistantDj,
+      eventOperations.team.photoboothAttendant,
+      operationsLeadDjValue,
+    ],
+  );
+  const operationsInternalNotes = eventOperations.internalNotes.trim();
+  const showOperationsBriefSection =
+    !isCoupleView &&
+    (operationsProductionScheduleRows.length > 0 ||
+      operationsTeamRows.length > 0 ||
+      operationsInternalNotes.length > 0);
   const ceremonyBriefRows = useMemo(() => {
     const rows: { label: string; value: string }[] = [];
     const ceremonyLocation = eventCeremonyLocation.trim() || (eventSettings.venue || weddingDetails.venue).trim();
@@ -17842,6 +17898,35 @@ export default function Home() {
       );
     }
 
+    if (showOperationsBriefSection) {
+      lines.push("PRODUCTION");
+      if (operationsProductionScheduleRows.length > 0) {
+        lines.push(
+          "Production Schedule",
+          ...operationsProductionScheduleRows.map((row) => `- ${row.label}: ${row.value}`),
+        );
+      }
+      if (operationsTeamRows.length > 0) {
+        lines.push(
+          operationsProductionScheduleRows.length > 0 ? "" : "Team",
+          ...(operationsProductionScheduleRows.length > 0 ? ["Team"] : []),
+          ...operationsTeamRows.map((row) => `- ${row.label}: ${row.value}`),
+        );
+      }
+      if (operationsInternalNotes) {
+        lines.push(
+          operationsProductionScheduleRows.length > 0 || operationsTeamRows.length > 0
+            ? ""
+            : "Internal Notes",
+          ...(operationsProductionScheduleRows.length > 0 || operationsTeamRows.length > 0
+            ? ["Internal Notes"]
+            : []),
+          operationsInternalNotes,
+        );
+      }
+      lines.push("");
+    }
+
     if (displayedEventNotes.length > 0) {
       lines.push(
         "EVENT NOTES",
@@ -17913,6 +17998,9 @@ export default function Home() {
     musicPlaylistLinks,
     musicGenreEraSelections,
     genreOtherSelected,
+    operationsInternalNotes,
+    operationsProductionScheduleRows,
+    operationsTeamRows,
     officiantName,
     parsePlaylistSongLine,
     planningQuestionsForEvent,
@@ -17934,6 +18022,7 @@ export default function Home() {
     weddingDetails.date,
     weddingDetails.venue,
     isCoupleView,
+    showOperationsBriefSection,
   ]);
 
   const persistFeedback: PersistFeedback = useMemo(
@@ -25965,8 +26054,16 @@ export default function Home() {
                 <PremiumCard className="border-stone-200 bg-white shadow-sm">
                   <SectionTitle className="text-stone-950">Team</SectionTitle>
                   <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <label className="block">
+                      <span className={lightUiFormLabelClass}>Lead DJ</span>
+                      <input
+                        type="text"
+                        value={operationsLeadDjDisplayName}
+                        readOnly
+                        className={`${lightUiInputClass} mt-1 cursor-default bg-stone-50 text-stone-700`}
+                      />
+                    </label>
                     {[
-                      ["leadDj", "Lead DJ"],
                       ["assistantDj", "Assistant DJ"],
                       ["photoboothAttendant", "Photobooth Attendant"],
                     ].map(([key, label]) => (
@@ -27275,6 +27372,55 @@ export default function Home() {
                       </div>
                     </div>
                   )}
+                {showOperationsBriefSection ? (
+                  <div className="doc-section print-break-avoid">
+                    <h3>Production</h3>
+                    <div className="space-y-4 text-[12px] leading-relaxed text-stone-800 print:text-black">
+                      {operationsProductionScheduleRows.length > 0 ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Production Schedule
+                          </p>
+                          <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                            {operationsProductionScheduleRows.map((row) => (
+                              <p key={`operations-schedule-${row.label}`}>
+                                <span className="font-semibold text-stone-950 print:text-black">
+                                  {row.label}:{" "}
+                                </span>
+                                {row.value}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {operationsTeamRows.length > 0 ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Team
+                          </p>
+                          <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                            {operationsTeamRows.map((row) => (
+                              <p key={`operations-team-${row.label}`}>
+                                <span className="font-semibold text-stone-950 print:text-black">
+                                  {row.label}:{" "}
+                                </span>
+                                {row.value}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {operationsInternalNotes ? (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-500 print:text-black">
+                            Internal Notes
+                          </p>
+                          <p className="whitespace-pre-line">{operationsInternalNotes}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 {briefHasNotesSection ? (
                   <div className="doc-section print-break-avoid">
                     <h3>Notes</h3>
