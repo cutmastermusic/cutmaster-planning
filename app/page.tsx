@@ -228,6 +228,7 @@ import {
   eventTeamRoleGroupsForActor,
   formatTeamMemberContactLines,
   formatVendorContactLines,
+  isClientManagedEventTeamMember,
   isCutmasterEventTeamMember,
   isInternalTeamRole,
   normalizeVendorsArray,
@@ -2184,8 +2185,15 @@ function looksLikeInternalId(value: string): boolean {
   return /^[a-z0-9_-]{12,}$/i.test(value.trim()) && !/\s/.test(value.trim());
 }
 
-function mapTeamMembersForDatabase(teamMembers: TeamMember[]) {
-  return teamMembers.map((member, index) => ({
+function mapTeamMembersForDatabase(
+  teamMembers: TeamMember[],
+  options?: { coupleSafeWrite?: boolean },
+) {
+  const roster =
+    options?.coupleSafeWrite === true
+      ? teamMembers.filter(isClientManagedEventTeamMember)
+      : teamMembers;
+  return roster.map((member, index) => ({
     name: member.name,
     role: member.role,
     company: member.company || null,
@@ -5374,7 +5382,7 @@ export default function Home() {
           });
           await replaceEventTeamMembers(
             activeEventId,
-            mapTeamMembersForDatabase(teamMembers),
+            mapTeamMembersForDatabase(teamMembers, { coupleSafeWrite: isActualCouple }),
           );
           console.log("[TEAM-DEBUG] commit → replaceEventTeamMembers OK");
 
@@ -9210,7 +9218,9 @@ export default function Home() {
       });
       const savedRows = await replaceEventTeamMembers(
         activeEventId,
-        mapTeamMembersForDatabase(nextTeamMembers),
+        mapTeamMembersForDatabase(nextTeamMembers, {
+          coupleSafeWrite: !canManageInternalEventTeam,
+        }),
       );
       console.log("replaceEventTeamMembers returned", {
         activeEventId,
@@ -9501,7 +9511,9 @@ export default function Home() {
       // *** The single, direct DB call the user asked for. ***
       const savedRows = await replaceEventTeamMembers(
         activeEventId,
-        mapTeamMembersForDatabase(nextTeamMembers),
+        mapTeamMembersForDatabase(nextTeamMembers, {
+          coupleSafeWrite: !canManageInternalEventTeam,
+        }),
       );
       console.log("replaceEventTeamMembers returned", {
         activeEventId,
