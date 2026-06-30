@@ -23628,10 +23628,10 @@ export default function Home() {
                     </PrimaryButton>
                   </div>
                 </PremiumCard>
-                {renderCoupleMusicHubBottomJourneyHandoff()}
                   </>
                 ) : null}
 
+                {renderCoupleMusicHubBottomJourneyHandoff()}
               </>
             ) : (
               <>
