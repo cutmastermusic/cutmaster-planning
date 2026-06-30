@@ -371,10 +371,21 @@ import {
 import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidance-panel";
 import { CoupleTimelineCard, CoupleAddMomentStrip } from "@/components/couple-timeline-card";
 import { CoupleTimelineMomentCardSummary } from "@/components/couple-timeline-moment-card-summary";
+import { CouplePlanningChipSelect } from "@/components/couple-planning-chip-select";
 import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-moment-workspace/couple-timeline-moment-workspace";
-import { CouplePlanningReceptionAtmosphereSection } from "@/components/couple-planning-reception-atmosphere-section";
 import { buildCoupleTimelineMomentSummaryLines } from "@/lib/coupleTimelineMomentSummary";
-import { buildExtendedPlanningEventDocumentLines } from "@/lib/couplePlanningExtendedQuestions";
+import {
+  buildExtendedPlanningEventDocumentLines,
+  COCKTAIL_HOUR_VIBE_OPTIONS,
+  DINNER_VIBE_OPTIONS,
+  RECEPTION_ATMOSPHERE_QUESTION_IDS,
+  RECEPTION_VIBE_CUSTOM_CHIP,
+  parseCocktailHourVibeAnswer,
+  parseDinnerVibeAnswer,
+  serializeCocktailHourVibeAnswer,
+  formatVibeChipAnswerForDisplay,
+  serializeDinnerVibeAnswer,
+} from "@/lib/couplePlanningExtendedQuestions";
 import {
   buildCeremonyMomentWorkspaceRef,
   buildGrandEntranceMomentWorkspaceRef,
@@ -642,6 +653,8 @@ type MusicJourneyStep =
   | "guests"
   | "adventure"
   | "clean"
+  | "cocktailHourVibe"
+  | "dinnerVibe"
   | "lineDances"
   | "lovedArtists"
   | "avoidArtists"
@@ -660,10 +673,11 @@ type MusicJourneyStepConfig = {
   id: MusicJourneyStep;
   title: string;
   helper: string;
-  kind: "multi" | "single" | "artists";
+  kind: "multi" | "single" | "artists" | "receptionVibe";
   field?: MusicJourneyMultiField | MusicJourneySingleField;
   limit?: number;
   options?: MusicJourneyOption[];
+  receptionVibe?: "cocktail" | "dinner";
 };
 
 const MUSIC_JOURNEY_ORDER: MusicJourneyStep[] = [
@@ -673,6 +687,8 @@ const MUSIC_JOURNEY_ORDER: MusicJourneyStep[] = [
   "guests",
   "adventure",
   "clean",
+  "cocktailHourVibe",
+  "dinnerVibe",
   "lineDances",
   "lovedArtists",
   "avoidArtists",
@@ -785,6 +801,20 @@ const MUSIC_JOURNEY_STEPS: MusicJourneyStepConfig[] = [
       { label: "Edited Versions Preferred", icon: "✂️" },
       { label: "Explicit Music OK", icon: "✅" },
     ],
+  },
+  {
+    id: "cocktailHourVibe",
+    title: "What is your Cocktail Hour music vibe?",
+    helper: "Choose all that fit — this guides your DJ, not a specific playlist.",
+    kind: "receptionVibe",
+    receptionVibe: "cocktail",
+  },
+  {
+    id: "dinnerVibe",
+    title: "What is your Dinner music vibe?",
+    helper: "Choose all that fit — this guides your DJ, not a specific playlist.",
+    kind: "receptionVibe",
+    receptionVibe: "dinner",
   },
   {
     id: "lineDances",
@@ -14235,6 +14265,46 @@ export default function Home() {
     );
   };
 
+  const renderMusicJourneyReceptionVibeStep = (step: MusicJourneyStepConfig) => {
+    const isCocktail = step.receptionVibe === "cocktail";
+    const vibeQuestionId = isCocktail
+      ? RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibe
+      : RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibe;
+    const customQuestionId = isCocktail
+      ? RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibeCustom
+      : RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibeCustom;
+    const options = isCocktail ? COCKTAIL_HOUR_VIBE_OPTIONS : DINNER_VIBE_OPTIONS;
+    const parse = isCocktail ? parseCocktailHourVibeAnswer : parseDinnerVibeAnswer;
+    const serialize = isCocktail ? serializeCocktailHourVibeAnswer : serializeDinnerVibeAnswer;
+    const answers = eventSettings.planningQuestionAnswers ?? {};
+    const selected = parse(answers[vibeQuestionId]);
+    const showCustom = selected.includes(RECEPTION_VIBE_CUSTOM_CHIP);
+
+    return (
+      <div className="mt-4 space-y-4">
+        <CouplePlanningChipSelect
+          label={step.title}
+          helperText={step.helper}
+          mode="multi"
+          options={options}
+          value={selected}
+          onChange={(next) => updatePlanningQuestionAnswer(vibeQuestionId, serialize(next as string[]))}
+        />
+        {showCustom ? (
+          <TextInput
+            id={`music-journey-${step.id}-custom`}
+            label="Describe your custom vibe"
+            value={answers[customQuestionId] ?? ""}
+            onChange={(next) => updatePlanningQuestionAnswer(customQuestionId, next)}
+            placeholder="Tell us what you're imagining…"
+            disabled={!canManageMusic}
+            labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+          />
+        ) : null}
+      </div>
+    );
+  };
+
   const renderMusicJourneySummary = (compact = false) => {
     const summaryRows = [
       { icon: "⚡", label: musicTasteProfile.danceFloorStyles.slice(0, 3).join(" • ") },
@@ -14255,6 +14325,22 @@ export default function Home() {
       { icon: "👨‍👩‍👧", label: musicTasteProfile.crowdPreferences.slice(0, 3).join(" • ") },
       { icon: "✨", label: musicTasteProfile.musicBehavior.slice(0, 3).join(" • ") },
       { icon: "🌿", label: musicVibeDetail.cleanMusicPrefs?.trim() ?? "" },
+      {
+        icon: "🍸",
+        label: formatVibeChipAnswerForDisplay(
+          eventSettings.planningQuestionAnswers?.[RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibe],
+          eventSettings.planningQuestionAnswers?.[RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibeCustom],
+          parseCocktailHourVibeAnswer,
+        ),
+      },
+      {
+        icon: "🍽",
+        label: formatVibeChipAnswerForDisplay(
+          eventSettings.planningQuestionAnswers?.[RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibe],
+          eventSettings.planningQuestionAnswers?.[RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibeCustom],
+          parseDinnerVibeAnswer,
+        ),
+      },
     ].filter((row) => row.label);
 
     return (
@@ -14282,6 +14368,7 @@ export default function Home() {
     if (!musicJourneyCurrentStep) return null;
     const artistKind = musicJourneyCurrentStep.id === "avoidArtists" ? "avoid" : "love";
     const isArtistStep = musicJourneyCurrentStep.kind === "artists";
+    const isReceptionVibeStep = musicJourneyCurrentStep.kind === "receptionVibe";
     const artists = artistKind === "love" ? musicJourneyLovedArtists : musicJourneyAvoidArtists;
 
     return (
@@ -14354,6 +14441,8 @@ export default function Home() {
               <p className="text-sm text-stone-500">No names added yet. You can skip this step.</p>
             )}
           </div>
+        ) : isReceptionVibeStep ? (
+          renderMusicJourneyReceptionVibeStep(musicJourneyCurrentStep)
         ) : (
           <div className="mt-4 grid max-h-[18rem] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
             {(musicJourneyCurrentStep.options ?? []).map((option) => {
@@ -14531,7 +14620,9 @@ export default function Home() {
           </div>
           {musicJourneyCurrentStep.kind === "artists"
             ? renderMusicJourneyArtistsStep(artistKind)
-            : renderMusicJourneyOptionGrid(musicJourneyCurrentStep)}
+            : musicJourneyCurrentStep.kind === "receptionVibe"
+              ? renderMusicJourneyReceptionVibeStep(musicJourneyCurrentStep)
+              : renderMusicJourneyOptionGrid(musicJourneyCurrentStep)}
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <PrimaryButton
               type="button"
@@ -22965,14 +23056,6 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
-
-            {isCoupleView ? (
-              <CouplePlanningReceptionAtmosphereSection
-                answers={eventSettings.planningQuestionAnswers ?? {}}
-                onAnswerChange={updatePlanningQuestionAnswer}
-                muted={!musicJourneyLooksComplete}
-              />
-            ) : null}
 
             {isCoupleView ? (
               <>
