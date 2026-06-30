@@ -272,7 +272,7 @@ export const darkUiAccentPrimaryButtonClass =
 export const darkUiSecondaryOutlineButtonClass =
   "rounded-xl border border-zinc-500/80 bg-zinc-800/90 px-3 py-2 text-[11px] font-semibold text-zinc-100 shadow-sm hover:border-zinc-400 hover:bg-zinc-800 disabled:opacity-50";
 
-/** Text field on dark zinc panels (Global Settings timeline rows, etc.). */
+/** Text field on dark zinc panels (Event Settings timeline rows, etc.). */
 export const darkUiInputClass =
   "mt-1.5 w-full min-h-11 touch-manipulation rounded-xl border border-zinc-600 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 shadow-inner placeholder:text-zinc-400 transition-colors focus:border-[#C79A5A]/60 focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/35 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60";
 

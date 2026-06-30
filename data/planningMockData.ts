@@ -18,7 +18,6 @@ import type {
   Vendor,
 } from "@/types/planning";
 import { getDefaultPlanningQuestionSets } from "@/data/planningQuestionsCatalog";
-import { getDefaultChecklistDueDateSetsForProfiles } from "@/lib/planningChecklist";
 import { migrateFormalitiesIntoTimelineItems } from "@/utils/planning";
 
 type SeedEventPlanningPayload = {
@@ -44,7 +43,7 @@ type SeedEventPlanningPayload = {
   mcAnnouncements: string;
 };
 
-/** Default timeline preset rows per event type (Global Settings → Timeline Presets). */
+/** Default timeline preset rows per event type (Event Settings → Timeline Presets). */
 export const getDefaultTimelinePresetSets = (): Record<
   EventSettings["eventLayoutProfile"],
   TimelinePresetItem[]
@@ -488,12 +487,8 @@ export function buildSeedEvents(payload: SeedEventPlanningPayload): EventRecord[
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
     sectionFormalitiesEnabled: false,
-    sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
     planningQuestionAnswers: {},
-    checklistDueDates: {},
-    checklistManualStatuses: {},
-    checklistHandledTasks: {},
     eventStatus: "Planning",
     ceremonyCoverageStatus: "provided",
   };
@@ -583,7 +578,7 @@ const rawInitialTemplates: TimelineTemplate[] = [
       { id: "tw14", time: "", title: "Last Dance", category: "Dancing", notes: "", needsDjMcAttention: true },
     ],
     formalities: [],
-    planningSuggestions: ["Confirm timing once your venue publishes the schedule.", "Toggle bouquet/garter preset rows in Global Settings if you want them off by default."],
+    planningSuggestions: ["Confirm timing once your venue publishes the schedule.", "Toggle bouquet/garter preset rows in Event Settings if you want them off by default."],
   },
   {
     id: "tpl-gender-neutral-wedding",
@@ -732,5 +727,4 @@ export const defaultAppSettings: AppSettings = {
   globalTemplateDefaults: "Wedding, Corporate, Private Party",
   planningQuestionSets: getDefaultPlanningQuestionSets(),
   timelinePresetSets: getDefaultTimelinePresetSets(),
-  checklistDueDateSets: getDefaultChecklistDueDateSetsForProfiles(),
 };

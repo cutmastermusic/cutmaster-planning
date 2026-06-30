@@ -124,6 +124,8 @@ model Event {
   djScripts               Json?
   /** DB-backed DJ-only operational music notes (Show Book). Not client-facing. */
   djMusicNotes            Json?
+  /** DB-backed staff-only operations worksheet. Not client-facing. */
+  operations              Json?
 
   /** Supabase Storage path for couple welcome / event cover photo (public bucket). */
   coverPhotoStoragePath   String?

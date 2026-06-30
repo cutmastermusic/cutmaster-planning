@@ -12,12 +12,6 @@ import type {
   TimelineItem,
   TimelinePresetItem,
 } from "@/types/planning";
-import {
-  buildPlanningChecklist,
-  normalizeChecklistDueDatesRecord,
-  planningChecklistCompletionPercent,
-  planningChecklistInputFromEventRecord,
-} from "@/lib/planningChecklist";
 import { normalizeTimelineMomentType } from "@/lib/timelineMomentType";
 import { normalizeVendorsArray } from "@/utils/vendors";
 
@@ -294,7 +288,7 @@ export function mapDatabaseRowsToCeremonyTimelineItems(
     });
 }
 
-/** Reception timeline row from a Global Settings preset (structure-first: blank fields stay blank). */
+/** Reception timeline row from an Event Settings preset (structure-first: blank fields stay blank). */
 export function mainTimelineItemFromPreset(item: TimelinePresetItem, id: string): TimelineItem {
   const song = item.songPlaceholder?.trim();
   const notes = item.notesPlaceholder?.trim() ?? "";
@@ -310,7 +304,7 @@ export function mainTimelineItemFromPreset(item: TimelinePresetItem, id: string)
   return row;
 }
 
-/** Ceremony timeline row from a Global Settings preset. */
+/** Ceremony timeline row from an Event Settings preset. */
 export function ceremonyTimelineItemFromPreset(item: TimelinePresetItem, id: string): CeremonyTimelineItem {
   const song = item.songPlaceholder?.trim() ?? "";
   return {
@@ -647,28 +641,30 @@ export function eventCoverFallbackClasses(layoutProfile: string): string {
 }
 
 /**
- * Mirrors Dashboard checklist completion for any persisted event (used on All Events cards).
+ * Lightweight event readiness signal for compact event cards.
+ * This intentionally avoids the removed checklist system.
  */
 export function approximatePlanningProgressPercent(evt: EventRecord): number {
   const timelineItems = migrateFormalitiesIntoTimelineItems(
     evt.timelineItems ?? [],
     evt.formalities ?? [],
   );
-  const input = planningChecklistInputFromEventRecord({
-    ...evt,
-    timelineItems,
-  });
-  const checklist = buildPlanningChecklist(
-    input,
-    {
-      eventDueOverrides: normalizeChecklistDueDatesRecord(
-        evt.settings?.checklistDueDates,
-        evt.settings?.checklistDueOffsets,
-      ),
-    },
-    evt.settings?.checklistManualStatuses,
-  );
-  return planningChecklistCompletionPercent(checklist);
+  const settings = evt.settings;
+  const checks = [
+    Boolean((settings?.eventName || evt.meta.couple || "").trim()),
+    Boolean((settings?.weddingDate || evt.meta.date || "").trim()),
+    Boolean((settings?.venue || evt.meta.venue || "").trim()),
+    timelineItems.length > 0,
+    (evt.mustPlaySongs?.length ?? 0) > 0 ||
+      (evt.playIfPossibleSongs?.length ?? 0) > 0 ||
+      (evt.musicPlaylistLinks?.length ?? 0) > 0 ||
+      (evt.musicGenreEraSelections?.length ?? 0) > 0,
+    (evt as EventRecord & { eventTeamMembers?: unknown[] }).eventTeamMembers?.length
+      ? true
+      : normalizeVendorsArray(evt.vendors ?? []).length > 0,
+  ];
+  const complete = checks.filter(Boolean).length;
+  return Math.round((complete / checks.length) * 100);
 }
 
 export function readImageFileAsDataUrl(file: File, maxBytes: number): Promise<string> {

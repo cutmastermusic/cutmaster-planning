@@ -2,10 +2,6 @@ import type { EventStatus } from "@/lib/eventStatus";
 
 export type { EventStatus };
 
-export type ChecklistDueDate =
-  | { type: "relative"; offsetDays: number }
-  | { type: "custom"; date: string };
-
 export type Screen =
   | "All Events"
   | "Archive"
@@ -26,13 +22,14 @@ export type Screen =
   | "Scripts"
   /** Unified people & contacts (vendors + app access); replaces legacy Vendors / Collaborators screens. */
   | "Event Team"
-  | "Planning Checklist"
   | "Planning Questions"
   /** Guided planning dashboard shell that fronts the planning experience. */
   | "Planning Assistant"
   | "Notification Center"
   | "Settings"
   | "Event Settings"
+  /** Staff-only operational worksheet. Never exposed to couples. */
+  | "Operations"
   /** Per-event DJ prep workflow: library setup, music review, moment crates, recommendations. DJ/Admin only. */
   | "DJ Prep";
 
@@ -46,7 +43,6 @@ export type SongListType =
   | "cocktailHour"
   | "dinner";
 export type GuestRequestStatus = "Pending" | "Approved" | "Rejected";
-export type ChecklistStatus = "Not Started" | "In Progress" | "Complete";
 export type TimelineCategory =
   | "Ceremony"
   | "Cocktail Hour"
@@ -381,6 +377,26 @@ export type MusicTasteProfile = {
   danceFloorVibeNotes?: string;
 };
 
+export type EventOperationsProductionSchedule = {
+  djArrivalTime: string;
+  guestArrivalTime: string;
+  ceremonySoundCheckTime: string;
+  doorsOpenTime: string;
+};
+
+export type EventOperationsTeam = {
+  leadDj: string;
+  assistantDj: string;
+  photoboothAttendant: string;
+};
+
+/** Staff-only operational worksheet for future CRM/resource scheduling expansion. */
+export type EventOperations = {
+  productionSchedule: EventOperationsProductionSchedule;
+  team: EventOperationsTeam;
+  internalNotes: string;
+};
+
 export type Event = {
   id: string;
   meta: WeddingDetails;
@@ -429,6 +445,8 @@ export type Event = {
   djScripts?: DjScripts;
   /** DJ/admin operational music notes (DB-backed via Event.djMusicNotes JSON column). */
   djMusicNotes?: DjMusicNotes;
+  /** Staff-only operational worksheet (DB-backed via Event.operations JSON column). */
+  operations?: EventOperations;
   settings: EventSettings;
 };
 
@@ -494,10 +512,6 @@ export type AppSettings = {
   globalTemplateDefaults: string;
   planningQuestionSets: Partial<Record<EventSettings["eventLayoutProfile"], PlanningQuestionDef[]>>;
   timelinePresetSets: Partial<Record<EventSettings["eventLayoutProfile"], TimelinePresetItem[]>>;
-  /** Admin default checklist due dates per event type. */
-  checklistDueDateSets?: Partial<Record<EventSettings["eventLayoutProfile"], Record<string, ChecklistDueDate>>>;
-  /** @deprecated Use checklistDueDateSets. */
-  checklistDueOffsetSets?: Partial<Record<EventSettings["eventLayoutProfile"], Record<string, number>>>;
 };
 
 export type PlanningQuestionAnswerType =
@@ -595,16 +609,8 @@ export type EventSettings = {
   sectionMusicNotesEnabled: boolean;
   sectionGuestRequestsEnabled: boolean;
   sectionFormalitiesEnabled: boolean;
-  sectionPlanningChecklistEnabled: boolean;
   sectionPlanningQuestionsEnabled: boolean;
   planningQuestionAnswers: Record<string, string>;
-  /** Per-task checklist due date (relative to event or custom fixed date). */
-  checklistDueDates: Record<string, ChecklistDueDate>;
-  /** @deprecated Use checklistDueDates with ChecklistDueDate objects. */
-  checklistDueOffsets?: Record<string, number>;
-  checklistManualStatuses: Record<string, ChecklistStatus>;
-  /** Per-task operator sign-off: task scope handled for this event (Admin/DJ only). */
-  checklistHandledTasks?: Record<string, true>;
   /** HTTPS URL, data URL while editing, or transient local preview. */
   coverPhotoDataUrl?: string;
   /** Supabase Storage object path when persisted to the database. */
@@ -636,7 +642,6 @@ export type ActivityType =
   | "team_member_assigned"
   | "team_member_removed_from_event"
   | "vendor_updated"
-  | "checklist_completed"
   | "template_applied";
 
 export type ActivityItem = {

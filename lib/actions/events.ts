@@ -15,7 +15,10 @@ import {
   buildMusicHubPlanSnapshot,
   type EventMusicHubPlanSnapshot,
 } from "@/lib/musicHubPlan";
-import type { EventCeremonyPlanSnapshot, EventSongSource } from "@/types/planning";
+import {
+  normalizeEventOperationsForDb,
+} from "@/lib/eventOperations";
+import type { EventCeremonyPlanSnapshot, EventOperations, EventSongSource } from "@/types/planning";
 import { authorizeEventMutation, authorizeEventAccess, authorizePlatformMutation } from "@/lib/eventAccess/authorize";
 import { roleHasCapability } from "@/lib/eventAccess/capabilities";
 import { EventAccessError } from "@/lib/eventAccess/errors";
@@ -391,6 +394,22 @@ export async function replaceDjMusicNotes(
     select: {
       id: true,
       djMusicNotes: true,
+    },
+  });
+}
+
+export async function replaceEventOperations(eventId: string, operations: EventOperations) {
+  await authorizeEventMutation(eventId, "dj-ops:write");
+  logActionPayload("replaceEventOperations", operations);
+  const normalized = normalizeEventOperationsForDb(operations);
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      operations: normalized as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      operations: true,
     },
   });
 }

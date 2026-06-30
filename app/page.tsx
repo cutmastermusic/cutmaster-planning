@@ -40,6 +40,7 @@ import {
   replaceMusicHubPlanGuarded as replaceMusicHubPlan,
   replaceDjScriptsGuarded as replaceDjScripts,
   replaceDjMusicNotesGuarded as replaceDjMusicNotes,
+  replaceEventOperationsGuarded as replaceEventOperations,
   updateGrandEntranceDetailGuarded as updateGrandEntranceDetail,
 } from "@/lib/actions/eventsClient";
 import {
@@ -179,6 +180,7 @@ import type {
   DjScriptEntry,
   DjScripts,
   DjMusicNotes,
+  EventOperations,
   EventStatus,
   EventSettings,
   EventRecord,
@@ -187,8 +189,6 @@ import type {
   GuestRequestLimit,
   GuestRequestSettings,
   GuestRequestStatus,
-  ChecklistDueDate,
-  ChecklistStatus,
   CoverPhotoTransform,
   PlanningQuestionAnswerType,
   PlanningQuestionDef,
@@ -265,32 +265,6 @@ import {
   type PastedTimelineImportDraft,
 } from "@/utils/timelinePasteImport";
 import { buildCouplePlanningGaps } from "@/utils/couplePlanningGaps";
-import {
-  buildPlanningChecklist,
-  CHECKLIST_DUE_OFFSET_PRESETS,
-  DEFAULT_PLANNING_CHECKLIST_TEMPLATE,
-  formatChecklistDueOffsetDescription,
-  getDefaultChecklistDueDateSets,
-  getDefaultChecklistDueDateSetsForProfiles,
-  hasCeremonyMusic as computeCeremonyMusicComplete,
-  hasEventDetailsComplete as computeEventDetailsComplete,
-  hasFinalDjNotes as computeFinalDjNotesComplete,
-  hasKeyFormalDanceSongs as computeKeyFormalDanceSongs,
-  hasKeyTimelineMoments as computeKeyTimelineMoments,
-  hasMusicTasteSignal as computeMusicTasteSignal,
-  normalizeChecklistDueDatesRecord,
-  planningChecklistCompletionPercent,
-  formatPlanningAssistantRecommendationReason,
-  resolveChecklistTaskNavigation,
-  shouldShowPlanningChecklistMissingNotes,
-  shouldSuppressChecklistReminder,
-  isChecklistTaskHandled,
-  templateDefaultDueDate,
-  type ChecklistTaskFocus,
-  type PlanningChecklistDueConfig,
-  type PlanningChecklistInput,
-  type PlanningChecklistItem,
-} from "@/lib/planningChecklist";
 import { buildPlanningProgressChecks } from "@/utils/planningProgress";
 import {
   buildNewWeddingCeremonyTimelineItems,
@@ -331,6 +305,11 @@ import {
   normalizeDjMusicNotesForDb,
   parseDjMusicNotesJson,
 } from "@/lib/djMusicNotes";
+import {
+  defaultEventOperations,
+  normalizeEventOperations,
+  normalizeEventOperationsForDb,
+} from "@/lib/eventOperations";
 import {
   defaultCeremonyCoverageStatus,
   normalizeCeremonyCoverageStatus,
@@ -2212,7 +2191,6 @@ const EVENT_TYPES: EventLayoutProfile[] = [
 const GLOBAL_SETTINGS_SECTIONS = [
   "Event Types",
   "Planning Questions",
-  "Planning Checklist",
   "Timeline Presets",
   "Event Document",
   "Team Management",
@@ -2247,7 +2225,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2263,7 +2240,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: false,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2279,7 +2255,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2295,7 +2270,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2311,7 +2285,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2327,7 +2300,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2343,7 +2315,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: true,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2359,7 +2330,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
       sectionMusicNotesEnabled: true,
       sectionGuestRequestsEnabled: false,
       sectionFormalitiesEnabled: false,
-      sectionPlanningChecklistEnabled: true,
       sectionPlanningQuestionsEnabled: true,
     };
   }
@@ -2374,7 +2344,6 @@ const getLayoutProfileDefaults = (profile: EventLayoutProfile) => {
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
     sectionFormalitiesEnabled: false,
-    sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
   };
 };
@@ -2539,7 +2508,6 @@ const LAYOUT_SECTION_PREVIEW: {
     { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
     { key: "sectionMusicNotesEnabled", label: "Music notes" },
     { key: "sectionGuestRequestsEnabled", label: "Guest Song Requests" },
-    { key: "sectionPlanningChecklistEnabled", label: "Planning checklist" },
     { key: "sectionPlanningQuestionsEnabled", label: "Planning questions" },
   ];
 
@@ -2726,7 +2694,6 @@ type EventNavSectionFlags = {
   sectionVendorContactsEnabled: boolean;
   sectionMusicNotesEnabled: boolean;
   sectionGuestRequestsEnabled: boolean;
-  sectionPlanningChecklistEnabled: boolean;
   sectionPlanningQuestionsEnabled: boolean;
 };
 
@@ -2743,7 +2710,6 @@ function buildEventNavSectionFlagsFromSettings(
     sectionVendorContactsEnabled: settings?.sectionVendorContactsEnabled ?? true,
     sectionMusicNotesEnabled: settings?.sectionMusicNotesEnabled ?? true,
     sectionGuestRequestsEnabled: settings?.sectionGuestRequestsEnabled ?? true,
-    sectionPlanningChecklistEnabled: settings?.sectionPlanningChecklistEnabled ?? true,
     sectionPlanningQuestionsEnabled: settings?.sectionPlanningQuestionsEnabled ?? true,
   };
 }
@@ -2771,7 +2737,8 @@ function isCoupleAdminOnlyScreen(screen: Screen): boolean {
     screen === "All Events" ||
     screen === "Archive" ||
     screen === "Team" ||
-    screen === "Settings"
+    screen === "Settings" ||
+    screen === "Operations"
   );
 }
 
@@ -2859,7 +2826,6 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     s.sectionVendorContactsEnabled ||
     s.sectionMcScriptEnabled ||
     s.sectionMusicNotesEnabled ||
-    s.sectionPlanningChecklistEnabled ||
     s.sectionPlanningQuestionsEnabled;
 
   const base: Screen[] = [
@@ -2868,12 +2834,12 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
       ? (["Music Hub"] as Screen[])
       : []),
     ...(s.sectionReceptionTimelineEnabled ? (["Timeline"] as Screen[]) : []),
-    ...(s.sectionPlanningChecklistEnabled ? (["Planning Checklist"] as Screen[]) : []),
     // Planning Assistant hidden — guidance lives within each section workspace
     ...(s.sectionCeremonyEnabled && !s.sectionReceptionTimelineEnabled ? (["Ceremony"] as Screen[]) : []),
-    ...(s.sectionPlanningChecklistEnabled || s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
+    ...(s.sectionMusicNotesEnabled ? (["Notes"] as Screen[]) : []),
     ...(s.sectionGuestRequestsEnabled ? (["Guest Requests"] as Screen[]) : []),
     "Event Team",
+    "Operations",
     "Scripts",
     "DJ Prep",
     "Event Settings",
@@ -2884,15 +2850,14 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     return base.filter((item) => item !== "Event Settings");
   }
   if (role === "Planner") {
-    // Scripts are DJ/admin-only operational content.
-    return base.filter((item) => item !== "Scripts");
+    // DJ/admin-only operational content.
+    return base.filter((item) => item !== "Scripts" && item !== "Operations");
   }
   const coupleAllowedScreens: Screen[] = [
     "Dashboard",
     "Reception Timeline",
     "Music Hub",
-    "Planning Checklist",
-    "Planning Assistant",
+      "Planning Assistant",
     "Ceremony",
     "Timeline",
     "Event Team",
@@ -2907,8 +2872,7 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
   coupleNav = coupleNav.filter((item) => item !== "Guest Requests");
   // Client navigation prioritizes "what needs attention next" for returning couples.
   const coupleJourneyOrder: Screen[] = [
-    "Planning Checklist",
-    "Timeline",
+      "Timeline",
     "Music Hub",
     "Event Team",
     "Event Prep",
@@ -2916,116 +2880,10 @@ function buildEventNavItemsForRole(role: UserRole, s: EventNavSectionFlags): Scr
     "Planning Assistant",
   ];
   const orderedJourney = coupleJourneyOrder.filter((item) => coupleNav.includes(item));
-  // Keep any remaining allowed screens (e.g. Planning Checklist, Ceremony, Event Settings)
+  // Keep any remaining allowed screens (e.g. Ceremony, Event Settings)
   // reachable after the core journey rather than stranding them.
   const remaining = coupleNav.filter((item) => !coupleJourneyOrder.includes(item));
   return [...orderedJourney, ...remaining];
-}
-
-type PlanningAssistantStatus = "Complete" | "In Progress" | "Not Started";
-
-type PlanningAssistantSectionCard = {
-  id: string;
-  title: string;
-  description: string;
-  status: PlanningAssistantStatus;
-  /** Preferred navigation targets; the first one available in the current nav wins. */
-  targets: Screen[];
-};
-
-/**
- * Section overview for the Planning Assistant shell. `status` here is a safe fallback only —
- * at render time each card's status is derived from the live planning checklist when a matching
- * task exists (see `planningAssistantSectionStatuses`).
- */
-const PLANNING_ASSISTANT_SECTION_CARDS: PlanningAssistantSectionCard[] = [
-  {
-    id: "event-details",
-    title: "Event Details",
-    description: "Names, date, and venue—the foundation everything else builds on.",
-    status: "Complete",
-    targets: ["Event Settings"],
-  },
-  {
-    id: "timeline",
-    title: "Timeline",
-    description: "Map the flow of your day so every moment has its place.",
-    status: "In Progress",
-    targets: ["Timeline", "Reception Timeline"],
-  },
-  {
-    id: "music",
-    title: "Music",
-    description: "Share must-plays, do-not-plays, and the vibe you want on the floor.",
-    status: "In Progress",
-    targets: ["Music Hub"],
-  },
-  {
-    id: "people-vendors",
-    title: "People & Vendors",
-    description: "Keep your planner, photographer, and the rest of your team in one place.",
-    status: "In Progress",
-    targets: ["Event Team"],
-  },
-  {
-    id: "show-book",
-    title: "Show Book",
-    description: "The run-of-show notes that keep your reception flowing seamlessly.",
-    status: "Not Started",
-    targets: ["Scripts"],
-  },
-  {
-    id: "final-review",
-    title: "Final Review",
-    description: "A final pass to confirm everything is ready before the big day.",
-    status: "Not Started",
-    targets: ["Event Prep"],
-  },
-];
-
-function PlanningAssistantStatusBadge({ status }: { status: PlanningAssistantStatus }) {
-  const styles =
-    status === "Complete"
-      ? "border-[#7F8F7A]/45 bg-[#7F8F7A]/10 text-[#4f5f4b]"
-      : status === "In Progress"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-stone-200 bg-stone-100 text-stone-600";
-  return (
-    <span
-      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${styles}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-const OPERATOR_ONLY_PLANNING_ASSISTANT_NOTE_PATTERNS = [
-  /MC script missing/i,
-  /Grand Entrance needs script/i,
-  /Final DJ notes/i,
-  /final DJ notes for handoff/i,
-] as const;
-
-function isOperatorOnlyPlanningAssistantNote(note: string): boolean {
-  return OPERATOR_ONLY_PLANNING_ASSISTANT_NOTE_PATTERNS.some((pattern) => pattern.test(note));
-}
-
-function filterPlanningAssistantNotesForRole(
-  notes: string[],
-  showOperatorNotes: boolean,
-): string[] {
-  if (showOperatorNotes) return notes;
-  return notes.filter((note) => !isOperatorOnlyPlanningAssistantNote(note));
-}
-
-function getPlanningAssistantDisplayReason(
-  task: PlanningChecklistItem,
-  showOperatorNotes: boolean,
-): string {
-  return formatPlanningAssistantRecommendationReason({
-    ...task,
-    missingNotes: filterPlanningAssistantNotesForRole(task.missingNotes, showOperatorNotes),
-  });
 }
 
 /** When DB hydration completes, use DB playlist rows (deduped) as source of truth. */
@@ -3264,7 +3122,6 @@ function eventNavFlagsFromRecord(evt: EventRecord): EventNavSectionFlags {
     sectionVendorContactsEnabled: evt.settings?.sectionVendorContactsEnabled ?? true,
     sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
     sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
-    sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
     sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
   };
 }
@@ -3562,168 +3419,6 @@ function TimelineMomentHeadline({
       <h3 className={`${TIMELINE_CARD_TITLE_CLASS} min-w-0 flex-1 ${titleClassName}`.trim()}>
         {title}
       </h3>
-    </div>
-  );
-}
-
-function ChecklistGlobalRelativeDueSelect({
-  idPrefix,
-  offsetDays,
-  onChange,
-  disabled = false,
-}: {
-  idPrefix: string;
-  offsetDays: number;
-  onChange: (offsetDays: number) => void;
-  disabled?: boolean;
-}) {
-  const options =
-    !CHECKLIST_DUE_OFFSET_PRESETS.some((days) => -days === offsetDays)
-      ? [offsetDays, ...CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days)]
-      : CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days);
-
-  return (
-    <div>
-      <label htmlFor={`${idPrefix}-global-offset`} className={lightUiFormLabelClass}>
-        Relative to event date
-      </label>
-      <select
-        id={`${idPrefix}-global-offset`}
-        value={offsetDays}
-        disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className={lightUiSelectClass}
-      >
-        {options.map((value) => (
-          <option key={`${idPrefix}-global-${value}`} value={value}>
-            {formatChecklistDueOffsetDescription(value)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function ChecklistDueDateFields({
-  idPrefix,
-  value,
-  onChange,
-  disabled = false,
-}: {
-  idPrefix: string;
-  value: ChecklistDueDate;
-  onChange: (next: ChecklistDueDate) => void;
-  disabled?: boolean;
-}) {
-  const relativeOptions =
-    value.type === "relative" &&
-    !CHECKLIST_DUE_OFFSET_PRESETS.some((days) => -days === value.offsetDays)
-      ? [value.offsetDays, ...CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days)]
-      : CHECKLIST_DUE_OFFSET_PRESETS.map((days) => -days);
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <label htmlFor={`${idPrefix}-due-type`} className={lightUiFormLabelClass}>
-          Due date type
-        </label>
-        <select
-          id={`${idPrefix}-due-type`}
-          value={value.type}
-          disabled={disabled}
-          onChange={(event) => {
-            const nextType = event.target.value;
-            if (nextType === "custom") {
-              onChange({
-                type: "custom",
-                date: value.type === "custom" ? value.date : "",
-              });
-              return;
-            }
-            onChange({
-              type: "relative",
-              offsetDays: value.type === "relative" ? value.offsetDays : -14,
-            });
-          }}
-          className={lightUiSelectClass}
-        >
-          <option value="relative">Relative to event date</option>
-          <option value="custom">Custom date</option>
-        </select>
-      </div>
-      {value.type === "relative" ? (
-        <div>
-          <label htmlFor={`${idPrefix}-due-offset`} className={lightUiFormLabelClass}>
-            Relative timing
-          </label>
-          <select
-            id={`${idPrefix}-due-offset`}
-            value={value.offsetDays}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange({ type: "relative", offsetDays: Number(event.target.value) })
-            }
-            className={lightUiSelectClass}
-          >
-            {relativeOptions.map((offsetDays) => (
-              <option key={`${idPrefix}-offset-${offsetDays}`} value={offsetDays}>
-                {formatChecklistDueOffsetDescription(offsetDays)}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : (
-        <div>
-          <label htmlFor={`${idPrefix}-due-custom`} className={lightUiFormLabelClass}>
-            Custom date
-          </label>
-          <input
-            id={`${idPrefix}-due-custom`}
-            type="date"
-            value={value.date}
-            disabled={disabled}
-            onChange={(event) => onChange({ type: "custom", date: event.target.value })}
-            className={lightUiInputClass}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlanningChecklistMissingNotesBlock({ notes }: { notes: string[] }) {
-  if (notes.length === 0) return null;
-  return (
-    <div
-      className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2"
-      role="status"
-    >
-      <div className="flex items-start gap-2">
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600"
-        >
-          <path
-            fillRule="evenodd"
-            d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 00-.75.75v3.5a.75.75 0 001.5 0v-3.5A.75.75 0 0010 6zm0 8a1 1 0 100-2 1 1 0 000 2z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
-            Attention needed
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {notes.map((note) => (
-              <li key={note} className="text-[11px] font-medium leading-snug text-amber-900/90">
-                {note}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
     </div>
   );
 }
@@ -4168,6 +3863,7 @@ export default function Home() {
   const [mcAnnouncements, setMcAnnouncements] = useState(initialMcAnnouncements);
   const [djScripts, setDjScripts] = useState<DjScripts>(() => defaultDjScripts());
   const [djMusicNotes, setDjMusicNotes] = useState<DjMusicNotes>(() => defaultDjMusicNotes());
+  const [eventOperations, setEventOperations] = useState<EventOperations>(() => defaultEventOperations());
   const [djScriptModalOpen, setDjScriptModalOpen] = useState(false);
   const [djScriptDraftTitle, setDjScriptDraftTitle] = useState("");
   const [djScriptDraftBody, setDjScriptDraftBody] = useState("");
@@ -4227,12 +3923,8 @@ export default function Home() {
     sectionMusicNotesEnabled: true,
     sectionGuestRequestsEnabled: true,
     sectionFormalitiesEnabled: false,
-    sectionPlanningChecklistEnabled: true,
     sectionPlanningQuestionsEnabled: true,
     planningQuestionAnswers: {},
-    checklistDueDates: {},
-    checklistManualStatuses: {},
-    checklistHandledTasks: {},
     eventStatus: "Planning",
     ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
   });
@@ -4256,7 +3948,7 @@ export default function Home() {
   } | null>(null);
   const [activeGlobalSettingsSection, setActiveGlobalSettingsSection] =
     useState<GlobalSettingsSection>("Event Types");
-  /** Timeline Presets (Global Settings): expanded card keys; omitted/false = collapsed. */
+  /** Timeline Presets (Event Settings): expanded card keys; omitted/false = collapsed. */
   const [timelinePresetExpandedByProfile, setTimelinePresetExpandedByProfile] = useState<
     Partial<Record<EventLayoutProfile, boolean>>
   >({});
@@ -5412,6 +5104,66 @@ export default function Home() {
     };
   }, [activeEventId, canPersistDjOps, djMusicNotes, persistDjMusicNotesToDatabase]);
 
+  const persistEventOperationsToDatabase = useCallback(
+    async (
+      eventId: string,
+      operations: EventOperations,
+    ): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+      if (!canPersistDjOps) {
+        return { ok: true };
+      }
+      if (!databaseEventIdsRef.current.has(eventId)) {
+        return {
+          ok: false,
+          error: new Error(`Event "${eventId}" is not a database-backed event.`),
+        };
+      }
+      try {
+        await replaceEventOperations(eventId, normalizeEventOperationsForDb(operations));
+        return { ok: true };
+      } catch (error) {
+        console.error("Failed to persist event operations to database:", error);
+        return { ok: false, error };
+      }
+    },
+    [canPersistDjOps],
+  );
+
+  const persistEventOperationsNow = useCallback(
+    (next: EventOperations) => {
+      if (!activeEventId) return;
+      setEvents((prev) =>
+        prev.map((evt) =>
+          evt.id === activeEventId
+            ? ({ ...evt, operations: cloneJson(next) } as EventRecord)
+            : evt,
+        ),
+      );
+      void persistEventOperationsToDatabase(activeEventId, next);
+    },
+    [activeEventId, persistEventOperationsToDatabase],
+  );
+
+  // Safety net flush for in-flight Operations edits on hide/refresh/close.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flushEventOperations = () => {
+      if (!canPersistDjOps) return;
+      if (!activeEventId) return;
+      if (!databaseEventIdsRef.current.has(activeEventId)) return;
+      void persistEventOperationsToDatabase(activeEventId, eventOperations);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushEventOperations();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flushEventOperations);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flushEventOperations);
+    };
+  }, [activeEventId, canPersistDjOps, eventOperations, persistEventOperationsToDatabase]);
+
   const persistEventMetadataToDatabase = useCallback(
     async (
       eventId: string,
@@ -5567,6 +5319,7 @@ export default function Home() {
 
           await persistDjScriptsToDatabase(activeEventId, djScripts);
           await persistDjMusicNotesToDatabase(activeEventId, djMusicNotes);
+          await persistEventOperationsToDatabase(activeEventId, eventOperations);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error("Failed to persist event settings:", errorMessage);
@@ -5615,6 +5368,7 @@ export default function Home() {
             mcAnnouncements,
             djScripts: cloneJson(djScripts),
             djMusicNotes: cloneJson(djMusicNotes),
+            operations: cloneJson(eventOperations),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, evt.settings)
@@ -5646,6 +5400,7 @@ export default function Home() {
     mcAnnouncements,
     djScripts,
     djMusicNotes,
+    eventOperations,
     microphoneNeeds,
     musicVibeDetail,
     musicTasteProfile,
@@ -5671,6 +5426,7 @@ export default function Home() {
     persistMusicHubPlanToDatabase,
     persistDjScriptsToDatabase,
     persistDjMusicNotesToDatabase,
+    persistEventOperationsToDatabase,
     canPersistDjOps,
     currentRole,
     rolePreview,
@@ -5829,6 +5585,7 @@ export default function Home() {
     setMcAnnouncements(evt.mcAnnouncements);
     setDjScripts(parseDjScriptsJson(evt.djScripts ?? null));
     setDjMusicNotes(parseDjMusicNotesJson(evt.djMusicNotes ?? null));
+    setEventOperations(normalizeEventOperations(evt.operations ?? null));
     const deferCoverPhotoFields = options?.deferCoverPhotoFields === true;
     const nextSettingsDraft = cloneJson({
         eventLayoutProfile: migrateLegacyLayoutProfile(
@@ -5881,15 +5638,8 @@ export default function Home() {
         sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
         sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
         sectionFormalitiesEnabled: false,
-        sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-        checklistDueDates: normalizeChecklistDueDatesRecord(
-          evt.settings?.checklistDueDates,
-          evt.settings?.checklistDueOffsets,
-        ),
-        checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
-        checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         ...(deferCoverPhotoFields
           ? {}
           : {
@@ -6116,7 +5866,6 @@ export default function Home() {
     if (type === "team_member_assigned") return "🎧";
     if (type === "team_member_removed_from_event") return "🧾";
     if (type === "vendor_updated") return "🏢";
-    if (type === "checklist_completed") return "☑️";
     if (type === "template_applied") return "🧩";
     return "🔔";
   };
@@ -6174,6 +5923,7 @@ export default function Home() {
       mcAnnouncements,
       djScripts: defaultDjScripts(),
       djMusicNotes: defaultDjMusicNotes(),
+      operations: defaultEventOperations(),
       settings: {
         eventLayoutProfile: "Wedding",
         eventName: meta.couple || "New Event",
@@ -6214,12 +5964,8 @@ export default function Home() {
         sectionMusicNotesEnabled: true,
         sectionGuestRequestsEnabled: true,
         sectionFormalitiesEnabled: false,
-        sectionPlanningChecklistEnabled: true,
-        sectionPlanningQuestionsEnabled: true,
+          sectionPlanningQuestionsEnabled: true,
         planningQuestionAnswers: {},
-        checklistDueDates: {},
-        checklistManualStatuses: {},
-        checklistHandledTasks: {},
         eventStatus: "Planning",
         ceremonyCoverageStatus: defaultCeremonyCoverageStatus("Wedding"),
       },
@@ -6882,56 +6628,6 @@ export default function Home() {
     }, {} as Record<EventLayoutProfile, PlanningQuestionDef[]>);
   }, [appSettings.planningQuestionSets]);
 
-  const checklistDueDateSetsForSettings = useMemo(() => {
-    const defaults = getDefaultChecklistDueDateSetsForProfiles();
-    return EVENT_TYPES.reduce((acc, profile) => {
-      acc[profile] = normalizeChecklistDueDatesRecord(
-        appSettings.checklistDueDateSets?.[profile],
-        appSettings.checklistDueOffsetSets?.[profile],
-      );
-      if (Object.keys(acc[profile]).length === 0) {
-        acc[profile] = defaults[profile] ?? getDefaultChecklistDueDateSets();
-      }
-      return acc;
-    }, {} as Record<EventLayoutProfile, Record<string, ChecklistDueDate>>);
-  }, [appSettings.checklistDueDateSets, appSettings.checklistDueOffsetSets]);
-
-  const updateChecklistGlobalDueDate = useCallback(
-    (profile: EventLayoutProfile, taskId: string, offsetDays: number) => {
-      setAppSettings((prev) => {
-        const defaults = getDefaultChecklistDueDateSetsForProfiles();
-        const current = {
-          ...(prev.checklistDueDateSets?.[profile] ??
-            normalizeChecklistDueDatesRecord(undefined, prev.checklistDueOffsetSets?.[profile]) ??
-            defaults[profile] ??
-            getDefaultChecklistDueDateSets()),
-        };
-        current[taskId] = { type: "relative", offsetDays };
-        return {
-          ...prev,
-          checklistDueDateSets: {
-            ...(prev.checklistDueDateSets ?? {}),
-            [profile]: current,
-          },
-        };
-      });
-    },
-    [setAppSettings],
-  );
-
-  const resetChecklistGlobalDueDateSet = useCallback(
-    (profile: EventLayoutProfile) => {
-      setAppSettings((prev) => ({
-        ...prev,
-        checklistDueDateSets: {
-          ...(prev.checklistDueDateSets ?? {}),
-          [profile]: { ...getDefaultChecklistDueDateSets() },
-        },
-      }));
-    },
-    [setAppSettings],
-  );
-
   const updatePlanningQuestionSet = useCallback(
     (
       profile: EventLayoutProfile,
@@ -6939,9 +6635,7 @@ export default function Home() {
     ) => {
       setAppSettings((prev) => {
         const defaults = getDefaultPlanningQuestionSets();
-        const current = cloneJson(
-          prev.planningQuestionSets?.[profile] ?? defaults[profile] ?? [],
-        );
+        const current = cloneJson(prev.planningQuestionSets?.[profile] ?? defaults[profile] ?? []);
         return {
           ...prev,
           planningQuestionSets: {
@@ -6954,33 +6648,38 @@ export default function Home() {
     [setAppSettings],
   );
 
-  const addPlanningQuestionToSet = (profile: EventLayoutProfile) => {
-    updatePlanningQuestionSet(profile, (questions) => [
-      ...questions,
-      {
-        id: `pq_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        label: "New question",
-        helpText: "",
-        answerType: "long_text",
-        required: false,
-        showInLiveEventMode: true,
-        options: [],
-        placeholder: "",
-        sectionGroup: "event_details",
-      },
-    ]);
-  };
+  const addPlanningQuestionToSet = useCallback(
+    (profile: EventLayoutProfile) => {
+      updatePlanningQuestionSet(profile, (questions) => [
+        ...questions,
+        {
+          id: `pq_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          label: "New planning question",
+          helpText: "",
+          answerType: "short_text",
+          required: false,
+          showInLiveEventMode: true,
+          sectionGroup: "event_details",
+          placeholder: "",
+        },
+      ]);
+    },
+    [updatePlanningQuestionSet],
+  );
 
-  const resetPlanningQuestionSet = (profile: EventLayoutProfile) => {
-    const defaults = getDefaultPlanningQuestionSets();
-    setAppSettings((prev) => ({
-      ...prev,
-      planningQuestionSets: {
-        ...(prev.planningQuestionSets ?? {}),
-        [profile]: cloneJson(defaults[profile] ?? []),
-      },
-    }));
-  };
+  const resetPlanningQuestionSet = useCallback(
+    (profile: EventLayoutProfile) => {
+      const defaults = getDefaultPlanningQuestionSets();
+      setAppSettings((prev) => ({
+        ...prev,
+        planningQuestionSets: {
+          ...(prev.planningQuestionSets ?? {}),
+          [profile]: cloneJson(defaults[profile] ?? []),
+        },
+      }));
+    },
+    [setAppSettings],
+  );
 
   const timelinePresetSetsForSettings = useMemo(() => {
     const defaults = getDefaultTimelinePresetSets();
@@ -7204,7 +6903,6 @@ export default function Home() {
   const teamModalShowsCompanyField =
     teamRoleDraft !== "Admin" && teamRoleDraft !== "DJ";
   const canEditEventCover = effectiveRole !== "DJ" && effectiveRole !== "Couple";
-  const canEditChecklistStatus = effectiveRole === "Admin" || effectiveRole === "DJ";
   const canEditEventStatus = effectiveRole === "Admin" || effectiveRole === "Planner";
   /** Apply cover photo to in-memory state (URL or transient data URL for preview). */
   const applyEventCoverPhotoState = useCallback(
@@ -7508,6 +7206,36 @@ export default function Home() {
     [activeEventId, eventSettings, isActualCouple],
   );
 
+  const activeEventStatus = normalizeEventStatus(
+    eventSettings.eventStatus,
+    (eventSettings as EventSettings & { eventLifecycleStatus?: string }).eventLifecycleStatus,
+  );
+
+  const eventStatusDashboardControl = canEditEventStatus ? (
+    <select
+      aria-label="Event status"
+      value={activeEventStatus}
+      onChange={(event) => void applyEventStatus(event.target.value as EventStatus)}
+      className={`rounded-full border-0 px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnCover(
+        activeEventStatus,
+      )}`}
+    >
+      {EVENT_STATUSES.map((status) => (
+        <option key={status} value={status} className="bg-white text-stone-900">
+          {status}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${eventStatusPillClassOnCover(
+        activeEventStatus,
+      )}`}
+    >
+      {activeEventStatus}
+    </span>
+  );
+
   const updateCeremonyCoverageStatus = useCallback(
     (status: CeremonyCoverageStatus) => {
       if (isActualCouple) return;
@@ -7671,89 +7399,6 @@ export default function Home() {
     Number.isFinite(timelineReviewRequestedAtMs) &&
     (activeEvent?.lastUpdatedAt ?? 0) > timelineReviewRequestedAtMs + 1000;
 
-  const setChecklistTaskHandled = useCallback(
-    (taskId: string, handled: boolean) => {
-      if (effectiveRole !== "Admin" && effectiveRole !== "DJ") return;
-      setEventSettings((prev) => {
-        const nextHandled = { ...(prev.checklistHandledTasks ?? {}) };
-        if (handled) nextHandled[taskId] = true;
-        else delete nextHandled[taskId];
-        return { ...prev, checklistHandledTasks: nextHandled };
-      });
-      if (!activeEventId) return;
-      setEvents((prev) =>
-        prev.map((evt) => {
-          if (evt.id !== activeEventId) return evt;
-          const nextHandled = { ...(evt.settings.checklistHandledTasks ?? {}) };
-          if (handled) nextHandled[taskId] = true;
-          else delete nextHandled[taskId];
-          return {
-            ...evt,
-            lastUpdatedAt: Date.now(),
-            settings: { ...evt.settings, checklistHandledTasks: nextHandled },
-          };
-        }),
-      );
-    },
-    [activeEventId, effectiveRole],
-  );
-
-  const activeEventStatus = useMemo(
-    () => normalizeEventStatus(eventSettings.eventStatus),
-    [eventSettings.eventStatus],
-  );
-
-  const eventStatusDashboardControl = useMemo(
-    () =>
-      canEditEventStatus ? (
-        <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-[#1E1E1E]/45 py-1 pl-3 pr-2 ring-1 ring-white/15">
-          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
-            Status
-          </span>
-          <select
-            value={activeEventStatus}
-            onChange={(e) => void applyEventStatus(e.target.value as EventStatus)}
-            className="min-h-9 min-w-[8.5rem] max-w-[12rem] flex-1 cursor-pointer appearance-none rounded-lg bg-transparent text-[11px] font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/55 sm:text-xs"
-            aria-label="Event status"
-          >
-            {EVENT_STATUSES.map((status) => (
-              <option key={`dash-hero-status-${status}`} value={status} className="bg-white text-stone-900">
-                {status}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <span
-          className={`inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ring-white/15 sm:text-xs ${eventStatusPillClassOnCover(activeEventStatus)}`}
-        >
-          {activeEventStatus}
-        </span>
-      ),
-    [activeEventStatus, applyEventStatus, canEditEventStatus],
-  );
-
-  const viewerRoleBadgeForEvent = useCallback(
-    (evt: EventRecord): string | null => {
-      const role = effectiveRole;
-      if (role === "Admin") return null;
-      if (role === "DJ") {
-        const activeDj = companyTeamMembers.find((m) => m.role === "DJ" && m.isActive);
-        const assigned = evt.settings?.assignedDj?.trim();
-        if (activeDj && assigned && (assigned === activeDj.id || assigned === activeDj.name)) {
-          return "Assigned DJ";
-        }
-        return null;
-      }
-      const collab = (evt.collaborators ?? []).some(
-        (c) => c.role === role && c.status === "Accepted",
-      );
-      if (!collab) return null;
-      return role === "Couple" ? "Client" : role;
-    },
-    [effectiveRole, companyTeamMembers],
-  );
-
   const canInviteCollaborators = effectiveRole === "Admin" || effectiveRole === "Planner";
   const sectionCeremonyEnabled = eventSettings.sectionCeremonyEnabled;
   const ceremonyCoverageStatus = normalizeCeremonyCoverageStatus(
@@ -7833,7 +7478,6 @@ export default function Home() {
   const sectionVendorContactsEnabled = eventSettings.sectionVendorContactsEnabled;
   const sectionMusicNotesEnabled = eventSettings.sectionMusicNotesEnabled;
   const sectionGuestRequestsEnabled = eventSettings.sectionGuestRequestsEnabled;
-  const sectionPlanningChecklistEnabled = eventSettings.sectionPlanningChecklistEnabled;
   const sectionPlanningQuestionsEnabled = eventSettings.sectionPlanningQuestionsEnabled;
   const musicHubHasCoupleSignal =
     musicPlaylistLinks.length > 0 ||
@@ -7946,66 +7590,22 @@ export default function Home() {
   const acceptedCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Accepted") ?? [];
   const pendingCollaborators = activeEvent?.collaborators?.filter((c) => c.status === "Pending") ?? [];
 
-  const planningChecklistInput = useMemo(
-    (): PlanningChecklistInput => ({
-      eventName: eventSettings.eventName,
-      coupleNames: eventSettings.coupleNames,
-      venue: eventSettings.venue,
-      weddingDate: eventSettings.weddingDate,
-      plannerName: eventSettings.plannerName,
-      plannerEmail: eventSettings.plannerEmail,
-      teamMembers,
-      planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
-      mustPlaySongs,
-      doNotPlaySongs,
-      playIfPossibleSongs,
-      musicPlaylistLinks,
-      musicGenreEraSelections,
-      musicTasteProfile,
-      playlistVibeOverrides,
-      weddingPartyProcessional,
-      brideGroomProcessional,
-      recessionalSong,
-      ceremonyTimelineItems,
-      timelineItems,
-      guestRequests,
-      generalDjNotes,
-      sectionReceptionTimelineEnabled,
-      receptionHubEligibleNav,
-    }),
-    [
-      eventSettings.eventName,
-      eventSettings.coupleNames,
-      eventSettings.venue,
-      eventSettings.weddingDate,
-      eventSettings.plannerName,
-      eventSettings.plannerEmail,
-      eventSettings.planningQuestionAnswers,
-      teamMembers,
-      mustPlaySongs,
-      doNotPlaySongs,
-      playIfPossibleSongs,
-      musicPlaylistLinks,
-      musicGenreEraSelections,
-      musicTasteProfile,
-      playlistVibeOverrides,
-      weddingPartyProcessional,
-      brideGroomProcessional,
-      recessionalSong,
-      ceremonyTimelineItems,
-      timelineItems,
-      guestRequests,
-      generalDjNotes,
-      sectionReceptionTimelineEnabled,
-      receptionHubEligibleNav,
-    ],
-  );
+  const hasKeyCeremonySongs = useMemo(() => {
+    if (ceremonyTimelineItems.some((item) => item.songTitle.trim() || item.artist.trim())) return true;
+    return Boolean(
+      weddingPartyProcessional.title.trim() ||
+        brideGroomProcessional.title.trim() ||
+        recessionalSong.title.trim(),
+    );
+  }, [brideGroomProcessional.title, ceremonyTimelineItems, recessionalSong.title, weddingPartyProcessional.title]);
 
-  const hasKeyCeremonySongs = computeCeremonyMusicComplete(planningChecklistInput);
-  const hasKeyFormalDanceSongs = computeKeyFormalDanceSongs(planningChecklistInput);
-  const hasKeyTimelineMoments = computeKeyTimelineMoments(planningChecklistInput);
-  const hasFinalDjNotes = computeFinalDjNotesComplete(planningChecklistInput);
-  const hasEventDetailsComplete = computeEventDetailsComplete(planningChecklistInput);
+  const hasFinalDjNotes = generalDjNotes.trim().length >= 16;
+  const hasEventDetailsComplete = Boolean(
+    eventSettings.eventName.trim() &&
+      eventSettings.coupleNames.trim() &&
+      eventSettings.venue.trim() &&
+      eventSettings.weddingDate.trim(),
+  );
 
   const showCouplePostJourneyTimelineGuidance =
     isCoupleWeddingPlanningView &&
@@ -8014,176 +7614,28 @@ export default function Home() {
     sectionReceptionTimelineEnabled;
 
   const coupleTimelineReviewGapLabels = useMemo(
-    () => buildCoupleTimelineReviewGapLabels(planningChecklistInput),
-    [planningChecklistInput],
+    () =>
+      buildCoupleTimelineReviewGapLabels({
+        timelineItems,
+        planningQuestionAnswers: eventSettings.planningQuestionAnswers ?? {},
+      }),
+    [eventSettings.planningQuestionAnswers, timelineItems],
   );
   const coupleTimelineNeedsDashboardAttention =
     sectionReceptionTimelineEnabled &&
     (timelineItems.length === 0 || coupleTimelineReviewGapLabels.length > 0);
 
-  const planningChecklistDueConfig = useMemo(
-    (): PlanningChecklistDueConfig => ({
-      eventDueOverrides: eventSettings.checklistDueDates,
-      globalDefaultDueDates: checklistDueDateSetsForSettings[layoutProfileForActiveEvent],
-    }),
-    [
-      eventSettings.checklistDueDates,
-      checklistDueDateSetsForSettings,
-      layoutProfileForActiveEvent,
-    ],
-  );
+  const hasKeyTimelineMoments = timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention;
+  const hasKeyFormalDanceSongs = hasKeyTimelineMoments;
+  const hasMusicTasteSignal =
+    mustPlaySongs.length > 0 ||
+    playIfPossibleSongs.length > 0 ||
+    musicPlaylistLinks.length > 0 ||
+    musicGenreEraSelections.length > 0 ||
+    musicTasteProfileHasSelections(musicTasteProfile) ||
+    PLAYLIST_BUCKET_IDS.some((id) => (playlistVibeOverrides[id]?.length ?? 0) > 0);
 
-  const planningChecklist = useMemo(
-    () =>
-      buildPlanningChecklist(
-        planningChecklistInput,
-        planningChecklistDueConfig,
-        eventSettings.checklistManualStatuses,
-      ),
-    [
-      planningChecklistInput,
-      planningChecklistDueConfig,
-      eventSettings.checklistManualStatuses,
-    ],
-  );
 
-  const completionPercent = planningChecklistCompletionPercent(planningChecklist);
-
-  // Planning Assistant shell reads its live state from the existing planning checklist engine —
-  // no separate task engine. Next steps = top incomplete checklist tasks (reuses task ids so
-  // navigateToChecklistTask deep-links work). Section statuses aggregate the checklist items whose
-  // linkedSection matches each card's nav targets; cards with no matching task keep their static
-  // fallback status.
-  const planningAssistantNextSteps = useMemo(
-    () =>
-      planningChecklist
-        .filter((task) => !shouldSuppressChecklistReminder(task, eventSettings.checklistHandledTasks))
-        .slice(0, 3),
-    [planningChecklist, eventSettings.checklistHandledTasks],
-  );
-
-  const planningAssistantSectionStatuses = useMemo(() => {
-    const statusByCardId: Record<string, PlanningAssistantStatus> = {};
-    for (const card of PLANNING_ASSISTANT_SECTION_CARDS) {
-      const matching = planningChecklist.filter((task) =>
-        card.targets.includes(task.linkedSection),
-      );
-      if (matching.length === 0) {
-        statusByCardId[card.id] = card.status;
-        continue;
-      }
-      if (matching.every((task) => task.status === "Complete")) {
-        statusByCardId[card.id] = "Complete";
-      } else if (matching.every((task) => task.status === "Not Started")) {
-        statusByCardId[card.id] = "Not Started";
-      } else {
-        statusByCardId[card.id] = "In Progress";
-      }
-    }
-    return statusByCardId;
-  }, [planningChecklist]);
-
-  // Presentation-only tallies for the Planning Assistant progress card (reads existing checklist).
-  const planningAssistantCounts = useMemo(() => {
-    let complete = 0;
-    let inProgress = 0;
-    let notStarted = 0;
-    for (const task of planningChecklist) {
-      if (task.status === "Complete") complete += 1;
-      else if (task.status === "In Progress") inProgress += 1;
-      else notStarted += 1;
-    }
-    return { complete, inProgress, notStarted, total: planningChecklist.length };
-  }, [planningChecklist]);
-
-  // Presentation-only Planning Health derivation. Reuses the existing checklist's per-task status,
-  // missingNotes, and dueDate; the template is consulted ONLY to identify optional tasks (so they
-  // don't count as blocking). No engine/persistence involvement.
-  //
-  // Health stays calmer and timeline-aware vs the full Planning Checklist: soft/discretionary tasks
-  // are excluded; song-missing and "not on timeline" prompts are hidden; Grand Entrance only applies
-  // when that moment exists on the reception timeline. Global blockers (event details, planner)
-  // always surface when incomplete.
-  const planningHealth = useMemo(() => {
-    const softTaskIds = new Set<string>([
-      "choose-ceremony-songs",
-      "add-formal-dance-songs",
-      "add-must-play-songs",
-      "build-must-play-list",
-      "add-do-not-play-songs",
-      "add-final-dj-notes",
-    ]);
-    const hiddenNotePattern = /song missing|not on timeline|add key reception moments/i;
-    const globalBlockerIds = new Set(["complete-event-details", "add-planner-contact"]);
-    const hasGrandEntranceMoment = timelineItems.some((item) =>
-      isGrandEntranceTimelineItem(item.title),
-    );
-    const optionalTaskIds = new Set(
-      DEFAULT_PLANNING_CHECKLIST_TEMPLATE.filter((task) => task.optional).map((task) => task.id),
-    );
-    const incomplete = planningChecklist.filter((task) => {
-      if (
-        shouldSuppressChecklistReminder(task, eventSettings.checklistHandledTasks) ||
-        softTaskIds.has(task.id)
-      ) {
-        return false;
-      }
-      if (task.id === "add-grand-entrance-details" && !hasGrandEntranceMoment) return false;
-      return true;
-    });
-
-    const tasksWithSurvivingNotes = incomplete.map((task) => ({
-      task,
-      survivingNotes: task.missingNotes.filter((note) => !hiddenNotePattern.test(note)),
-    }));
-
-    const blockingItems = tasksWithSurvivingNotes
-      .filter(({ task, survivingNotes }) => {
-        if (optionalTaskIds.has(task.id)) return false;
-        if (globalBlockerIds.has(task.id)) return true;
-        return survivingNotes.length > 0;
-      })
-      .map(({ task }) => task)
-      .sort((a, b) => {
-        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-        if (a.dueDate) return -1;
-        if (b.dueDate) return 1;
-        return 0;
-      });
-
-    const seen = new Set<string>();
-    const missingInformation: Array<{ note: string; taskId: string }> = [];
-    for (const { task, survivingNotes } of tasksWithSurvivingNotes) {
-      for (const note of survivingNotes) {
-        const key = note.trim().toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        missingInformation.push({ note, taskId: task.id });
-        if (missingInformation.length >= 6) break;
-      }
-      if (missingInformation.length >= 6) break;
-    }
-
-    return { blockingItems, missingInformation };
-  }, [planningChecklist, timelineItems, eventSettings.checklistHandledTasks]);
-
-  const planningAssistantDetailsStillMissing = useMemo(() => {
-    const nextStepIds = new Set(planningAssistantNextSteps.map((task) => task.id));
-    return planningHealth.missingInformation.filter((entry) => {
-      if (nextStepIds.has(entry.taskId)) return false;
-      if (!canAccessGrandEntranceOperations && isOperatorOnlyPlanningAssistantNote(entry.note)) {
-        return false;
-      }
-      return true;
-    });
-  }, [
-    planningHealth.missingInformation,
-    planningAssistantNextSteps,
-    canAccessGrandEntranceOperations,
-  ]);
-
-  const canEditChecklistDueTiming = effectiveRole === "Admin" || effectiveRole === "DJ";
-  const canMarkChecklistHandled = effectiveRole === "Admin" || effectiveRole === "DJ";
   const isCoupleView = effectiveRole === "Couple";
   const renderReceptionTimelineQuickTimeSlot = useCallback(
     (row: TimelineItem | null, displayTime: string) => {
@@ -8800,14 +8252,6 @@ export default function Home() {
   const millisecondsUntilWedding = safeWeddingTimestamp === null ? null : safeWeddingTimestamp - nowTick;
   const daysUntilWedding =
     millisecondsUntilWedding === null ? null : Math.max(0, Math.ceil(millisecondsUntilWedding / 86400000));
-  const nextChecklistTasks = planningChecklist.filter((item) => item.status !== "Complete").slice(0, 3);
-  const upcomingMilestones = planningChecklist
-    .filter(
-      (item) =>
-        !shouldSuppressChecklistReminder(item, eventSettings.checklistHandledTasks) && item.dueDate,
-    )
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .slice(0, 3);
   const recentActivityForActiveEvent = activities
     .filter((item) => item.eventId === activeEventId)
     .slice(0, 4);
@@ -9126,7 +8570,7 @@ export default function Home() {
           (evt.musicGenreEraSelections?.length ?? 0) > 0 ||
           musicTasteProfileHasSelections(normalizeMusicTasteProfile(evt.musicTasteProfile)) ||
           PLAYLIST_BUCKET_IDS.some((id) => (evt.playlistVibeOverrides?.[id]?.length ?? 0) > 0);
-        const incompleteChecklistCount = [
+        const incompletePlanningAreaCount = [
           !evt.settings?.eventName?.trim(),
           !evt.settings?.coupleNames?.trim(),
           !evt.settings?.venue?.trim(),
@@ -9136,12 +8580,12 @@ export default function Home() {
           evt.timelineItems.length === 0,
         ].filter(Boolean).length;
         const timelineReviewRequested = Boolean(evt.settings?.timelineReviewRequestedAt);
-        return { evt, pendingGuestRequests, incompleteChecklistCount, timelineReviewRequested };
+        return { evt, pendingGuestRequests, incompletePlanningAreaCount, timelineReviewRequested };
       })
       .filter(
         (item) =>
           item.pendingGuestRequests > 0 ||
-          item.incompleteChecklistCount > 0 ||
+          item.incompletePlanningAreaCount > 0 ||
           item.timelineReviewRequested,
       );
   }, [commandCenterEvents]);
@@ -10094,6 +9538,36 @@ export default function Home() {
     persistDjMusicNotesNow(next);
   };
 
+  const updateOperationsProductionSchedule = (
+    key: keyof EventOperations["productionSchedule"],
+    value: string,
+  ) => {
+    setEventOperations((prev) => ({
+      ...prev,
+      productionSchedule: {
+        ...prev.productionSchedule,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateOperationsTeam = (key: keyof EventOperations["team"], value: string) => {
+    setEventOperations((prev) => ({
+      ...prev,
+      team: {
+        ...prev.team,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateOperationsInternalNotes = (value: string) => {
+    setEventOperations((prev) => ({
+      ...prev,
+      internalNotes: value,
+    }));
+  };
+
   const sortEventNotesForDisplay = (notes: EventNote[]) =>
     notes
       .slice()
@@ -10551,7 +10025,6 @@ export default function Home() {
       sectionVendorContactsEnabled,
       sectionMusicNotesEnabled,
       sectionGuestRequestsEnabled,
-      sectionPlanningChecklistEnabled,
       sectionPlanningQuestionsEnabled,
     });
   }, [
@@ -10564,7 +10037,6 @@ export default function Home() {
     sectionMustPlayEnabled,
     sectionMcScriptEnabled,
     sectionMusicNotesEnabled,
-    sectionPlanningChecklistEnabled,
     sectionPlanningQuestionsEnabled,
     sectionPlaylistsEnabled,
     sectionReceptionTimelineEnabled,
@@ -10613,8 +10085,6 @@ export default function Home() {
       (q) => !answers[q.id]?.trim(),
     ).length;
     const pendingGuestCount = guestRequests.filter((r) => r.status === "Pending").length;
-    const hasMusicTasteSignal = computeMusicTasteSignal(planningChecklistInput);
-
     if (!hasEventDetailsComplete) return "Event Settings";
 
     if (
@@ -10649,16 +10119,8 @@ export default function Home() {
     }
     if (sectionGuestRequestsEnabled && pendingGuestCount > 0) return "Music Hub";
 
-    const nextIncomplete = planningChecklist.find(
-      (t) => t.status !== "Complete" && t.linkedSection !== "Notes" && t.linkedSection !== "Event Settings",
-    );
-    if (nextIncomplete) return nextIncomplete.linkedSection;
-
-    if (sectionPlanningChecklistEnabled) return "Planning Checklist";
     return eventNavItems.includes("Event Prep") ? "Event Prep" : "Music Hub";
   }, [
-    planningChecklist,
-    planningChecklistInput,
     eventSettings.planningQuestionAnswers,
     eventNavItems,
     guestRequests,
@@ -10671,12 +10133,11 @@ export default function Home() {
     dashboardPlanningQuestionsForCouple,
     sectionCeremonyEnabled,
     sectionGuestRequestsEnabled,
-    sectionPlanningChecklistEnabled,
     sectionPlanningQuestionsEnabled,
     sectionReceptionTimelineEnabled,
-    unifiedEventTimeline,
     isCoupleWeddingPlanningView,
     firstIncompleteCoupleChapter,
+    hasMusicTasteSignal,
   ]);
 
   const coupleHomePlanningSections = useMemo(() => {
@@ -11057,7 +10518,6 @@ export default function Home() {
         sectionVendorContactsEnabled,
         sectionMusicNotesEnabled,
         sectionGuestRequestsEnabled,
-        sectionPlanningChecklistEnabled,
         sectionPlanningQuestionsEnabled,
       ].filter(Boolean).length,
     [
@@ -11067,7 +10527,6 @@ export default function Home() {
       sectionMcScriptEnabled,
       sectionMusicNotesEnabled,
       sectionMustPlayEnabled,
-      sectionPlanningChecklistEnabled,
       sectionPlanningQuestionsEnabled,
       sectionPlaylistsEnabled,
       sectionReceptionTimelineEnabled,
@@ -11091,7 +10550,6 @@ export default function Home() {
         { kind: "screen", screen: tl, label: tl === "Reception Timeline" ? "Reception timeline" : "Timeline" },
         { kind: "screen", screen: "Event Team", label: "People & vendors" },
         { kind: "screen", screen: "Planning Questions", label: "Planning questions" },
-        { kind: "screen", screen: "Planning Checklist", label: "Planning progress" },
         { kind: "screen", screen: "Notes", label: "Planning notes" },
         { kind: "screen", screen: "Event Settings", label: "Event logistics" },
       ]);
@@ -11120,9 +10578,19 @@ export default function Home() {
     return [];
   }, [effectiveRole, eventNavItems, primaryTimelineScreenForHome]);
 
+  const eventReadinessPercent = activeEvent ? approximatePlanningProgressPercent(activeEvent) : 0;
+
+  const viewerRoleBadgeForEvent = useCallback(
+    (_evt: EventRecord) => {
+      if (effectiveRole === "Admin") return null;
+      return `${effectiveRole} view`;
+    },
+    [effectiveRole],
+  );
+
   const roleDashboardMetricCards = useMemo(() => {
     if (effectiveRole === "Couple") return [];
-    const pctLabel = `${completionPercent}%`;
+    const pctLabel = `${eventReadinessPercent}%`;
     const collaboratorCount = (activeEvent?.collaborators ?? []).length;
 
     if (effectiveRole === "Planner") {
@@ -11130,7 +10598,7 @@ export default function Home() {
         {
           label: "Planning progress",
           value: pctLabel,
-          detail: "Weighted completion across your checklist for this event.",
+          detail: "Readiness across event details, timeline, music, and team setup.",
         },
         {
           label: "Open planning questions",
@@ -11202,7 +10670,7 @@ export default function Home() {
     return [];
   }, [
     activeEvent?.collaborators,
-    completionPercent,
+    eventReadinessPercent,
     coupleAttentionSummary.unansweredPlanningQuestionCount,
     effectiveRole,
     enabledSectionToggleCount,
@@ -11231,8 +10699,7 @@ export default function Home() {
           tl,
           "Event Team",
           "Planning Assistant",
-          "Planning Checklist",
-          "Notes",
+                  "Notes",
           "Event Settings",
           "Guest Requests",
           "Ceremony",
@@ -11245,8 +10712,7 @@ export default function Home() {
           "Music Hub",
           tl,
           "Ceremony",
-          "Planning Checklist",
-          "Guest Requests",
+                  "Guest Requests",
           "Event Team",
           "Notes",
         ];
@@ -11260,8 +10726,7 @@ export default function Home() {
           "Planning Assistant",
           "Ceremony",
           "Guest Requests",
-          "Planning Checklist",
-          "Notes",
+                  "Notes",
         ];
       } else {
         return items.findIndex((s) => s === screen);
@@ -11381,7 +10846,6 @@ export default function Home() {
         sectionVendorContactsEnabled,
         sectionMusicNotesEnabled,
         sectionGuestRequestsEnabled,
-        sectionPlanningChecklistEnabled,
         sectionPlanningQuestionsEnabled,
       };
 
@@ -11428,7 +10892,6 @@ export default function Home() {
       sectionVendorContactsEnabled,
       sectionMusicNotesEnabled,
       sectionGuestRequestsEnabled,
-      sectionPlanningChecklistEnabled,
       sectionPlanningQuestionsEnabled,
       activeScreen,
       appMode,
@@ -11444,13 +10907,12 @@ export default function Home() {
     if (screen === "All Events") return "Events";
     if (screen === "Timeline Templates") return "Templates";
     if (screen === "Dashboard") return "Event Dashboard";
-    if (screen === "Settings") return "Global Settings";
+    if (screen === "Settings") return "Event Settings";
     if (screen === "Reception Hub") return "Reception & timeline";
     if (screen === "Reception Timeline") return "Reception timeline";
     if (screen === "Event Prep") return "ShowFlow Brief";
     if (screen === "Scripts") return "Show Book";
     if (screen === "Event Team") return "People & Vendors";
-    if (screen === "Planning Checklist") return "Your Progress";
     return screen;
   };
 
@@ -11841,6 +11303,7 @@ export default function Home() {
           // them from the row rather than resetting to empty.
           seededEvent.djScripts = parseDjScriptsJson(dbEvent.djScripts);
           seededEvent.djMusicNotes = parseDjMusicNotesJson(dbEvent.djMusicNotes);
+          seededEvent.operations = normalizeEventOperations(dbEvent.operations);
 
           if (shouldStripStaffFieldsForCoupleHydration(dbEvent.id)) {
             return stripStaffOnlyFieldsFromClientEventRecord(seededEvent) as EventRecord;
@@ -12442,16 +11905,9 @@ export default function Home() {
           sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
           sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
           sectionFormalitiesEnabled: false,
-          sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
-          sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
+            sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
           planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-          checklistDueDates: normalizeChecklistDueDatesRecord(
-          evt.settings?.checklistDueDates,
-          evt.settings?.checklistDueOffsets,
-        ),
-          checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
-          checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
-          coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
+                coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
           eventStatus: normalizeEventStatus(
           evt.settings?.eventStatus,
@@ -13090,26 +12546,6 @@ export default function Home() {
     }
   }, [guestRequests, hasHydrated, pushNotification]);
 
-  const completedChecklistIdsRef = useRef<string[]>([]);
-  useEffect(() => {
-    if (!hasHydrated) return;
-    const nowCompleted = planningChecklist
-      .filter((item) => item.status === "Complete")
-      .map((item) => item.id);
-    const newlyCompleted = nowCompleted.filter(
-      (id) => !completedChecklistIdsRef.current.includes(id),
-    );
-    newlyCompleted.forEach((id) => {
-      const task = planningChecklist.find((item) => item.id === id);
-      if (task) {
-        window.setTimeout(() => {
-          logActivity("checklist_completed", `${task.title} marked complete`);
-        }, 0);
-      }
-    });
-    completedChecklistIdsRef.current = nowCompleted;
-  }, [hasHydrated, logActivity, planningChecklist]);
-
   const ceremonySnapshotRef = useRef("");
   useEffect(() => {
     if (!hasHydrated) return;
@@ -13195,6 +12631,7 @@ export default function Home() {
             mcAnnouncements,
             djScripts: cloneJson(djScripts),
             djMusicNotes: cloneJson(djMusicNotes),
+            operations: cloneJson(eventOperations),
             settings:
               isActualCouple
                 ? mergeCoupleSafeEventSettings(eventSettings, e.settings)
@@ -13230,6 +12667,7 @@ export default function Home() {
       mcAnnouncements,
       djScripts,
       djMusicNotes,
+      eventOperations,
       eventSettings,
       isActualCouple,
     ],
@@ -13367,15 +12805,8 @@ export default function Home() {
         sectionMusicNotesEnabled: evt.settings?.sectionMusicNotesEnabled ?? true,
         sectionGuestRequestsEnabled: evt.settings?.sectionGuestRequestsEnabled ?? true,
         sectionFormalitiesEnabled: false,
-        sectionPlanningChecklistEnabled: evt.settings?.sectionPlanningChecklistEnabled ?? true,
         sectionPlanningQuestionsEnabled: evt.settings?.sectionPlanningQuestionsEnabled ?? true,
         planningQuestionAnswers: evt.settings?.planningQuestionAnswers ?? {},
-        checklistDueDates: normalizeChecklistDueDatesRecord(
-          evt.settings?.checklistDueDates,
-          evt.settings?.checklistDueOffsets,
-        ),
-        checklistManualStatuses: evt.settings?.checklistManualStatuses ?? {},
-        checklistHandledTasks: evt.settings?.checklistHandledTasks ?? {},
         coverPhotoDataUrl: evt.settings?.coverPhotoDataUrl,
         coverPhotoTransform: normalizeCoverPhotoTransform(evt.settings?.coverPhotoTransform),
         eventStatus: normalizeEventStatus(
@@ -16949,7 +16380,7 @@ export default function Home() {
       timelineItemsCount: timelineItems.length,
       hasKeyTimelineMoments: timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention,
       hasKeyFormalDanceSongs: timelineItems.length > 0 && !coupleTimelineNeedsDashboardAttention,
-      hasMusicHubSignal: computeMusicTasteSignal(planningChecklistInput),
+      hasMusicHubSignal: hasMusicTasteSignal,
       musicProfileChapterComplete: musicHubHasCoupleSignal,
       eventTeamVendorCount: coupleWeddingJourneyInput.vendorContactCount,
       collaboratorCount: coupleWeddingJourneyInput.collaboratorCount,
@@ -16957,8 +16388,8 @@ export default function Home() {
     [
       coupleWeddingJourneyInput,
       coupleTimelineNeedsDashboardAttention,
+      hasMusicTasteSignal,
       musicHubHasCoupleSignal,
-      planningChecklistInput,
       timelineItems.length,
     ],
   );
@@ -17806,7 +17237,6 @@ export default function Home() {
           targetScreen: "Timeline" as Screen,
         };
       }
-      const hasMusicTasteSignal = computeMusicTasteSignal(planningChecklistInput);
       if ((sectionMustPlayEnabled || sectionPlaylistsEnabled) && !hasMusicTasteSignal) {
         return {
           title: storyCompleteTitle,
@@ -17892,7 +17322,6 @@ export default function Home() {
       "Music Hub": "Share taste, playlists, or a few must-plays so your DJ can prep calmly.",
       "Planning Questions": "Tell us a little about your celebration—short answers are enough.",
       "Guest Requests": "Review guest song ideas when you're ready—approve or decline at your pace.",
-      "Planning Checklist": "Glance at your checklist when you want a structured pass.",
       "Event Prep": "Open your ShowFlow Brief when you want a DJ-ready packet.",
       "Event Team": "Add your vendor team so we can coordinate with your planner, photographer, and venue.",
     };
@@ -17905,7 +17334,6 @@ export default function Home() {
       "Music Hub": "Music",
       "Planning Questions": COUPLE_ABOUT_YOUR_DAY_LABEL,
       "Guest Requests": "Guest Song Requests",
-      "Planning Checklist": "Checklist",
       "Event Prep": "Brief",
       "Event Team": "People & vendors",
     };
@@ -17924,9 +17352,9 @@ export default function Home() {
     eventSettings.planningQuestionAnswers,
     firstIncompleteCoupleStoryChapter,
     hasEventDetailsComplete,
+    hasMusicTasteSignal,
     coupleTimelineNeedsDashboardAttention,
     isCoupleWeddingPlanningView,
-    planningChecklistInput,
     planningProgressChecks,
     dashboardPlanningQuestionsForCouple,
     sectionMustPlayEnabled,
@@ -19023,136 +18451,6 @@ export default function Home() {
       window.removeEventListener("pagehide", flush);
     };
   }, [flushPlanningQuestionAnswersToLocalStorage]);
-
-  const applyChecklistTaskFocus = useCallback(
-    (focus: ChecklistTaskFocus) => {
-      if (typeof document === "undefined") return;
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const scrollBehavior = reduceMotion ? "auto" : "smooth";
-
-      switch (focus.kind) {
-        case "none":
-          return;
-        case "scroll": {
-          document.getElementById(focus.elementId)?.scrollIntoView({
-            behavior: scrollBehavior,
-            block: "start",
-          });
-          if (focus.focusElementId) {
-            window.setTimeout(
-              () => document.getElementById(focus.focusElementId!)?.focus(),
-              reduceMotion ? 0 : 260,
-            );
-          }
-          break;
-        }
-        case "receptionTimelineItem": {
-          const row = timelineItems.find((item) => item.id === focus.itemId);
-          if (!row) return;
-          document
-            .querySelector(`[data-timeline-id="${focus.itemId}"]`)
-            ?.scrollIntoView({ behavior: scrollBehavior, block: "center" });
-          if (focus.expand) {
-            openReceptionTimelineCardExpanded(row);
-          }
-          if (focus.openGrandEntrance && canAccessGrandEntranceOperations) {
-            window.setTimeout(
-              () => openGrandEntranceDetail(row),
-              focus.expand ? 180 : 80,
-            );
-          }
-          break;
-        }
-        case "ceremonyTimelineItem": {
-          const row = ceremonyTimelineItems.find((item) => item.id === focus.itemId);
-          if (!row) return;
-          document
-            .querySelector(`[data-ceremony-timeline-id="${focus.itemId}"]`)
-            ?.scrollIntoView({ behavior: scrollBehavior, block: "center" });
-          if (focus.expand) {
-            openCeremonyTimelineCardExpanded(row);
-          }
-          break;
-        }
-        case "musicQuickAdd": {
-          setNewSongListType(focus.songListType);
-          musicHubScrollToSection("music-hub-quick-add");
-          window.setTimeout(
-            () => document.getElementById("song-title")?.focus(),
-            reduceMotion ? 0 : 260,
-          );
-          break;
-        }
-        case "guestRequestQueue": {
-          setGuestRequestView("admin");
-          document.getElementById("guest-requests-queue-anchor")?.scrollIntoView({
-            behavior: scrollBehavior,
-            block: "start",
-          });
-          break;
-        }
-        case "eventTeamInvite": {
-          window.setTimeout(() => setInviteModalOpen(true), 80);
-          break;
-        }
-      }
-    },
-    [
-      timelineItems,
-      ceremonyTimelineItems,
-      openReceptionTimelineCardExpanded,
-      openCeremonyTimelineCardExpanded,
-      openGrandEntranceDetail,
-      canAccessGrandEntranceOperations,
-      setNewSongListType,
-      setGuestRequestView,
-    ],
-  );
-
-  const navigateToChecklistTask = useCallback(
-    (taskId: string) => {
-      if (
-        taskId === "add-grand-entrance-details" &&
-        !canAccessGrandEntranceOperations
-      ) {
-        openWeddingPartyLineupEditor();
-        return;
-      }
-
-      let nav = resolveChecklistTaskNavigation(taskId, planningChecklistInput, {
-        unifiedEventTimeline,
-      });
-      if (taskId === "add-final-dj-notes" && sectionMusicNotesEnabled) {
-        nav = {
-          screen: "Music Hub",
-          focus: {
-            kind: "scroll",
-            elementId: "music-hub-overall-vibe",
-            focusElementId: "music-hub-overall-vibe",
-          },
-        };
-      }
-      if (nav.screen === "Music Hub" && isCoupleWeddingPlanningView) {
-        selectActiveScreen("Music Hub");
-      } else {
-        setActiveScreen(nav.screen);
-      }
-      const delay = nav.screen === activeScreen ? 0 : 180;
-      window.setTimeout(() => applyChecklistTaskFocus(nav.focus), delay);
-    },
-    [
-      planningChecklistInput,
-      unifiedEventTimeline,
-      sectionMusicNotesEnabled,
-      activeScreen,
-      applyChecklistTaskFocus,
-      isCoupleWeddingPlanningView,
-      selectActiveScreen,
-      setActiveScreen,
-      canAccessGrandEntranceOperations,
-      openWeddingPartyLineupEditor,
-    ],
-  );
 
   const openRunOfShowCardNoteEditor = useCallback(
     (cardKey: string, cardLabel: string, cardSubline?: string) => {
@@ -21191,7 +20489,7 @@ export default function Home() {
           <section className={workspaceSectionClass}>
             {!canManageEvents && (
               <PremiumCard className="border-amber-200/90 bg-amber-50">
-                <p className="text-xs font-medium leading-relaxed text-amber-950">Global Settings are admin-only.</p>
+                <p className="text-xs font-medium leading-relaxed text-amber-950">Event Settings are admin-only.</p>
               </PremiumCard>
             )}
             <PremiumCard>
@@ -21205,7 +20503,7 @@ export default function Home() {
                 </PrimaryButton>
               </div>
               <p className="mt-2 text-xs text-stone-600">
-                Global settings apply across all events and are stored outside event records.
+                Event settings apply across all events and are stored outside event records.
               </p>
 
               <div className="mt-4 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-4">
@@ -21474,67 +20772,6 @@ export default function Home() {
                               {questions.length === 0 && (
                                 <p className="text-xs text-stone-600">No questions configured. Add your first question for this Event Type.</p>
                               )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {activeGlobalSettingsSection === "Planning Checklist" && (
-                    <div className="mt-4 space-y-3">
-                      <SectionTitle className="text-stone-950">Planning Checklist Defaults</SectionTitle>
-                      <p className="max-w-xl text-xs leading-relaxed text-stone-600">
-                        Set default due-date timing for checklist items by Event Type. New events inherit these
-                        defaults automatically; DJs can override timing per event.
-                      </p>
-                      {EVENT_TYPES.map((profile) => {
-                        const dueDates = checklistDueDateSetsForSettings[profile] ?? {};
-                        return (
-                          <div
-                            key={`checklist-due-set-${profile}`}
-                            className="rounded-xl border border-stone-200 bg-stone-50 p-3"
-                          >
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="text-sm font-semibold text-stone-950">{profile}</p>
-                              <PrimaryButton
-                                onClick={() => resetChecklistGlobalDueDateSet(profile)}
-                                disabled={!canManageEvents}
-                                className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-[11px] font-semibold text-stone-800 shadow-sm hover:bg-stone-100 disabled:opacity-50"
-                              >
-                                Reset Defaults
-                              </PrimaryButton>
-                            </div>
-                            <div className="mt-3 space-y-2">
-                              {DEFAULT_PLANNING_CHECKLIST_TEMPLATE.map((item) => {
-                                const due =
-                                  dueDates[item.id] ?? templateDefaultDueDate(item);
-                                const offsetDays =
-                                  due?.type === "relative"
-                                    ? due.offsetDays
-                                    : (item.dueOffsetDays ?? -14);
-                                return (
-                                  <div
-                                    key={`checklist-global-${profile}-${item.id}`}
-                                    className="rounded-lg border border-stone-200 bg-white p-2.5"
-                                  >
-                                    <p className="text-sm font-semibold text-stone-950">{item.label}</p>
-                                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-600">
-                                      {item.description}
-                                    </p>
-                                    <div className="mt-2">
-                                      <ChecklistGlobalRelativeDueSelect
-                                        idPrefix={`checklist-global-${profile}-${item.id}`}
-                                        offsetDays={offsetDays}
-                                        onChange={(nextOffset) =>
-                                          updateChecklistGlobalDueDate(profile, item.id, nextOffset)
-                                        }
-                                        disabled={!canManageEvents}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })}
                             </div>
                           </div>
                         );
@@ -22247,7 +21484,7 @@ export default function Home() {
                     onClick={() => setActiveScreen("Settings")}
                     className={lightUiSecondaryButtonClass}
                   >
-                    Global Settings
+                    Event Settings
                   </PrimaryButton>
                 )}
                 {canManageEvents && (
@@ -22778,12 +22015,12 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    {commandCenterAttentionEvents.slice(0, 4).map(({ evt, pendingGuestRequests, incompleteChecklistCount, timelineReviewRequested }) => {
+                    {commandCenterAttentionEvents.slice(0, 4).map(({ evt, pendingGuestRequests, incompletePlanningAreaCount, timelineReviewRequested }) => {
                       const reason = timelineReviewRequested
                         ? "Timeline review requested"
                         : pendingGuestRequests > 0
                           ? `${pendingGuestRequests} guest song request${pendingGuestRequests === 1 ? "" : "s"} pending`
-                          : `${incompleteChecklistCount} planning area${incompleteChecklistCount === 1 ? "" : "s"} incomplete`;
+                          : `${incompletePlanningAreaCount} planning area${incompletePlanningAreaCount === 1 ? "" : "s"} incomplete`;
                       const target: Screen = timelineReviewRequested
                         ? "Timeline"
                         : pendingGuestRequests > 0
@@ -23108,11 +22345,11 @@ export default function Home() {
                           <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-[#1E1E1E]/45 ring-1 ring-white/10">
                             <div
                               className="h-full rounded-full bg-[#C79A5A] transition-[width] duration-700 ease-out"
-                              style={{ width: `${completionPercent}%` }}
+                              style={{ width: `${eventReadinessPercent}%` }}
                             />
                           </div>
                         </div>
-                        <p className="shrink-0 text-3xl font-semibold tabular-nums text-zinc-100">{completionPercent}%</p>
+                        <p className="shrink-0 text-3xl font-semibold tabular-nums text-zinc-100">{eventReadinessPercent}%</p>
                       </div>
                     </div>
                   </div>
@@ -23154,21 +22391,26 @@ export default function Home() {
                     <div className="mt-4">
                       <SectionTitle>{staffDashboardSectionTitles.nextTasks}</SectionTitle>
                       <div className="mt-2 space-y-2">
-                        {nextChecklistTasks.length > 0 ? (
-                          nextChecklistTasks.map((task) => (
+                        {planningProgressChecks.some((check) => check.state === "attention") ? (
+                          planningProgressChecks
+                            .filter((check) => check.state === "attention")
+                            .slice(0, 3)
+                            .map((check) => (
                             <button
                               type="button"
-                              key={`next-${task.id}`}
-                              onClick={() => navigateToChecklistTask(task.id)}
+                              key={`next-${check.id}`}
+                              onClick={() => check.targetScreen && setActiveScreen(check.targetScreen)}
                               className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-left text-xs text-stone-800 shadow-sm transition hover:border-[#C79A5A]/50 hover:bg-stone-50"
                             >
-                              <p className="font-semibold text-stone-900">{task.title}</p>
-                              <p className="mt-1 text-stone-600">{task.description}</p>
+                              <p className="font-semibold text-stone-900">{check.label}</p>
+                              <p className="mt-1 text-stone-600">
+                                {check.targetScreen ? `Open ${navLabel(check.targetScreen)} to update this area.` : "Review this planning area."}
+                              </p>
                             </button>
                           ))
                         ) : (
                           <p className="rounded-xl border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 px-3 py-2 text-xs font-medium text-[#3f4d3d]">
-                            Beautiful work. Your checklist is complete and event-ready.
+                            Beautiful work. Your planning areas are event-ready.
                           </p>
                         )}
                       </div>
@@ -23259,34 +22501,6 @@ export default function Home() {
               </section>
 
               <section className={workspaceSectionClass}>
-                <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
-                  <div className="flex items-center justify-between">
-                    <SectionTitle className="text-stone-950">{staffDashboardSectionTitles.milestones}</SectionTitle>
-                    <span className="rounded-full border border-[#C79A5A]/45 bg-[#C79A5A]/22 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
-                      {completionPercent}%
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {upcomingMilestones.length > 0 ? (
-                      upcomingMilestones.map((item) => (
-                        <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-stone-900">{item.title}</span>
-                            <span className="text-stone-600">{item.dueDateLabel}</span>
-                          </div>
-                          <p className="mt-1 text-stone-600">{item.description}</p>
-                        </div>
-                      ))
-                    ) : (
-                      planningChecklist.slice(0, 3).map((item) => (
-                        <div key={item.id} className="flex items-center justify-between rounded-xl border border-stone-100 bg-white px-3 py-2 text-xs shadow-sm">
-                          <span className="font-medium text-stone-800">{item.title}</span>
-                          <span className="text-stone-600">{item.dueDateLabel || "No due timing"}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </PremiumCard>
 
                 <PremiumCard className="border-stone-300 bg-white shadow-[0_2px_12px_-4px_rgba(28,25,23,0.1)]">
                   <div className="flex items-center justify-between">
@@ -23425,7 +22639,7 @@ export default function Home() {
                       </span>
                     </PrimaryButton>
                   )}
-                  {(sectionPlanningChecklistEnabled || sectionMusicNotesEnabled) && (
+                  {sectionMusicNotesEnabled && (
                     <PrimaryButton
                       type="button"
                       onClick={() => setActiveScreen("Notes")}
@@ -25288,7 +24502,7 @@ export default function Home() {
                       <p className="mt-4 text-xs text-stone-600">Editing presets isn&apos;t available for your role.</p>
                     ) : !timelinePresetsForActiveEvent.some((p) => p.defaultIncluded) ? (
                       <p className="mt-4 text-xs text-stone-600">
-                        No default moments are enabled for this event type in Global Settings → Timeline Presets.
+                        No default moments are enabled for this event type in Event Settings → Timeline Presets.
                       </p>
                     ) : (
                       <p className="mt-4 text-xs text-stone-600">
@@ -26701,6 +25915,95 @@ export default function Home() {
             </PremiumCard>
           </section>
         )}
+
+        {authStage === "app" &&
+          appMode === "event" &&
+          activeScreen === "Operations" &&
+          (effectiveRole === "Admin" || effectiveRole === "DJ") && (
+            <section className={workspaceSectionClass}>
+              <EventHomeNav
+                trail={["Operations"]}
+                onBack={() => setActiveScreen("Dashboard")}
+              />
+
+              <div className="grid gap-4">
+                <PremiumCard className="border-stone-200 bg-white shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <SectionTitle className="text-stone-950">Production Schedule</SectionTitle>
+                    <PersistEcho persistFeedback={persistFeedback} variant="light" />
+                  </div>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    {[
+                      ["djArrivalTime", "DJ Arrival Time"],
+                      ["guestArrivalTime", "Guest Arrival Time"],
+                      ["ceremonySoundCheckTime", "Ceremony Sound Check"],
+                      ["doorsOpenTime", "Doors Open"],
+                    ].map(([key, label]) => (
+                      <label key={key} className="block">
+                        <span className={lightUiFormLabelClass}>{label}</span>
+                        <input
+                          type="time"
+                          value={
+                            eventOperations.productionSchedule[
+                              key as keyof EventOperations["productionSchedule"]
+                            ]
+                          }
+                          onChange={(event) =>
+                            updateOperationsProductionSchedule(
+                              key as keyof EventOperations["productionSchedule"],
+                              event.target.value,
+                            )
+                          }
+                          onBlur={() => persistEventOperationsNow(eventOperations)}
+                          className={`${lightUiInputClass} mt-1`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </PremiumCard>
+
+                <PremiumCard className="border-stone-200 bg-white shadow-sm">
+                  <SectionTitle className="text-stone-950">Team</SectionTitle>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    {[
+                      ["leadDj", "Lead DJ"],
+                      ["assistantDj", "Assistant DJ"],
+                      ["photoboothAttendant", "Photobooth Attendant"],
+                    ].map(([key, label]) => (
+                      <label key={key} className="block">
+                        <span className={lightUiFormLabelClass}>{label}</span>
+                        <input
+                          type="text"
+                          value={eventOperations.team[key as keyof EventOperations["team"]]}
+                          onChange={(event) =>
+                            updateOperationsTeam(
+                              key as keyof EventOperations["team"],
+                              event.target.value,
+                            )
+                          }
+                          onBlur={() => persistEventOperationsNow(eventOperations)}
+                          className={`${lightUiInputClass} mt-1`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </PremiumCard>
+
+                <PremiumCard className="border-stone-200 bg-white shadow-sm">
+                  <SectionTitle className="text-stone-950">Internal Notes</SectionTitle>
+                  <textarea
+                    value={eventOperations.internalNotes}
+                    onChange={(event) => updateOperationsInternalNotes(event.target.value)}
+                    onBlur={() => persistEventOperationsNow(eventOperations)}
+                    rows={8}
+                    placeholder="Private operational notes"
+                    aria-label="Internal Operations Notes"
+                    className={`${lightUiTextControlClass} mt-5 min-h-44 resize-y placeholder:text-[var(--cm-text-subtle)]`}
+                  />
+                </PremiumCard>
+              </div>
+            </section>
+          )}
 
         {authStage === "app" &&
           appMode === "event" &&
@@ -28209,7 +27512,6 @@ export default function Home() {
                     { key: "sectionVendorContactsEnabled", label: "People & Vendors contacts" },
                     { key: "sectionMusicNotesEnabled", label: "Music Notes" },
                     { key: "sectionGuestRequestsEnabled", label: "Guest Song Requests" },
-                    { key: "sectionPlanningChecklistEnabled", label: "Planning Checklist" },
                     { key: "sectionPlanningQuestionsEnabled", label: "Planning Questions" },
                   ].map((item) => {
                     const enabled = Boolean(
@@ -28506,527 +27808,6 @@ export default function Home() {
           </section>
         )}
 
-        {authStage === "app" && appMode === "event" && activeScreen === "Planning Checklist" && sectionPlanningChecklistEnabled && (
-          <section className={workspaceSectionClass}>
-            <EventHomeNav trail={["Your Progress"]} onBack={() => setActiveScreen("Dashboard")} />
-
-            {isCoupleView ? (
-              <>
-                <WorkspaceHero
-                  eyebrow="Your Progress"
-                  title={
-                    completionPercent === 100
-                      ? "You're all set!"
-                      : completionPercent >= 50
-                        ? "You're making great progress."
-                        : "Let's build your perfect day."
-                  }
-                  subtitle={
-                    completionPercent === 100
-                      ? "Everything is in place for your big day."
-                      : `${completionPercent}% complete — keep going.`
-                  }
-                  description="Here's where everything stands across your wedding planning. Each section shows what's done and what still needs attention."
-                  coverImageSrc={musicHubHeroImageSrc}
-                  summaryTitle={coupleDisplayName.trim() || "Your Wedding"}
-                  summarySubtitle={weddingDetails.date || "Your Wedding Day"}
-                />
-                <div className="grid gap-3">
-                  {(
-                    [
-                      { id: "event-details", title: "Event Details", taskIds: ["complete-event-details"] },
-                      { id: "timeline", title: "Your Timeline", taskIds: ["review-timeline", "add-formal-dance-songs", "add-grand-entrance-details", "choose-ceremony-songs"] },
-                      { id: "music", title: "Music Hub", taskIds: ["add-must-play-songs", "build-must-play-list", "add-do-not-play-songs"] },
-                      { id: "team", title: "People & Vendors", taskIds: ["add-planner-contact"] },
-                      { id: "guest-requests", title: "Guest Requests", taskIds: ["approve-guest-requests"] },
-                    ] as const
-                  ).map((section) => {
-                    const tasks = planningChecklist.filter((t) => section.taskIds.includes(t.id as never));
-                    const complete = tasks.filter((t) => t.status === "Complete").length;
-                    const total = tasks.length;
-                    const allDone = total > 0 && complete === total;
-                    const noneStarted = complete === 0;
-                    const firstIncomplete = tasks.find((t) => t.status !== "Complete");
-                    return (
-                      <div
-                        key={section.id}
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-[#2f4a3e]/10 bg-white px-5 py-4"
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <span
-                            className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                              allDone ? "bg-[#4a7c59]" : noneStarted ? "bg-stone-300" : "bg-[#b08a45]"
-                            }`}
-                          />
-                          <div className="min-w-0">
-                            <p className="font-semibold text-stone-900">{section.title}</p>
-                            <p className="truncate text-xs text-stone-500">
-                              {allDone
-                                ? "All set"
-                                : noneStarted
-                                  ? "Not started yet"
-                                  : `${complete} of ${total} complete`}
-                              {!allDone && firstIncomplete?.missingNotes[0]
-                                ? ` · ${firstIncomplete.missingNotes[0]}`
-                                : ""}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            firstIncomplete
-                              ? navigateToChecklistTask(firstIncomplete.id)
-                              : tasks[0]
-                                ? setActiveScreen(tasks[0].linkedSection)
-                                : undefined
-                          }
-                          className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-semibold transition ${
-                            allDone
-                              ? "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                              : "border-[#2f4a3e]/30 bg-[#2f4a3e] text-white hover:bg-[#3a5c4d]"
-                          }`}
-                        >
-                          {allDone ? "Review" : "Continue"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <>
-                <PremiumCard variant="accent">
-                  <div className="flex items-center justify-between">
-                    <SectionTitle>Planning Checklist</SectionTitle>
-                    <span className="rounded-full bg-[#C79A5A]/20 px-2.5 py-1 text-xs font-semibold text-[#1E1E1E]">
-                      {completionPercent}% complete
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-stone-600">
-                    Track major planning milestones and jump directly to the linked section.
-                  </p>
-                </PremiumCard>
-                {planningChecklist.map((task) => (
-              <PremiumCard key={`task-${task.id}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionTitle className="text-stone-950">{task.title}</SectionTitle>
-                    <p className="mt-1 text-xs text-stone-600">{task.description}</p>
-                    {shouldShowPlanningChecklistMissingNotes(task.status, task.missingNotes) ? (
-                      <PlanningChecklistMissingNotesBlock notes={task.missingNotes} />
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    {canMarkChecklistHandled &&
-                    isChecklistTaskHandled(task.id, eventSettings.checklistHandledTasks) ? (
-                      <span className="rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-violet-900">
-                        Done
-                      </span>
-                    ) : null}
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.status === "Complete"
-                        ? "border border-[#7F8F7A]/55 bg-[#7F8F7A]/10 text-[#3f4d3d]"
-                        : task.status === "In Progress"
-                          ? "border border-[#C79A5A]/50 bg-[#C79A5A]/12 text-[#1E1E1E]"
-                          : "border border-stone-300 bg-stone-100 text-stone-700"
-                        }`}
-                    >
-                      {task.status}
-                    </span>
-                  </div>
-                </div>
-
-                {canMarkChecklistHandled ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {isChecklistTaskHandled(task.id, eventSettings.checklistHandledTasks) ? (
-                      <button
-                        type="button"
-                        onClick={() => setChecklistTaskHandled(task.id, false)}
-                        className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
-                      >
-                        Remove Done Status
-                      </button>
-                    ) : task.status !== "Complete" ? (
-                      <button
-                        type="button"
-                        onClick={() => setChecklistTaskHandled(task.id, true)}
-                        className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900 transition hover:border-violet-400 hover:bg-violet-100"
-                      >
-                        Mark as Done
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
-                      Recommended due date
-                    </p>
-                    {canEditChecklistDueTiming ? (
-                      <div className="mt-1">
-                        {task.dueDateSource === "event" ? (
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-stone-500">Event override</p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEventSettings((prev) => {
-                                  const nextDueDates = { ...(prev.checklistDueDates ?? {}) };
-                                  delete nextDueDates[task.id];
-                                  return { ...prev, checklistDueDates: nextDueDates };
-                                })
-                              }
-                              className="text-[11px] font-semibold text-stone-700 hover:text-stone-950 hover:underline"
-                            >
-                              Reset to default
-                            </button>
-                          </div>
-                        ) : (
-                          <p className="mb-1.5 text-[11px] text-stone-500">
-                            {task.dueDateSource === "global"
-                              ? "Using global default"
-                              : "Using built-in default"}
-                          </p>
-                        )}
-                        <ChecklistDueDateFields
-                          idPrefix={`task-due-${task.id}`}
-                          value={
-                            eventSettings.checklistDueDates?.[task.id] ??
-                            task.dueDateConfig ?? { type: "relative", offsetDays: -14 }
-                          }
-                          onChange={(next) =>
-                            setEventSettings((prev) => ({
-                              ...prev,
-                              checklistDueDates: {
-                                ...(prev.checklistDueDates ?? {}),
-                                [task.id]: next,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                    ) : (
-                      <p className="mt-1 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800">
-                        {task.dueDateLabel}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`task-status-${task.id}`}
-                      className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600"
-                    >
-                      Status
-                    </label>
-                    {canEditChecklistStatus ? (
-                    <select
-                      id={`task-status-${task.id}`}
-                      value={task.status}
-                      onChange={(event) =>
-                        setEventSettings((prev) => ({
-                          ...prev,
-                          checklistManualStatuses: {
-                            ...(prev.checklistManualStatuses ?? {}),
-                            [task.id]: event.target.value as ChecklistStatus,
-                          },
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 shadow-none focus:border-[#C79A5A] focus:outline-none focus:ring-2 focus:ring-[#C79A5A]/30"
-                    >
-                      {(["Not Started", "In Progress", "Complete"] as ChecklistStatus[]).map(
-                        (status) => (
-                          <option key={`${task.id}-${status}`} value={status}>
-                            {status}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                    ) : (
-                      <p className="mt-1 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-800">
-                        {task.status}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <PrimaryButton
-                    onClick={() => navigateToChecklistTask(task.id)}
-                    className="min-h-11 w-full rounded-xl border border-stone-400 bg-white px-3 py-2.5 text-xs font-semibold text-stone-900 shadow-none hover:bg-stone-50 sm:min-h-10"
-                  >
-                    {task.id === "add-grand-entrance-details"
-                      ? canAccessGrandEntranceOperations
-                        ? "Open Grand Entrance details"
-                        : "Edit Wedding Party Lineup"
-                      : task.id === "add-formal-dance-songs"
-                        ? "Add songs on timeline"
-                        : task.id === "choose-ceremony-songs"
-                          ? "Add ceremony music"
-                          : task.id === "build-must-play-list"
-                            ? "Share music taste"
-                            : task.id === "approve-guest-requests"
-                              ? "Review guest requests"
-                              : `Go to ${navLabel(task.linkedSection)}`}
-                  </PrimaryButton>
-                </div>
-              </PremiumCard>
-                ))}
-              </>
-            )}
-          </section>
-        )}
-
-        {authStage === "app" &&
-          appMode === "event" &&
-          activeScreen === "Planning Assistant" &&
-          sectionPlanningQuestionsEnabled && (
-            <section className={`${workspaceSectionLooseClass}${isCoupleView ? " cm-couple-workspace" : ""}`}>
-              <EventHomeNav
-                trail={["Planning Assistant"]}
-                onBack={() => setActiveScreen("Dashboard")}
-              />
-              <PremiumCard variant="accent" className={premiumFormSectionCardClass}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <SectionTitle>Planning Assistant</SectionTitle>
-                  <PersistEcho persistFeedback={persistFeedback} className="pt-0.5" />
-                </div>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
-                  Let’s build your event together. Complete the steps below and we’ll guide you
-                  through everything needed before the big day.
-                </p>
-              </PremiumCard>
-
-              <PremiumCard className={premiumFormSectionCardClass}>
-                <div className="flex items-end justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Planning progress
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                      {planningAssistantCounts.complete} of {planningAssistantCounts.total}{" "}
-                      {planningAssistantCounts.total === 1 ? "step" : "steps"} complete
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-4xl font-semibold tabular-nums text-stone-900">
-                    {completionPercent}%
-                  </p>
-                </div>
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-stone-200/80">
-                  <div
-                    className={`h-full rounded-full transition-[width] duration-700 ease-out ${isCoupleView ? "bg-[#2f4a3e]" : "bg-[#C79A5A]"}`}
-                    style={{ width: `${completionPercent}%` }}
-                  />
-                </div>
-
-                <div className="mt-5 grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
-                    <p className="text-lg font-semibold tabular-nums text-stone-900">
-                      {planningAssistantCounts.complete}
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
-                      Done
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
-                    <p className="text-lg font-semibold tabular-nums text-stone-900">
-                      {planningAssistantCounts.inProgress}
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
-                      In progress
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center shadow-[var(--cm-shadow-card)]">
-                    <p className="text-lg font-semibold tabular-nums text-stone-900">
-                      {planningAssistantCounts.notStarted}
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-stone-500">
-                      Not started
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-4 text-sm font-medium leading-snug text-stone-700">
-                  {daysUntilWedding === null
-                    ? "Add your event date to unlock a gentle countdown"
-                    : daysUntilWedding === 0
-                      ? "It’s event day—breathe, you’ve got this"
-                      : layoutProfileForActiveEvent === "Wedding" ||
-                          layoutProfileForActiveEvent === "Gender-Neutral Wedding"
-                        ? `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until you say “I do”`
-                        : `${daysUntilWedding} day${daysUntilWedding === 1 ? "" : "s"} until your event`}
-                </p>
-
-                {upcomingMilestones.length > 0 &&
-                upcomingMilestones[0].id !== planningAssistantNextSteps[0]?.id ? (
-                  <button
-                    type="button"
-                    onClick={() => navigateToChecklistTask(upcomingMilestones[0].id)}
-                    className="mt-3 flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        Next due
-                      </span>
-                      <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">
-                        {upcomingMilestones[0].title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-stone-500 line-clamp-1">
-                        {getPlanningAssistantDisplayReason(
-                          upcomingMilestones[0],
-                          canAccessGrandEntranceOperations,
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] text-stone-500">
-                        {upcomingMilestones[0].dueDateLabel}
-                      </span>
-                    </span>
-                    <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
-                      →
-                    </span>
-                  </button>
-                ) : null}
-              </PremiumCard>
-
-              <PremiumCard className={premiumFormSectionCardClass}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <SectionTitle className="text-stone-950">Next steps</SectionTitle>
-                  <span className="shrink-0 rounded-full border border-[#C79A5A]/35 bg-[#C79A5A]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8a6938]">
-                    {planningAssistantNextSteps.length > 0
-                      ? `${planningAssistantNextSteps.length} to do`
-                      : "All caught up"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                  A few quick wins to keep your planning moving—no pressure.
-                </p>
-                {planningAssistantNextSteps.length > 0 ? (
-                  <ul className="mt-4 space-y-2.5">
-                    {planningAssistantNextSteps.map((task) => (
-                      <li key={task.id}>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                          <button
-                            type="button"
-                            onClick={() => navigateToChecklistTask(task.id)}
-                            className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50 sm:flex-1"
-                          >
-                            <span
-                              aria-hidden
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stone-300 text-[11px] text-stone-400"
-                            >
-                              ○
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-medium text-stone-900">
-                                {task.title}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-stone-500 line-clamp-1">
-                                {getPlanningAssistantDisplayReason(
-                                  task,
-                                  canAccessGrandEntranceOperations,
-                                )}
-                              </span>
-                            </span>
-                            <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
-                              →
-                            </span>
-                          </button>
-                          {canMarkChecklistHandled ? (
-                            <button
-                              type="button"
-                              onClick={() => setChecklistTaskHandled(task.id, true)}
-                              className="w-full rounded-lg border border-violet-300 bg-violet-50 px-3 py-2.5 text-[11px] font-semibold text-violet-900 transition hover:border-violet-400 hover:bg-violet-100 sm:w-auto sm:shrink-0 sm:self-center"
-                            >
-                              Mark as Done
-                            </button>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-4 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-3.5 py-3 text-sm font-medium text-[#3f4d3d]">
-                    You’ve completed every planning step we track—nice work!
-                  </p>
-                )}
-              </PremiumCard>
-
-              <PremiumCard className={premiumFormSectionCardClass}>
-                <SectionTitle className="text-stone-950">Details still missing</SectionTitle>
-                <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                  Extra details that may still need attention.
-                </p>
-
-                {planningAssistantDetailsStillMissing.length === 0 ? (
-                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#7F8F7A]/45 bg-[#7F8F7A]/10 px-3.5 py-3">
-                    <span aria-hidden className="mt-0.5 text-sm font-semibold text-[#7F8F7A]">
-                      ✓
-                    </span>
-                    <p className="text-sm font-medium leading-snug text-[#3f4d3d]">
-                      {planningAssistantNextSteps.length > 0
-                        ? "Your visible next steps cover the main items right now."
-                        : "Everything’s looking healthy — nothing needs your attention right now."}
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="mt-4 space-y-2">
-                    {planningAssistantDetailsStillMissing.map((entry) => (
-                      <li key={`${entry.taskId}-${entry.note}`}>
-                        <button
-                          type="button"
-                          onClick={() => navigateToChecklistTask(entry.taskId)}
-                          className="flex w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-left shadow-[var(--cm-shadow-card)] transition hover:border-stone-300 hover:bg-stone-50"
-                        >
-                          <span className="min-w-0 flex-1 text-sm text-stone-700 [overflow-wrap:anywhere]">
-                            {entry.note}
-                          </span>
-                          <span aria-hidden className="shrink-0 font-mono text-sm text-stone-400">
-                            →
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </PremiumCard>
-
-              <div className="space-y-4">
-                <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                  Your planning sections
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {PLANNING_ASSISTANT_SECTION_CARDS.map((card) => {
-                    const target = card.targets.find((screen) =>
-                      allowedActiveEventScreens.includes(screen),
-                    );
-                    return (
-                      <PremiumCard key={card.id} className="flex h-full flex-col">
-                        <div className="flex items-start justify-between gap-3">
-                          <SectionTitle className="text-stone-950">{card.title}</SectionTitle>
-                          <PlanningAssistantStatusBadge
-                            status={planningAssistantSectionStatuses[card.id] ?? card.status}
-                          />
-                        </div>
-                        <p className="mt-2 flex-1 text-xs leading-relaxed text-stone-600">
-                          {card.description}
-                        </p>
-                        {target ? (
-                          <PrimaryButton
-                            type="button"
-                            onClick={() => setActiveScreen(target)}
-                            className={`mt-4 self-start ${lightUiSecondaryButtonClass}`}
-                          >
-                            Open {card.title}
-                          </PrimaryButton>
-                        ) : null}
-                      </PremiumCard>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-
         {authStage === "app" &&
           appMode === "event" &&
           activeScreen === "Planning Questions" &&
@@ -29286,7 +28067,6 @@ export default function Home() {
                       "team_member_assigned",
                       "team_member_removed_from_event",
                       "vendor_updated",
-                      "checklist_completed",
                       "template_applied",
                     ].map((type) => (
                       <option key={`flt-type-${type}`} value={type} className="bg-white text-stone-900">

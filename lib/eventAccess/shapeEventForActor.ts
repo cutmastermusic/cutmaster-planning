@@ -7,6 +7,7 @@ export type EventReadPayload = {
   internalNotes?: string | null;
   djScripts?: unknown;
   djMusicNotes?: unknown;
+  operations?: unknown;
   eventNotes?: unknown[] | null;
 };
 
@@ -33,6 +34,7 @@ export function stripStaffOnlyFieldsFromEventRead<T extends EventReadPayload>(ev
     internalNotes: null,
     djScripts: null,
     djMusicNotes: null,
+    operations: null,
     eventNotes: [],
   };
 }
@@ -41,6 +43,7 @@ export type ClientEventStaffFields = {
   settings?: { internalNotes?: string } | null;
   djScripts?: unknown;
   djMusicNotes?: unknown;
+  operations?: unknown;
   eventNotes?: unknown[] | null;
 };
 
@@ -55,6 +58,7 @@ export function stripStaffOnlyFieldsFromClientEventRecord<T extends ClientEventS
       : event.settings,
     djScripts: [],
     djMusicNotes: [],
+    operations: null,
     eventNotes: [],
   };
 }
