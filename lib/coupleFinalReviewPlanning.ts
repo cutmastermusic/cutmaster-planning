@@ -18,6 +18,19 @@ import {
   parseYourTeamOtherPartnersAnswer,
   parseYourTeamRoleSlotAnswer,
 } from "@/lib/coupleYourTeamPlanning";
+import {
+  EVENT_DETAILS_QUESTION_IDS,
+  RECEPTION_ATMOSPHERE_QUESTION_IDS,
+  RECEPTION_DINNER_QUESTION_IDS,
+  YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS,
+  formatDressCodeForDisplay,
+  formatSocialHandlesForDisplay,
+  formatVibeChipAnswerForDisplay,
+  isBuffetDinnerService,
+  normalizeDinnerServiceStyle,
+  parseCocktailHourVibeAnswer,
+  parseDinnerVibeAnswer,
+} from "@/lib/couplePlanningExtendedQuestions";
 import { formatEventDateForDisplay } from "@/utils/planning";
 
 export type CoupleOperationalReadinessRow = {
@@ -261,6 +274,78 @@ function buildMusicProfileSummaryLines(
   return lines;
 }
 
+function buildEventDetailsSummaryLines(
+  answers: Record<string, string | undefined>,
+): CoupleFinalReviewSummaryLine[] {
+  const guestCount = trimSummaryText(answers[EVENT_DETAILS_QUESTION_IDS.expectedGuestCount]);
+  if (!guestCount) return [];
+  return [{ label: "Expected guests", value: guestCount }];
+}
+
+function buildReceptionAtmosphereSummaryLines(
+  answers: Record<string, string | undefined>,
+): CoupleFinalReviewSummaryLine[] {
+  const lines: CoupleFinalReviewSummaryLine[] = [];
+  const cocktail = formatVibeChipAnswerForDisplay(
+    answers[RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibe],
+    answers[RECEPTION_ATMOSPHERE_QUESTION_IDS.cocktailHourVibeCustom],
+    parseCocktailHourVibeAnswer,
+  );
+  if (cocktail) lines.push({ label: "Cocktail hour vibe", value: cocktail });
+
+  const dinner = formatVibeChipAnswerForDisplay(
+    answers[RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibe],
+    answers[RECEPTION_ATMOSPHERE_QUESTION_IDS.dinnerVibeCustom],
+    parseDinnerVibeAnswer,
+  );
+  if (dinner) lines.push({ label: "Dinner vibe", value: dinner });
+
+  return lines;
+}
+
+function buildReceptionDinnerSummaryLines(
+  answers: Record<string, string | undefined>,
+): CoupleFinalReviewSummaryLine[] {
+  const lines: CoupleFinalReviewSummaryLine[] = [];
+  const service = normalizeDinnerServiceStyle(
+    answers[RECEPTION_DINNER_QUESTION_IDS.dinnerServiceStyle],
+  );
+  if (service) lines.push({ label: "Dinner service", value: service });
+
+  if (isBuffetDinnerService(service)) {
+    const release = trimSummaryText(answers[RECEPTION_DINNER_QUESTION_IDS.buffetTableRelease]);
+    if (release) lines.push({ label: "Table release", value: release });
+  }
+
+  return lines;
+}
+
+function buildYourTeamEventDetailsSummaryLines(
+  answers: Record<string, string | undefined>,
+): CoupleFinalReviewSummaryLine[] {
+  const lines: CoupleFinalReviewSummaryLine[] = [];
+
+  const dressCode = formatDressCodeForDisplay(
+    answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCode],
+    answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCodeOther],
+  );
+  if (dressCode) lines.push({ label: "Dress code", value: dressCode });
+
+  const socialHandles = formatSocialHandlesForDisplay({
+    instagram: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialInstagram],
+    tiktok: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialTiktok],
+    facebook: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialFacebook],
+  });
+  if (socialHandles) lines.push({ label: "Social handles", value: socialHandles });
+
+  const socialCapture = trimSummaryText(
+    answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialMediaCapture],
+  );
+  if (socialCapture) lines.push({ label: "Social media capture", value: socialCapture });
+
+  return lines;
+}
+
 function buildYourTeamSummaryLines(
   answers: Record<string, string | undefined>,
 ): CoupleFinalReviewSummaryLine[] {
@@ -297,6 +382,8 @@ function buildYourTeamSummaryLines(
     lines.push({ label: "Coordination notes", value: truncateSummaryText(coordinationNotes) });
   }
 
+  lines.push(...buildYourTeamEventDetailsSummaryLines(answers));
+
   return lines;
 }
 
@@ -312,11 +399,20 @@ export function buildCoupleFinalReviewWeddingSummary(
   const aboutLines = buildAboutYouSummaryLines(input.answers);
   if (aboutLines.length > 0) chapters.push({ title: "About You", lines: aboutLines });
 
+  const eventDetailLines = buildEventDetailsSummaryLines(input.answers);
+  if (eventDetailLines.length > 0) chapters.push({ title: "Event Details", lines: eventDetailLines });
+
   const ceremonyLines = buildCeremonySummaryLines(input.answers);
   if (ceremonyLines.length > 0) chapters.push({ title: "Ceremony", lines: ceremonyLines });
 
   const musicLines = buildMusicProfileSummaryLines(input.answers);
   if (musicLines.length > 0) chapters.push({ title: "Music Profile", lines: musicLines });
+
+  const atmosphereLines = buildReceptionAtmosphereSummaryLines(input.answers);
+  if (atmosphereLines.length > 0) chapters.push({ title: "Reception Atmosphere", lines: atmosphereLines });
+
+  const dinnerLines = buildReceptionDinnerSummaryLines(input.answers);
+  if (dinnerLines.length > 0) chapters.push({ title: "Reception Dinner", lines: dinnerLines });
 
   const teamLines = buildYourTeamSummaryLines(input.answers);
   if (teamLines.length > 0) chapters.push({ title: "Your Team", lines: teamLines });

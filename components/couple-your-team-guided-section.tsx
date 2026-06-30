@@ -41,6 +41,13 @@ import {
   type YourTeamOtherPartnerEntry,
   type YourTeamOtherPartnersAnswer,
 } from "@/lib/coupleYourTeamPlanning";
+import {
+  DRESS_CODE_OPTIONS,
+  SOCIAL_MEDIA_CAPTURE_OPTIONS,
+  YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS,
+  formatDressCodeForDisplay,
+  formatSocialHandlesForDisplay,
+} from "@/lib/couplePlanningExtendedQuestions";
 
 const YOUR_TEAM_STEP_QUESTIONS = {
   planner: "Have you hired a wedding planner or day-of coordinator yet?",
@@ -529,6 +536,128 @@ export function CoupleYourTeamGuidedSection({
                 <span className={couplePlanningEmptyAnswerClass}>Nothing added—totally fine</span>
               )}
             </p>
+          </div>
+        ),
+      },
+      {
+        id: "your-team-event-details",
+        optional: true,
+        isAnswered: () => true,
+        renderGuided: () => (
+          <div className="space-y-5">
+            <div className={couplePlanningQuestionShellClass}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f4a3e]/75">
+                Event Details
+              </p>
+              <div className="mt-4">
+                <CouplePlanningChipSelect
+                  label="Dress Code"
+                  mode="single"
+                  options={DRESS_CODE_OPTIONS}
+                  value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCode] ?? ""}
+                  onChange={(next) =>
+                    onAnswerChange(YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCode, next as string)
+                  }
+                />
+              </div>
+              {(answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCode] ?? "") === "Other" ? (
+                <div className="mt-4 border-t border-stone-200/80 pt-4">
+                  <TextInput
+                    id="your-team-dress-code-other"
+                    label="Describe your dress code"
+                    value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCodeOther] ?? ""}
+                    onChange={(next) =>
+                      onAnswerChange(YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCodeOther, next)
+                    }
+                    placeholder="Theme, colors, or special attire notes…"
+                    labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div className={couplePlanningQuestionShellClass}>
+              <p className={couplePlanningQuestionLabelClass}>
+                What are your social media handles?
+              </p>
+              <div className="mt-4 space-y-3">
+                <TextInput
+                  id="your-team-social-instagram"
+                  label="Instagram"
+                  value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialInstagram] ?? ""}
+                  onChange={(next) =>
+                    onAnswerChange(YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialInstagram, next)
+                  }
+                  placeholder="@yourhandle"
+                  labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+                />
+                <TextInput
+                  id="your-team-social-tiktok"
+                  label="TikTok"
+                  value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialTiktok] ?? ""}
+                  onChange={(next) =>
+                    onAnswerChange(YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialTiktok, next)
+                  }
+                  placeholder="@yourhandle"
+                  labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+                />
+                <TextInput
+                  id="your-team-social-facebook"
+                  label="Facebook (optional)"
+                  value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialFacebook] ?? ""}
+                  onChange={(next) =>
+                    onAnswerChange(YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialFacebook, next)
+                  }
+                  placeholder="Page or profile name"
+                  labelClassName={`block ${couplePlanningQuestionLabelClass}`}
+                />
+              </div>
+            </div>
+            <div className={couplePlanningQuestionShellClass}>
+              <CouplePlanningChipSelect
+                label="Can our team capture photos/video for social media?"
+                mode="single"
+                options={SOCIAL_MEDIA_CAPTURE_OPTIONS}
+                value={answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialMediaCapture] ?? ""}
+                onChange={(next) =>
+                  onAnswerChange(
+                    YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialMediaCapture,
+                    next as string,
+                  )
+                }
+              />
+            </div>
+          </div>
+        ),
+        renderReview: () => (
+          <div className="space-y-4">
+            <div className={couplePlanningQuestionShellClass}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f4a3e]/75">
+                Event Details
+              </p>
+              <p className={`mt-3 ${couplePlanningQuestionLabelClass}`}>Dress code</p>
+              <p className="mt-2 text-sm leading-relaxed text-stone-900">
+                {formatDressCodeForDisplay(
+                  answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCode],
+                  answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.dressCodeOther],
+                ) || <span className={couplePlanningEmptyAnswerClass}>Not answered yet</span>}
+              </p>
+              <p className={`mt-4 ${couplePlanningQuestionLabelClass}`}>Social media handles</p>
+              <p className="mt-2 text-sm leading-relaxed text-stone-900">
+                {formatSocialHandlesForDisplay({
+                  instagram: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialInstagram],
+                  tiktok: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialTiktok],
+                  facebook: answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialFacebook],
+                }) || <span className={couplePlanningEmptyAnswerClass}>Not answered yet</span>}
+              </p>
+              <p className={`mt-4 ${couplePlanningQuestionLabelClass}`}>
+                Social media photo/video
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-stone-900">
+                {(answers[YOUR_TEAM_EVENT_DETAILS_QUESTION_IDS.socialMediaCapture] ?? "").trim() || (
+                  <span className={couplePlanningEmptyAnswerClass}>Not answered yet</span>
+                )}
+              </p>
+            </div>
           </div>
         ),
       },

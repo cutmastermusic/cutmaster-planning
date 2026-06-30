@@ -16,6 +16,7 @@ export type CoupleTimelineMomentWorkspaceId =
   | "dance_first"
   | "dance_parent"
   | "cake_cutting"
+  | "dinner"
   | "open_dancing"
   | "speech_toasts"
   | "ceremony"
@@ -41,6 +42,11 @@ export function isOpenDancingTimelineItem(title: string): boolean {
   return key === "open dancing" || key === "open dancing kickoff";
 }
 
+export function isDinnerTimelineItem(title: string): boolean {
+  const key = normalizeDefaultTimelineMomentKey(title);
+  return key === "dinner";
+}
+
 export function resolveCoupleTimelineMomentWorkspaceId(item: {
   title: string;
   momentType?: TimelineMomentType | string | null;
@@ -64,6 +70,9 @@ export function resolveCoupleTimelineMomentWorkspaceId(item: {
   }
   if (momentType === "open_dance" && isOpenDancingTimelineItem(item.title)) {
     return "open_dancing";
+  }
+  if (momentType === "meal" && isDinnerTimelineItem(item.title)) {
+    return "dinner";
   }
   if (momentType === "introduction" && isGrandEntranceTimelineItem(item.title)) {
     return "grand_entrance";
@@ -182,6 +191,7 @@ export function buildOpenDancingMomentWorkspaceRef(input: {
 
   return {
     guestCount: readFirstAnswer(input.answers, [
+      "pq_event_expected_guest_count",
       "pq_guest_count",
       "pq_event_guest_count",
       "pq_about_guest_count",
@@ -325,6 +335,8 @@ export function coupleTimelineMomentWorkspaceTitle(id: CoupleTimelineMomentWorks
       return "Parent Dance";
     case "cake_cutting":
       return "Cake Cutting";
+    case "dinner":
+      return "Dinner";
     case "open_dancing":
       return "Open Dancing";
     case "speech_toasts":

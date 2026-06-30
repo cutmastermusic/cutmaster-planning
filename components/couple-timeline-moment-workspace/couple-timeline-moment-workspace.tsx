@@ -4,6 +4,7 @@ import { CeremonyMomentWorkspace } from "@/components/couple-timeline-moment-wor
 import { CakeCuttingMomentWorkspace } from "@/components/couple-timeline-moment-workspace/cake-cutting-workspace";
 import { DanceFirstMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-first-workspace";
 import { DanceParentMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dance-parent-workspace";
+import { DinnerMomentWorkspace } from "@/components/couple-timeline-moment-workspace/dinner-workspace";
 import { GrandEntranceMomentWorkspace } from "@/components/couple-timeline-moment-workspace/grand-entrance-workspace";
 import { OpenDancingMomentWorkspace } from "@/components/couple-timeline-moment-workspace/open-dancing-workspace";
 import { SpeechToastsMomentWorkspace } from "@/components/couple-timeline-moment-workspace/speech-toasts-workspace";
@@ -33,6 +34,8 @@ export type CoupleTimelineMomentWorkspaceProps = {
   grandEntranceRef: GrandEntranceMomentWorkspaceRef;
   parentDanceRef: ParentDanceMomentWorkspaceRef;
   openDancingRef: OpenDancingMomentWorkspaceRef;
+  planningAnswers: Record<string, string | undefined>;
+  onPlanningAnswerChange: (questionId: string, next: string) => void;
   onTimeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSongTitleChange: (value: string) => void;
@@ -60,6 +63,8 @@ export function CoupleTimelineMomentWorkspace({
   grandEntranceRef,
   parentDanceRef,
   openDancingRef,
+  planningAnswers,
+  onPlanningAnswerChange,
   onTimeChange,
   onNotesChange,
   onSongTitleChange,
@@ -123,6 +128,21 @@ export function CoupleTimelineMomentWorkspace({
           onNotesChange={onNotesChange}
           onSongTitleChange={onSongTitleChange}
           onArtistChange={onArtistChange}
+          onDone={onDone}
+        />
+      );
+    case "dinner":
+      return (
+        <DinnerMomentWorkspace
+          title={title}
+          time={time}
+          notes={notes}
+          momentType={momentType}
+          canEdit={canEdit}
+          answers={planningAnswers}
+          onPlanningAnswerChange={onPlanningAnswerChange}
+          onTimeChange={onTimeChange}
+          onNotesChange={onNotesChange}
           onDone={onDone}
         />
       );

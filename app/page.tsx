@@ -372,7 +372,9 @@ import { CoupleTimelineGuidancePanel } from "@/components/couple-timeline-guidan
 import { CoupleTimelineCard, CoupleAddMomentStrip } from "@/components/couple-timeline-card";
 import { CoupleTimelineMomentCardSummary } from "@/components/couple-timeline-moment-card-summary";
 import { CoupleTimelineMomentWorkspace } from "@/components/couple-timeline-moment-workspace/couple-timeline-moment-workspace";
+import { CouplePlanningReceptionAtmosphereSection } from "@/components/couple-planning-reception-atmosphere-section";
 import { buildCoupleTimelineMomentSummaryLines } from "@/lib/coupleTimelineMomentSummary";
+import { buildExtendedPlanningEventDocumentLines } from "@/lib/couplePlanningExtendedQuestions";
 import {
   buildCeremonyMomentWorkspaceRef,
   buildGrandEntranceMomentWorkspaceRef,
@@ -14115,6 +14117,13 @@ export default function Home() {
             </span>
           )}
         </div>
+        {isCoupleView ? (
+          <CouplePlanningReceptionAtmosphereSection
+            answers={eventSettings.planningQuestionAnswers ?? {}}
+            onAnswerChange={updatePlanningQuestionAnswer}
+            muted={muted}
+          />
+        ) : null}
         {renderMusicHubActionCards(muted)}
       </section>
     );
@@ -17886,6 +17895,8 @@ export default function Home() {
       `Assigned DJ: ${assignedDjLabel}`,
     ];
 
+    lines.push(...buildExtendedPlanningEventDocumentLines(eventSettings.planningQuestionAnswers ?? {}));
+
     if (ceremonyServicesEnabled) {
       lines.push(
         `Setup Time: ${eventSettings.eventStartTime || "TBD"}`,
@@ -19589,6 +19600,8 @@ export default function Home() {
             formalDancesRaw,
           )}
           openDancingRef={coupleMomentOpenDancingRef}
+          planningAnswers={eventSettings.planningQuestionAnswers ?? {}}
+          onPlanningAnswerChange={updatePlanningQuestionAnswer}
           onTimeChange={(value) =>
             patchReceptionTimelineInlineDraft(item.id, { time: value }, timelineRow)
           }
