@@ -13764,6 +13764,14 @@ export default function Home() {
     sectionPlanningQuestionsEnabled &&
     firstIncompleteCoupleChapter === "reception_moments" &&
     (musicJourneyLooksComplete || musicHubHasCoupleSignal);
+  const coupleMusicHubFindYourSoundComplete =
+    musicJourneyLooksComplete || musicHubHasCoupleSignal;
+  const showCoupleMusicHubJourneyHandoff =
+    isCoupleView &&
+    isCoupleWeddingPlanningView &&
+    sectionPlanningQuestionsEnabled &&
+    (firstIncompleteCoupleChapter === "music_vibe" ||
+      firstIncompleteCoupleChapter === "reception_moments");
   const showCoupleTimelineContinueToFinalReview =
     isCoupleView &&
     isCoupleWeddingPlanningView &&
@@ -13776,12 +13784,14 @@ export default function Home() {
     body,
     ctaLabel,
     onContinue,
+    disabled = false,
   }: {
     eyebrow: string;
     title: string;
     body: string;
     ctaLabel: string;
     onContinue: () => void;
+    disabled?: boolean;
   }) => (
     <PremiumCard className="border-[#2f4a3e]/18 bg-[#f7f5f1] shadow-sm ring-1 ring-[#2f4a3e]/10">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2f4a3e]/75">
@@ -13792,12 +13802,37 @@ export default function Home() {
       <PrimaryButton
         type="button"
         onClick={onContinue}
-        className={`mt-5 ${couplePortalPrimaryButtonClass}`}
+        disabled={disabled}
+        className={`mt-5 ${disabled ? couplePortalSecondaryButtonClass : couplePortalPrimaryButtonClass}`}
       >
         {ctaLabel}
       </PrimaryButton>
     </PremiumCard>
   );
+  const scrollToCoupleMusicHubFindYourSound = () => {
+    handleOpenMusicJourneyInline();
+    window.requestAnimationFrame(() => {
+      document.getElementById("music-hub-find-your-sound")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+  const renderCoupleMusicHubBottomJourneyHandoff = () => {
+    if (!showCoupleMusicHubJourneyHandoff) return null;
+    const findYourSoundComplete = coupleMusicHubFindYourSoundComplete;
+    return renderCoupleJourneyHandoffBanner({
+      eyebrow: "Next chapter",
+      title: "Next up: Build your Timeline",
+      body: findYourSoundComplete
+        ? "You’ve shared your music style. Now let’s walk through the flow of the day so everything has a place."
+        : "Finish Find Your Sound above first—a quick style journey so your DJ knows your vibe before you map the day.",
+      ctaLabel: findYourSoundComplete ? "Continue to Timeline" : "Finish Find Your Sound",
+      onContinue: findYourSoundComplete
+        ? continueCoupleJourneyToTimeline
+        : scrollToCoupleMusicHubFindYourSound,
+    });
+  };
   const musicHubHeroStyleComplete = musicJourneyHasStyle;
   const musicHubHeroHasSoundtrackProgress =
     musicHubHeroStyleComplete &&
@@ -14001,7 +14036,7 @@ export default function Home() {
   );
 
   const renderMusicHubFindYourSoundCard = () => (
-    <PremiumCard className="relative overflow-hidden border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-[0_24px_70px_-46px_rgba(47,74,62,0.65)] ring-1 ring-[#2f4a3e]/10">
+    <PremiumCard id="music-hub-find-your-sound" className="relative overflow-hidden border-[#2f4a3e]/20 bg-[#f7f5f1] shadow-[0_24px_70px_-46px_rgba(47,74,62,0.65)] ring-1 ring-[#2f4a3e]/10">
       <div className="pointer-events-none absolute right-6 top-6 hidden h-28 w-28 rounded-full bg-[#b08a45]/10 blur-2xl sm:block" />
       <div className="relative grid gap-6 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
@@ -23164,15 +23199,6 @@ export default function Home() {
 
             {renderMusicHubHero()}
             {isCoupleView ? renderMusicHubFindYourSoundCard() : null}
-            {showCoupleMusicHubContinueToTimeline
-              ? renderCoupleJourneyHandoffBanner({
-                  eyebrow: "Next chapter",
-                  title: "Timeline is up next",
-                  body: "Your sound is saved. Build your run of show—cocktail hour, dinner, dances, and key moments.",
-                  ctaLabel: "Continue to Timeline",
-                  onContinue: continueCoupleJourneyToTimeline,
-                })
-              : null}
 
             {isCoupleView ? (
               <>
@@ -23602,23 +23628,7 @@ export default function Home() {
                     </PrimaryButton>
                   </div>
                 </PremiumCard>
-                <PremiumCard className="border-[#2f4a3e]/18 bg-[#2f4a3e]/[0.04] shadow-sm">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <SectionTitle className="text-stone-950">Your soundtrack is taking shape.</SectionTitle>
-                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-                        Now let’s see how your music fits into the flow of your wedding day.
-                      </p>
-                    </div>
-                    <PrimaryButton
-                      type="button"
-                      onClick={() => selectActiveScreen(coupleTimelineEntryScreen ?? "Timeline")}
-                      className={`w-full sm:w-auto ${couplePortalPrimaryButtonClass}`}
-                    >
-                      Return to Timeline
-                    </PrimaryButton>
-                  </div>
-                </PremiumCard>
+                {renderCoupleMusicHubBottomJourneyHandoff()}
                   </>
                 ) : null}
 
